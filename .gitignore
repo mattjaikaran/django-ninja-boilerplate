@@ -1,0 +1,8 @@
+# Ignore all files in the .venv directory
+env/
+
+# Ignore the __pycache__ directory
+__pycache__/
+
+# Ignore the .DS_Store file
+.DS_Store
