@@ -1,3 +1,5 @@
+# Ignore the .env file
+.env
 # Ignore all files in the .venv directory
 env/
 
@@ -6,3 +8,8 @@ __pycache__/
 
 # Ignore the .DS_Store file
 .DS_Store
+
+# Ignore the static and media directories
+static/
+media/
+
