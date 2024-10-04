@@ -48,6 +48,21 @@ $ python3 manage.py runserver # run the local server on http://localhost:8000/ad
 ```
 
 
+## Why Django Ninja?
+- [Django Ninja Docs](https://django-ninja.dev/)
+
+I've built many Django APIs with Django Rest Framework but at times it feels out of date to me. Been wanting to something that feels newer, can use Django 5.0, built in OpenAPI/Swagger, has async support, and uses Pydantic. It almost has a FastAPI vibe with some Django features. It seems like there is decent support and an excitement to have a *new* Django Framework.
+
+By following this approach, the front-end can easily consume the JSON data from these endpoints. The API will be self-documenting and you can view the OpenAPI (Swagger) documentation by navigating to `/api/docs` in your browser.
+
+**FYI** -  Django Ninja doesn't need to use `views.py` or `serializers.py` like in DRF, these are being handled in the `api.py` file
+
+### Why Django Ninja Extra?
+- [Django Ninja Extra Docs](https://eadwincode.github.io/django-ninja-extra/)
+
+When building Django apps, I am mostly familiar with a class-based views architecture and ninja-extra makes it a little easier to get used to. As well as the permissions, and dependency injection. 
+
+
 ### Django Ninja Serialization
 
 - Django Ninja uses Pydantic models (Schemas) for serialization, not Django serializers like in DRF.
@@ -66,3 +81,12 @@ Django Unfold has one of the cleaniest designs for Django admin panels. Pretty e
 Using Swagger for documentation
 
 If the server is running, you can see the docs located at [localhost:8000/api/docs](http://localhost:8000/api/docs)
+
+
+## Database
+
+```bash
+$ psql my_db # enter shell
+$ createdb --username=USERNAME my_db # create db
+$ dropdb my_db # drop db
+```

@@ -42,7 +42,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     username = models.CharField(max_length=50, unique=True)
     date_joined = models.DateTimeField(auto_now_add=True)
     is_staff = models.BooleanField(default=False)
-
+    is_superuser = models.BooleanField(default=False)
     objects = CustomUserManager()
 
     USERNAME_FIELD = "username"
