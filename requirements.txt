@@ -1,6 +1,8 @@
 annotated-types==0.7.0
 asgiref==3.8.1
+black==24.8.0
 cffi==1.17.1
+click==8.1.7
 contextlib2==21.6.0
 cryptography==43.0.1
 Django==5.1.1
@@ -11,6 +13,10 @@ django-ninja-jwt==5.3.4
 django-unfold==0.39.0
 Faker==30.1.0
 injector==0.22.0
+mypy-extensions==1.0.0
+packaging==24.1
+pathspec==0.12.1
+platformdirs==4.3.6
 psycopg2-binary==2.9.9
 pycparser==2.22
 pydantic==2.9.2
