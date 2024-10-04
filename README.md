@@ -1,5 +1,6 @@
 # Django Ninja Boilerplate
 
+WIP
 This project is a boilerplate for a Django application using Django Ninja and Django Unfold. It provides a structured way to build and manage a Django project with these frameworks.
 
 ## Technologies
@@ -13,13 +14,12 @@ This project is a boilerplate for a Django application using Django Ninja and Dj
 - [Pydantic](https://docs.pydantic.dev/latest/)
 - [Django Unfold Admin](https://unfoldadmin.com/)
     - [Unfold Docs](https://github.com/unfoldadmin/django-unfold)
-- [Faker](https://faker.readthedocs.io/en/master/) for generating fake data
-
 
 
 #### Dev
 - Makefile to run commands
 - PyTest for unit tests
+- [Faker](https://faker.readthedocs.io/en/master/) for generating fake data
 - [Swagger](https://swagger.io/) for API documentation
   - [Localhost Docs](http://localhost:8000/api/docs)
 - [Debug Toolbar](https://django-debug-toolbar.readthedocs.io/en/latest)
@@ -51,16 +51,14 @@ $ python3 manage.py runserver # run the local server on http://localhost:8000/ad
 ## Why Django Ninja?
 - [Django Ninja Docs](https://django-ninja.dev/)
 
-I've built many Django APIs with Django Rest Framework but at times it feels out of date to me. Been wanting to something that feels newer, can use Django 5.0, built in OpenAPI/Swagger, has async support, and uses Pydantic. It almost has a FastAPI vibe with some Django features. It seems like there is decent support and an excitement to have a *new* Django Framework.
+Django Ninja is a newer framework that can run on Django 5.0, built in OpenAPI/Swagger/ReDoc, has async support, and uses Pydantic. It almost has a FastAPI vibe with some Django features. It seems like there is decent support and an excitement to have a *new* Django Framework.
 
 By following this approach, the front-end can easily consume the JSON data from these endpoints. The API will be self-documenting and you can view the OpenAPI (Swagger) documentation by navigating to `/api/docs` in your browser.
-
-**FYI** -  Django Ninja doesn't need to use `views.py` or `serializers.py` like in DRF, these are being handled in the `api.py` file
 
 ### Why Django Ninja Extra?
 - [Django Ninja Extra Docs](https://eadwincode.github.io/django-ninja-extra/)
 
-When building Django apps, I am mostly familiar with a class-based views architecture and ninja-extra makes it a little easier to get used to. As well as the permissions, and dependency injection. 
+When building Django apps, I am mostly familiar with a class-based views architecture and ninja-extra makes the transition from DRF to ninja a little easier. There are permissions and dependency injection included. 
 
 
 ### Django Ninja Serialization
