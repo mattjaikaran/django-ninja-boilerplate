@@ -15,4 +15,4 @@ class UserAdmin(BaseUserAdmin, ModelAdmin):
 
     list_display = ["id", "username", "email", "is_staff"]
     search_fields = ["username", "email"]
-    list_filter = ["is_staff", "is_active"]
+    list_filter = ["is_staff"]

@@ -8,15 +8,9 @@ generate_django_secret_key() {
 # Call the function and store the result
 NEW_SECRET_KEY=$(generate_django_secret_key)
 
-# Print the generated secret key
+# Print the generated secret key to the console
 echo "Generated Django Secret Key:"
 echo "$NEW_SECRET_KEY"
 
-# Update the SECRET_KEY in the .env file
-if [ -f .env ]; then
-    # Use sed to replace the existing SECRET_KEY line (macOS compatible)
-    sed -i '' "s/^SECRET_KEY=.*$/SECRET_KEY='$NEW_SECRET_KEY'/" .env
-    echo "SECRET_KEY updated in .env file"
-else
-    echo "Error: .env file not found"
-fi
+echo "Add the following line to your .env file:"
+echo "SECRET_KEY='$NEW_SECRET_KEY'"

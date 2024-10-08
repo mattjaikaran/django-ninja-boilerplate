@@ -18,6 +18,8 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path
 from ninja import Redoc
+from django.conf import settings
+from django.conf.urls.static import static
 from ninja_extra import NinjaExtraAPI
 from ninja_jwt.controller import NinjaJWTDefaultController
 from core.api import UserController
@@ -43,16 +45,16 @@ seen at http://localhost:8000/api/docs
 
 
 api = NinjaExtraAPI(
-    csrf=True,
+    # csrf=True,
     openapi_extra={
         "info": {
             "termsOfService": "https://example.com/terms/",
         }
     },
-    version=0.1,
+    version="0.1",
     title="Django Ninja Boilerplate API",
     description="API documentation for the Django Ninja Boilerplate API",
-    urls_namespace="api",
+    urls_namespace="boilerplate_api",
 )
 
 
@@ -69,4 +71,7 @@ api.register_controllers(
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/", api.urls),
-]
+] + debug_toolbar_urls()
+
+if settings.DEBUG:
+    urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
