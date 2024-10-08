@@ -1,4 +1,4 @@
-# Makefile for Django Ninja Video Streaming Platform
+# Makefile for Django Ninja Boilerplate
 
 # Variables
 PYTHON := python
@@ -18,6 +18,16 @@ migrate:
 .PHONY: makemigrations
 makemigrations:
 	$(MANAGE) makemigrations
+
+startapp:
+	@if [ -z "$(filter-out $@,$(MAKECMDGOALS))" ]; then \
+		echo "Usage: make startapp <app_name>"; \
+	else \
+		python manage.py startapp_extended $(filter-out $@,$(MAKECMDGOALS)); \
+	fi
+
+%:
+	@:
 
 .PHONY: shell
 shell:
@@ -80,6 +90,7 @@ help:
 	@echo "  runserver                  - Run the Django development server"
 	@echo "  migrate                    - Apply database migrations"
 	@echo "  makemigrations             - Create new database migrations"
+	@echo "  startapp                   - Start a new Django app"
 	@echo "  shell                      - Open Django shell"
 	@echo "  createsuperuser            - Create a superuser"
 	@echo "  create-superuser           - Create a superuser using custom script"

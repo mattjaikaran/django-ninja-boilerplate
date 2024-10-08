@@ -6,7 +6,7 @@ User = get_user_model()
 
 
 class Command(BaseCommand):
-    help = "Generate test data for the video streaming platform"
+    help = "Generate test data for the core app"
 
     def add_arguments(self, parser):
         parser.add_argument("--model", type=str, help="Model to generate data for")

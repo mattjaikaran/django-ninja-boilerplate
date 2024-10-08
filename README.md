@@ -36,7 +36,7 @@ This project is a boilerplate for a Django application using Django Ninja and Dj
 ```bash
 $ git clone https://github.com/mattjaikaran/django-ninja-boilerplate
 $ cd django-ninja-boilerplate
-$ python3 -m venv env # creat a virtual environment using the venv virtual environment
+$ python3 -m venv env # create a virtual environment using the venv virtual environment
 $ source env/bin/activate # activate the virtual environment
 $ touch .env # create a new env file
 # update the .env file with necessary values -> db info, superuser info
@@ -45,6 +45,26 @@ $ python3 manage.py migrate # apply migration files to your local db
 $ python3 manage.py create_superuser # runs custom script to create a superuser
 $ ./scripts/generate_secret_key.sh # generate new secret key 
 $ python3 manage.py runserver # run the local server on http://localhost:8000/admin
+```
+
+
+## Commands
+
+### Start a new Django App
+```bash
+# start a new django app with extended functionality 
+# for Django Ninja,Django Ninja Extra, and Django Unfold
+$ make startapp <app_name> 
+```
+
+### Run Server
+```bash
+$ make runserver
+```
+
+### Drop DB, Create DB, Migrate, Create Superuser via db-setup script
+```bash
+$ make db-setup
 ```
 
 
