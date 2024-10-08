@@ -19,10 +19,15 @@ This project is a boilerplate for a Django application using Django Ninja and Dj
 #### Dev
 - Makefile to run commands
 - PyTest for unit tests
-- [Faker](https://faker.readthedocs.io/en/master/) for generating fake data
+- Custom Start App command to create a new app
+    - with extended functionality for Django Ninja, Django Ninja Extra, and Django Unfold
+    - `make startapp <app_name>`
+- [Faker](https://faker.readthedocs.io/en/master/) for generating fake data.
+    - See `@/core/management/commands/generate_core_data.py` for more information
 - [Swagger](https://swagger.io/) for API documentation
   - [Localhost Docs](http://localhost:8000/api/docs)
-- [Debug Toolbar](https://django-debug-toolbar.readthedocs.io/en/latest)
+- [Debug Toolbar](https://django-debug-toolbar.readthedocs.io/en/latest) for debugging
+- [Django Environ](https://django-environ.readthedocs.io/en/latest/) for managing environment variables
 - Linting
     - [Black](https://github.com/psf/black) Formatter
         - Configuration located in `@/.vscode/settings.json`
@@ -53,7 +58,7 @@ $ python3 manage.py runserver # run the local server on http://localhost:8000/ad
 ### Start a new Django App
 ```bash
 # start a new django app with extended functionality 
-# for Django Ninja,Django Ninja Extra, and Django Unfold
+# for Django Ninja, Django Ninja Extra, and Django Unfold. 
 $ make startapp <app_name> 
 ```
 

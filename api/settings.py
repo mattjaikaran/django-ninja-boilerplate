@@ -20,6 +20,11 @@ import environ
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # for environment variable using django-environ library
+# this allows you to use the .env file to set the environment variables
+# throughout the entire application
+# examle -
+# from api.settings import env
+# env("SECRET_VAR") # returns the value of the SECRET_VAR variable in the .env file
 env = environ.Env(
     # Set casting and default values
     DEBUG=(bool, False),
