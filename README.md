@@ -62,11 +62,18 @@ $ make startapp <app_name>
 $ make runserver
 ```
 
+### Install a library
+This runs pip install <library-name> , then pip freeze > requirements.txt to update the requirements.txt file
+```bash
+$ make install <library-name>
+# example
+# make install django-ninja-jwt
+```
+
 ### Drop DB, Create DB, Migrate, Create Superuser via db-setup script
 ```bash
 $ make db-setup
 ```
-
 
 ## Why Django Ninja?
 - [Django Ninja Docs](https://django-ninja.dev/)

@@ -29,6 +29,24 @@ startapp:
 %:
 	@:
 
+
+install:
+	@if [ -z "$(filter-out $@,$(MAKECMDGOALS))" ]; then \
+		echo "Usage: make install <library-name>"; \
+	else \
+		pip install $(filter-out $@,$(MAKECMDGOALS)) && \
+		pip freeze > requirements.txt && \
+		echo "Installed $(filter-out $@,$(MAKECMDGOALS)) and updated requirements.txt"; \
+	fi
+
+%:
+	@:
+
+# first time setup
+.PHONY: first-time-setup
+first-time-setup:
+	@bash $(SCRIPTS_DIR)/setup.sh
+
 .PHONY: shell
 shell:
 	$(MANAGE) shell
@@ -91,6 +109,8 @@ help:
 	@echo "  migrate                    - Apply database migrations"
 	@echo "  makemigrations             - Create new database migrations"
 	@echo "  startapp                   - Start a new Django app"
+	@echo "  first-time-setup           - First time setup"
+	@echo "  install                    - Install a library"
 	@echo "  shell                      - Open Django shell"
 	@echo "  createsuperuser            - Create a superuser"
 	@echo "  create-superuser           - Create a superuser using custom script"
