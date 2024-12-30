@@ -1,6 +1,6 @@
 # Django Ninja Boilerplate
 
-A production-ready Django boilerplate using Django Ninja for building modern APIs. Features include JWT authentication, PostgreSQL, Docker support, and comprehensive testing setup.
+A production-ready Django boilerplate using Django Ninja for building modern APIs. Features include JWT authentication, PostgreSQL, optional Docker support, and comprehensive testing setup.
 
 ## Technologies
 - Python 3.11
@@ -37,20 +37,6 @@ A production-ready Django boilerplate using Django Ninja for building modern API
     - Will run all 3 with the lint script located in `@/scripts/lint.sh`
         - To run `./scripts/lint.sh`
 
-## Quick Start without Docker
-```bash
-$ git clone https://github.com/mattjaikaran/django-ninja-boilerplate
-$ cd django-ninja-boilerplate
-$ python3 -m venv env # create a virtual environment using the 
-venv virtual environment
-$ source env/bin/activate # activate the virtual environment
-$ touch .env # create a new env file
-$ pip3 install -r requirements.txt # install dependencies from requirements.txt
-$ python3 manage.py migrate # apply migration files to your local db
-$ python3 manage.py create_superuser # runs custom script to create a superuser
-$ ./scripts/generate_secret_key.sh # generate new secret key 
-$ python3 manage.py runserver # run the local server on http://localhost:8000/admin
-```
 
 ## Quick Start with Docker
 
@@ -72,6 +58,8 @@ Visit http://localhost:8000/api/docs for the API documentation.
 ## Local Development Setup
 
 ```bash
+git clone https://github.com/mattjaikaran/django-ninja-boilerplate
+cd django-ninja-boilerplate
 # Create and activate virtual environment
 python3 -m venv env # create a virtual environment using the venv virtual environment
 source env/bin/activate # activate the virtual environment

@@ -19,6 +19,30 @@ The todos app is a sample application demonstrating how to build a feature-compl
 - Proper error handling
 - Input validation using Pydantic schemas
 
+## Sample Data Generation
+
+The app includes a management command to generate sample todo data for testing and development purposes.
+
+### Basic Usage
+```bash
+# Create 10 todos for a random user (default)
+python manage.py generate_todos_data
+
+# Specify number of todos to create
+python manage.py generate_todos_data --todos 20
+
+# Create todos for a specific user (by username or email)
+python manage.py generate_todos_data --user johndoe
+python manage.py generate_todos_data --user john@example.com
+```
+
+### Generated Data Features
+- Random 4-word titles using Faker
+- 3-sentence descriptions
+- Random completion status
+- Association with specified user or random/new user
+- Realistic data suitable for testing and development
+
 ## API Endpoints
 
 ### Todo Management
