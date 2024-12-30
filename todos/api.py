@@ -41,8 +41,8 @@ class TodoController:
             return {"error": str(e)}, 400
 
     # get todo by id
-    @http_get("/{int:todo_id}")
-    def get_todo(self, request, todo_id: int):
+    @http_get("/{str:todo_id}")
+    def get_todo(self, request, todo_id: str):
         try:
             user = request.user
             todo = get_object_or_404(Todo, id=todo_id, user=user)
@@ -51,8 +51,8 @@ class TodoController:
             return {"error": str(e)}, 400
 
     # update todo
-    @http_put("/{int:todo_id}")
-    def update_todo(self, request, todo_id: int, payload: UpdateTodoSchema):
+    @http_put("/{str:todo_id}")
+    def update_todo(self, request, todo_id: str, payload: UpdateTodoSchema):
         try:
             user = request.user
             todo = get_object_or_404(Todo, id=todo_id, user=user)
@@ -64,8 +64,8 @@ class TodoController:
             return {"error": str(e)}, 400
 
     # delete todo
-    @http_delete("/{int:todo_id}")
-    def delete_todo(self, request, todo_id: int):
+    @http_delete("/{str:todo_id}")
+    def delete_todo(self, request, todo_id: str):
         try:
             user = request.user
             todo = get_object_or_404(Todo, id=todo_id, user=user)

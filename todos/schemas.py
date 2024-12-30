@@ -2,7 +2,7 @@ from ninja import Schema
 
 
 class TodoSchema(Schema):
-    id: int
+    id: str
     title: str
     description: str
     completed: bool

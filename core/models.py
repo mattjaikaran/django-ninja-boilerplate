@@ -16,7 +16,6 @@ class CustomUserManager(BaseUserManager):
         user = self.model(email=normalized_email, **extra_fields)
         user.set_password(password)
         try:
-            # user.full_clean()
             user.save(using=self._db)
         except ValidationError as e:
             raise ValidationError(e.message_dict)
@@ -63,3 +62,16 @@ class User(AbstractBaseUser, PermissionsMixin):
             raise ValidationError(
                 {"username": "A user with that username already exists."}
             )
+
+    class Meta:
+        ordering = ["-date_joined"]
+
+
+class AbstractBaseModel(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        abstract = True
+        ordering = ["-created_at"]

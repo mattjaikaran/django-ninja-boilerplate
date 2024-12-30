@@ -13,6 +13,7 @@ django-ninja-extra==0.21.4
 django-ninja-jwt==5.3.4
 django-unfold==0.39.0
 Faker==30.1.0
+gunicorn==21.2.0
 injector==0.22.0
 mypy-extensions==1.0.0
 packaging==24.1
@@ -23,8 +24,11 @@ pycparser==2.22
 pydantic==2.9.2
 pydantic_core==2.23.4
 PyJWT==2.9.0
+pytest==8.1.1
+pytest-django==4.8.0
 python-dateutil==2.9.0.post0
 python-environ==0.4.54
 six==1.16.0
 sqlparse==0.5.1
 typing_extensions==4.12.2
+whitenoise==6.6.0

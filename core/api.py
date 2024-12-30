@@ -57,48 +57,6 @@ class UserController:
         except Exception as e:
             return 400, {"error": str(e)}
 
-    @http_post("/", response={201: UserSchema, 400: dict})
-    def create_user(
-        self, payload: UserSignupSchema, is_staff=False, is_superuser=False
-    ):
-        try:
-            validate_password(payload.password)
-            if is_superuser and not is_staff:
-                raise ValueError("Superuser must have is_staff=True.")
-            if not payload.email:
-                raise ValueError("Email is required.")
-            if User.objects.filter(email=payload.email).exists():
-                raise ValidationError("A user with this email already exists.")
-            if User.objects.filter(username=payload.username).exists():
-                raise ValidationError("A user with this username already exists.")
-            user = User.objects.create_user(
-                **payload.dict(exclude_unset=True),  # Unpack payload attributes
-                is_staff=is_staff,
-                is_superuser=is_superuser,
-            )
-            return 201, UserSchema.from_orm(user)
-        except ValidationError as e:
-            return 400, {"error": e.messages}
-        except Exception as e:
-            return 400, {"error": str(e)}
-
-    @http_post("/superuser", response={201: UserSchema, 400: dict})
-    def create_superuser(self, payload: UserSignupSchema):
-        try:
-            validate_password(payload.password)
-            if payload.is_superuser and not payload.is_staff:
-                raise ValueError("Superuser must have is_staff=True.")
-            user = User.objects.create_superuser(
-                **payload.dict(exclude_unset=True),
-                is_staff=True,
-                is_superuser=True,
-            )
-            return 201, UserSchema.from_orm(user)
-        except ValidationError as e:
-            return 400, {"error": e.messages}
-        except Exception as e:
-            return 400, {"error": str(e)}
-
     @http_get("/{user_id}", response={200: UserSchema, 404: dict})
     def get_user(self, user_id: UUID):
         user = get_object_or_404(User, id=user_id)
