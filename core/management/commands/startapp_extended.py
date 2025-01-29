@@ -54,12 +54,64 @@ def smart_pluralize(singular):
     return singular + "s"
 
 
-def get_model_name(app_name):
-    specific_models = {
+def smart_singularize(plural):
+    # Handle specific variations
+    specific_variations = {
         "blogs": "Blog",
-        "messaging": "Message",
+        "messages": "Message",
+        "categories": "Category",
+        "histories": "History",
+        "products": "Product",
+        "services": "Service",
+        "orders": "Order",
+        "users": "User",
+        "comments": "Comment",
+        "reviews": "Review",
     }
-    return specific_models.get(app_name.lower(), app_name.capitalize())
+
+    if plural.lower() in specific_variations:
+        return specific_variations[plural.lower()]
+
+    # Irregular plurals
+    irregulars = {
+        "children": "child",
+        "geese": "goose",
+        "men": "man",
+        "women": "woman",
+        "teeth": "tooth",
+        "feet": "foot",
+        "mice": "mouse",
+        "people": "person",
+        "leaves": "leaf",
+    }
+
+    if plural.lower() in irregulars:
+        return irregulars[plural.lower()]
+
+    # Words ending in 'ies'
+    if plural.endswith("ies"):
+        return plural[:-3] + "y"
+
+    # Words ending in 'es'
+    if plural.endswith("es"):
+        if plural.endswith(("sses", "shes", "ches", "xes")):
+            return plural[:-2]
+        return plural[:-1]
+
+    # Default case - remove trailing 's'
+    if plural.endswith("s"):
+        return plural[:-1]
+
+    return plural
+
+
+def get_model_name(app_name):
+    """
+    Convert plural app name to singular model name.
+    Example: 'products' -> 'Product'
+    """
+    singular = smart_singularize(app_name)
+    return singular.capitalize()
 
 
 class Command(StartAppCommand):
