@@ -1,3 +1,4 @@
+import logging
 from typing import List
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
@@ -7,6 +8,8 @@ from ninja_extra import api_controller, http_delete, http_get, http_post, http_p
 
 from .models import Todo
 from .schemas import TodoSchema, CreateTodoSchema, UpdateTodoSchema
+
+logger = logging.getLogger(__name__)
 
 
 @api_controller("/todos", tags=["Todos"])
@@ -18,6 +21,7 @@ class TodoController:
             todos = Todo.objects.all()
             return todos
         except Exception as e:
+            logger.error(f"Error listing todos: {e}")
             return {"error": str(e)}, 400
 
     # get todos by user
@@ -28,6 +32,7 @@ class TodoController:
             todos = Todo.objects.filter(user=user)
             return todos
         except Exception as e:
+            logger.error(f"Error listing todos: {e}")
             return {"error": str(e)}, 400
 
     # create todo
@@ -38,6 +43,7 @@ class TodoController:
             todo = Todo.objects.create(user=user, **payload.dict())
             return todo
         except Exception as e:
+            logger.error(f"Error creating todo: {e}")
             return {"error": str(e)}, 400
 
     # get todo by id
@@ -48,6 +54,7 @@ class TodoController:
             todo = get_object_or_404(Todo, id=todo_id, user=user)
             return todo
         except Exception as e:
+            logger.error(f"Error getting todo: {e}")
             return {"error": str(e)}, 400
 
     # update todo
@@ -61,6 +68,7 @@ class TodoController:
             todo.save()
             return todo
         except Exception as e:
+            logger.error(f"Error updating todo: {e}")
             return {"error": str(e)}, 400
 
     # delete todo
@@ -72,4 +80,5 @@ class TodoController:
             todo.delete()
             return {"message": "Todo deleted successfully"}
         except Exception as e:
+            logger.error(f"Error deleting todo: {e}")
             return {"error": str(e)}, 400

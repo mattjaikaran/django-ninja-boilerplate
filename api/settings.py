@@ -166,6 +166,58 @@ DATABASES = {
     }
 }
 
+#####
+# logging settings
+#####
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "verbose": {
+            "format": "{levelname} {asctime} {module} {process:d} {thread:d} {message}",
+            "style": "{",
+        },
+        "simple": {
+            "format": "{levelname} {message}",
+            "style": "{",
+        },
+    },
+    "handlers": {
+        "console": {
+            "level": "DEBUG",
+            "class": "logging.StreamHandler",
+            "formatter": "simple",
+        },
+    },
+    "loggers": {
+        "django.db.backends": {
+            "level": "INFO",
+            "handlers": ["console"],
+            "propagate": False,
+        },
+        "import_export": {
+            "handlers": ["console"],
+            "level": "INFO",
+            "propagate": False,
+        },
+        "core": {  # Add logger for core app
+            "handlers": ["console"],
+            "level": "INFO",
+            "propagate": False,
+        },
+        "core.schemas": {  # Add specific logger for schemas
+            "handlers": ["console"],
+            "level": "INFO",
+            "propagate": False,
+        },
+        "core.controllers": {  # Add specific logger for controllers
+            "handlers": ["console"],
+            "level": "INFO",
+            "propagate": False,
+        },
+    },
+}
+
 
 # Password validation
 # https://docs.djangoproject.com/en/5.1/ref/settings/#auth-password-validators
