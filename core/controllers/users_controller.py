@@ -6,7 +6,7 @@ from django.core.exceptions import ValidationError
 from django.shortcuts import get_object_or_404
 from ninja_extra import api_controller, http_delete, http_get, http_post, http_put
 
-from .schemas import (
+from core.schemas import (
     UserSchema,
     UserSignupSchema,
     UserUpdateSchema,

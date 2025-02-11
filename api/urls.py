@@ -4,7 +4,7 @@ from django.conf import settings
 from django.conf.urls.static import static
 from ninja_extra import NinjaExtraAPI
 from ninja_jwt.controller import NinjaJWTDefaultController
-from core.api import UserController
+from core.controllers import UserController, AuthController
 from todos.api import TodoController
 from ninja import Redoc
 from debug_toolbar.toolbar import debug_toolbar_urls
@@ -49,6 +49,7 @@ api.register_controllers(
     NinjaJWTDefaultController,  # JWT Auth. If you want to use JWT, you must include this https://github.com/eadwinCode/django-ninja-jwt
     # core app
     UserController,  # User Controller
+    AuthController,  # Auth Controller
     # todos app
     TodoController,  # Todo Controller
     # Add more controllers here

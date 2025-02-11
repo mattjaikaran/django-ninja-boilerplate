@@ -49,6 +49,8 @@ DEBUG = env("DEBUG", default=False)
 # Raises Django's ImproperlyConfigured exception if SECRET_KEY not in os.environ
 SECRET_KEY = env("SECRET_KEY")
 
+# Frontend URL
+FRONTEND_URL = env("FRONTEND_URL")
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.0/howto/deployment/checklist/
@@ -294,6 +296,13 @@ NINJA_EXTRA = {
     "ORDERING_CLASS": "ninja_extra.ordering.Ordering",  # included ordering
     "SEARCHING_CLASS": "ninja_extra.searching.Search",  # included searching
 }
+
+# Email settings
+# if debug true, use console email backend
+if DEBUG:
+    EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+else:
+    EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
 
 
 # Internationalization
