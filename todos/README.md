@@ -1,6 +1,58 @@
 # Todos App
 
-The todos app is a sample application demonstrating how to build a feature-complete API using Django Ninja. It serves as both a working example and a template for building similar features.
+The todos app provides functionality for managing todo items, allowing users to create, read, update, and delete their todos.
+
+## Folder Structure
+
+```
+todos/
+├── admin/                # Admin interface configurations
+│   ├── __init__.py       # Imports all admin classes
+│   └── todo_admin.py     # Admin configuration for todo model
+├── controllers/          # API controllers/endpoints
+│   ├── __init__.py       # Imports all controllers
+│   └── todo_controller.py # Todo-related endpoints
+├── management/           # Django management commands
+│   ├── __init__.py
+│   └── commands/         # Custom management commands
+│       ├── __init__.py
+│       └── generate_todos_data.py # Generates sample todo data
+├── migrations/           # Database migrations
+├── models/               # Database models
+│   ├── __init__.py       # Imports all models
+│   └── todo.py           # Todo model
+├── schemas/              # API schemas/serializers
+│   ├── __init__.py       # Imports all schemas
+│   └── todo_schema.py    # Todo-related schemas
+├── tests/                # Unit and integration tests
+│   ├── __init__.py       # Imports all tests
+│   └── test_todo.py      # Todo-related tests
+├── __init__.py           # Main app initialization
+├── apps.py               # App configuration
+└── README.md             # Documentation for the app
+```
+
+## Components
+
+### Models
+
+- `Todo`: Model representing a todo item with user relationship, title, description, and completed status
+
+### Controllers
+
+- `TodoController`: Manages CRUD operations for todo items, with proper user permissions
+
+### Schemas
+
+- Todo-related schemas for serialization/deserialization of todo data
+
+### Tests
+
+Comprehensive tests for all components including the Todo model and API endpoints.
+
+### Management Commands
+
+- `generate_todos_data`: Generates sample todo data for development and testing
 
 ## Features
 

@@ -1,6 +1,6 @@
 from django.contrib import admin
 from unfold.admin import ModelAdmin
-from .models import Todo
+from todos.models import Todo
 
 
 @admin.register(Todo)

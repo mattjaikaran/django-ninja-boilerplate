@@ -3,7 +3,6 @@ from django.contrib.auth.base_user import AbstractBaseUser
 from django.contrib.auth.models import BaseUserManager, PermissionsMixin
 from django.core.exceptions import ValidationError
 from django.db import models
-from django.conf import settings
 
 
 class CustomUserManager(BaseUserManager):
@@ -66,21 +65,3 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     class Meta:
         ordering = ["-date_joined"]
-
-
-class AbstractBaseModel(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        abstract = True
-        ordering = ["-created_at"]
-
-
-class OneTimePassword(models.Model):
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
-    token = models.CharField(max_length=255, unique=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    expires_at = models.DateTimeField()
-    is_used = models.BooleanField(default=False)

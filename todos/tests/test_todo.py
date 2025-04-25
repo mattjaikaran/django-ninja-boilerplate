@@ -1,7 +1,8 @@
 import pytest
 from django.contrib.auth import get_user_model
-from .models import Todo
-from core.tests import test_user, auth_headers, create_user
+from todos.models import Todo
+from core.tests.test_user import test_user, create_user
+from core.tests.conftest import auth_headers
 
 User = get_user_model()
 
@@ -54,14 +55,14 @@ class TestTodoAPI:
 
         return Client()
 
-    def test_create_todo(self, api_client, todo_data, auth_headers):
+    def test_create_todo(self, api_client, todo_data, auth_headers, test_user):
         response = api_client.post(
             "/api/todos/", todo_data, content_type="application/json", **auth_headers
         )
-        assert response.status_code == 200
+        assert response.status_code == 201
         assert Todo.objects.filter(user=test_user).exists()
 
-    def test_list_user_todos(self, api_client, create_todo, auth_headers):
+    def test_list_user_todos(self, api_client, create_todo, auth_headers, test_user):
         create_todo(title="Todo 1")
         create_todo(title="Todo 2")
 
@@ -106,7 +107,7 @@ class TestTodoAPI:
     def test_delete_todo(self, api_client, create_todo, auth_headers):
         todo = create_todo()
         response = api_client.delete(f"/api/todos/{todo.id}", **auth_headers)
-        assert response.status_code == 200
+        assert response.status_code == 204
         assert not Todo.objects.filter(id=todo.id).exists()
 
     def test_cannot_access_others_todo(self, api_client, auth_headers):

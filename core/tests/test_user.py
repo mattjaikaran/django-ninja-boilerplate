@@ -1,7 +1,6 @@
 import pytest
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
-from ninja_jwt.tokens import RefreshToken
 
 User = get_user_model()
 
@@ -40,19 +39,6 @@ def test_user(create_user, django_db_setup, django_db_blocker):
     """Create a test user that can be imported in other tests"""
     with django_db_blocker.unblock():
         return create_user()
-
-
-@pytest.fixture
-def auth_token(test_user):
-    """Get JWT token for test user"""
-    refresh = RefreshToken.for_user(test_user)
-    return str(refresh.access_token)
-
-
-@pytest.fixture
-def auth_headers(auth_token):
-    """Get headers with JWT token"""
-    return {"HTTP_AUTHORIZATION": f"Bearer {auth_token}"}
 
 
 @pytest.mark.django_db

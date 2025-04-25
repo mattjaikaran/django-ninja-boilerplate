@@ -1,4 +1,4 @@
-from .users import (
+from core.schemas.user_schema import (
     UserSchema,
     UserSignupSchema,
     UserLoginSchema,
@@ -6,15 +6,15 @@ from .users import (
     UserUpdateSchema,
     UserDeleteSchema,
 )
-from .auth import PasswordlessLoginRequest, PasswordlessLoginVerify
+from core.schemas.auth import PasswordlessLoginRequest, PasswordlessLoginVerify
 
-all = [
-    UserSchema,
-    UserSignupSchema,
-    UserLoginSchema,
-    UserLogoutSchema,
-    UserUpdateSchema,
-    UserDeleteSchema,
-    PasswordlessLoginRequest,
-    PasswordlessLoginVerify,
+__all__ = [
+    "UserSchema",
+    "UserSignupSchema",
+    "UserLoginSchema",
+    "UserLogoutSchema",
+    "UserUpdateSchema",
+    "UserDeleteSchema",
+    "PasswordlessLoginRequest",
+    "PasswordlessLoginVerify",
 ]

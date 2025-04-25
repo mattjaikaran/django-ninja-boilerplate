@@ -1,7 +1,4 @@
-from .auth_controller import AuthController
-from .users_controller import UserController
+from core.controllers.auth_controller import AuthController
+from core.controllers.users_controller import UserController
 
-all = [
-    AuthController,
-    UserController,
-]
+__all__ = ["AuthController", "UserController"]

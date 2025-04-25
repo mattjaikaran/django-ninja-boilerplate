@@ -1,6 +1,72 @@
 # Core App
 
-The core app is the foundation of the Django Ninja Boilerplate, providing essential functionality including user management, authentication, and base models.
+The core app provides essential functionality for user management, authentication, and base structures for the entire project.
+
+## Folder Structure
+
+```
+core/
+├── admin/                # Admin interface configurations
+│   ├── __init__.py       # Imports all admin classes
+│   └── user_admin.py     # Admin configuration for user model
+├── controllers/          # API controllers/endpoints
+│   ├── __init__.py       # Imports all controllers
+│   ├── auth_controller.py # Authentication-related endpoints
+│   └── users_controller.py # User-related endpoints
+├── management/           # Django management commands
+│   ├── __init__.py
+│   └── commands/         # Custom management commands
+│       ├── __init__.py
+│       ├── create_superuser.py
+│       ├── generate_core_data.py
+│       └── startapp_extended.py
+├── migrations/           # Database migrations
+├── models/               # Database models
+│   ├── __init__.py       # Imports all models
+│   ├── base.py           # Base abstract models
+│   ├── otp.py            # One-time password model
+│   └── user.py           # User model and manager
+├── schemas/              # API schemas/serializers
+│   ├── __init__.py       # Imports all schemas
+│   ├── auth.py           # Authentication-related schemas
+│   └── user_schema.py    # User-related schemas
+├── tests/                # Unit and integration tests
+│   ├── __init__.py       # Imports all tests
+│   ├── conftest.py       # Shared test fixtures and configuration
+│   ├── test_auth.py      # Authentication-related tests
+│   └── test_user.py      # User-related tests
+├── __init__.py           # Main app initialization
+├── apps.py               # App configuration
+└── README.md             # Documentation for the app
+```
+
+## Components
+
+### Models
+
+- `User`: Custom user model with email and username authentication
+- `AbstractBaseModel`: Base model with common fields like UUID, created_at, updated_at
+- `OneTimePassword`: Model for managing one-time passwords for authentication
+
+### Controllers
+
+- `AuthController`: Handles authentication requests like passwordless logins
+- `UserController`: Manages user operations like signup, profile management
+
+### Schemas
+
+- User-related schemas for serialization/deserialization
+- Authentication schemas for login/signup/etc.
+
+### Tests
+
+Comprehensive tests for all components including models and API endpoints.
+
+### Management Commands
+
+- `create_superuser`: Creates a superuser account
+- `generate_core_data`: Generates sample data for development
+- `startapp_extended`: Creates a new app with the folder structure matching this boilerplate
 
 ## Features
 

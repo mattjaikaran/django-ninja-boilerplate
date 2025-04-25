@@ -2,6 +2,40 @@
 
 A production-ready Django boilerplate using Django Ninja for building modern APIs. Features include JWT authentication, PostgreSQL, optional Docker support, and comprehensive testing setup.
 
+## Project Structure
+
+The project follows a modular, organized structure with each app containing its own set of directories for different functionalities:
+
+```
+project/
+├── api/                  # Main Django project with settings
+├── core/                 # Core app with user management
+│   ├── admin/            # Admin interface configurations
+│   ├── controllers/      # API controllers/endpoints
+│   ├── management/       # Django management commands
+│   ├── migrations/       # Database migrations
+│   ├── models/           # Database models
+│   ├── schemas/          # API schemas/serializers
+│   └── tests/            # Unit and integration tests
+├── todos/                # Example app with CRUD functionality
+│   ├── admin/            # Admin interface configurations
+│   ├── controllers/      # API controllers/endpoints 
+│   ├── management/       # Django management commands
+│   ├── migrations/       # Database migrations
+│   ├── models/           # Database models
+│   ├── schemas/          # API schemas/serializers
+│   └── tests/            # Unit and integration tests
+└── scripts/              # Utility scripts
+```
+
+Each app follows a robust structure that separates concerns:
+- **models/**: Contains database models in separate files
+- **controllers/**: Contains API endpoints using Django Ninja Extra's api_controller
+- **schemas/**: Pydantic models for request/response validation
+- **admin/**: Django admin configurations
+- **tests/**: Unit and integration tests
+- **management/commands/**: Custom management commands
+
 ## Technologies
 - Python 3.11
 - [Django 5.1](https://docs.djangoproject.com/en/5.1/)

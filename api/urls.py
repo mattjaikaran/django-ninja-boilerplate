@@ -5,7 +5,7 @@ from django.conf.urls.static import static
 from ninja_extra import NinjaExtraAPI
 from ninja_jwt.controller import NinjaJWTDefaultController
 from core.controllers import UserController, AuthController
-from todos.api import TodoController
+from todos.controllers import TodoController
 from ninja import Redoc
 from debug_toolbar.toolbar import debug_toolbar_urls
 
