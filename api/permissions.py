@@ -4,15 +4,19 @@ This module contains permission classes and decorators to handle
 authorization and access control throughout the application.
 """
 
+from __future__ import annotations
+
 from collections.abc import Callable
 from functools import wraps
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from django.contrib.auth.models import User
 from django.http import HttpRequest
 from ninja_extra.permissions import BasePermission
 
 from .exceptions import APIPermissionError, AuthenticationError
+
+if TYPE_CHECKING:
+    from django.contrib.auth.models import AbstractUser
 
 
 class IsAuthenticated(BasePermission):
@@ -255,7 +259,7 @@ def check_rate_limit(
 # Helper Functions
 
 
-def get_user_permissions(user: User) -> list:
+def get_user_permissions(user: AbstractUser) -> list:
     """Get all permissions for a user."""
     if not user or not user.is_authenticated:
         return []
@@ -272,7 +276,7 @@ def get_user_permissions(user: User) -> list:
     return list(set(permissions))
 
 
-def has_any_permission(user: User, permissions: list) -> bool:
+def has_any_permission(user: AbstractUser, permissions: list) -> bool:
     """Check if user has any of the specified permissions."""
     if not user or not user.is_authenticated:
         return False
@@ -281,7 +285,7 @@ def has_any_permission(user: User, permissions: list) -> bool:
     return any(perm in user_permissions for perm in permissions)
 
 
-def has_all_permissions(user: User, permissions: list) -> bool:
+def has_all_permissions(user: AbstractUser, permissions: list) -> bool:
     """Check if user has all of the specified permissions."""
     if not user or not user.is_authenticated:
         return False
@@ -290,12 +294,12 @@ def has_all_permissions(user: User, permissions: list) -> bool:
     return all(perm in user_permissions for perm in permissions)
 
 
-def can_access_admin(user: User) -> bool:
+def can_access_admin(user: AbstractUser) -> bool:
     """Check if user can access admin interface."""
     return user and user.is_authenticated and user.is_staff
 
 
-def can_modify_object(user: User, obj: Any) -> bool:
+def can_modify_object(user: AbstractUser, obj: Any) -> bool:
     """Check if user can modify an object."""
     if not user or not user.is_authenticated:
         return False

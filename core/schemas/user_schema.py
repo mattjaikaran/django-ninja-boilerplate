@@ -13,7 +13,7 @@ class UserSchema(Schema):
     date_joined: str = None
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class UserSignupSchema(Schema):
@@ -48,7 +48,7 @@ class UserUpdateSchema(Schema):
         return v
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class UserDeleteSchema(Schema):

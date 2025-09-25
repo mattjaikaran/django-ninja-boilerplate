@@ -1,4 +1,3 @@
-from debug_toolbar.toolbar import debug_toolbar_urls
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
@@ -17,7 +16,7 @@ admin.site.site_url = "/api/docs"
 
 # Instantiate the server
 """
-normally for django-ninja it looks like - 
+normally for django-ninja it looks like -
 api = NinjaAPI()
 
 ninja extra normally looks like -
@@ -61,7 +60,16 @@ urlpatterns = [
     # this includes all of the endpoints defined in the controllers (api.register_controllers)
     # and adds a /api prefix to the urls
     path("api/", api.urls),
-] + debug_toolbar_urls()  # this is for the debug toolbar.
+]
+
+# Add debug toolbar URLs if available and in debug mode
+if settings.DEBUG and "debug_toolbar" in settings.INSTALLED_APPS:
+    try:
+        from debug_toolbar.toolbar import debug_toolbar_urls
+
+        urlpatterns += debug_toolbar_urls()
+    except ImportError:
+        pass
 
 # this is for the static files during development
 if settings.DEBUG:

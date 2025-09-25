@@ -2,7 +2,7 @@ from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.core.management.base import BaseCommand
 
-from api.settings import env
+from api.settings.common import env
 
 
 class Command(BaseCommand):
@@ -37,6 +37,7 @@ class Command(BaseCommand):
                 first_name=first_name,
                 last_name=last_name,
             )
+            print(superuser)
             self.stdout.write(
                 self.style.SUCCESS(f"Superuser '{username}' created successfully.")
             )

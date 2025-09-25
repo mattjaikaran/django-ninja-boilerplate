@@ -22,11 +22,12 @@ from .exceptions import (
     NotFoundError,
     ValidationError,
 )
+from .pagination import paginate_queryset
 from .permissions import (
     IsAdminUser,
     can_modify_object,
 )
-from .utils import get_client_ip, paginate_queryset
+from .utils import get_client_ip
 
 # Configure logging
 logger = logging.getLogger(__name__)

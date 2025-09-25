@@ -11,11 +11,11 @@ from django.db.models.fields import (
     IntegerField,
 )
 from ninja import Schema
-from ninja_extra.schemas import FilterSchema
 from pydantic import Field
 
 
-class BaseSearchFilter(FilterSchema):
+# Use Schema as base for now - FilterSchema requires Django settings to be loaded
+class BaseSearchFilter(Schema):
     """Base search filter with common search functionality."""
 
     search: str | None = Field(None, description="Search term to filter results")

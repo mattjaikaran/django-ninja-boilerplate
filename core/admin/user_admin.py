@@ -13,6 +13,6 @@ class UserAdmin(BaseUserAdmin, ModelAdmin):
     add_form = UserCreationForm
     change_password_form = AdminPasswordChangeForm
 
-    list_display = ["id", "username", "email", "is_staff"]
+    list_display = ["username", "email", "is_staff", "id"]
     search_fields = ["username", "email"]
     list_filter = ["is_staff"]
