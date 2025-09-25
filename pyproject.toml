@@ -1,8 +1,278 @@
-[tool.isort]
-profile = "black"
-multi_line_output = 3
-include_trailing_comma = true
-force_grid_wrap = 0
-use_parentheses = true
-ensure_newline_before_comments = true
-line_length = 88
+[project]
+name = "django-ninja-boilerplate"
+version = "1.0.0"
+description = "A production-ready Django boilerplate using Django Ninja for building modern APIs"
+authors = [{ name = "Matt Jaikaran", email = "info@mattjaikaran.com" }]
+readme = "README.md"
+license = { text = "Proprietary" }
+requires-python = ">=3.11"
+keywords = ["django", "ninja", "api", "boilerplate"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Web Environment",
+    "Framework :: Django",
+    "Framework :: Django :: 5.2",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Internet :: WWW/HTTP",
+    "Topic :: Internet :: WWW/HTTP :: Dynamic Content",
+]
+
+dependencies = [
+    # Core Django
+    "Django>=5.2.6,<5.3",
+    "django-environ>=0.11.2",
+    "psycopg2-binary>=2.9.10",
+
+    # Django Extensions
+    "django-cors-headers>=4.6.0",
+    "django-debug-toolbar>=4.4.6",
+    "django-flags>=5.0.13",
+    "django-import-export>=4.3.1",
+    "django-js-asset>=2.2.0",
+    "django-storages>=1.14.4",
+    "django-unfold>=0.43.0",
+
+    # API Framework
+    "django-ninja>=1.3.0",
+    "django-ninja-extra>=0.21.8",
+    "django-ninja-jwt>=5.3.4",
+
+    # Authentication & Security
+    "bcrypt>=4.2.1",
+    "cryptography>=43.0.1",
+    "PyJWT>=2.9.0",
+    "python-jose>=3.3.0",
+    "passlib>=1.7.4",
+
+    # HTTP & API
+    "httpx>=0.27.0",
+    "httpcore>=1.0.5",
+    "requests>=2.32.3",
+    "uvicorn>=0.24.0",
+    "uvloop>=0.19.0",
+    "gunicorn>=21.0.0",
+
+    # Development & Testing
+    "Faker>=30.1.0",
+
+    # Data Validation & Serialization
+    "pydantic>=2.5.2",
+    "pydantic-core>=2.14.5",
+    "email-validator>=2.1.1",
+    "orjson>=3.10.4",
+
+    # File Processing
+    "Pillow>=10.4.0",
+
+    # Utilities
+    "python-dateutil>=2.9.0.post0",
+    "python-dotenv>=1.0.0",
+    "python-multipart>=0.0.6",
+    "click>=8.1.7",
+    "rich>=13.7.1",
+
+    # Template & Markup
+    "Jinja2>=3.1.4",
+    "MarkupSafe>=2.1.5",
+
+    # System & Low-level
+    "asgiref>=3.8.1",
+    "anyio>=3.7.1",
+    "certifi>=2024.7.4",
+    "charset-normalizer>=3.3.2",
+    "idna>=3.8",
+    "urllib3>=2.2.2",
+    "dnspython>=2.6.1",
+    "attrs>=24.3.0",
+    "typing-extensions>=4.8.0",
+    "sqlparse>=0.5.3",
+]
+
+[project.optional-dependencies]
+dev = [
+    "ruff>=0.7.0",
+    "pytest>=8.0.0",
+    "pytest-django>=4.8.0",
+    "pytest-cov>=4.0.0",
+    "pytest-mock>=3.12.0",
+    "factory-boy>=3.3.0",
+    "Faker>=30.1.0",
+]
+
+[project.urls]
+homepage = "https://github.com/mattjaikaran/django-ninja-boilerplate"
+repository = "https://github.com/mattjaikaran/django-ninja-boilerplate"
+documentation = "https://github.com/mattjaikaran/django-ninja-boilerplate#readme"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["api", "core", "todos"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 88
+fix = true
+show-fixes = true
+output-format = "grouped"
+
+[tool.ruff.lint]
+# Enable pycodestyle (`E`) and Pyflakes (`F`) codes by default.
+# Also enable isort (`I`), pydocstyle (`D`), and other useful rules
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # Pyflakes
+    "I",    # isort
+    "D",    # pydocstyle
+    "UP",   # pyupgrade
+    "YTT",  # flake8-2020
+    "B",    # flake8-bugbear
+    "A",    # flake8-builtins
+    "COM",  # flake8-commas
+    "C4",   # flake8-comprehensions
+    "DTZ",  # flake8-datetimez
+    "T10",  # flake8-debugger
+    "DJ",   # flake8-django
+    "EM",   # flake8-errmsg
+    "EXE",  # flake8-executable
+    "FA",   # flake8-future-annotations
+    "ISC",  # flake8-implicit-str-concat
+    "ICN",  # flake8-import-conventions
+    "G",    # flake8-logging-format
+    "INP",  # flake8-no-pep420
+    "PIE",  # flake8-pie
+    "T20",  # flake8-print
+    "PYI",  # flake8-pyi
+    "PT",   # flake8-pytest-style
+    "Q",    # flake8-quotes
+    "RSE",  # flake8-raise
+    "RET",  # flake8-return
+    "SLF",  # flake8-self
+    "SLOT", # flake8-slots
+    "SIM",  # flake8-simplify
+    "TID",  # flake8-tidy-imports
+    "TCH",  # flake8-type-checking
+    "INT",  # flake8-gettext
+    "ARG",  # flake8-unused-arguments
+    "PTH",  # flake8-use-pathlib
+    "ERA",  # eradicate
+    "PD",   # pandas-vet
+    "PGH",  # pygrep-hooks
+    "PL",   # Pylint
+    "TRY",  # tryceratops
+    "FLY",  # flynt
+    "NPY",  # NumPy-specific rules
+    "PERF", # Perflint
+    "FURB", # refurb
+    "LOG",  # flake8-logging
+    "RUF",  # Ruff-specific rules
+]
+
+ignore = [
+    "D100",    # Missing docstring in public module
+    "D101",    # Missing docstring in public class
+    "D102",    # Missing docstring in public method
+    "D103",    # Missing docstring in public function
+    "D104",    # Missing docstring in public package
+    "D105",    # Missing docstring in magic method
+    "D106",    # Missing docstring in public nested class
+    "D107",    # Missing docstring in __init__
+    "E501",    # Line too long (handled by formatter)
+    "COM812",  # Trailing comma missing (handled by formatter)
+    "ISC001",  # Implicitly concatenated string literals (conflicts with formatter)
+    "DJ001",   # Avoid using `null=True` on string-based fields
+    "DJ012",   # Order of model's inner classes, methods, and fields
+    "TRY003",  # Avoid specifying long messages outside the exception class
+    "PLR0913", # Too many arguments to function call
+    "RUF012",  # Mutable class attributes should be annotated with `typing.ClassVar`
+    "EXE001",  # Shebang is present but file is not executable
+    "T201",    # `print` found
+    "EM101",   # Exception must not use a string literal, assign to variable first
+]
+
+[tool.ruff.lint.per-file-ignores]
+"*/migrations/*" = ["E501", "D", "RUF012"]
+"*/tests/*" = ["D", "PLR2004", "S101", "TID252"]
+"*/test_*.py" = ["D", "PLR2004", "S101", "TID252"]
+"manage.py" = ["D", "INP001"]
+"*/settings.py" = ["F405", "F403"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["core", "todos"]
+known-third-party = ["django"]
+section-order = [
+    "future",
+    "standard-library",
+    "third-party",
+    "first-party",
+    "local-folder",
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+docstring-code-format = true
+docstring-code-line-length = "dynamic"
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "api.settings"
+addopts = [
+    "--strict-markers",
+    "--strict-config",
+    "--verbose",
+    "--tb=short",
+    "--cov=.",
+    "--cov-report=term-missing:skip-covered",
+    "--cov-report=html",
+    "--cov-report=xml",
+    "--cov-fail-under=80",
+]
+testpaths = ["core", "todos"]
+filterwarnings = [
+    "error",
+    "ignore::UserWarning",
+    "ignore::DeprecationWarning",
+    "ignore::PendingDeprecationWarning",
+]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests as integration tests",
+    "unit: marks tests as unit tests",
+]
+
+[tool.coverage.run]
+source = "."
+omit = [
+    "*/migrations/*",
+    "*/venv/*",
+    "*/env/*",
+    "manage.py",
+    "*/settings.py",
+    "*/test*",
+    "*/__pycache__/*",
+    "*/static/*",
+    "*/media/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+]

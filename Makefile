@@ -3,7 +3,7 @@
 # Variables
 PYTHON := python
 MANAGE := $(PYTHON) manage.py
-PIP := pip
+UV := uv
 SCRIPTS_DIR := scripts
 
 # Django commands
@@ -34,10 +34,19 @@ install:
 	@if [ -z "$(filter-out $@,$(MAKECMDGOALS))" ]; then \
 		echo "Usage: make install <library-name>"; \
 	else \
-		pip install $(filter-out $@,$(MAKECMDGOALS)) && \
-		pip freeze > requirements.txt && \
-		echo "Installed $(filter-out $@,$(MAKECMDGOALS)) and updated requirements.txt"; \
+		$(UV) add $(filter-out $@,$(MAKECMDGOALS)) && \
+		echo "Installed $(filter-out $@,$(MAKECMDGOALS)) and updated pyproject.toml"; \
 	fi
+
+# Install dependencies
+.PHONY: sync
+sync:
+	$(UV) sync
+
+# Install dev dependencies
+.PHONY: sync-dev
+sync-dev:
+	$(UV) sync --dev
 
 %:
 	@:
@@ -68,11 +77,15 @@ test:
 # Linting and formatting
 .PHONY: lint
 lint:
-	flake8 .
+	$(UV) run ruff check .
 
 .PHONY: format
 format:
-	black .
+	$(UV) run ruff format .
+
+.PHONY: lint-fix
+lint-fix:
+	$(UV) run ruff check --fix .
 
 .PHONY: generate-core-data
 generate-core-data:
@@ -90,10 +103,20 @@ db-setup:
 	@echo "Setting up the database..."
 	@bash $(SCRIPTS_DIR)/db_setup.sh
 
-# Lint using custom script
+# Lint using custom script (legacy)
 .PHONY: custom-lint
 custom-lint:
 	@bash $(SCRIPTS_DIR)/lint.sh
+
+# Run tests with pytest
+.PHONY: pytest
+pytest:
+	$(UV) run pytest
+
+# Run tests with coverage
+.PHONY: test-cov
+test-cov:
+	$(UV) run pytest --cov=.
 
 # Collect static files
 .PHONY: collectstatic
@@ -110,15 +133,20 @@ help:
 	@echo "  makemigrations             - Create new database migrations"
 	@echo "  startapp                   - Start a new Django app"
 	@echo "  first-time-setup           - First time setup"
-	@echo "  install                    - Install a library"
+	@echo "  install                    - Install a library using uv"
+	@echo "  sync                       - Install dependencies from pyproject.toml"
+	@echo "  sync-dev                   - Install dev dependencies"
 	@echo "  shell                      - Open Django shell"
 	@echo "  createsuperuser            - Create a superuser"
 	@echo "  create-superuser           - Create a superuser using custom script"
 	@echo "  test                       - Run the Django test suite"
-	@echo "  lint                       - Run linting"
-	@echo "  format                     - Run formatter"
+	@echo "  pytest                     - Run tests with pytest"
+	@echo "  test-cov                   - Run tests with coverage"
+	@echo "  lint                       - Run linting with ruff"
+	@echo "  format                     - Run formatter with ruff"
+	@echo "  lint-fix                   - Run linting with auto-fix"
 	@echo "  generate-core-data         - Generate core data"
 	@echo "  generate-secret-key        - Generate secret key"
 	@echo "  db-setup                   - Setup the database"
-	@echo "  custom-lint                - Run custom lint"
+	@echo "  custom-lint                - Run custom lint (legacy)"
 	@echo "  collectstatic              - Collect static files"

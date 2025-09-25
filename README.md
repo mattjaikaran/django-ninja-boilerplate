@@ -37,8 +37,8 @@ Each app follows a robust structure that separates concerns:
 - **management/commands/**: Custom management commands
 
 ## Technologies
-- Python 3.11
-- [Django 5.1](https://docs.djangoproject.com/en/5.1/)
+- Python 3.11+
+- [Django 5.2](https://docs.djangoproject.com/en/5.2/)
 - [Django Ninja](https://django-ninja.dev/)
 - [Django Ninja Extra](https://eadwincode.github.io/django-ninja-extra/) a collection of extra features for Django Ninja 
 - [Django Ninja JWT](https://eadwincode.github.io/django-ninja-jwt/)
@@ -47,13 +47,15 @@ Each app follows a robust structure that separates concerns:
 - [Pydantic](https://docs.pydantic.dev/latest/)
 - [Django Unfold Admin](https://unfoldadmin.com/)
     - [Unfold Docs](https://github.com/unfoldadmin/django-unfold)
+- [uv](https://docs.astral.sh/uv/) for fast Python package management
 - Docker & Docker Compose
 - pytest for testing
 - Gunicorn for production serving
 
 #### Dev Tools & Features
 - Makefile to run commands
-- PyTest for unit tests
+- PyTest for comprehensive testing
+- [uv](https://docs.astral.sh/uv/) for fast package management
 - Custom Start App command to create a new app
     - with extended functionality for Django Ninja, Django Ninja Extra, and Django Unfold
     - `make startapp <app_name>`
@@ -63,13 +65,11 @@ Each app follows a robust structure that separates concerns:
   - [Localhost Docs](http://localhost:8000/api/docs)
 - [Debug Toolbar](https://django-debug-toolbar.readthedocs.io/en/latest) for debugging
 - [Django Environ](https://django-environ.readthedocs.io/en/latest/) for managing environment variables
-- Linting
-    - [Black](https://github.com/psf/black) Formatter
-        - Configuration located in `@/.vscode/settings.json`
-    - [isort](https://pycqa.github.io/isort/) sorting imports
-    - [Flake8](https://flake8.pycqa.org/en/latest/)
-    - Will run all 3 with the lint script located in `@/scripts/lint.sh`
-        - To run `./scripts/lint.sh`
+- Linting & Formatting
+    - [Ruff](https://docs.astral.sh/ruff/) - Fast Python linter and formatter (replaces Black, isort, Flake8)
+    - Configuration in `pyproject.toml`
+    - Run with `make lint` or `make format`
+    - Legacy script available at `@/scripts/lint.sh`
 
 
 ## Quick Start with Docker
@@ -91,19 +91,56 @@ Visit http://localhost:8000/api/docs for the API documentation.
 
 ## Local Development Setup
 
+### With uv (Recommended)
+
 ```bash
 git clone https://github.com/mattjaikaran/django-ninja-boilerplate
 cd django-ninja-boilerplate
+
+# Install uv if you haven't already
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Create virtual environment and install dependencies
+uv sync --dev
+
+# Create environment file and update with your settings
+touch .env
+
+# Setup database and create superuser
+make db-setup
+
+# Generate secret key
+./scripts/generate_secret_key.sh
+
+# Run the development server
+make runserver
+```
+
+### Traditional Setup (Legacy)
+
+```bash
+git clone https://github.com/mattjaikaran/django-ninja-boilerplate
+cd django-ninja-boilerplate
+
 # Create and activate virtual environment
-python3 -m venv env # create a virtual environment using the venv virtual environment
-source env/bin/activate # activate the virtual environment
-touch .env # create a new env file
-# update the .env file with necessary values -> db info, superuser info
-pip3 install -r requirements.txt # install dependencies from requirements.txt
-python3 manage.py migrate # apply migration files to your local db
-python3 manage.py create_superuser # runs custom script to create a superuser
-./scripts/generate_secret_key.sh # generate new secret key 
-python3 manage.py runserver # run the local server on http://localhost:8000/admin
+python3 -m venv env
+source env/bin/activate
+
+# Install dependencies (Note: requirements.txt is deprecated)
+pip3 install -e .
+
+# Create environment file and update with your settings
+touch .env
+
+# Apply migrations and create superuser
+python3 manage.py migrate
+python3 manage.py create_superuser
+
+# Generate secret key
+./scripts/generate_secret_key.sh
+
+# Run the development server
+python3 manage.py runserver
 ```
 
 ## Commands
@@ -121,11 +158,18 @@ $ make runserver
 ```
 
 ### Install a library
-This runs pip install <library-name> , then pip freeze > requirements.txt to update the requirements.txt file
+This runs `uv add <library-name>` and updates pyproject.toml
 ```bash
 $ make install <library-name>
 # example
 # make install django-ninja-jwt
+```
+
+### Sync dependencies
+Install all dependencies from pyproject.toml
+```bash
+$ make sync      # Production dependencies only
+$ make sync-dev  # Include development dependencies
 ```
 
 ### Drop DB, Create DB, Migrate, Create Superuser via db-setup script
@@ -168,14 +212,17 @@ docker-compose -f docker-compose.prod.yml up --build -d
 ## Testing
 
 ```bash
-# Run all tests
-pytest
+# Run Django tests
+make test
 
-# Run specific test file
-pytest path/to/test_file.py
+# Run with pytest
+make pytest
 
 # Run with coverage
-pytest --cov=.
+make test-cov
+
+# Run specific test file
+uv run pytest path/to/test_file.py
 ```
 
 ## API Documentation
@@ -187,7 +234,8 @@ pytest --cov=.
 - PostgreSQL Database
 - Docker & Docker Compose setup
 - Comprehensive test setup with pytest
-- Code formatting with Black and isort
+- Fast package management with uv
+- Code linting and formatting with Ruff
 - Production-ready with Gunicorn
 - Environment-based settings
 - Custom user model
@@ -195,6 +243,7 @@ pytest --cov=.
 - API throttling and pagination
 - CORS configuration
 - Debug toolbar for development
+- Modern Python tooling (Django 5.2, pyproject.toml)
 
 ## Database
 

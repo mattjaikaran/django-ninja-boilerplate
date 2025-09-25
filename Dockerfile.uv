@@ -1,4 +1,5 @@
-FROM python:3.11-slim
+# Alternative Dockerfile using the official uv image for faster builds
+FROM ghcr.io/astral-sh/uv:python3.11-bookworm-slim
 
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1
@@ -14,12 +15,7 @@ RUN apt-get update \
         postgresql-client \
         libpq-dev \
         gcc \
-        curl \
     && rm -rf /var/lib/apt/lists/*
-
-# Install uv
-RUN curl -LsSf https://astral.sh/uv/install.sh | sh
-ENV PATH="/root/.cargo/bin:$PATH"
 
 # Copy dependency files
 COPY pyproject.toml uv.lock* ./
@@ -34,4 +30,4 @@ COPY . .
 RUN python manage.py collectstatic --noinput
 
 # Run gunicorn
-CMD ["gunicorn", "--bind", "0.0.0.0:8000", "api.wsgi:application"] 
+CMD ["gunicorn", "--bind", "0.0.0.0:8000", "api.wsgi:application"]

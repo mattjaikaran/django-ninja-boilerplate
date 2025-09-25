@@ -1,8 +1,14 @@
 #!/bin/bash
 
-# lint.sh
+# lint.sh - Legacy script updated to use ruff
 
-source env/bin/activate
-flake8 .
-black .
-isort .
+# Check if uv is available, otherwise fall back to direct ruff execution
+if command -v uv &> /dev/null; then
+    echo "Running linting with ruff via uv..."
+    uv run ruff check .
+    uv run ruff format .
+else
+    echo "uv not found, running ruff directly..."
+    ruff check .
+    ruff format .
+fi
