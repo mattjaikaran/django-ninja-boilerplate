@@ -1,6 +1,19 @@
 # Django Ninja Boilerplate
 
-A production-ready Django boilerplate using Django Ninja for building modern APIs. Features include JWT authentication, PostgreSQL, Docker optimization for OrbStack, factory-based testing, and comprehensive DX scripts for development workflow.
+A comprehensive, production-ready Django boilerplate using Django Ninja for building modern APIs. This enhanced version includes advanced authentication (magic links + traditional), monitoring, caching, health checks, email services, and rapid feature generators for scalable API development.
+
+## ✨ Key Enhancements
+
+🚀 **Complete Authentication System** - Traditional login/register + passwordless magic links  
+📧 **Advanced Email Service** - Template-based emails with multiple backends  
+⚡ **Comprehensive Caching** - Multi-layer caching with decorators  
+📊 **Monitoring & Metrics** - Performance tracking and system health monitoring  
+🏥 **Health Check System** - Kubernetes-ready health endpoints  
+🛠️ **Feature Generators** - Rapid scaffolding for new API endpoints  
+🔧 **Advanced Utilities** - Validation, formatting, HTTP helpers  
+🎯 **Production Ready** - Error handling, logging, security features
+
+👉 **[See complete feature documentation →](FEATURES.md)**
 
 ## Project Structure
 

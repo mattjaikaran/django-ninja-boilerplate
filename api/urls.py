@@ -5,6 +5,7 @@ from django.urls import path
 from ninja_extra import NinjaExtraAPI
 from ninja_jwt.controller import NinjaJWTDefaultController
 
+from api.healthcheck import HealthCheckController
 from core.controllers import AuthController, UserController
 from todos.controllers import TodoController
 
@@ -46,6 +47,8 @@ api = NinjaExtraAPI(
 # http://localhost:8000/api/docs
 api.register_controllers(
     NinjaJWTDefaultController,  # JWT Auth. If you want to use JWT, you must include this https://github.com/eadwinCode/django-ninja-jwt
+    # System controllers
+    HealthCheckController,  # Health Check Controller
     # core app
     UserController,  # User Controller
     AuthController,  # Auth Controller

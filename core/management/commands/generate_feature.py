@@ -25,6 +25,9 @@ class Command(BaseCommand):
                 "chat",
                 "file_storage",
                 "analytics",
+                "api_endpoint",
+                "monitoring",
+                "cache",
             ],
             help="Type of feature to generate",
         )
@@ -94,6 +97,12 @@ class Command(BaseCommand):
                 self._generate_file_storage_feature(app_name, provider, options)
             elif feature_type == "analytics":
                 self._generate_analytics_feature(app_name, options)
+            elif feature_type == "api_endpoint":
+                self._generate_api_endpoint_feature(app_name, options)
+            elif feature_type == "monitoring":
+                self._generate_monitoring_feature(app_name, options)
+            elif feature_type == "cache":
+                self._generate_cache_feature(app_name, options)
             else:
                 raise CommandError(f"Unsupported feature type: {feature_type}")
 
@@ -222,6 +231,36 @@ class Command(BaseCommand):
         from .generators.analytics_generator import AnalyticsGenerator
 
         generator = AnalyticsGenerator(
+            app_name=app_name,
+            minimal=options.get("minimal", False),
+        )
+        generator.generate()
+
+    def _generate_api_endpoint_feature(self, app_name: str, options: dict) -> None:
+        """Generate API endpoint feature with full CRUD operations."""
+        from .generators.api_endpoint_generator import ApiEndpointGenerator
+
+        generator = ApiEndpointGenerator(
+            app_name=app_name,
+            minimal=options.get("minimal", False),
+        )
+        generator.generate()
+
+    def _generate_monitoring_feature(self, app_name: str, options: dict) -> None:
+        """Generate monitoring and metrics feature."""
+        from .generators.monitoring_generator import MonitoringGenerator
+
+        generator = MonitoringGenerator(
+            app_name=app_name,
+            minimal=options.get("minimal", False),
+        )
+        generator.generate()
+
+    def _generate_cache_feature(self, app_name: str, options: dict) -> None:
+        """Generate advanced caching feature."""
+        from .generators.cache_generator import CacheGenerator
+
+        generator = CacheGenerator(
             app_name=app_name,
             minimal=options.get("minimal", False),
         )

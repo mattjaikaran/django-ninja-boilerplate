@@ -1,4 +1,4 @@
-from core.schemas.auth import PasswordlessLoginRequest, PasswordlessLoginVerify
+from core.schemas.auth_schema import PasswordlessLoginRequest, PasswordlessLoginVerify
 from core.schemas.user_schema import (
     UserDeleteSchema,
     UserLoginSchema,
