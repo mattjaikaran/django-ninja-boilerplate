@@ -1,11 +1,10 @@
 import logging
-from typing import List
-from django.contrib.auth import get_user_model
+
 from django.shortcuts import get_object_or_404
 from ninja_extra import api_controller, http_delete, http_get, http_post, http_put
 
 from todos.models import Todo
-from todos.schemas import TodoSchema, CreateTodoSchema, UpdateTodoSchema
+from todos.schemas import CreateTodoSchema, TodoSchema, UpdateTodoSchema
 
 logger = logging.getLogger(__name__)
 
@@ -13,7 +12,7 @@ logger = logging.getLogger(__name__)
 @api_controller("/todos", tags=["Todos"])
 class TodoController:
     # get all todos
-    @http_get("/all", response={200: List[TodoSchema], 400: dict})
+    @http_get("/all", response={200: list[TodoSchema], 400: dict})
     def list_all_todos(self, request):
         try:
             todos = Todo.objects.all()
@@ -23,7 +22,7 @@ class TodoController:
             return 400, {"error": str(e)}
 
     # get todos by user
-    @http_get("/", response={200: List[TodoSchema], 400: dict})
+    @http_get("/", response={200: list[TodoSchema], 400: dict})
     def list_user_todos(self, request):
         try:
             user = request.user

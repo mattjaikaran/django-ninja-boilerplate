@@ -1,16 +1,118 @@
 {
+    // Python Configuration
     "[python]": {
         "editor.tabSize": 4,
+        "editor.insertSpaces": true,
         "editor.formatOnSave": true,
         "editor.formatOnPaste": true,
+        "editor.codeActionsOnSave": {
+            "source.organizeImports": "explicit",
+            "source.fixAll": "explicit"
+        },
+        "editor.defaultFormatter": "charliermarsh.ruff",
         "files.insertFinalNewline": true,
-        "editor.wordBasedSuggestions": "off",
-        "editor.defaultFormatter": "ms-python.black-formatter",
-      },
-      "[json]": {
-        "editor.tabSize": 4,
-        "editor.formatOnPaste": true,
+        "files.trimTrailingWhitespace": true
+    },
+
+    // Ruff Configuration
+    "ruff.enable": true,
+    "ruff.organizeImports": true,
+    "ruff.fixAll": true,
+    "ruff.showNotifications": "onError",
+
+    // Python Environment
+    "python.defaultInterpreterPath": "./.venv/bin/python",
+    "python.terminal.activateEnvironment": true,
+    "python.envFile": "${workspaceFolder}/.env",
+    "python.linting.enabled": false,
+    "python.analysis.typeCheckingMode": "basic",
+    "python.analysis.autoImportCompletions": true,
+    "python.analysis.extraPaths": ["./", "./core", "./todos", "./api"],
+
+    // Testing
+    "python.testing.pytestEnabled": true,
+    "python.testing.unittestEnabled": false,
+    "python.testing.pytestArgs": ["."],
+
+    // File Associations
+    "files.associations": {
+        "*.html": "django-html",
+        "Dockerfile*": "dockerfile",
+        "docker-compose*.yml": "dockercompose",
+        ".env*": "dotenv"
+    },
+
+    // Language-Specific Settings
+    "[json]": {
+        "editor.tabSize": 2,
         "editor.formatOnSave": true,
-        "editor.defaultFormatter": "esbenp.prettier-vscode",
-      }
+        "editor.defaultFormatter": "esbenp.prettier-vscode"
+    },
+    "[yaml]": {
+        "editor.tabSize": 2,
+        "editor.formatOnSave": true,
+        "editor.defaultFormatter": "esbenp.prettier-vscode"
+    },
+    "[markdown]": {
+        "editor.tabSize": 2,
+        "editor.formatOnSave": true,
+        "editor.wordWrap": "on"
+    },
+    "[dockerfile]": {
+        "editor.tabSize": 4,
+        "editor.formatOnSave": true
+    },
+
+    // Editor Settings
+    "editor.rulers": [88],
+    "editor.wordWrap": "off",
+    "editor.bracketPairColorization.enabled": true,
+    "editor.guides.bracketPairs": true,
+    "editor.minimap.enabled": false,
+    "editor.trimAutoWhitespace": true,
+
+    // File Explorer
+    "files.exclude": {
+        "**/__pycache__": true,
+        "**/*.pyc": true,
+        "**/.DS_Store": true,
+        "**/.git": true,
+        "**/.pytest_cache": true,
+        "**/.mypy_cache": true,
+        "**/.ruff_cache": true,
+        "**/htmlcov": true,
+        "**/*.egg-info": true
+    },
+
+    // Search
+    "search.exclude": {
+        "**/__pycache__": true,
+        "**/*.pyc": true,
+        "**/.git": true,
+        "**/.pytest_cache": true,
+        "**/.mypy_cache": true,
+        "**/.ruff_cache": true,
+        "**/htmlcov": true,
+        "**/*.egg-info": true,
+        "**/static/admin": true,
+        "**/media": true
+    },
+
+    // Terminal
+    "terminal.integrated.env.osx": {
+        "PYTHONPATH": "${workspaceFolder}",
+        "DJANGO_SETTINGS_MODULE": "api.settings"
+    },
+    "terminal.integrated.env.linux": {
+        "PYTHONPATH": "${workspaceFolder}",
+        "DJANGO_SETTINGS_MODULE": "api.settings"
+    },
+
+    // Auto-save and Git
+    "files.autoSave": "onFocusChange",
+    "git.autofetch": true,
+    "git.ignoreLimitWarning": true,
+
+    // IntelliSense
+    "editor.suggestSelection": "first"
 }

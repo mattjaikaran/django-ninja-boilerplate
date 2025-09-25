@@ -1,7 +1,6 @@
-from django.core.management.commands.startapp import Command as StartAppCommand
-from django.core.management.base import CommandError
-from django.utils.termcolors import colorize
 import os
+
+from django.core.management.commands.startapp import Command as StartAppCommand
 
 
 def smart_pluralize(singular):
@@ -39,8 +38,7 @@ def smart_pluralize(singular):
     if singular.endswith("y"):
         if singular[-2] in "aeiou":
             return singular + "s"
-        else:
-            return singular[:-1] + "ies"
+        return singular[:-1] + "ies"
 
     # Words ending in 'is'
     if singular.endswith("is"):
@@ -94,7 +92,7 @@ class Command(StartAppCommand):
         self.stdout.write(self.style.SUCCESS(f"Successfully created app '{app_name}'"))
         self.stdout.write(
             self.style.SUCCESS(
-                f"Created with organized folder structure: models, admin, controllers, schemas, tests"
+                "Created with organized folder structure: models, admin, controllers, schemas, tests"
             )
         )
 
@@ -213,28 +211,27 @@ class Command(StartAppCommand):
 
 __all__ = ["{model_name}"]
 """
-        elif dir_name == "schemas":
+        if dir_name == "schemas":
             return f"""from {app_name}.schemas.{model_name.lower()}_schema import {model_name}Schema, Create{model_name}Schema, Update{model_name}Schema
 
 __all__ = ["{model_name}Schema", "Create{model_name}Schema", "Update{model_name}Schema"]
 """
-        elif dir_name == "controllers":
+        if dir_name == "controllers":
             return f"""from {app_name}.controllers.{model_name.lower()}_controller import {model_name}Controller
 
 __all__ = ["{model_name}Controller"]
 """
-        elif dir_name == "admin":
+        if dir_name == "admin":
             return f"""from {app_name}.admin.{model_name.lower()}_admin import {model_name}Admin
 
 __all__ = ["{model_name}Admin"]
 """
-        elif dir_name == "tests":
+        if dir_name == "tests":
             return f"""from {app_name}.tests.test_{model_name.lower()} import *
 
 __all__ = []
 """
-        else:
-            return "# This file is intentionally left empty to make the directory a Python package.\n"
+        return "# This file is intentionally left empty to make the directory a Python package.\n"
 
     def create_model_file(self, app_name, file_path, model_name):
         content = f"""from django.db import models

@@ -1,5 +1,5 @@
-from core.models.user import User, CustomUserManager
 from core.models.base import AbstractBaseModel
 from core.models.otp import OneTimePassword
+from core.models.user import CustomUserManager, User
 
-__all__ = ["User", "CustomUserManager", "AbstractBaseModel", "OneTimePassword"]
+__all__ = ["AbstractBaseModel", "CustomUserManager", "OneTimePassword", "User"]

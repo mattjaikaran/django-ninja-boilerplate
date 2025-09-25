@@ -1,5 +1,5 @@
 from ninja import Schema
-from pydantic import EmailStr, validator, Field
+from pydantic import EmailStr, validator
 
 
 class UserSchema(Schema):

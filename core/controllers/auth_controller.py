@@ -1,11 +1,13 @@
 import logging
-from datetime import datetime, timedelta
 import secrets
-from ninja_extra import api_controller, http_post
-from django.core.mail import send_mail
+from datetime import datetime, timedelta
+
 from django.conf import settings
-from core.models import OneTimePassword
 from django.contrib.auth import get_user_model
+from django.core.mail import send_mail
+from ninja_extra import api_controller, http_post
+
+from core.models import OneTimePassword
 from core.schemas import PasswordlessLoginRequest, PasswordlessLoginVerify
 
 User = get_user_model()
@@ -42,8 +44,7 @@ class AuthController:
                 )
 
                 return 200, {"detail": "If registered, you'll receive a magic link"}
-            else:
-                return 400, {"detail": "User does not exist"}
+            return 400, {"detail": "User does not exist"}
         except Exception as e:
             logger.error(f"Error requesting passwordless login: {e}")
             return 400, {"detail": str(e)}

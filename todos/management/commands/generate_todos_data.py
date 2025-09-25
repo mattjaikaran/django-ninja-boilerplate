@@ -1,8 +1,10 @@
-from django.core.management.base import BaseCommand
-from django.contrib.auth import get_user_model
-from faker import Faker
-from todos.models import Todo
 import random
+
+from django.contrib.auth import get_user_model
+from django.core.management.base import BaseCommand
+from faker import Faker
+
+from todos.models import Todo
 
 User = get_user_model()
 fake = Faker()
@@ -46,24 +48,23 @@ class Command(BaseCommand):
                     )
                 )
                 return
+        # Get a random user or create one if none exist
+        elif not User.objects.exists():
+            user = User.objects.create_user(
+                username=fake.user_name(),
+                email=fake.email(),
+                password="password123",
+                first_name=fake.first_name(),
+                last_name=fake.last_name(),
+            )
+            self.stdout.write(
+                self.style.SUCCESS(f"Created new user: {user.username}")
+            )
         else:
-            # Get a random user or create one if none exist
-            if not User.objects.exists():
-                user = User.objects.create_user(
-                    username=fake.user_name(),
-                    email=fake.email(),
-                    password="password123",
-                    first_name=fake.first_name(),
-                    last_name=fake.last_name(),
-                )
-                self.stdout.write(
-                    self.style.SUCCESS(f"Created new user: {user.username}")
-                )
-            else:
-                user = User.objects.order_by("?").first()
-                self.stdout.write(
-                    self.style.SUCCESS(f"Using existing user: {user.username}")
-                )
+            user = User.objects.order_by("?").first()
+            self.stdout.write(
+                self.style.SUCCESS(f"Using existing user: {user.username}")
+            )
 
         # Generate todos
         todos_created = 0

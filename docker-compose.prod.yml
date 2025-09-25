@@ -1,41 +1,105 @@
-version: '3.8'
+# Optimized for OrbStack - Production
 
 services:
-  web:
-    build: .
-    command: gunicorn api.wsgi:application --bind 0.0.0.0:8000 --workers 4
-    volumes:
-      - static_volume:/app/static
-    expose:
-      - 8000
-    environment:
-      - DEBUG=0
-      - DB_NAME=${DB_NAME}
-      - DB_USER=${DB_USER}
-      - DB_PASSWORD=${DB_PASSWORD}
-      - DB_HOST=db
-      - DB_PORT=5432
-    depends_on:
-      - db
-
+  # PostgreSQL 17 Database
   db:
-    image: postgres:15
+    image: postgres:17-alpine
     volumes:
       - postgres_data:/var/lib/postgresql/data
     environment:
       - POSTGRES_DB=${DB_NAME}
       - POSTGRES_USER=${DB_USER}
       - POSTGRES_PASSWORD=${DB_PASSWORD}
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER}"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    restart: unless-stopped
 
-  nginx:
-    build: ./nginx
+  # Redis for caching and sessions
+  redis:
+    image: redis:7.2-alpine
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "--no-auth-warning", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    restart: unless-stopped
+
+  # Django Web Application
+  django:
+    build: .
+    command: >
+      sh -c ".venv/bin/python manage.py migrate &&
+             .venv/bin/python manage.py collectstatic --noinput &&
+             .venv/bin/gunicorn api.wsgi:application --bind 0.0.0.0:8000 --workers 3 --timeout 120"
     volumes:
       - static_volume:/app/static
+      - media_volume:/app/media
+      - logs_volume:/app/logs
+    expose:
+      - "8000"
+    environment:
+      - DJANGO_SETTINGS_MODULE=api.settings
+      - DEBUG=0
+      - SECRET_KEY=${SECRET_KEY}
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_HOST=db
+      - DB_PORT=5432
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
+      - FRONTEND_URL=${FRONTEND_URL}
+      - ALLOWED_HOSTS=${ALLOWED_HOSTS}
+      - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS}
+      - CSRF_TRUSTED_ORIGINS=${CSRF_TRUSTED_ORIGINS}
+      - USE_TLS=${USE_TLS}
+      - EMAIL_HOST=${EMAIL_HOST}
+      - EMAIL_PORT=${EMAIL_PORT}
+      - EMAIL_USE_TLS=${EMAIL_USE_TLS}
+      - EMAIL_HOST_USER=${EMAIL_HOST_USER}
+      - EMAIL_HOST_PASSWORD=${EMAIL_HOST_PASSWORD}
+      - DEFAULT_FROM_EMAIL=${DEFAULT_FROM_EMAIL}
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  # Nginx Reverse Proxy
+  nginx:
+    build: ./nginx
     ports:
       - "80:80"
+      - "443:443"
+    volumes:
+      - static_volume:/app/static
+      - media_volume:/app/media
+      - ./nginx/certs:/etc/nginx/certs:ro
     depends_on:
-      - web
+      - django
+    networks:
+      - app-network
+    restart: unless-stopped
+
+networks:
+  app-network:
+    driver: bridge
 
 volumes:
   postgres_data:
-  static_volume: 
+  redis_data:
+  static_volume:
+  media_volume:
+  logs_volume:

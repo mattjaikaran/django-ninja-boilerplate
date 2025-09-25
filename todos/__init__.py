@@ -1,5 +1,4 @@
-"""
-Todos Application
+"""Todos Application
 ---------------
 This app provides todo management functionality, allowing users
 to create, read, update, and delete todo items.
@@ -8,10 +7,9 @@ to create, read, update, and delete todo items.
 default_app_config = "todos.apps.TodosConfig"
 
 # Import models
-from todos.models import Todo
-
 # Import controllers
 from todos.controllers import TodoController
+from todos.models import Todo
 
 __all__ = [
     "Todo",

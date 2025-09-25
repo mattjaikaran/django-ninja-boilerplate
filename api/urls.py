@@ -1,13 +1,13 @@
-from django.contrib import admin
-from django.urls import path
+from debug_toolbar.toolbar import debug_toolbar_urls
 from django.conf import settings
 from django.conf.urls.static import static
+from django.contrib import admin
+from django.urls import path
 from ninja_extra import NinjaExtraAPI
 from ninja_jwt.controller import NinjaJWTDefaultController
-from core.controllers import UserController, AuthController
+
+from core.controllers import AuthController, UserController
 from todos.controllers import TodoController
-from ninja import Redoc
-from debug_toolbar.toolbar import debug_toolbar_urls
 
 # admin site settings
 admin.site.site_header = "Django Ninja Boilerplate Admin"

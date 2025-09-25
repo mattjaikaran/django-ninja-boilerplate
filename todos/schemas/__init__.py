@@ -1,3 +1,3 @@
-from todos.schemas.todo_schema import TodoSchema, CreateTodoSchema, UpdateTodoSchema
+from todos.schemas.todo_schema import CreateTodoSchema, TodoSchema, UpdateTodoSchema
 
-__all__ = ["TodoSchema", "CreateTodoSchema", "UpdateTodoSchema"]
+__all__ = ["CreateTodoSchema", "TodoSchema", "UpdateTodoSchema"]
