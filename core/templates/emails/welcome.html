@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welcome to {{ site_name }}</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px 30px;
+            text-align: center;
+            border-radius: 10px 10px 0 0;
+        }
+        .content {
+            background: #f8f9fa;
+            padding: 40px 30px;
+            border-radius: 0 0 10px 10px;
+        }
+        .cta-button {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 12px 24px;
+            text-decoration: none;
+            border-radius: 5px;
+            margin: 20px 0;
+            font-weight: bold;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #ddd;
+            color: #666;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Welcome to {{ site_name }}!</h1>
+        <p>We're excited to have you on board, {{ user_name }}!</p>
+    </div>
+    
+    <div class="content">
+        <h2>Hello {{ user_name }},</h2>
+        
+        <p>Thank you for joining {{ site_name }}! We're thrilled to have you as part of our community.</p>
+        
+        <p>Your account has been successfully created and you can now start exploring all the features we have to offer.</p>
+        
+        <p>If you have any questions or need assistance, please don't hesitate to reach out to our support team.</p>
+        
+        <div style="text-align: center;">
+            <a href="#" class="cta-button">Get Started</a>
+        </div>
+        
+        <p>Best regards,<br>
+        The {{ site_name }} Team</p>
+    </div>
+    
+    <div class="footer">
+        <p>This email was sent from {{ site_name }}. If you didn't create an account, please ignore this email.</p>
+    </div>
+</body>
+</html>

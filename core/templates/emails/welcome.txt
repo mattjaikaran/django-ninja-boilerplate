@@ -1,0 +1,15 @@
+Welcome to {{ site_name }}!
+
+Hello {{ user_name }},
+
+Thank you for joining {{ site_name }}! We're thrilled to have you as part of our community.
+
+Your account has been successfully created and you can now start exploring all the features we have to offer.
+
+If you have any questions or need assistance, please don't hesitate to reach out to our support team.
+
+Best regards,
+The {{ site_name }} Team
+
+---
+This email was sent from {{ site_name }}. If you didn't create an account, please ignore this email.
