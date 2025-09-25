@@ -57,9 +57,7 @@ class Command(BaseCommand):
                 first_name=fake.first_name(),
                 last_name=fake.last_name(),
             )
-            self.stdout.write(
-                self.style.SUCCESS(f"Created new user: {user.username}")
-            )
+            self.stdout.write(self.style.SUCCESS(f"Created new user: {user.username}"))
         else:
             user = User.objects.order_by("?").first()
             self.stdout.write(
