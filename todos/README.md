@@ -57,6 +57,7 @@ Comprehensive tests for all components including the Todo model and API endpoint
 ## Features
 
 ### Todo Model
+
 - Inherits from `AbstractBaseModel` (UUID, timestamps)
 - User relationship (ForeignKey)
 - Title and description fields
@@ -64,6 +65,7 @@ Comprehensive tests for all components including the Todo model and API endpoint
 - Automatic ordering by creation date
 
 ### API Features
+
 - JWT Authentication required for all endpoints
 - User-specific todo lists
 - CRUD operations (Create, Read, Update, Delete)
@@ -76,19 +78,21 @@ Comprehensive tests for all components including the Todo model and API endpoint
 The app includes a management command to generate sample todo data for testing and development purposes.
 
 ### Basic Usage
+
 ```bash
 # Create 10 todos for a random user (default)
-python manage.py generate_todos_data
+uv run python manage.py generate_todos_data
 
 # Specify number of todos to create
-python manage.py generate_todos_data --todos 20
+uv run python manage.py generate_todos_data --todos 20
 
 # Create todos for a specific user (by username or email)
-python manage.py generate_todos_data --user johndoe
-python manage.py generate_todos_data --user john@example.com
+uv run python manage.py generate_todos_data --user johndoe
+uv run python manage.py generate_todos_data --user john@example.com
 ```
 
 ### Generated Data Features
+
 - Random 4-word titles using Faker
 - 3-sentence descriptions
 - Random completion status
@@ -98,6 +102,7 @@ python manage.py generate_todos_data --user john@example.com
 ## API Endpoints
 
 ### Todo Management
+
 - `GET /api/todos/all` - List all todos (admin only)
 - `GET /api/todos/` - List user's todos
 - `POST /api/todos/` - Create new todo
@@ -108,11 +113,14 @@ python manage.py generate_todos_data --user john@example.com
 ## Testing
 
 ### Test Structure
+
 The tests are organized into two main classes:
+
 1. `TestTodoModel`: Tests for the Todo model functionality
 2. `TestTodoAPI`: Tests for the API endpoints
 
 ### Using Core App Test Fixtures
+
 The todos app tests utilize the core app's test fixtures:
 
 ```python
@@ -137,20 +145,25 @@ def test_create_todo(api_client, test_user, auth_headers):
 ```
 
 ### Running Tests
+
 ```bash
 # Run all todos tests
-pytest todos/tests.py
+make test todos/tests/
+
+# Run specific test file
+uv run pytest todos/tests/test_todo.py
 
 # Run specific test class
-pytest todos/tests.py::TestTodoModel
-pytest todos/tests.py::TestTodoAPI
+uv run pytest todos/tests/test_todo.py::TestTodoModel
 
 # Run specific test
-pytest todos/tests.py::TestTodoAPI::test_create_todo
+uv run pytest todos/tests/test_todo.py::TestTodoAPI::test_create_todo
 ```
 
 ### Test Coverage
+
 The tests cover:
+
 - Todo creation
 - User-todo relationship
 - Authorization checks
@@ -162,6 +175,7 @@ The tests cover:
 ## Development
 
 ### Creating a Todo
+
 ```python
 from todos.models import Todo
 
@@ -175,6 +189,7 @@ todo = Todo.objects.create(
 ```
 
 ### Schema Validation
+
 The app uses Pydantic schemas for validation:
 
 ```python
@@ -192,11 +207,13 @@ todo = Todo.objects.create(user=request.user, **todo_data.dict())
 ## Security Features
 
 ### Authentication
+
 - All endpoints require JWT authentication
 - Tokens are validated on each request
 - Users can only access their own todos
 
 ### Authorization
+
 ```python
 # Example of authorization check in views
 todo = get_object_or_404(Todo, id=todo_id, user=request.user)
@@ -205,6 +222,7 @@ todo = get_object_or_404(Todo, id=todo_id, user=request.user)
 ## Example API Usage
 
 ### Creating a Todo
+
 ```bash
 curl -X POST http://localhost:8000/api/todos/ \
   -H "Authorization: Bearer <your-token>" \
@@ -213,15 +231,17 @@ curl -X POST http://localhost:8000/api/todos/ \
 ```
 
 ### Listing User's Todos
+
 ```bash
 curl http://localhost:8000/api/todos/ \
   -H "Authorization: Bearer <your-token>"
 ```
 
 ### Updating a Todo
+
 ```bash
 curl -X PUT http://localhost:8000/api/todos/<todo-id> \
   -H "Authorization: Bearer <your-token>" \
   -H "Content-Type: application/json" \
   -d '{"title": "Updated Todo", "completed": true}'
-``` 
+```

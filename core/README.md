@@ -71,6 +71,7 @@ Comprehensive tests for all components including models and API endpoints.
 ## Features
 
 ### Custom User Model
+
 - Extended Django's AbstractBaseUser
 - UUID primary key
 - Email and username unique fields
@@ -79,10 +80,12 @@ Comprehensive tests for all components including models and API endpoints.
 - Custom user manager with email normalization
 
 ### Base Models
+
 - `AbstractBaseModel`: Base model with UUID, created_at, and updated_at fields
 - Used as the base for all other models in the project
 
 ### Authentication
+
 - JWT-based authentication using django-ninja-jwt
 - Token-based API access
 - Customizable token lifetime
@@ -90,6 +93,7 @@ Comprehensive tests for all components including models and API endpoints.
 ## API Endpoints
 
 ### User Management
+
 - `POST /api/users/signup` - Create new user
 - `POST /api/users/superuser` - Create superuser (admin only)
 - `GET /api/users/` - List all users
@@ -100,11 +104,14 @@ Comprehensive tests for all components including models and API endpoints.
 ## Testing
 
 ### Test Structure
+
 The tests are organized into two main classes:
+
 1. `TestUserModel`: Tests for the User model functionality
 2. `TestUserAPI`: Tests for the API endpoints
 
 ### Reusable Test Fixtures
+
 The following fixtures can be imported and used in other apps' tests:
 
 ```python
@@ -120,20 +127,25 @@ auth_headers         # Headers with JWT token for authentication
 ```
 
 ### Running Tests
+
 ```bash
 # Run all core tests
-pytest core/tests.py
+make test core/tests/
+
+# Run specific test file
+uv run pytest core/tests/test_user.py
 
 # Run specific test class
-pytest core/tests.py::TestUserModel
-pytest core/tests.py::TestUserAPI
+uv run pytest core/tests/test_user.py::TestUserModel
 
 # Run specific test
-pytest core/tests.py::TestUserModel::test_create_user
+uv run pytest core/tests/test_user.py::TestUserModel::test_create_user
 ```
 
 ### Test Coverage
+
 The tests cover:
+
 - User creation and validation
 - Password handling
 - Email uniqueness
@@ -147,6 +159,7 @@ The tests cover:
 ## Development
 
 ### Creating a New User
+
 ```python
 from django.contrib.auth import get_user_model
 
@@ -172,6 +185,7 @@ admin = User.objects.create_superuser(
 ```
 
 ### Using the Base Model
+
 ```python
 from core.models import AbstractBaseModel
 
@@ -186,7 +200,9 @@ class YourModel(AbstractBaseModel):
 ## Configuration
 
 ### JWT Settings
+
 JWT settings can be configured in `settings.py`:
+
 ```python
 NINJA_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=5),
@@ -194,4 +210,4 @@ NINJA_JWT = {
     "ALGORITHM": "HS256",
     # ... other settings
 }
-``` 
+```

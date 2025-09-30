@@ -1,49 +1,123 @@
-# Setup
+# Setup Guide
 
-Here I want to document my processes for setting up the project.
+This document outlines the development setup process for the Django Ninja Boilerplate project.
 
-1. Create the project directory
+## Quick Setup
+
+Use the automated setup script for the fastest start:
+
 ```bash
-mkdir django-ninja-boilerplate
+./scripts/setup.sh
 ```
 
-2. Create the virtual environment
+Or use make commands:
+
 ```bash
-python -m venv env
+make setup
 ```
 
-3. Activate the virtual environment
+## Manual Setup Process
+
+### 1. Clone and Navigate
+
 ```bash
+git clone https://github.com/mattjaikaran/django-ninja-boilerplate
+cd django-ninja-boilerplate
+```
+
+### 2. Environment Setup
+
+```bash
+# Create environment file
+cp env.example .env
+
+# Edit .env with your database and secret key settings
+```
+
+### 3. Install Dependencies
+
+Using uv (recommended):
+
+```bash
+# Install uv if needed
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Install dependencies
+uv sync --dev
+```
+
+Using traditional Python virtual environment:
+
+```bash
+# Create virtual environment
+python3 -m venv env
+
+# Activate virtual environment
 # On macOS and Linux:
 source env/bin/activate
+# On Windows:
+# env\Scripts\activate
+
+# Install dependencies with uv
+uv sync --dev
 ```
 
-On Windows:
-env\Scripts\activate
+### 4. Database Setup
 
-4. Install the dependencies
 ```bash
-pip install -r requirements.txt
+# Using make commands (recommended)
+make db-setup
+
+# Or manually:
+uv run python manage.py migrate
+uv run python manage.py create_superuser
 ```
 
-5. Create the project
+### 5. Generate Secret Key
+
 ```bash
-django-admin startproject api .
-# this is going to create a new directory called api with the asgi, settings, urls, wsgi files
-# if it were not for the dot at the end, it would create a new directory called api with the project inside it 
-# ie - django-ninja-boilerplate/api/api
+./scripts/generate_secret_key.sh --update-env
 ```
 
-6. Create the core app
+### 6. Start Development Server
+
 ```bash
-python manage.py startapp core
+# Using Docker (recommended)
+make up
+
+# Or locally
+make runserver
 ```
 
-7. Create the todos app
+## Creating New Apps
+
+Use the extended startapp command that includes Django Ninja structure:
+
 ```bash
-python manage.py startapp todos
+make startapp <app_name>
 ```
 
+This creates an app with the proper folder structure including:
 
+- controllers/ for API endpoints
+- schemas/ for Pydantic models
+- admin/ for Django admin
+- tests/ with factory-based testing
 
+## Available Make Commands
 
+See all available commands:
+
+```bash
+make help
+```
+
+Common commands:
+
+- `make up` - Start development environment
+- `make down` - Stop development environment
+- `make test` - Run tests
+- `make lint` - Check code quality
+- `make format` - Format code
+- `make migrate` - Run database migrations
+- `make shell` - Open Django shell

@@ -7,7 +7,7 @@ This Django Ninja boilerplate now includes a powerful CLI system for generating 
 ### Generate a Payments Feature with Stripe
 
 ```bash
-python manage.py generate_feature payments --provider stripe --platform-type b2c
+uv run python manage.py generate_feature payments --provider stripe --platform-type b2c
 ```
 
 This creates a complete payments app with:
@@ -22,7 +22,7 @@ This creates a complete payments app with:
 ### Generate Redis Cache Integration
 
 ```bash
-python manage.py generate_feature redis --minimal
+uv run python manage.py generate_feature redis --minimal
 ```
 
 This creates:
@@ -36,7 +36,7 @@ This creates:
 ### Generate RBAC (Role-Based Access Control)
 
 ```bash
-python manage.py generate_feature rbac --platform-type b2b
+uv run python manage.py generate_feature rbac --platform-type b2b
 ```
 
 This creates:
@@ -57,13 +57,13 @@ This creates:
 
 ```bash
 # Full Stripe integration with subscriptions and webhooks
-python manage.py generate_feature payments --provider stripe
+uv run python manage.py generate_feature payments --provider stripe
 
 # Minimal payments without subscriptions
-python manage.py generate_feature payments --provider stripe --no-subscriptions --minimal
+uv run python manage.py generate_feature payments --provider stripe --no-subscriptions --minimal
 
 # B2B marketplace with PayPal
-python manage.py generate_feature payments --provider paypal --platform-type marketplace
+uv run python manage.py generate_feature payments --provider paypal --platform-type marketplace
 ```
 
 ### Redis Integration
@@ -75,10 +75,10 @@ python manage.py generate_feature payments --provider paypal --platform-type mar
 
 ```bash
 # Full Redis integration
-python manage.py generate_feature redis
+uv run python manage.py generate_feature redis
 
 # Minimal cache-only version
-python manage.py generate_feature redis --minimal
+uv run python manage.py generate_feature redis --minimal
 ```
 
 ### RBAC (Role-Based Access Control)
@@ -90,10 +90,10 @@ python manage.py generate_feature redis --minimal
 
 ```bash
 # Full RBAC for B2B platform
-python manage.py generate_feature rbac --platform-type b2b
+uv run python manage.py generate_feature rbac --platform-type b2b
 
 # Minimal RBAC for simple apps
-python manage.py generate_feature rbac --minimal
+uv run python manage.py generate_feature rbac --minimal
 ```
 
 ### Organizations & Teams
@@ -104,10 +104,10 @@ python manage.py generate_feature rbac --minimal
 
 ```bash
 # Organization management for B2B
-python manage.py generate_feature organization --platform-type b2b
+uv run python manage.py generate_feature organization --platform-type b2b
 
 # Team management
-python manage.py generate_feature team --platform-type saas
+uv run python manage.py generate_feature team --platform-type saas
 ```
 
 ### Other Features
@@ -167,7 +167,7 @@ Choose specific providers for external services:
 Override the default app name:
 
 ```bash
-python manage.py generate_feature payments --app-name billing
+uv run python manage.py generate_feature payments --app-name billing
 ```
 
 ## Generated Structure
@@ -248,45 +248,45 @@ default_email_service.send_templated_email(
 
 ```bash
 # Generate payments with Stripe
-python manage.py generate_feature payments --provider stripe --platform-type marketplace
+uv run python manage.py generate_feature payments --provider stripe --platform-type marketplace
 
 # Add organization management
-python manage.py generate_feature organization --platform-type marketplace
+uv run python manage.py generate_feature organization --platform-type marketplace
 
 # Add RBAC for vendor permissions
-python manage.py generate_feature rbac --platform-type marketplace
+uv run python manage.py generate_feature rbac --platform-type marketplace
 
 # Add Redis for caching and sessions
-python manage.py generate_feature redis
+uv run python manage.py generate_feature redis
 ```
 
 ### SaaS Application Setup
 
 ```bash
 # Generate subscription management
-python manage.py generate_feature subscription --provider stripe --platform-type saas
+uv run python manage.py generate_feature subscription --provider stripe --platform-type saas
 
 # Add team management
-python manage.py generate_feature team --platform-type saas
+uv run python manage.py generate_feature team --platform-type saas
 
 # Add notification system
-python manage.py generate_feature notification
+uv run python manage.py generate_feature notification
 
 # Add analytics tracking
-python manage.py generate_feature analytics
+uv run python manage.py generate_feature analytics
 ```
 
 ### Simple API Setup
 
 ```bash
 # Basic Redis caching
-python manage.py generate_feature redis --minimal
+uv run python manage.py generate_feature redis --minimal
 
 # Simple RBAC
-python manage.py generate_feature rbac --minimal
+uv run python manage.py generate_feature rbac --minimal
 
 # File storage
-python manage.py generate_feature file_storage --provider local --minimal
+uv run python manage.py generate_feature file_storage --provider local --minimal
 ```
 
 ## Best Practices

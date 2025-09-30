@@ -1,19 +1,19 @@
 # Django Ninja Boilerplate
 
-A comprehensive, production-ready Django boilerplate using Django Ninja for building modern APIs. This enhanced version includes advanced authentication (magic links + traditional), monitoring, caching, health checks, email services, and rapid feature generators for scalable API development.
+A production-ready Django boilerplate built with Django Ninja for creating modern REST APIs. This project provides everything you need to quickly build scalable APIs with authentication, caching, monitoring, and automated feature generation.
 
-## ✨ Key Enhancements
+## What's Included
 
-🚀 **Complete Authentication System** - Traditional login/register + passwordless magic links  
-📧 **Advanced Email Service** - Template-based emails with multiple backends  
-⚡ **Comprehensive Caching** - Multi-layer caching with decorators  
-📊 **Monitoring & Metrics** - Performance tracking and system health monitoring  
-🏥 **Health Check System** - Kubernetes-ready health endpoints  
-🛠️ **Feature Generators** - Rapid scaffolding for new API endpoints  
-🔧 **Advanced Utilities** - Validation, formatting, HTTP helpers  
-🎯 **Production Ready** - Error handling, logging, security features
+This boilerplate gives you a solid foundation with:
 
-👉 **[See complete feature documentation →](FEATURES.md)**
+- **Authentication System** - JWT-based auth with both traditional login and passwordless magic links
+- **Email Service** - Template-based email system with multiple backend support
+- **Caching Layer** - Redis integration with decorators for easy caching
+- **Monitoring Tools** - Performance tracking and health check endpoints
+- **Feature Generators** - CLI tools to quickly scaffold new features like payments, RBAC, teams
+- **Testing Setup** - Factory-based testing with pytest (no mocks needed)
+- **Developer Tools** - Comprehensive Makefile, code formatting, linting with Ruff
+- **Production Ready** - Docker setup, error handling, logging, and security configurations
 
 ## Project Structure
 
@@ -52,13 +52,13 @@ Each app follows a robust structure that separates concerns:
 
 ## Technologies
 
-- Python 3.11+
+- Python 3.12+
 - [Django 5.2](https://docs.djangoproject.com/en/5.2/)
 - [Django Ninja](https://django-ninja.dev/)
-- [Django Ninja Extra](https://eadwincode.github.io/django-ninja-extra/) a collection of extra features for Django Ninja
+- [Django Ninja Extra](https://eadwincode.github.io/django-ninja-extra/) - collection of extra features for Django Ninja
 - [Django Ninja JWT](https://eadwincode.github.io/django-ninja-jwt/)
   - [Django Simple JWT](https://django-rest-framework-simplejwt.readthedocs.io/en/latest/) abstraction for Django Ninja
-- [Postgres](https://www.postgresql.org/docs/) database
+- [PostgreSQL](https://www.postgresql.org/docs/) database
 - [Pydantic](https://docs.pydantic.dev/latest/)
 - [Django Unfold Admin](https://unfoldadmin.com/)
   - [Unfold Docs](https://github.com/unfoldadmin/django-unfold)
@@ -67,16 +67,16 @@ Each app follows a robust structure that separates concerns:
 - pytest for testing
 - Gunicorn for production serving
 
-#### Dev Tools & Features
+#### Development Tools & Features
 
-- Makefile to run commands
+- Makefile for command automation
 - PyTest for comprehensive testing
 - [uv](https://docs.astral.sh/uv/) for fast package management
-- Custom Start App command to create a new app
-  - with extended functionality for Django Ninja, Django Ninja Extra, and Django Unfold
+- Custom Start App command to create new apps
+  - Extended functionality for Django Ninja, Django Ninja Extra, and Django Unfold
   - `make startapp <app_name>`
-- [Faker](https://faker.readthedocs.io/en/master/) for generating fake data.
-  - See `@/core/management/commands/generate_core_data.py` for more information
+- [Faker](https://faker.readthedocs.io/en/master/) for generating fake data
+  - See `core/management/commands/generate_core_data.py` for more information
 - [Swagger](https://swagger.io/) for API documentation
   - [Localhost Docs](http://localhost:8000/api/docs)
 - [Debug Toolbar](https://django-debug-toolbar.readthedocs.io/en/latest) for debugging
@@ -85,7 +85,6 @@ Each app follows a robust structure that separates concerns:
   - [Ruff](https://docs.astral.sh/ruff/) - Fast Python linter and formatter (replaces Black, isort, Flake8)
   - Configuration in `pyproject.toml`
   - Run with `make lint` or `make format`
-  - Legacy script available at `@/scripts/lint.sh`
 
 ## Quick Start with Docker (Optimized for OrbStack)
 
@@ -142,7 +141,7 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 uv sync --dev
 
 # Create environment file and update with your settings
-touch .env
+cp env.example .env
 
 # Setup database and create superuser
 make db-setup
@@ -154,7 +153,7 @@ make db-setup
 make runserver
 ```
 
-### Traditional Setup (Legacy)
+### Alternative Setup (Without Docker)
 
 ```bash
 git clone https://github.com/mattjaikaran/django-ninja-boilerplate
@@ -164,21 +163,21 @@ cd django-ninja-boilerplate
 python3 -m venv env
 source env/bin/activate
 
-# Install dependencies (Note: requirements.txt is deprecated)
-pip3 install -e .
+# Install dependencies with uv
+uv sync --dev
 
 # Create environment file and update with your settings
-touch .env
+cp env.example .env
 
 # Apply migrations and create superuser
-python3 manage.py migrate
-python3 manage.py create_superuser
+uv run python manage.py migrate
+uv run python manage.py create_superuser
 
 # Generate secret key
 ./scripts/generate_secret_key.sh
 
 # Run the development server
-python3 manage.py runserver
+uv run python manage.py runserver
 ```
 
 ## Commands
@@ -199,21 +198,23 @@ $ make runserver
 
 ### Install a library
 
-This runs `uv add <library-name>` and updates pyproject.toml
+Add new dependencies using uv:
 
 ```bash
-$ make install <library-name>
-# example
-# make install django-ninja-jwt
+# Add production dependency
+make add PACKAGE=django-ninja-jwt
+
+# Add development dependency
+make add-dev PACKAGE=pytest-django
 ```
 
 ### Sync dependencies
 
-Install all dependencies from pyproject.toml
+Install all dependencies from pyproject.toml:
 
 ```bash
-$ make sync      # Production dependencies only
-$ make sync-dev  # Include development dependencies
+make sync      # Production dependencies only
+make sync-dev  # Include development dependencies
 ```
 
 ### Drop DB, Create DB, Migrate, Create Superuser via db-setup script
@@ -224,30 +225,41 @@ $ make db-setup
 
 ## Why Django Ninja?
 
-- [Django Ninja Docs](https://django-ninja.dev/)
+Django Ninja brings modern API development to Django with:
 
-Django Ninja is a newer framework that can run on Django 5.0, built in OpenAPI/Swagger/ReDoc, has async support, and uses Pydantic. It almost has a FastAPI vibe with some Django features.
+- **Modern Python** - Full type hints and Pydantic integration
+- **Automatic Documentation** - Built-in OpenAPI/Swagger docs at `/api/docs`
+- **FastAPI-like DX** - Familiar syntax if you've used FastAPI
+- **Django Integration** - Works seamlessly with Django's ORM, auth, and ecosystem
+- **Async Support** - Handle async views and database operations
+- **Performance** - Fast request/response cycle with automatic serialization
 
-By following this approach, the front-end can easily consume the JSON data from these endpoints. The API will be self-documenting and you can view the OpenAPI (Swagger) documentation by navigating to `/api/docs` in your browser.
+### Django Ninja Extra
 
-### Why Django Ninja Extra?
+[Django Ninja Extra](https://eadwincode.github.io/django-ninja-extra/) adds class-based controllers and additional features:
 
-- [Django Ninja Extra Docs](https://eadwincode.github.io/django-ninja-extra/)
+- **Class-based Controllers** - Organize related endpoints together
+- **Permissions & Auth** - Built-in authentication and permission decorators
+- **Dependency Injection** - Clean separation of concerns
+- **Advanced Routing** - More flexible URL patterns
 
-When building Django apps, I am mostly familiar with a class-based views architecture and ninja-extra makes the transition from DRF to ninja a little easier. There are permissions and dependency injection included.
+### API Serialization
 
-### Django Ninja Serialization
+Unlike Django REST Framework, Django Ninja uses:
 
-- Django Ninja uses Pydantic models (Schemas) for serialization, not Django serializers like in DRF.
-- The response parameter in the route decorator specifies the expected response format.
-- Use from_orm() to convert Django ORM objects to Pydantic models.
-- Django Ninja automatically handles the conversion to JSON in the HTTP response.
+- **Pydantic Models** for request/response schemas instead of Django serializers
+- **Automatic Validation** - Request data is validated against Pydantic schemas
+- **Type Safety** - Full type checking throughout your API
+- **Auto Documentation** - Schemas automatically generate OpenAPI docs
 
-## Admin Panel
+## Admin Interface
 
-- [Django Unfold Docs](https://github.com/unfoldadmin/django-unfold)
+The project uses [Django Unfold](https://github.com/unfoldadmin/django-unfold) for a modern admin interface that:
 
-Django Unfold has one of the cleaniest designs for Django admin panels. Pretty easy to get set up and there is now support for certain libraries that broke the design (ie - django-import-export)
+- Provides a clean, contemporary design
+- Supports dark/light themes
+- Works with existing Django admin customizations
+- Integrates well with third-party packages
 
 ## Production Deployment
 
@@ -255,7 +267,8 @@ Django Unfold has one of the cleaniest designs for Django admin panels. Pretty e
 2. Build and run with Docker:
 
 ```bash
-docker-compose -f docker-compose.prod.yml up --build -d
+make prod-build
+make prod-up
 ```
 
 ## Testing (Factory-Based, No Mocks)
@@ -270,9 +283,9 @@ make test
 make test-coverage
 
 # Run specific test file
-uv run pytest path/to/test_file.py
+make test path/to/test_file.py
 
-# Run specific test class
+# Run specific test class (using uv directly)
 uv run pytest path/to/test_file.py::TestClassName
 
 # Run with verbose output
@@ -301,8 +314,7 @@ todo = TodoFactory(title="Custom Title", created_by=user)
 
 ## API Documentation
 
-- Swagger UI: `/api/docs`
-- ReDoc: `/api/redoc`
+- ReDoc: `/api/docs`
 
 ## Features
 
@@ -342,18 +354,16 @@ todo = TodoFactory(title="Custom Title", created_by=user)
 - **Volume Management**: Persistent data storage
 - **Log Management**: Centralized logging setup
 
-## Database
+## Database Management
 
 ```bash
-$ psql my_db # enter shell
-$ createdb --username=USERNAME my_db # create db
-$ dropdb my_db # drop db
+# Database operations through Docker
+make db-shell     # Enter PostgreSQL shell
+make db-backup    # Backup database
+make db-restore FILE=backup.sql  # Restore from backup
+
+# Direct PostgreSQL commands (if running locally)
+psql my_db # enter shell
+createdb --username=USERNAME my_db # create db
+dropdb my_db # drop db
 ```
-
-## Contributing
-
-1. Fork the repository
-2. Create your feature branch
-3. Commit your changes
-4. Push to the branch
-5. Create a Pull Request
