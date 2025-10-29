@@ -10,7 +10,7 @@ from django.shortcuts import get_object_or_404
 from ninja_extra import api_controller, http_post
 from ninja_jwt.tokens import RefreshToken
 
-from api.decorators import create_endpoint, handle_exceptions, log_api_call
+from api.decorators import handle_exceptions, log_api_call
 from core.models import OneTimePassword
 from core.schemas import (
     PasswordlessLoginRequest,
@@ -28,7 +28,8 @@ logger = logging.getLogger(__name__)
 @api_controller("/auth", tags=["Auth"])
 class AuthController:
     @http_post("/signup", response={201: UserSchema, 400: dict})
-    @create_endpoint(require_auth=False)
+    @handle_exceptions()
+    @log_api_call(include_payload=True)
     def signup(self, data: UserSignupSchema):
         """Create a new user account."""
         # Check if username exists
@@ -59,7 +60,8 @@ class AuthController:
         return 201, UserSchema.from_orm(user)
 
     @http_post("/login", response={200: dict, 400: dict})
-    @create_endpoint(require_auth=False)
+    @handle_exceptions()
+    @log_api_call(include_payload=True)
     def login(self, data: UserLoginSchema):
         """Authenticate user and return tokens."""
         user = authenticate(username=data.username, password=data.password)
@@ -77,7 +79,7 @@ class AuthController:
         }
 
     @http_post("/passwordless/login/request", response={200: dict})
-    @handle_exceptions
+    @handle_exceptions()
     @log_api_call()
     def request_passwordless_login(self, payload: PasswordlessLoginRequest):
         """Request passwordless login magic link."""
@@ -120,7 +122,7 @@ class AuthController:
         return 200, {"detail": "If registered, you'll receive a magic link"}
 
     @http_post("/passwordless/login/verify", response={200: dict})
-    @handle_exceptions
+    @handle_exceptions()
     @log_api_call()
     def verify_passwordless_login(self, payload: PasswordlessLoginVerify):
         """Verify passwordless login token and return JWT tokens."""
