@@ -45,22 +45,25 @@ logs-redis: ## Show logs for the redis service
 
 # Django management commands
 shell: ## Open Django shell
-	$(DOCKER_COMPOSE) exec $(DJANGO_SERVICE) python manage.py shell
+	$(DOCKER_COMPOSE) exec $(DJANGO_SERVICE) $(UV) run python manage.py shell
 
 shell-plus: ## Open Django shell with shell_plus (if available)
-	$(DOCKER_COMPOSE) exec $(DJANGO_SERVICE) python manage.py shell_plus
+	$(DOCKER_COMPOSE) exec $(DJANGO_SERVICE) $(UV) run python manage.py shell_plus
 
 migrate: ## Run Django migrations
-	$(DOCKER_COMPOSE) exec $(DJANGO_SERVICE) python manage.py migrate
+	$(DOCKER_COMPOSE) exec $(DJANGO_SERVICE) $(UV) run python manage.py migrate
 
 makemigrations: ## Create Django migrations
-	$(DOCKER_COMPOSE) exec $(DJANGO_SERVICE) python manage.py makemigrations
+	$(DOCKER_COMPOSE) exec $(DJANGO_SERVICE) $(UV) run python manage.py makemigrations
 
-createsuperuser: ## Create Django superuser
-	$(DOCKER_COMPOSE) exec $(DJANGO_SERVICE) python manage.py createsuperuser
+createsuperuser: ## Create Django superuser with default command
+	$(DOCKER_COMPOSE) exec $(DJANGO_SERVICE) $(UV) run python manage.py createsuperuser
+
+create-superuser: ## Create Django superuser with custom command located in core/management/commands/create_superuser.py
+	$(DOCKER_COMPOSE) exec $(DJANGO_SERVICE) $(UV) run python manage.py create_superuser
 
 collectstatic: ## Collect static files
-	$(DOCKER_COMPOSE) exec $(DJANGO_SERVICE) python manage.py collectstatic --noinput
+	$(DOCKER_COMPOSE) exec $(DJANGO_SERVICE) $(UV) run python manage.py collectstatic --noinput
 
 # Database commands
 db-shell: ## Open database shell
@@ -168,7 +171,7 @@ run-server: ## Run Django development server with UV
 
 # Data management
 flush-db: ## Flush database
-	$(DOCKER_COMPOSE) exec $(DJANGO_SERVICE) python manage.py flush --noinput
+	$(DOCKER_COMPOSE) exec $(DJANGO_SERVICE) $(UV) run python manage.py flush --noinput
 
 reset-migrations: ## Reset all migrations (DANGEROUS!)
 	@echo "This will delete all migration files. Are you sure? (y/N)"
@@ -178,10 +181,10 @@ reset-migrations: ## Reset all migrations (DANGEROUS!)
 	$(MAKE) makemigrations
 
 seed-data: ## Load seed data
-	$(DOCKER_COMPOSE) exec $(DJANGO_SERVICE) python manage.py generate_core_data
+	$(DOCKER_COMPOSE) exec $(DJANGO_SERVICE) $(UV) run python manage.py generate_core_data
 
 create-fixtures: ## Create fixtures from current data
-	$(DOCKER_COMPOSE) exec $(DJANGO_SERVICE) python manage.py dumpdata --indent=2 > fixtures/current_data.json
+	$(DOCKER_COMPOSE) exec $(DJANGO_SERVICE) $(UV) run python manage.py dumpdata --indent=2 > fixtures/current_data.json
 
 # Monitoring
 monitor: ## Open monitoring dashboard

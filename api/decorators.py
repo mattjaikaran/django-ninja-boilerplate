@@ -1,7 +1,6 @@
 """Simple decorator system for the django-ninja-boilerplate API.
 
-This module provides decorators for error handling, logging, and validation
-following the music-app conventions.
+This module provides decorators for error handling, logging, and validation.
 """
 
 import functools

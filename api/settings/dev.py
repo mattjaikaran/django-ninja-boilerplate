@@ -40,13 +40,13 @@ CORS_ALLOW_HEADERS = [
 ]
 
 # Override database to use SQLite for development if no PostgreSQL
-if env("USE_SQLITE_DEV", default=False) or not env("DB_HOST", default=""):
-    DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.sqlite3",
-            "NAME": BASE_DIR / "db.sqlite3",
-        }
-    }
+# if env("USE_SQLITE_DEV", default=False) or not env("DB_HOST", default=""):
+#     DATABASES = {
+#         "default": {
+#             "ENGINE": "django.db.backends.sqlite3",
+#             "NAME": BASE_DIR / "db.sqlite3",
+#         }
+#     }
 
 # Add debug toolbar and extensions for development
 # INSTALLED_APPS += [

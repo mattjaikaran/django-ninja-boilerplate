@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 @api_controller("/todos", tags=["Todos"])
 class TodoController:
     @paginate
-    @http_get("/", response=list[TodoSchema])
+    @http_get("/", response={200: list[TodoSchema], 500: dict})
     @handle_exceptions()
     @log_api_call()
     def list_todos(
@@ -27,6 +27,9 @@ class TodoController:
         ordering: str | None = None,
     ):
         """List todos with advanced filtering, search and pagination.
+
+        Returns:
+            list[TodoSchema]: List of todos
 
         Args:
             search: Search in title, description
@@ -64,17 +67,16 @@ class TodoController:
             if ordering in valid_orderings:
                 queryset = queryset.order_by(ordering)
 
-        return queryset
+        return 200, queryset
 
-    @http_get("/{todo_id}", response=TodoSchema)
+    @http_get("/{todo_id}", response={200: TodoSchema, 404: dict, 500: dict})
     @handle_exceptions()
     @log_api_call()
     def get_todo(self, request, todo_id: str):
         """Get a specific todo by ID for the authenticated user."""
-        todo = get_object_or_404(
+        return 200, get_object_or_404(
             Todo.objects.select_related("user"), id=todo_id, user=request.user
         )
-        return todo
 
     @http_post("/", response={201: TodoSchema, 400: dict, 500: dict})
     @log_api_call(include_payload=True, include_response=False)
@@ -82,7 +84,6 @@ class TodoController:
     @validate_request()
     def create_todo(self, request, payload: CreateTodoSchema):
         """Create a new todo for the authenticated user."""
-        # Create the todo
         todo_data = payload.model_dump()
         todo_data["user"] = request.user
         todo = Todo.objects.create(**todo_data)
@@ -91,7 +92,7 @@ class TodoController:
 
         return 201, todo
 
-    @http_put("/{todo_id}", response=TodoSchema)
+    @http_put("/{todo_id}", response={200: TodoSchema, 404: dict, 500: dict})
     @log_api_call(include_payload=True)
     @handle_exceptions()
     def update_todo(self, request, todo_id: str, payload: UpdateTodoSchema):
@@ -102,9 +103,9 @@ class TodoController:
             setattr(todo, attr, value)
         todo.save()
 
-        return todo
+        return 200, todo
 
-    @http_delete("/{todo_id}", response={204: None})
+    @http_delete("/{todo_id}", response={204: None, 404: dict, 500: dict})
     @handle_exceptions()
     @log_api_call()
     def delete_todo(self, request, todo_id: str):
@@ -114,7 +115,7 @@ class TodoController:
         return 204, None
 
     @paginate
-    @http_get("/completed", response=list[TodoSchema])
+    @http_get("/completed", response={200: list[TodoSchema], 400: dict, 500: dict})
     @handle_exceptions()
     @log_api_call()
     def list_completed_todos(self, request):
@@ -122,10 +123,10 @@ class TodoController:
         queryset = Todo.objects.filter(user=request.user, completed=True).order_by(
             "-updated_at"
         )
-        return queryset
+        return 200, queryset
 
     @paginate
-    @http_get("/pending", response=list[TodoSchema])
+    @http_get("/pending", response={200: list[TodoSchema], 400: dict, 500: dict})
     @handle_exceptions()
     @log_api_call()
     def list_pending_todos(self, request):
@@ -133,10 +134,10 @@ class TodoController:
         queryset = Todo.objects.filter(user=request.user, completed=False).order_by(
             "-created_at"
         )
-        return queryset
+        return 200, queryset
 
     @paginate
-    @http_get("/search", response=list[TodoSchema])
+    @http_get("/search", response={200: list[TodoSchema], 400: dict, 500: dict})
     @handle_exceptions()
     @log_api_call()
     def search_todos(
@@ -160,4 +161,4 @@ class TodoController:
         if completed is not None:
             queryset = queryset.filter(completed=completed)
 
-        return queryset.order_by("-created_at")
+        return 200, queryset.order_by("-created_at")

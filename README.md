@@ -156,12 +156,12 @@ make runserver
 ### Alternative Setup (Without Docker)
 
 ```bash
-git clone https://github.com/mattjaikaran/django-ninja-boilerplate
-cd django-ninja-boilerplate
+git clone <repository_url>
+cd <project_name>
 
 # Create and activate virtual environment
-python3 -m venv env
-source env/bin/activate
+uv venv .venv
+source .venv/bin/activate
 
 # Install dependencies with uv
 uv sync --dev
@@ -170,8 +170,9 @@ uv sync --dev
 cp env.example .env
 
 # Apply migrations and create superuser
-uv run python manage.py migrate
-uv run python manage.py create_superuser
+uv run python manage.py migrate # OR make migrate
+uv run python manage.py createsuperuser # OR make createsuperuser
+uv run python manage.py create_superuser # OR make create-superuser
 
 # Generate secret key
 ./scripts/generate_secret_key.sh
