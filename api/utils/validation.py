@@ -1,12 +1,54 @@
 """Validation utilities."""
 
 import re
+from dataclasses import dataclass, field
 from typing import Any
 
 # Constants for validation
 MIN_PHONE_DIGITS = 10
 MAX_PHONE_DIGITS = 15
 MIN_PASSWORD_LENGTH = 8
+
+
+@dataclass
+class ValidationResult:
+    """Result of validation operations."""
+
+    is_valid: bool = True
+    errors: list[str] = field(default_factory=list)
+    field_errors: dict[str, list[str]] = field(default_factory=dict)
+    warnings: list[str] = field(default_factory=list)
+
+    def add_error(self, message: str, field: str | None = None) -> None:
+        """Add an error to the result."""
+        self.is_valid = False
+        if field:
+            if field not in self.field_errors:
+                self.field_errors[field] = []
+            self.field_errors[field].append(message)
+        else:
+            self.errors.append(message)
+
+    def add_warning(self, message: str) -> None:
+        """Add a warning to the result."""
+        self.warnings.append(message)
+
+
+def create_error_response(validation_result: ValidationResult) -> dict[str, Any]:
+    """Create an error response from validation result.
+
+    Args:
+        validation_result: The validation result
+
+    Returns:
+        Dictionary suitable for API error response
+    """
+    return {
+        "error": "Validation failed",
+        "errors": validation_result.errors,
+        "field_errors": validation_result.field_errors,
+        "warnings": validation_result.warnings,
+    }
 
 
 def validate_email(email: str) -> bool:

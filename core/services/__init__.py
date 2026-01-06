@@ -1,5 +1,11 @@
-"""Core services package."""
+"""Core services package.
 
-from .email import default_email_service
+This module exports all service classes for the core app.
+"""
 
-__all__ = ["default_email_service"]
+from core.services.base_service import BaseService, CRUDService
+
+__all__ = [
+    "BaseService",
+    "CRUDService",
+]
