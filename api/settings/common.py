@@ -19,18 +19,43 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent
 env = environ.Env(
     # Set casting and default values
     DEBUG=(bool, False),
+    ENVIRONMENT=(str, "development"),
     SECRET_KEY=(str, ""),
     ALLOWED_HOSTS=(list, []),
+    # Database
     DB_NAME=(str, ""),
     DB_USER=(str, ""),
     DB_PASSWORD=(str, ""),
     DB_HOST=(str, ""),
     DB_PORT=(str, ""),
     DB_URL=(str, ""),
+    # Redis
+    REDIS_URL=(str, "redis://redis:6379/0"),
+    # Celery
+    CELERY_BROKER_URL=(str, "redis://redis:6379/0"),
+    CELERY_RESULT_BACKEND=(str, "redis://redis:6379/0"),
+    # Superuser defaults
+    SUPERUSER_EMAIL=(str, "admin@example.com"),
+    SUPERUSER_USERNAME=(str, "admin"),
+    SUPERUSER_PASSWORD=(str, "Password123!"),
+    SUPERUSER_FIRST_NAME=(str, "Admin"),
+    SUPERUSER_LAST_NAME=(str, "User"),
+    # Stripe (optional)
+    STRIPE_PUBLISHABLE_KEY=(str, ""),
+    STRIPE_SECRET_KEY=(str, ""),
+    STRIPE_WEBHOOK_SECRET=(str, ""),
+    # AWS S3 (optional)
+    AWS_ACCESS_KEY_ID=(str, ""),
+    AWS_SECRET_ACCESS_KEY=(str, ""),
+    AWS_STORAGE_BUCKET_NAME=(str, ""),
+    AWS_S3_REGION_NAME=(str, "us-east-1"),
 )
 
 # Read .env file
 environ.Env.read_env(os.path.join(BASE_DIR, ".env"))
+
+# Environment setting
+ENVIRONMENT = env("ENVIRONMENT", default="development")
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = env("SECRET_KEY")
@@ -75,6 +100,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",  # security middleware
+    "django.middleware.gzip.GZipMiddleware",  # Performance: Response compression
     "django.contrib.sessions.middleware.SessionMiddleware",  # session middleware
     "corsheaders.middleware.CorsMiddleware",  # django-cors-headers
     "django.middleware.common.CommonMiddleware",  # common middleware
@@ -83,6 +109,9 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",  # message middleware
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
+
+# Performance: Compress responses larger than 1KB
+GZIP_MIN_LENGTH = 1024
 
 ROOT_URLCONF = "api.urls"
 
@@ -108,12 +137,20 @@ WSGI_APPLICATION = "api.wsgi.application"  # wsgi application
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 DATABASES = {
     "default": {
-        "ENGINE": "django.db.backends.postgresql",  # postgresql database
-        "NAME": env("DB_NAME"),  # database name
-        "USER": env("DB_USER"),  # database user
-        "PASSWORD": env("DB_PASSWORD"),  # database password
-        "HOST": env("DB_HOST"),  # database host
-        "PORT": env("DB_PORT"),  # database port
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": env("DB_NAME"),
+        "USER": env("DB_USER"),
+        "PASSWORD": env("DB_PASSWORD"),
+        "HOST": env("DB_HOST"),
+        "PORT": env("DB_PORT"),
+        # Performance: Connection pooling (keep connections alive for 10 minutes)
+        "CONN_MAX_AGE": 600,
+        "OPTIONS": {
+            # Performance: Connection timeout
+            "connect_timeout": 10,
+            # Performance: Query timeout (30 seconds)
+            "options": "-c statement_timeout=30000",
+        },
     }
 }
 
@@ -189,9 +226,22 @@ USE_TZ = True  # use tz
 STATIC_URL = "static/"
 STATIC_ROOT = "static/"
 
-# Media files
-# MEDIA_URL = "media/"
-# MEDIA_ROOT = BASE_DIR / "media"
+# Media files configuration
+if ENVIRONMENT == "production" and env("AWS_STORAGE_BUCKET_NAME", default=""):
+    # S3 Storage for production
+    DEFAULT_FILE_STORAGE = "storages.backends.s3boto3.S3Boto3Storage"
+    AWS_ACCESS_KEY_ID = env("AWS_ACCESS_KEY_ID")
+    AWS_SECRET_ACCESS_KEY = env("AWS_SECRET_ACCESS_KEY")
+    AWS_STORAGE_BUCKET_NAME = env("AWS_STORAGE_BUCKET_NAME")
+    AWS_S3_REGION_NAME = env("AWS_S3_REGION_NAME", default="us-east-1")
+    AWS_S3_CUSTOM_DOMAIN = f"{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com"
+    AWS_S3_OBJECT_PARAMETERS = {"CacheControl": "max-age=86400"}
+    AWS_DEFAULT_ACL = "public-read"
+    MEDIA_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/media/"
+else:
+    # Local storage for development
+    MEDIA_URL = "/media/"
+    MEDIA_ROOT = BASE_DIR / "media"
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
@@ -251,3 +301,85 @@ LOGGING = {
         },
     },
 }
+
+# =============================================================================
+# Redis & Caching Configuration
+# =============================================================================
+REDIS_URL = env("REDIS_URL", default="redis://redis:6379/0")
+
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.redis.RedisCache",
+        "LOCATION": REDIS_URL,
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+        },
+        "KEY_PREFIX": "boilerplate",
+    }
+}
+
+# Session configuration (use cache backend for performance)
+SESSION_ENGINE = "django.contrib.sessions.backends.cache"
+SESSION_CACHE_ALIAS = "default"
+
+# =============================================================================
+# Celery Configuration
+# =============================================================================
+CELERY_BROKER_URL = env("CELERY_BROKER_URL", default="redis://redis:6379/0")
+CELERY_RESULT_BACKEND = env("CELERY_RESULT_BACKEND", default="redis://redis:6379/0")
+CELERY_ACCEPT_CONTENT = ["json"]
+CELERY_TASK_SERIALIZER = "json"
+CELERY_RESULT_SERIALIZER = "json"
+CELERY_TIMEZONE = TIME_ZONE
+CELERY_TASK_TRACK_STARTED = True
+CELERY_TASK_TIME_LIMIT = 30 * 60  # 30 minutes
+CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
+
+# =============================================================================
+# Payment Integration (Stripe)
+# =============================================================================
+STRIPE_PUBLISHABLE_KEY = env("STRIPE_PUBLISHABLE_KEY", default="")
+STRIPE_SECRET_KEY = env("STRIPE_SECRET_KEY", default="")
+STRIPE_WEBHOOK_SECRET = env("STRIPE_WEBHOOK_SECRET", default="")
+
+# =============================================================================
+# Security Settings
+# =============================================================================
+SECURE_BROWSER_XSS_FILTER = True
+SECURE_CONTENT_TYPE_NOSNIFF = True
+X_FRAME_OPTIONS = "DENY"
+
+# Production security settings (enabled when not in DEBUG mode)
+# Note: These should be configured in prod.py for production environment
+# SECURE_SSL_REDIRECT = True
+# SECURE_HSTS_SECONDS = 31536000  # 1 year
+# SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+# SECURE_HSTS_PRELOAD = True
+# SESSION_COOKIE_SECURE = True
+# CSRF_COOKIE_SECURE = True
+
+# =============================================================================
+# Email Configuration
+# =============================================================================
+EMAIL_BACKEND = env(
+    "EMAIL_BACKEND",
+    default="django.core.mail.backends.console.EmailBackend",
+)
+EMAIL_HOST = env("EMAIL_HOST", default="")
+EMAIL_PORT = env.int("EMAIL_PORT", default=587)
+EMAIL_USE_TLS = env.bool("EMAIL_USE_TLS", default=True)
+EMAIL_HOST_USER = env("EMAIL_HOST_USER", default="")
+EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD", default="")
+DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="noreply@example.com")
+
+# =============================================================================
+# Admin Configuration
+# =============================================================================
+ADMIN_SITE_HEADER = env("ADMIN_SITE_HEADER", default="Django Ninja Boilerplate Admin")
+ADMIN_SITE_TITLE = env("ADMIN_SITE_TITLE", default="Django Ninja Boilerplate Panel")
+ADMIN_INDEX_TITLE = env(
+    "ADMIN_INDEX_TITLE",
+    default="Welcome to Django Ninja Boilerplate Panel",
+)
+ADMIN_SITE_URL = "/api/docs"
+ADMIN_VIEW_SITE_NAME = "View Docs"

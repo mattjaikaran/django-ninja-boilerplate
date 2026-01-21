@@ -82,6 +82,22 @@ redis-cli: ## Open Redis CLI
 redis-flush: ## Flush Redis cache
 	$(DOCKER_COMPOSE) exec $(REDIS_SERVICE) redis-cli FLUSHALL
 
+# Celery commands
+celery-worker: ## Start Celery worker
+	$(DOCKER_COMPOSE) exec $(DJANGO_SERVICE) $(UV) run celery -A api worker -l info
+
+celery-beat: ## Start Celery beat scheduler
+	$(DOCKER_COMPOSE) exec $(DJANGO_SERVICE) $(UV) run celery -A api beat -l info
+
+celery-flower: ## Start Flower monitoring (Celery dashboard)
+	$(DOCKER_COMPOSE) exec $(DJANGO_SERVICE) $(UV) run celery -A api flower --port=5555
+
+celery-inspect: ## Inspect active Celery tasks
+	$(DOCKER_COMPOSE) exec $(DJANGO_SERVICE) $(UV) run celery -A api inspect active
+
+celery-purge: ## Purge all Celery tasks
+	$(DOCKER_COMPOSE) exec $(DJANGO_SERVICE) $(UV) run celery -A api purge -f
+
 # Package Management with UV
 install: ## Install dependencies with UV
 	$(UV) pip install -e .
@@ -180,11 +196,42 @@ reset-migrations: ## Reset all migrations (DANGEROUS!)
 	find . -path "*/migrations/*.pyc" -delete
 	$(MAKE) makemigrations
 
-seed-data: ## Load seed data
+seed-data: ## Load comprehensive seed data
+	$(DOCKER_COMPOSE) exec $(DJANGO_SERVICE) $(UV) run python manage.py seed_data
+
+seed-data-full: ## Load comprehensive seed data with higher counts
+	$(DOCKER_COMPOSE) exec $(DJANGO_SERVICE) $(UV) run python manage.py seed_data --full
+
+seed-data-clear: ## Clear and reload all seed data
+	$(DOCKER_COMPOSE) exec $(DJANGO_SERVICE) $(UV) run python manage.py seed_data --clear
+
+seed-core: ## Load core seed data only (legacy)
 	$(DOCKER_COMPOSE) exec $(DJANGO_SERVICE) $(UV) run python manage.py generate_core_data
 
 create-fixtures: ## Create fixtures from current data
 	$(DOCKER_COMPOSE) exec $(DJANGO_SERVICE) $(UV) run python manage.py dumpdata --indent=2 > fixtures/current_data.json
+
+# Database dump/restore commands
+db-dump: ## Create a database dump
+	$(DOCKER_COMPOSE) exec $(DJANGO_SERVICE) $(UV) run python manage.py db_dump dump
+
+db-dump-data: ## Create a data-only database dump
+	$(DOCKER_COMPOSE) exec $(DJANGO_SERVICE) $(UV) run python manage.py db_dump dump --data-only
+
+db-dump-schema: ## Create a schema-only database dump
+	$(DOCKER_COMPOSE) exec $(DJANGO_SERVICE) $(UV) run python manage.py db_dump dump --schema-only
+
+db-dump-compressed: ## Create a compressed database dump
+	$(DOCKER_COMPOSE) exec $(DJANGO_SERVICE) $(UV) run python manage.py db_dump dump --compress
+
+db-restore: ## Restore database from dump (usage: make db-restore FILE=docker/postgres/dumps/dump.sql)
+	$(DOCKER_COMPOSE) exec $(DJANGO_SERVICE) $(UV) run python manage.py db_dump restore $(FILE)
+
+db-list-dumps: ## List available database dumps
+	$(DOCKER_COMPOSE) exec $(DJANGO_SERVICE) $(UV) run python manage.py db_dump list
+
+db-clean-dumps: ## Clean old database dumps, keeping 5 most recent
+	$(DOCKER_COMPOSE) exec $(DJANGO_SERVICE) $(UV) run python manage.py db_dump clean --keep 5
 
 # Monitoring
 monitor: ## Open monitoring dashboard
@@ -225,3 +272,61 @@ check: ## Run all checks (lint, format-check, test)
 fix: ## Fix all auto-fixable issues
 	$(MAKE) lint-fix
 	$(MAKE) format
+
+# App generation commands
+startapp: ## Create a new Django app with extended structure (usage: make startapp APP=myapp)
+	$(DOCKER_COMPOSE) exec $(DJANGO_SERVICE) $(UV) run python manage.py startapp_extended $(APP)
+
+generate-feature: ## Generate a feature module (usage: make generate-feature FEATURE=payments PROVIDER=stripe)
+	$(DOCKER_COMPOSE) exec $(DJANGO_SERVICE) $(UV) run python manage.py generate_feature $(FEATURE) $(if $(PROVIDER),--provider $(PROVIDER),) $(if $(PLATFORM),--platform-type $(PLATFORM),)
+
+# Data generation
+generate-data: ## Generate sample data for development
+	$(DOCKER_COMPOSE) exec $(DJANGO_SERVICE) $(UV) run python manage.py generate_core_data
+
+generate-todos: ## Generate sample todo data
+	$(DOCKER_COMPOSE) exec $(DJANGO_SERVICE) $(UV) run python manage.py generate_todos_data
+
+# Security commands
+security-check: ## Run security checks
+	$(DOCKER_COMPOSE) exec $(DJANGO_SERVICE) $(UV) run python manage.py check --deploy
+
+# Export/Import commands
+export-data: ## Export all data to fixtures (usage: make export-data APP=core)
+	$(DOCKER_COMPOSE) exec $(DJANGO_SERVICE) $(UV) run python manage.py dumpdata $(APP) --indent=2 > fixtures/$(APP)_data.json
+
+import-data: ## Import data from fixture (usage: make import-data FILE=fixtures/data.json)
+	$(DOCKER_COMPOSE) exec $(DJANGO_SERVICE) $(UV) run python manage.py loaddata $(FILE)
+
+# Shell commands
+ipython: ## Open IPython shell
+	$(DOCKER_COMPOSE) exec $(DJANGO_SERVICE) $(UV) run python manage.py shell_plus --ipython
+
+# Shortcuts for local development (without Docker)
+local-run: ## Run Django dev server locally
+	$(UV) run python manage.py runserver
+
+local-migrate: ## Run migrations locally
+	$(UV) run python manage.py migrate
+
+local-makemigrations: ## Create migrations locally
+	$(UV) run python manage.py makemigrations
+
+local-shell: ## Open Django shell locally
+	$(UV) run python manage.py shell
+
+local-test: ## Run tests locally
+	$(UV) run pytest
+
+local-lint: ## Run linting locally
+	$(UV) run ruff check .
+
+local-format: ## Format code locally
+	$(UV) run ruff format .
+
+local-celery: ## Start Celery worker locally
+	$(UV) run celery -A api worker -l info
+
+# Docker shortcuts
+exec: ## Execute a command in Django container (usage: make exec CMD="python manage.py showmigrations")
+	$(DOCKER_COMPOSE) exec $(DJANGO_SERVICE) $(UV) run $(CMD)

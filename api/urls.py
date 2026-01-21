@@ -6,7 +6,7 @@ from ninja_extra import NinjaExtraAPI
 from ninja_jwt.controller import NinjaJWTDefaultController
 
 from api.healthcheck import HealthCheckController
-from core.controllers import AuthController, UserController
+from core.controllers import AuthController, OTPController, UserController
 from todos.controllers import TodoController
 
 # admin site settings
@@ -51,7 +51,8 @@ api.register_controllers(
     HealthCheckController,  # Health Check Controller
     # core app
     UserController,  # User Controller
-    AuthController,  # Auth Controller
+    AuthController,  # Auth Controller (email/password + magic links)
+    OTPController,  # OTP Controller (6-digit codes for mobile/iOS apps)
     # todos app
     TodoController,  # Todo Controller
     # Add more controllers here
