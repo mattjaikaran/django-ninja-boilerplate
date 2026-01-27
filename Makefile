@@ -1,13 +1,17 @@
 # Makefile for Django Ninja Boilerplate with UV Package Management
 
-.PHONY: help build up down logs shell migrate createsuperuser test lint format clean install sync
+.PHONY: help build up down logs shell migrate createsuperuser test lint format clean install sync doctor
 
 # Variables
 DOCKER_COMPOSE = docker-compose
 DOCKER_COMPOSE_PROD = docker-compose -f docker-compose.prod.yml
+DOCKER_COMPOSE_SINGLE = docker-compose -f docker-compose.single.yml
 DJANGO_SERVICE = django
 DB_SERVICE = db
 REDIS_SERVICE = redis
+CELERY_WORKER_SERVICE = celery-worker
+CELERY_BEAT_SERVICE = celery-beat
+FLOWER_SERVICE = flower
 UV = uv
 
 # Default target
@@ -25,8 +29,20 @@ up: ## Start the development environment
 up-build: ## Build and start the development environment
 	$(DOCKER_COMPOSE) up -d --build
 
+up-celery: ## Start with Celery workers (db, redis, django, celery-worker, celery-beat)
+	$(DOCKER_COMPOSE) --profile celery up -d
+
+up-monitoring: ## Start with monitoring tools (includes Flower)
+	$(DOCKER_COMPOSE) --profile monitoring up -d
+
+up-full: ## Start all services including Celery and monitoring
+	$(DOCKER_COMPOSE) --profile celery --profile monitoring up -d
+
 down: ## Stop the development environment
 	$(DOCKER_COMPOSE) down
+
+down-full: ## Stop all services including profiled services
+	$(DOCKER_COMPOSE) --profile celery --profile monitoring down
 
 down-volumes: ## Stop the development environment and remove volumes
 	$(DOCKER_COMPOSE) down -v
@@ -149,7 +165,7 @@ pre-commit: ## Run pre-commit hooks
 prod-build: ## Build production images
 	$(DOCKER_COMPOSE_PROD) build
 
-prod-up: ## Start production environment
+prod-up: ## Start production environment (split services)
 	$(DOCKER_COMPOSE_PROD) up -d
 
 prod-down: ## Stop production environment
@@ -157,6 +173,19 @@ prod-down: ## Stop production environment
 
 prod-logs: ## Show production logs
 	$(DOCKER_COMPOSE_PROD) logs -f
+
+# Single-container production (for PaaS/simpler deployments)
+single-build: ## Build single-container production image
+	$(DOCKER_COMPOSE_SINGLE) build
+
+single-up: ## Start single-container production environment
+	$(DOCKER_COMPOSE_SINGLE) up -d
+
+single-down: ## Stop single-container production environment
+	$(DOCKER_COMPOSE_SINGLE) down
+
+single-logs: ## Show single-container logs
+	$(DOCKER_COMPOSE_SINGLE) logs -f
 
 # Utility commands
 clean: ## Clean up Docker resources
@@ -177,6 +206,9 @@ restart-django: ## Restart django service
 health: ## Check service health
 	@echo "Checking service health..."
 	@curl -f http://localhost:8000/api/health/ || echo "Web service not responding"
+
+doctor: ## Validate development environment (Python, Docker, ports, config)
+	@./scripts/doctor.sh
 
 # Development tools
 shell-uv: ## Open UV shell with project dependencies
@@ -240,28 +272,33 @@ monitor: ## Open monitoring dashboard
 	@echo "API Docs: http://localhost:8000/api/docs"
 
 # Setup commands
-setup: ## Initial setup for development
-	@echo "Setting up development environment..."
-	$(MAKE) setup-env
-	$(MAKE) build
-	$(MAKE) up
-	@echo "Waiting for services to start..."
-	@sleep 10
-	$(MAKE) migrate
-	$(MAKE) seed-data
-	@echo "Setup complete! Visit http://localhost:8000"
+setup: ## One-command project bootstrap (runs doctor, builds, migrates, seeds)
+	@echo "========================================"
+	@echo "  Django Ninja Stack - Setup"
+	@echo "========================================"
+	@./scripts/setup.sh --auto
+
+setup-interactive: ## Interactive setup with prompts
+	@./scripts/setup.sh
 
 setup-env: ## Create .env file from example
 	@if [ ! -f .env ]; then \
-		cp env.example .env 2>/dev/null || echo "# Django Ninja Boilerplate Environment Variables" > .env; \
+		if [ -f .env.example ]; then \
+			cp .env.example .env; \
+		elif [ -f env.example ]; then \
+			cp env.example .env; \
+		else \
+			cp .env.development .env 2>/dev/null || echo "# Django Ninja Boilerplate Environment Variables" > .env; \
+		fi; \
 		echo ".env file created"; \
-		echo "Please edit .env file with your configuration"; \
 	else \
 		echo ".env file already exists"; \
 	fi
 
-quick-setup: ## Quick setup without building
+quick-setup: ## Quick setup (up + migrate only, assumes .env exists)
 	$(MAKE) up
+	@echo "Waiting for services to start..."
+	@sleep 10
 	$(MAKE) migrate
 
 check: ## Run all checks (lint, format-check, test)

@@ -1,6 +1,17 @@
+# Django Ninja Stack - Docker Compose Configuration
 # Optimized for OrbStack
+#
+# Usage:
+#   make up           - Start default services (db, redis, django)
+#   make up-celery    - Start with Celery workers
+#   make up-monitoring - Start with monitoring (Flower)
+#   make up-full      - Start all services
 
 services:
+  # ===========================================
+  # Core Services (always started)
+  # ===========================================
+
   # PostgreSQL 17 Database
   db:
     image: postgres:17-alpine
@@ -71,6 +82,87 @@ services:
         condition: service_healthy
     networks:
       - app-network
+
+  # ===========================================
+  # Celery Services (profile: celery)
+  # ===========================================
+
+  # Celery Worker
+  celery-worker:
+    build: .
+    command: celery -A api worker -l info --concurrency=2
+    volumes:
+      - .:/app
+    environment:
+      - DJANGO_SETTINGS_MODULE=${DJANGO_SETTINGS_MODULE:-api.settings}
+      - DEBUG=${DEBUG:-1}
+      - SECRET_KEY=${SECRET_KEY:-your-secret-key-here-change-in-production}
+      - DB_NAME=${DB_NAME:-boilerplate_db}
+      - DB_USER=${DB_USER:-postgres}
+      - DB_PASSWORD=${DB_PASSWORD:-postgres}
+      - DB_HOST=${DB_HOST:-db}
+      - DB_PORT=${DB_PORT:-5432}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379/0}
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - app-network
+    profiles:
+      - celery
+
+  # Celery Beat Scheduler
+  celery-beat:
+    build: .
+    command: celery -A api beat -l info --scheduler django_celery_beat.schedulers:DatabaseScheduler
+    volumes:
+      - .:/app
+    environment:
+      - DJANGO_SETTINGS_MODULE=${DJANGO_SETTINGS_MODULE:-api.settings}
+      - DEBUG=${DEBUG:-1}
+      - SECRET_KEY=${SECRET_KEY:-your-secret-key-here-change-in-production}
+      - DB_NAME=${DB_NAME:-boilerplate_db}
+      - DB_USER=${DB_USER:-postgres}
+      - DB_PASSWORD=${DB_PASSWORD:-postgres}
+      - DB_HOST=${DB_HOST:-db}
+      - DB_PORT=${DB_PORT:-5432}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379/0}
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      celery-worker:
+        condition: service_started
+    networks:
+      - app-network
+    profiles:
+      - celery
+
+  # ===========================================
+  # Monitoring Services (profile: monitoring)
+  # ===========================================
+
+  # Flower - Celery Monitoring Dashboard
+  flower:
+    build: .
+    command: celery -A api flower --port=5555 --broker=${REDIS_URL:-redis://redis:6379/0}
+    ports:
+      - "5555:5555"
+    environment:
+      - DJANGO_SETTINGS_MODULE=${DJANGO_SETTINGS_MODULE:-api.settings}
+      - SECRET_KEY=${SECRET_KEY:-your-secret-key-here-change-in-production}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379/0}
+      - FLOWER_BASIC_AUTH=${FLOWER_BASIC_AUTH:-admin:admin}
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - app-network
+    profiles:
+      - monitoring
 
 networks:
   app-network:

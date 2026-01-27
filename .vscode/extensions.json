@@ -1,0 +1,44 @@
+{
+    "recommendations": [
+        // Essential Python Development
+        "ms-python.python",
+        "ms-python.debugpy",
+        "charliermarsh.ruff",
+
+        // Django Support
+        "batisteo.vscode-django",
+
+        // Docker Support
+        "ms-azuretools.vscode-docker",
+
+        // Code Formatting
+        "esbenp.prettier-vscode",
+
+        // Git Enhancement
+        "eamodio.gitlens",
+        "github.vscode-github-actions",
+
+        // Environment Files
+        "mikestead.dotenv",
+
+        // YAML/TOML Support
+        "redhat.vscode-yaml",
+        "tamasfe.even-better-toml",
+
+        // REST Client (API testing)
+        "humao.rest-client",
+
+        // Database
+        "cweijan.vscode-database-client2",
+
+        // Productivity
+        "streetsidesoftware.code-spell-checker",
+        "usernamehw.errorlens"
+    ],
+    "unwantedRecommendations": [
+        "ms-python.pylint",
+        "ms-python.flake8",
+        "ms-python.black-formatter",
+        "ms-python.isort"
+    ]
+}

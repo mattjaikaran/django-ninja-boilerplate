@@ -1,18 +1,81 @@
 #!/bin/bash
 
-# Enhanced development environment setup script for Django Ninja Boilerplate
-# This script sets up the complete development environment with UV package management
+# Django Ninja Stack - Development Environment Setup
+# One-command project bootstrap with auto mode support
+#
+# Usage:
+#   ./scripts/setup.sh          # Interactive mode
+#   ./scripts/setup.sh --auto   # Fully automated (for CI/CD)
+#   make setup                  # Runs with --auto
 
 set -e  # Exit on any error
+
+# ===========================================
+# Configuration
+# ===========================================
 
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
+CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
-# Function to print colored output
+# Parse arguments
+AUTO_MODE=false
+SKIP_DOCKER=false
+SKIP_SEED=false
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --auto|-a)
+            AUTO_MODE=true
+            shift
+            ;;
+        --skip-docker)
+            SKIP_DOCKER=true
+            shift
+            ;;
+        --skip-seed)
+            SKIP_SEED=true
+            shift
+            ;;
+        --help|-h)
+            echo "Django Ninja Stack - Setup Script"
+            echo ""
+            echo "Usage: ./scripts/setup.sh [OPTIONS]"
+            echo ""
+            echo "Options:"
+            echo "  --auto, -a      Run in auto mode (no prompts)"
+            echo "  --skip-docker   Skip Docker build and start"
+            echo "  --skip-seed     Skip seeding sample data"
+            echo "  --help, -h      Show this help message"
+            exit 0
+            ;;
+        *)
+            echo "Unknown option: $1"
+            exit 1
+            ;;
+    esac
+done
+
+# ===========================================
+# Print Functions
+# ===========================================
+
+print_header() {
+    echo ""
+    echo -e "${CYAN}========================================${NC}"
+    echo -e "${CYAN}  $1${NC}"
+    echo -e "${CYAN}========================================${NC}"
+    echo ""
+}
+
+print_step() {
+    echo -e "${BLUE}[STEP]${NC} $1"
+}
+
 print_info() {
     echo -e "${BLUE}[INFO]${NC} $1"
 }
@@ -29,241 +92,368 @@ print_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
-# Function to check if command exists
+# ===========================================
+# Utility Functions
+# ===========================================
+
 command_exists() {
     command -v "$1" >/dev/null 2>&1
 }
 
-# Function to check system requirements
-check_requirements() {
-    print_info "Checking system requirements..."
-    
-    # Check for Docker
-    if ! command_exists docker; then
-        print_error "Docker is not installed. Please install Docker first."
-        exit 1
+generate_secret_key() {
+    # Generate a Django-compatible secret key
+    if command_exists python3; then
+        python3 -c "import secrets; print(secrets.token_urlsafe(50))"
+    elif command_exists openssl; then
+        openssl rand -base64 50 | tr -d '\n/+=' | head -c 50
+    else
+        # Fallback to urandom
+        cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 50 | head -n 1
     fi
-    
-    # Check for Docker Compose
-    if ! command_exists docker-compose; then
-        print_error "Docker Compose is not installed. Please install Docker Compose first."
-        exit 1
-    fi
-    
-    # Check for UV
-    if ! command_exists uv; then
-        print_warning "UV is not installed. Installing UV..."
-        curl -LsSf https://astral.sh/uv/install.sh | sh
-        export PATH="$HOME/.cargo/bin:$PATH"
-        if ! command_exists uv; then
-            print_error "Failed to install UV. Please install it manually."
-            exit 1
-        fi
-    fi
-    
-    # Check for Make
-    if ! command_exists make; then
-        print_error "Make is not installed. Please install make first."
-        exit 1
-    fi
-    
-    print_success "All requirements are satisfied!"
 }
 
-# Function to setup environment file
-setup_env_file() {
-    print_info "Setting up environment file..."
-    
-    if [ ! -f .env ]; then
-        cat > .env << EOF
-# Django Ninja Boilerplate Environment Variables
+wait_for_service() {
+    local service=$1
+    local max_attempts=${2:-30}
+    local attempt=1
 
-# Django Settings
-SECRET_KEY=your-secret-key-here-change-in-production
+    while [ $attempt -le $max_attempts ]; do
+        if docker-compose ps "$service" 2>/dev/null | grep -q "Up"; then
+            return 0
+        fi
+        sleep 1
+        ((attempt++))
+    done
+    return 1
+}
+
+wait_for_healthy() {
+    local service=$1
+    local max_attempts=${2:-60}
+    local attempt=1
+
+    print_info "Waiting for $service to be healthy..."
+    while [ $attempt -le $max_attempts ]; do
+        if docker-compose ps "$service" 2>/dev/null | grep -q "healthy"; then
+            return 0
+        fi
+        printf "."
+        sleep 2
+        ((attempt++))
+    done
+    echo ""
+    return 1
+}
+
+# ===========================================
+# Validation
+# ===========================================
+
+check_requirements() {
+    print_step "Checking system requirements..."
+
+    local has_errors=false
+
+    # Check Docker
+    if ! command_exists docker; then
+        print_error "Docker is not installed"
+        print_info "Install from: https://www.docker.com/get-started"
+        has_errors=true
+    elif ! docker info >/dev/null 2>&1; then
+        print_error "Docker is not running"
+        print_info "Please start Docker Desktop or the Docker daemon"
+        has_errors=true
+    else
+        print_success "Docker is running"
+    fi
+
+    # Check Docker Compose
+    if command_exists docker-compose; then
+        print_success "Docker Compose available"
+    elif docker compose version >/dev/null 2>&1; then
+        print_success "Docker Compose available (plugin)"
+    else
+        print_error "Docker Compose not found"
+        has_errors=true
+    fi
+
+    # Check UV (optional but recommended)
+    if command_exists uv; then
+        print_success "UV package manager available"
+    else
+        print_warning "UV not installed (optional for local development)"
+        print_info "Install with: curl -LsSf https://astral.sh/uv/install.sh | sh"
+    fi
+
+    # Check Make (optional)
+    if command_exists make; then
+        print_success "Make available"
+    else
+        print_warning "Make not installed (optional)"
+    fi
+
+    if [ "$has_errors" = true ]; then
+        print_error "Please fix the above issues and try again"
+        exit 1
+    fi
+
+    print_success "All required tools are available"
+}
+
+# ===========================================
+# Environment Setup
+# ===========================================
+
+setup_env_file() {
+    print_step "Setting up environment file..."
+
+    if [ -f .env ]; then
+        print_info ".env file already exists"
+
+        # Check if SECRET_KEY needs to be generated
+        if grep -q "^SECRET_KEY=your-secret-key" .env 2>/dev/null || \
+           grep -q "^SECRET_KEY=development-secret-key" .env 2>/dev/null || \
+           grep -q "^SECRET_KEY=$" .env 2>/dev/null; then
+            print_info "Generating new SECRET_KEY..."
+            NEW_SECRET=$(generate_secret_key)
+
+            # Use sed to replace the SECRET_KEY line
+            if [[ "$OSTYPE" == "darwin"* ]]; then
+                sed -i '' "s|^SECRET_KEY=.*|SECRET_KEY=$NEW_SECRET|" .env
+            else
+                sed -i "s|^SECRET_KEY=.*|SECRET_KEY=$NEW_SECRET|" .env
+            fi
+            print_success "SECRET_KEY generated"
+        fi
+    else
+        print_info "Creating .env file..."
+
+        # Copy from .env.development or .env.example
+        if [ -f .env.development ]; then
+            cp .env.development .env
+            print_info "Copied from .env.development"
+        elif [ -f .env.example ]; then
+            cp .env.example .env
+            print_info "Copied from .env.example"
+        else
+            # Create minimal .env
+            cat > .env << 'EOF'
+# Django Ninja Stack - Environment Variables
 DEBUG=1
 DJANGO_SETTINGS_MODULE=api.settings
+SECRET_KEY=PLACEHOLDER
+ALLOWED_HOSTS=localhost,127.0.0.1,0.0.0.0,django
 
-# Database Settings
+# Database
 DB_NAME=boilerplate_db
 DB_USER=postgres
 DB_PASSWORD=postgres
 DB_HOST=db
 DB_PORT=5432
 
-# Redis Settings
+# Redis
 REDIS_URL=redis://redis:6379/0
 
-# Frontend URL
+# Frontend
 FRONTEND_URL=http://localhost:3000
-
-# Allowed Hosts (comma-separated)
-ALLOWED_HOSTS=localhost,127.0.0.1,0.0.0.0,django
-
-# CORS Settings
-CORS_ALLOWED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
-
-# CSRF Settings
-CSRF_TRUSTED_ORIGINS=http://localhost:8000,http://127.0.0.1:8000
-
-# Email Settings (for production)
-EMAIL_HOST=
-EMAIL_PORT=587
-EMAIL_USE_TLS=True
-EMAIL_HOST_USER=
-EMAIL_HOST_PASSWORD=
-DEFAULT_FROM_EMAIL=
-
-# Superuser Settings (for automatic creation)
-DJANGO_SUPERUSER_EMAIL=admin@example.com
-DJANGO_SUPERUSER_PASSWORD=admin123
 EOF
-        print_success "Created .env file with default settings"
-        print_warning "Please edit .env file with your configuration before continuing."
-        print_info "Key settings to configure:"
-        echo "  - SECRET_KEY (generate a new one for production)"
-        echo "  - Database credentials"
-        echo "  - Email configuration"
-        echo "  - Superuser credentials"
-    else
-        print_info ".env file already exists. Skipping creation."
-    fi
-}
-
-# Function to setup Python environment
-setup_python_env() {
-    print_info "Setting up Python environment with UV..."
-    
-    # Install project dependencies
-    uv pip install -e .
-    
-    # Install development dependencies
-    uv pip install -e ".[dev]"
-    
-    print_success "Python environment setup complete!"
-}
-
-# Function to setup pre-commit hooks
-setup_pre_commit() {
-    print_info "Setting up pre-commit hooks..."
-    
-    if command_exists pre-commit; then
-        # Create pre-commit config if it doesn't exist
-        if [ ! -f .pre-commit-config.yaml ]; then
-            cat > .pre-commit-config.yaml << EOF
-repos:
-  - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.7.0
-    hooks:
-      - id: ruff
-        args: [--fix]
-      - id: ruff-format
-  - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.4.0
-    hooks:
-      - id: trailing-whitespace
-      - id: end-of-file-fixer
-      - id: check-yaml
-      - id: check-added-large-files
-      - id: check-merge-conflict
-EOF
+            print_info "Created minimal .env file"
         fi
-        
-        uv run pre-commit install
-        print_success "Pre-commit hooks installed!"
-    else
-        print_warning "Pre-commit not available. Install it with: uv add --dev pre-commit"
+
+        # Generate SECRET_KEY
+        print_info "Generating SECRET_KEY..."
+        NEW_SECRET=$(generate_secret_key)
+        if [[ "$OSTYPE" == "darwin"* ]]; then
+            sed -i '' "s|^SECRET_KEY=.*|SECRET_KEY=$NEW_SECRET|" .env
+        else
+            sed -i "s|^SECRET_KEY=.*|SECRET_KEY=$NEW_SECRET|" .env
+        fi
+        print_success ".env file created with generated SECRET_KEY"
     fi
 }
 
-# Function to build and start services
-setup_docker_services() {
-    print_info "Building and starting Docker services..."
-    
-    # Build images
+# ===========================================
+# Docker Setup
+# ===========================================
+
+setup_docker() {
+    if [ "$SKIP_DOCKER" = true ]; then
+        print_info "Skipping Docker setup (--skip-docker)"
+        return
+    fi
+
+    print_step "Building Docker images..."
     docker-compose build
-    
-    # Start services in detached mode
+
+    print_step "Starting Docker services..."
     docker-compose up -d
-    
-    # Wait for services to be ready
-    print_info "Waiting for services to start..."
-    sleep 15
-    
-    # Check if services are running
-    if docker-compose ps | grep -q "Up"; then
-        print_success "Docker services are running!"
-    else
-        print_error "Some services failed to start. Check with: docker-compose logs"
+
+    # Wait for database to be healthy
+    if ! wait_for_healthy "db" 60; then
+        print_error "Database failed to start"
+        print_info "Check logs with: docker-compose logs db"
         exit 1
     fi
+    print_success "Database is healthy"
+
+    # Wait for Redis to be healthy
+    if ! wait_for_healthy "redis" 30; then
+        print_error "Redis failed to start"
+        print_info "Check logs with: docker-compose logs redis"
+        exit 1
+    fi
+    print_success "Redis is healthy"
+
+    # Wait for Django to start
+    print_info "Waiting for Django to start..."
+    sleep 5
+
+    print_success "Docker services are running"
 }
 
-# Function to setup database
+# ===========================================
+# Database Setup
+# ===========================================
+
 setup_database() {
-    print_info "Setting up database..."
-    
+    print_step "Running database migrations..."
+
     # Run migrations
-    docker-compose exec django python manage.py migrate
-    
+    docker-compose exec -T django uv run python manage.py migrate --noinput
+    print_success "Migrations completed"
+
+    # Collect static files
+    print_step "Collecting static files..."
+    docker-compose exec -T django uv run python manage.py collectstatic --noinput
+    print_success "Static files collected"
+}
+
+# ===========================================
+# Seed Data
+# ===========================================
+
+seed_data() {
+    if [ "$SKIP_SEED" = true ]; then
+        print_info "Skipping data seeding (--skip-seed)"
+        return
+    fi
+
+    print_step "Seeding sample data..."
+
     # Generate core data
-    docker-compose exec django python manage.py generate_core_data
-    
-    # Create superuser if in interactive mode
-    if [ -t 0 ]; then
-        print_info "Creating superuser account..."
-        docker-compose exec django python manage.py create_superuser
-    fi
-    
-    print_success "Database setup complete!"
-}
-
-# Function to verify installation
-verify_installation() {
-    print_info "Verifying installation..."
-    
-    # Check web server
-    if curl -f http://localhost:8000/api/health/ >/dev/null 2>&1; then
-        print_success "Web server is responding!"
+    if docker-compose exec -T django uv run python manage.py generate_core_data 2>/dev/null; then
+        print_success "Core data generated"
     else
-        print_warning "Web server is not responding. Check logs with: make logs-django"
+        print_warning "generate_core_data command not available, skipping"
     fi
-    
-    print_success "Installation verification complete!"
+
+    # Create superuser if in auto mode
+    if [ "$AUTO_MODE" = true ]; then
+        print_step "Creating superuser..."
+        if docker-compose exec -T django uv run python manage.py create_superuser 2>/dev/null; then
+            print_success "Superuser created (check .env for credentials)"
+        else
+            print_warning "create_superuser command not available"
+            print_info "Create manually with: make createsuperuser"
+        fi
+    else
+        # Interactive mode - ask user
+        echo ""
+        read -p "Would you like to create a superuser? (y/N) " -n 1 -r
+        echo ""
+        if [[ $REPLY =~ ^[Yy]$ ]]; then
+            docker-compose exec django uv run python manage.py createsuperuser
+        fi
+    fi
 }
 
-# Function to display final information
-show_final_info() {
-    print_success "Development environment setup complete!"
+# ===========================================
+# Verification
+# ===========================================
+
+verify_setup() {
+    print_step "Verifying setup..."
+
+    # Check Django health endpoint
+    local max_attempts=10
+    local attempt=1
+
+    while [ $attempt -le $max_attempts ]; do
+        if curl -sf http://localhost:8000/api/health/ >/dev/null 2>&1; then
+            print_success "Django API is responding"
+            return 0
+        fi
+        sleep 2
+        ((attempt++))
+    done
+
+    print_warning "Django API not responding yet (may still be starting)"
+    print_info "Check logs with: make logs-django"
+}
+
+# ===========================================
+# Final Summary
+# ===========================================
+
+show_summary() {
+    print_header "Setup Complete!"
+
+    echo "Your development environment is ready."
     echo ""
     echo "Available URLs:"
-    echo "  📋 Django Admin: http://localhost:8000/admin"
-    echo "  📖 API Documentation: http://localhost:8000/api/docs"
-    echo "  🏥 Health Check: http://localhost:8000/api/health/"
+    echo -e "  ${GREEN}API Documentation:${NC}  http://localhost:8000/api/docs"
+    echo -e "  ${GREEN}Django Admin:${NC}       http://localhost:8000/admin"
+    echo -e "  ${GREEN}Health Check:${NC}       http://localhost:8000/api/health/"
     echo ""
     echo "Useful commands:"
-    echo "  make help              - Show all available commands"
-    echo "  make logs              - View all service logs"
-    echo "  make shell             - Open Django shell"
-    echo "  make test              - Run tests"
-    echo "  make lint              - Run code linting"
-    echo "  make format            - Format code"
+    echo -e "  ${CYAN}make up${NC}              Start services"
+    echo -e "  ${CYAN}make down${NC}            Stop services"
+    echo -e "  ${CYAN}make logs${NC}            View logs"
+    echo -e "  ${CYAN}make shell${NC}           Django shell"
+    echo -e "  ${CYAN}make test${NC}            Run tests"
+    echo -e "  ${CYAN}make doctor${NC}          Check environment"
     echo ""
-    echo "Happy coding! 🚀"
+    echo "For Celery workers:"
+    echo -e "  ${CYAN}make up-celery${NC}       Start with Celery"
+    echo -e "  ${CYAN}make up-full${NC}         Start all services"
+    echo ""
+
+    if [ "$AUTO_MODE" = true ]; then
+        echo "Superuser credentials (from .env):"
+        if [ -f .env ]; then
+            local email=$(grep "^SUPERUSER_EMAIL=" .env | cut -d'=' -f2)
+            local password=$(grep "^SUPERUSER_PASSWORD=" .env | cut -d'=' -f2)
+            if [ -n "$email" ] && [ -n "$password" ]; then
+                echo -e "  Email:    ${YELLOW}$email${NC}"
+                echo -e "  Password: ${YELLOW}$password${NC}"
+            fi
+        fi
+        echo ""
+    fi
+
+    echo -e "${GREEN}Happy coding!${NC}"
+    echo ""
 }
 
-# Main execution
+# ===========================================
+# Main Execution
+# ===========================================
+
 main() {
-    print_info "Starting Django Ninja Boilerplate development environment setup..."
-    
+    print_header "Django Ninja Stack - Setup"
+
+    if [ "$AUTO_MODE" = true ]; then
+        print_info "Running in auto mode (no prompts)"
+    fi
+
     check_requirements
     setup_env_file
-    setup_python_env
-    setup_pre_commit
-    setup_docker_services
+    setup_docker
     setup_database
-    verify_installation
-    show_final_info
+    seed_data
+    verify_setup
+    show_summary
 }
 
 # Run main function
-main "$@"
+main

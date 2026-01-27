@@ -2,6 +2,7 @@
 .env
 .env.*
 !.env.example
+!.env.development
 
 # Virtual Environments
 env/
@@ -105,7 +106,7 @@ $RECYCLE.BIN/
 *.lnk
 
 # IDE
-.vscode/
+# .vscode/ is committed for shared team settings
 .idea/
 *.swp
 *.swo

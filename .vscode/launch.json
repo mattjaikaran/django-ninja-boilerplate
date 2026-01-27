@@ -1,0 +1,93 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Django Server",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/manage.py",
+            "args": ["runserver", "--noreload", "0.0.0.0:8000"],
+            "django": true,
+            "env": {
+                "DJANGO_SETTINGS_MODULE": "api.settings",
+                "PYTHONPATH": "${workspaceFolder}",
+                "DEBUG": "1"
+            },
+            "console": "integratedTerminal",
+            "justMyCode": false
+        },
+        {
+            "name": "Django Tests",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "pytest",
+            "args": ["${workspaceFolder}", "-v", "--tb=short"],
+            "env": {
+                "DJANGO_SETTINGS_MODULE": "api.settings",
+                "PYTHONPATH": "${workspaceFolder}"
+            },
+            "console": "integratedTerminal",
+            "justMyCode": false
+        },
+        {
+            "name": "Current Test File",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "pytest",
+            "args": ["${file}", "-v", "-s"],
+            "env": {
+                "DJANGO_SETTINGS_MODULE": "api.settings",
+                "PYTHONPATH": "${workspaceFolder}"
+            },
+            "console": "integratedTerminal",
+            "justMyCode": false
+        },
+        {
+            "name": "Celery Worker",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "celery",
+            "args": ["-A", "api", "worker", "-l", "info", "--concurrency=1"],
+            "env": {
+                "DJANGO_SETTINGS_MODULE": "api.settings",
+                "PYTHONPATH": "${workspaceFolder}"
+            },
+            "console": "integratedTerminal",
+            "justMyCode": false
+        },
+        {
+            "name": "Django Shell",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/manage.py",
+            "args": ["shell"],
+            "django": true,
+            "env": {
+                "DJANGO_SETTINGS_MODULE": "api.settings",
+                "PYTHONPATH": "${workspaceFolder}"
+            },
+            "console": "integratedTerminal",
+            "justMyCode": false
+        },
+        {
+            "name": "Django Migrations",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/manage.py",
+            "args": ["migrate"],
+            "django": true,
+            "env": {
+                "DJANGO_SETTINGS_MODULE": "api.settings",
+                "PYTHONPATH": "${workspaceFolder}"
+            },
+            "console": "integratedTerminal"
+        }
+    ],
+    "compounds": [
+        {
+            "name": "Django + Celery",
+            "configurations": ["Django Server", "Celery Worker"],
+            "stopAll": true
+        }
+    ]
+}

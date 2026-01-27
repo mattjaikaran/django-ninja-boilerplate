@@ -1,0 +1,239 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Setup: Bootstrap Project",
+            "type": "shell",
+            "command": "make",
+            "args": ["setup"],
+            "group": "build",
+            "presentation": {
+                "reveal": "always",
+                "panel": "new"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Doctor: Check Environment",
+            "type": "shell",
+            "command": "make",
+            "args": ["doctor"],
+            "group": "build",
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Django: Run Server",
+            "type": "shell",
+            "command": "uv",
+            "args": ["run", "python", "manage.py", "runserver", "0.0.0.0:8000"],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "options": {
+                "env": {
+                    "DJANGO_SETTINGS_MODULE": "api.settings"
+                }
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "new"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Django: Migrate",
+            "type": "shell",
+            "command": "uv",
+            "args": ["run", "python", "manage.py", "migrate"],
+            "group": "build",
+            "options": {
+                "env": {
+                    "DJANGO_SETTINGS_MODULE": "api.settings"
+                }
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Django: Make Migrations",
+            "type": "shell",
+            "command": "uv",
+            "args": ["run", "python", "manage.py", "makemigrations"],
+            "group": "build",
+            "options": {
+                "env": {
+                    "DJANGO_SETTINGS_MODULE": "api.settings"
+                }
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Django: Shell",
+            "type": "shell",
+            "command": "uv",
+            "args": ["run", "python", "manage.py", "shell"],
+            "group": "build",
+            "options": {
+                "env": {
+                    "DJANGO_SETTINGS_MODULE": "api.settings"
+                }
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "new",
+                "focus": true
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Test: Run All",
+            "type": "shell",
+            "command": "uv",
+            "args": ["run", "pytest", "-v", "--tb=short"],
+            "group": {
+                "kind": "test",
+                "isDefault": true
+            },
+            "options": {
+                "env": {
+                    "DJANGO_SETTINGS_MODULE": "api.settings"
+                }
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Test: Run Current File",
+            "type": "shell",
+            "command": "uv",
+            "args": ["run", "pytest", "${file}", "-v", "-s"],
+            "group": "test",
+            "options": {
+                "env": {
+                    "DJANGO_SETTINGS_MODULE": "api.settings"
+                }
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Test: Run with Coverage",
+            "type": "shell",
+            "command": "uv",
+            "args": ["run", "pytest", "--cov=.", "--cov-report=html", "--cov-report=term-missing"],
+            "group": "test",
+            "options": {
+                "env": {
+                    "DJANGO_SETTINGS_MODULE": "api.settings"
+                }
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Lint: Check",
+            "type": "shell",
+            "command": "uv",
+            "args": ["run", "ruff", "check", "."],
+            "group": "build",
+            "problemMatcher": {
+                "owner": "ruff",
+                "fileLocation": ["relative", "${workspaceFolder}"],
+                "pattern": {
+                    "regexp": "^(.+):(\\d+):(\\d+): (\\w+) (.*)$",
+                    "file": 1,
+                    "line": 2,
+                    "column": 3,
+                    "code": 4,
+                    "message": 5
+                }
+            }
+        },
+        {
+            "label": "Lint: Fix",
+            "type": "shell",
+            "command": "uv",
+            "args": ["run", "ruff", "check", "--fix", "."],
+            "group": "build",
+            "problemMatcher": []
+        },
+        {
+            "label": "Format: Check",
+            "type": "shell",
+            "command": "uv",
+            "args": ["run", "ruff", "format", "--check", "."],
+            "group": "build",
+            "problemMatcher": []
+        },
+        {
+            "label": "Format: Apply",
+            "type": "shell",
+            "command": "uv",
+            "args": ["run", "ruff", "format", "."],
+            "group": "build",
+            "problemMatcher": []
+        },
+        {
+            "label": "Docker: Up",
+            "type": "shell",
+            "command": "make",
+            "args": ["up"],
+            "group": "build",
+            "problemMatcher": []
+        },
+        {
+            "label": "Docker: Up with Celery",
+            "type": "shell",
+            "command": "make",
+            "args": ["up-celery"],
+            "group": "build",
+            "problemMatcher": []
+        },
+        {
+            "label": "Docker: Up Full",
+            "type": "shell",
+            "command": "make",
+            "args": ["up-full"],
+            "group": "build",
+            "problemMatcher": []
+        },
+        {
+            "label": "Docker: Down",
+            "type": "shell",
+            "command": "make",
+            "args": ["down"],
+            "group": "build",
+            "problemMatcher": []
+        },
+        {
+            "label": "Docker: Logs",
+            "type": "shell",
+            "command": "make",
+            "args": ["logs"],
+            "group": "build",
+            "presentation": {
+                "reveal": "always",
+                "panel": "new"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Celery: Worker",
+            "type": "shell",
+            "command": "uv",
+            "args": ["run", "celery", "-A", "api", "worker", "-l", "info"],
+            "group": "build",
+            "options": {
+                "env": {
+                    "DJANGO_SETTINGS_MODULE": "api.settings"
+                }
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "new"
+            },
+            "problemMatcher": []
+        }
+    ]
+}
