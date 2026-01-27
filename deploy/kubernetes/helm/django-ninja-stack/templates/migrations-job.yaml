@@ -1,0 +1,52 @@
+{{- if .Values.migrations.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "django-ninja-stack.fullname" . }}-migrations
+  labels:
+    {{- include "django-ninja-stack.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": {{ .Values.migrations.hookWeight | quote }}
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  template:
+    metadata:
+      labels:
+        {{- include "django-ninja-stack.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: migrations
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "django-ninja-stack.serviceAccountName" . }}
+      restartPolicy: Never
+      containers:
+        - name: migrations
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["python", "manage.py", "migrate", "--noinput"]
+          env:
+            {{- range $key, $value := .Values.backend.env }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}
+            - name: SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.backend.secrets.secretKeyRef }}
+                  key: SECRET_KEY
+            - name: DATABASE_URL
+              value: {{ include "django-ninja-stack.databaseUrl" . | quote }}
+            - name: REDIS_URL
+              value: {{ include "django-ninja-stack.redisUrl" . | quote }}
+          resources:
+            limits:
+              cpu: 500m
+              memory: 512Mi
+            requests:
+              cpu: 100m
+              memory: 256Mi
+  backoffLimit: 3
+{{- end }}

@@ -8,10 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- CLI tool for project scaffolding (`create-django-ninja-stack`)
-- Monorepo support for fullstack projects (Django + React-Vite)
-- Deployment configurations for Railway, Render, and Kubernetes
-- Single-container production Dockerfile
+- Documentation updates and polish
 
 ## [0.9.0] - 2026-01-26
 
@@ -30,10 +27,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - VERSION file for semantic versioning
   - This CHANGELOG
 
+- **CLI Tool (`create-django-ninja-stack`)**
+  - Interactive project scaffolding with Typer + Rich
+  - Standalone API and Monorepo project types
+  - Feature selection (Celery, Redis, auth methods)
+  - Deployment target configuration
+  - Available via `pipx install create-django-ninja-stack`
+
+- **Deployment Configurations**
+  - Single-container Dockerfile for PaaS (`deploy/docker/Dockerfile.single`)
+  - Railway configuration (`deploy/paas/railway.json`, `railway.toml`)
+  - Render Blueprint (`deploy/paas/render.yaml`)
+  - Kubernetes Helm chart (`deploy/kubernetes/helm/django-ninja-stack/`)
+  - `docker-compose.single.yml` for single-container local testing
+
+- **CI/CD**
+  - GitHub Actions workflow for lint, test, Docker build
+  - Security scanning with pip-audit
+  - Automated releases and PyPI publishing
+  - Dependabot configuration for dependency updates
+
 - **Infrastructure**
   - Celery worker and beat services in Docker Compose (profile-based)
   - Flower monitoring service (profile-based)
-  - Single-container production support
 
 ### Changed
 - Enhanced `scripts/setup.sh` with `--auto` mode for CI/CD

@@ -1,0 +1,32 @@
+apiVersion: v2
+name: django-ninja-stack
+description: A Helm chart for Django Ninja Stack applications
+type: application
+version: 0.9.0
+appVersion: "0.9.0"
+
+keywords:
+  - django
+  - ninja
+  - api
+  - python
+
+home: https://github.com/mattjaikaran/django-ninja-boilerplate
+
+sources:
+  - https://github.com/mattjaikaran/django-ninja-boilerplate
+
+maintainers:
+  - name: Matt Jaikaran
+    email: info@mattjaikaran.com
+
+dependencies:
+  - name: postgresql
+    version: "15.x.x"
+    repository: https://charts.bitnami.com/bitnami
+    condition: postgresql.enabled
+
+  - name: redis
+    version: "19.x.x"
+    repository: https://charts.bitnami.com/bitnami
+    condition: redis.enabled

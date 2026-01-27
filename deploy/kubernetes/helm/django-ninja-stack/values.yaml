@@ -1,0 +1,204 @@
+# Default values for django-ninja-stack
+# This is a YAML-formatted file.
+
+# ===========================================
+# Application Settings
+# ===========================================
+nameOverride: ""
+fullnameOverride: ""
+
+image:
+  repository: your-registry/django-ninja-stack
+  pullPolicy: IfNotPresent
+  tag: ""  # Defaults to chart appVersion
+
+imagePullSecrets: []
+
+# ===========================================
+# Django Backend
+# ===========================================
+backend:
+  replicaCount: 2
+
+  service:
+    type: ClusterIP
+    port: 8000
+
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 256Mi
+
+  autoscaling:
+    enabled: false
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 80
+    targetMemoryUtilizationPercentage: 80
+
+  # Environment variables
+  env:
+    DEBUG: "0"
+    DJANGO_SETTINGS_MODULE: "api.settings"
+
+  # Secrets (reference Kubernetes secrets)
+  secrets:
+    secretKeyRef: django-secrets
+    # Keys expected in secret:
+    # - SECRET_KEY
+    # - DATABASE_URL (if not using subchart)
+    # - REDIS_URL (if not using subchart)
+
+  # Health checks
+  livenessProbe:
+    httpGet:
+      path: /api/health/
+      port: http
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+
+  readinessProbe:
+    httpGet:
+      path: /api/health/
+      port: http
+    initialDelaySeconds: 5
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 3
+
+  # Node selection
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+  # Pod annotations
+  podAnnotations: {}
+
+  # Pod security context
+  podSecurityContext:
+    fsGroup: 1000
+
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+
+# ===========================================
+# Celery Worker (optional)
+# ===========================================
+celeryWorker:
+  enabled: false
+  replicaCount: 1
+
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 256Mi
+
+  # Celery-specific settings
+  concurrency: 2
+  queues: "default"
+
+# ===========================================
+# Celery Beat (optional)
+# ===========================================
+celeryBeat:
+  enabled: false
+
+  resources:
+    limits:
+      cpu: 200m
+      memory: 256Mi
+    requests:
+      cpu: 50m
+      memory: 128Mi
+
+# ===========================================
+# Ingress
+# ===========================================
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+    # cert-manager.io/cluster-issuer: "letsencrypt-prod"
+
+  hosts:
+    - host: api.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+
+  tls: []
+  # - secretName: api-tls
+  #   hosts:
+  #     - api.example.com
+
+# ===========================================
+# PostgreSQL (Bitnami subchart)
+# ===========================================
+postgresql:
+  enabled: true
+
+  auth:
+    username: django
+    password: ""  # Set via --set or secrets
+    database: django_db
+
+  primary:
+    persistence:
+      enabled: true
+      size: 10Gi
+
+  # For external database, set enabled: false and configure:
+  # externalDatabase:
+  #   host: ""
+  #   port: 5432
+  #   user: ""
+  #   password: ""
+  #   database: ""
+
+# ===========================================
+# Redis (Bitnami subchart)
+# ===========================================
+redis:
+  enabled: true
+
+  architecture: standalone
+
+  auth:
+    enabled: false
+
+  master:
+    persistence:
+      enabled: true
+      size: 2Gi
+
+  # For external Redis, set enabled: false and configure:
+  # externalRedis:
+  #   host: ""
+  #   port: 6379
+  #   password: ""
+
+# ===========================================
+# Service Account
+# ===========================================
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+# ===========================================
+# Migrations Job
+# ===========================================
+migrations:
+  enabled: true
+  # Run migrations as a pre-install/pre-upgrade hook
+  hookWeight: "-5"

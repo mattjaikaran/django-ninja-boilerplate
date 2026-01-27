@@ -1,0 +1,73 @@
+# Django Ninja Stack - Single Container Production
+# Use this for simpler deployments or PaaS platforms
+#
+# Usage:
+#   make single-build   # Build image
+#   make single-up      # Start services
+#   make single-down    # Stop services
+
+services:
+  # PostgreSQL Database
+  db:
+    image: postgres:17-alpine
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=${DB_NAME:-boilerplate_db}
+      - POSTGRES_USER=${DB_USER:-postgres}
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-postgres}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    networks:
+      - app-network
+
+  # Redis
+  redis:
+    image: redis:7.2-alpine
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    networks:
+      - app-network
+
+  # Django Application (Single Container)
+  app:
+    build:
+      context: .
+      dockerfile: deploy/docker/Dockerfile.single
+    environment:
+      - DEBUG=0
+      - SECRET_KEY=${SECRET_KEY}
+      - DB_NAME=${DB_NAME:-boilerplate_db}
+      - DB_USER=${DB_USER:-postgres}
+      - DB_PASSWORD=${DB_PASSWORD:-postgres}
+      - DB_HOST=db
+      - DB_PORT=5432
+      - REDIS_URL=redis://redis:6379/0
+      - ALLOWED_HOSTS=${ALLOWED_HOSTS:-localhost,127.0.0.1}
+    ports:
+      - "${PORT:-8000}:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - app-network
+    restart: unless-stopped
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:

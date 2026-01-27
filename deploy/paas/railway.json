@@ -1,0 +1,15 @@
+{
+  "$schema": "https://railway.app/railway.schema.json",
+  "build": {
+    "builder": "DOCKERFILE",
+    "dockerfilePath": "deploy/docker/Dockerfile.single"
+  },
+  "deploy": {
+    "numReplicas": 1,
+    "startCommand": "python manage.py migrate --noinput && gunicorn api.wsgi:application --bind 0.0.0.0:$PORT --workers 2 --threads 4 --worker-class gthread",
+    "healthcheckPath": "/api/health/",
+    "healthcheckTimeout": 300,
+    "restartPolicyType": "ON_FAILURE",
+    "restartPolicyMaxRetries": 3
+  }
+}
