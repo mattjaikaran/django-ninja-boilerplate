@@ -7,10 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
-- Documentation updates and polish
-
-## [0.9.0] - 2026-01-26
+## [1.0.0] - 2026-01-26
 
 ### Added
 - **Developer Experience (DX) Overhaul**
@@ -25,26 +22,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `.dockerignore` for optimized Docker builds
   - VSCode configurations (settings, launch, tasks, extensions)
   - VERSION file for semantic versioning
-  - This CHANGELOG
+  - CHANGELOG.md following Keep a Changelog format
 
-- **CLI Tool (`create-django-ninja-stack`)**
+- **CLI Tool (`django-ninja-matt`)**
   - Interactive project scaffolding with Typer + Rich
+  - Commands: `dnm init`, `dnm doctor`, `dnm setup`
   - Standalone API and Monorepo project types
   - Feature selection (Celery, Redis, auth methods)
   - Deployment target configuration
-  - Available via `pipx install create-django-ninja-stack`
 
 - **Deployment Configurations**
   - Single-container Dockerfile for PaaS (`deploy/docker/Dockerfile.single`)
   - Railway configuration (`deploy/paas/railway.json`, `railway.toml`)
   - Render Blueprint (`deploy/paas/render.yaml`)
-  - Kubernetes Helm chart (`deploy/kubernetes/helm/django-ninja-stack/`)
+  - Kubernetes Helm chart with:
+    - Backend deployment with health checks
+    - Celery worker deployment
+    - Celery beat deployment
+    - Flower monitoring deployment
+    - PostgreSQL and Redis subcharts
   - `docker-compose.single.yml` for single-container local testing
 
 - **CI/CD**
   - GitHub Actions workflow for lint, test, Docker build
   - Security scanning with pip-audit
-  - Automated releases and PyPI publishing
+  - Automated releases workflow
   - Dependabot configuration for dependency updates
 
 - **Infrastructure**
@@ -102,13 +104,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 | Version | Date | Description |
 |---------|------|-------------|
-| 0.9.0 | 2026-01-26 | DX Overhaul - setup, doctor, profiles |
+| 1.0.0 | 2026-01-26 | DX Overhaul, CLI tool, K8s Helm chart |
 | 0.8.0 | 2026-01-25 | OTP, enhanced user model, rate limiting |
 | 0.7.0 | 2026-01-20 | JWT auth, UV, Docker dev environment |
 | 0.6.0 | 2026-01-15 | Initial release |
 
-[Unreleased]: https://github.com/mattjaikaran/django-ninja-boilerplate/compare/v0.9.0...HEAD
-[0.9.0]: https://github.com/mattjaikaran/django-ninja-boilerplate/compare/v0.8.0...v0.9.0
+[Unreleased]: https://github.com/mattjaikaran/django-ninja-boilerplate/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/mattjaikaran/django-ninja-boilerplate/compare/v0.8.0...v1.0.0
 [0.8.0]: https://github.com/mattjaikaran/django-ninja-boilerplate/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/mattjaikaran/django-ninja-boilerplate/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/mattjaikaran/django-ninja-boilerplate/releases/tag/v0.6.0

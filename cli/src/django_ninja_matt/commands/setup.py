@@ -4,7 +4,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from create_django_ninja_stack.utils.console import (
+from django_ninja_matt.utils.console import (
     print_error,
     print_header,
     print_info,

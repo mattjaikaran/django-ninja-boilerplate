@@ -128,14 +128,14 @@ Visit http://localhost:8000/api/docs for the API documentation.
 ### Using the CLI Tool
 
 ```bash
-# Install the CLI
-pipx install create-django-ninja-stack
+# Install the CLI (from cli directory)
+cd cli && uv pip install -e .
 
 # Create a new project interactively
-create-django-ninja-stack my-api
+django-ninja-matt init my-api
 
-# Or with options
-create-django-ninja-stack my-api --type standalone --deployment railway
+# Or use the short alias
+dnm init my-api --type standalone --deployment railway
 ```
 
 ### Manual Setup

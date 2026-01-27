@@ -6,14 +6,14 @@ from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader
 
-from create_django_ninja_stack.config import ProjectConfig, TemplateContext
-from create_django_ninja_stack.utils.console import (
+from django_ninja_matt.config import ProjectConfig, TemplateContext
+from django_ninja_matt.utils.console import (
     create_progress,
     print_error,
     print_info,
     print_success,
 )
-from create_django_ninja_stack.utils.git import (
+from django_ninja_matt.utils.git import (
     create_initial_commit,
     git_available,
     init_repo,

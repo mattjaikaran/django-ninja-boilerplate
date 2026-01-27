@@ -1,28 +1,26 @@
-# create-django-ninja-stack
+# django-ninja-matt
 
 CLI tool for scaffolding Django Ninja Stack projects with modern tooling and best practices.
 
 ## Installation
 
 ```bash
-# Using pipx (recommended)
-pipx install create-django-ninja-stack
+# Install from the cli directory
+cd cli
+uv pip install -e .
 
-# Using pip
-pip install create-django-ninja-stack
-
-# Using uv
-uv tool install create-django-ninja-stack
+# Or install globally with pipx (when published)
+pipx install django-ninja-matt
 ```
 
 ## Quick Start
 
 ```bash
 # Create a new project interactively
-create-django-ninja-stack my-app
+django-ninja-matt init my-app
 
 # Or use the short alias
-cdns my-app
+dnm init my-app
 ```
 
 ## Features
@@ -53,11 +51,11 @@ cdns my-app
 
 ```bash
 # Interactive mode (recommended)
-create-django-ninja-stack my-project
+django-ninja-matt init my-project
 
 # With options
-create-django-ninja-stack my-project --type standalone --no-celery
-create-django-ninja-stack my-project --type monorepo --frontend react-vite
+dnm init my-project --type standalone --no-celery
+dnm init my-project --type monorepo --deployment railway
 ```
 
 ### Project Management Commands
@@ -80,19 +78,29 @@ make up
 make test
 ```
 
-### Available Options
+### Available Commands
 
 ```bash
-create-django-ninja-stack --help
+django-ninja-matt --help
+dnm --help
 ```
+
+| Command | Description |
+|---------|-------------|
+| `dnm init <name>` | Create a new project |
+| `dnm doctor` | Validate development environment |
+| `dnm setup` | Bootstrap current project |
+
+### Init Options
 
 | Option | Description | Default |
 |--------|-------------|---------|
 | `--type` | Project type: `standalone` or `monorepo` | Interactive |
-| `--frontend` | Frontend framework (monorepo only): `react-vite` | `react-vite` |
+| `--deployment` | Deployment target: `docker`, `railway`, `render`, `k8s` | `docker` |
 | `--no-celery` | Skip Celery setup | False |
 | `--no-redis` | Skip Redis setup | False |
-| `--deployment` | Deployment target: `docker`, `railway`, `render`, `k8s` | `docker` |
+| `--no-git` | Skip Git initialization | False |
+| `--yes, -y` | Skip confirmation prompts | False |
 
 ## Project Types
 

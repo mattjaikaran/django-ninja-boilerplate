@@ -121,6 +121,27 @@ celeryBeat:
       memory: 128Mi
 
 # ===========================================
+# Celery Flower (optional monitoring)
+# ===========================================
+celeryFlower:
+  enabled: false
+
+  service:
+    type: ClusterIP
+    port: 5555
+
+  # Enable basic auth (set FLOWER_BASIC_AUTH in secret)
+  basicAuth: true
+
+  resources:
+    limits:
+      cpu: 200m
+      memory: 256Mi
+    requests:
+      cpu: 50m
+      memory: 128Mi
+
+# ===========================================
 # Ingress
 # ===========================================
 ingress:

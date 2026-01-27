@@ -1,0 +1,97 @@
+{{- if .Values.celeryWorker.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "django-ninja-stack.fullname" . }}-celery-worker
+  labels:
+    {{- include "django-ninja-stack.labels" . | nindent 4 }}
+    app.kubernetes.io/component: celery-worker
+spec:
+  replicas: {{ .Values.celeryWorker.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "django-ninja-stack.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: celery-worker
+  template:
+    metadata:
+      {{- with .Values.backend.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "django-ninja-stack.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: celery-worker
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "django-ninja-stack.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.backend.podSecurityContext | nindent 8 }}
+      containers:
+        - name: celery-worker
+          securityContext:
+            {{- toYaml .Values.backend.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command:
+            - celery
+            - -A
+            - api
+            - worker
+            - -l
+            - info
+            - --concurrency={{ .Values.celeryWorker.concurrency }}
+            {{- if .Values.celeryWorker.queues }}
+            - -Q
+            - {{ .Values.celeryWorker.queues }}
+            {{- end }}
+          env:
+            {{- range $key, $value := .Values.backend.env }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}
+            - name: SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.backend.secrets.secretKeyRef }}
+                  key: SECRET_KEY
+            - name: DATABASE_URL
+              value: {{ include "django-ninja-stack.databaseUrl" . | quote }}
+            - name: REDIS_URL
+              value: {{ include "django-ninja-stack.redisUrl" . | quote }}
+            - name: CELERY_BROKER_URL
+              value: {{ include "django-ninja-stack.redisUrl" . | quote }}
+            - name: CELERY_RESULT_BACKEND
+              value: {{ include "django-ninja-stack.redisUrl" . | quote }}
+          resources:
+            {{- toYaml .Values.celeryWorker.resources | nindent 12 }}
+          # Liveness probe - check if worker is responsive
+          livenessProbe:
+            exec:
+              command:
+                - celery
+                - -A
+                - api
+                - inspect
+                - ping
+                - -d
+                - celery@$HOSTNAME
+            initialDelaySeconds: 30
+            periodSeconds: 60
+            timeoutSeconds: 10
+            failureThreshold: 3
+      {{- with .Values.backend.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.backend.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.backend.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}

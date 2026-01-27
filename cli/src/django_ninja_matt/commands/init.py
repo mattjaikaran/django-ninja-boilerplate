@@ -7,16 +7,16 @@ import questionary
 from rich.panel import Panel
 from rich.text import Text
 
-from create_django_ninja_stack.config import (
+from django_ninja_matt.config import (
     DEFAULT_BRANCH,
     REPO_URLS,
     DeploymentTarget,
     ProjectConfig,
     ProjectType,
 )
-from create_django_ninja_stack.generators.monorepo import generate_monorepo
-from create_django_ninja_stack.generators.standalone import generate_standalone
-from create_django_ninja_stack.utils.console import (
+from django_ninja_matt.generators.monorepo import generate_monorepo
+from django_ninja_matt.generators.standalone import generate_standalone
+from django_ninja_matt.utils.console import (
     console,
     print_error,
     print_header,

@@ -1,0 +1,19 @@
+{{- if .Values.celeryFlower.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "django-ninja-stack.fullname" . }}-flower
+  labels:
+    {{- include "django-ninja-stack.labels" . | nindent 4 }}
+    app.kubernetes.io/component: flower
+spec:
+  type: {{ .Values.celeryFlower.service.type }}
+  ports:
+    - port: {{ .Values.celeryFlower.service.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "django-ninja-stack.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: flower
+{{- end }}

@@ -8,15 +8,15 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.text import Text
 
-from create_django_ninja_stack import __version__
-from create_django_ninja_stack.commands.doctor import run_doctor
-from create_django_ninja_stack.commands.init import run_init
-from create_django_ninja_stack.commands.setup import run_setup
-from create_django_ninja_stack.config import DeploymentTarget, ProjectType
+from django_ninja_matt import __version__
+from django_ninja_matt.commands.doctor import run_doctor
+from django_ninja_matt.commands.init import run_init
+from django_ninja_matt.commands.setup import run_setup
+from django_ninja_matt.config import DeploymentTarget, ProjectType
 
 # Create Typer app
 app = typer.Typer(
-    name="create-django-ninja-stack",
+    name="django-ninja-matt",
     help="CLI tool for scaffolding Django Ninja Stack projects",
     add_completion=False,
     no_args_is_help=True,
@@ -29,7 +29,7 @@ console = Console()
 def version_callback(value: bool) -> None:
     """Show version and exit."""
     if value:
-        console.print(f"create-django-ninja-stack version {__version__}")
+        console.print(f"django-ninja-matt version {__version__}")
         raise typer.Exit()
 
 
@@ -46,7 +46,7 @@ def main(
         ),
     ] = None,
 ) -> None:
-    """Create Django Ninja Stack - Modern Django API scaffolding."""
+    """Django Ninja Matt - Modern Django API scaffolding."""
     pass
 
 
@@ -115,9 +115,9 @@ def init(
     """Create a new Django Ninja Stack project.
 
     Examples:
-        create-django-ninja-stack my-app
-        create-django-ninja-stack my-app --type standalone
-        create-django-ninja-stack my-app --type monorepo --deployment railway
+        django-ninja-matt init my-app
+        dnm init my-app --type standalone
+        dnm init my-app --type monorepo --deployment railway
     """
     run_init(
         name=name,
@@ -186,7 +186,7 @@ def create_alias(
 def show_welcome() -> None:
     """Show welcome banner."""
     text = Text()
-    text.append("Django Ninja Stack", style="bold cyan")
+    text.append("Django Ninja Matt", style="bold cyan")
     text.append("\n")
     text.append("Modern Django API scaffolding with best practices", style="dim")
 

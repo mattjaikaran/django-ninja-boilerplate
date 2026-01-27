@@ -4,7 +4,7 @@ import shutil
 import subprocess
 from pathlib import Path
 
-from create_django_ninja_stack.utils.console import print_error, print_info, print_success
+from django_ninja_matt.utils.console import print_error, print_info, print_success
 
 
 def git_available() -> bool:

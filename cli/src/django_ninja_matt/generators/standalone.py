@@ -4,16 +4,16 @@ import shutil
 import subprocess
 from pathlib import Path
 
-from create_django_ninja_stack.config import REPO_URLS, DEFAULT_BRANCH, ProjectConfig
-from create_django_ninja_stack.generators.base import BaseGenerator
-from create_django_ninja_stack.utils.console import (
+from django_ninja_matt.config import REPO_URLS, DEFAULT_BRANCH, ProjectConfig
+from django_ninja_matt.generators.base import BaseGenerator
+from django_ninja_matt.utils.console import (
     create_progress,
     print_error,
     print_info,
     print_success,
     print_step,
 )
-from create_django_ninja_stack.utils.git import clone_repo, git_available
+from django_ninja_matt.utils.git import clone_repo, git_available
 
 
 class StandaloneGenerator(BaseGenerator):

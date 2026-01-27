@@ -8,7 +8,7 @@ from pathlib import Path
 
 from rich.table import Table
 
-from create_django_ninja_stack.utils.console import (
+from django_ninja_matt.utils.console import (
     console,
     print_error,
     print_header,
@@ -16,7 +16,7 @@ from create_django_ninja_stack.utils.console import (
     print_success,
     print_warning,
 )
-from create_django_ninja_stack.utils.docker import (
+from django_ninja_matt.utils.docker import (
     docker_available,
     docker_compose_available,
     get_compose_version,
