@@ -1,6 +1,11 @@
-# Django Ninja Boilerplate
+# Django Ninja Stack
 
 A production-ready Django boilerplate built with Django Ninja for creating modern REST APIs. This project provides everything you need to quickly build scalable APIs with authentication, caching, monitoring, background tasks, and automated feature generation.
+
+[![CI](https://github.com/mattjaikaran/django-ninja-boilerplate/actions/workflows/ci.yml/badge.svg)](https://github.com/mattjaikaran/django-ninja-boilerplate/actions/workflows/ci.yml)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
+[![Django 5.2](https://img.shields.io/badge/django-5.2-green.svg)](https://docs.djangoproject.com/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ## What's Included
 
@@ -101,20 +106,47 @@ app_name/
 
 ## Quick Start
 
-### With Docker (Recommended)
+### One-Command Setup (Recommended)
+
+```bash
+# Clone and setup in one go
+git clone https://github.com/mattjaikaran/django-ninja-boilerplate my-api
+cd my-api
+make setup
+```
+
+That's it! The setup command will:
+- Check your environment (Docker, Python, etc.)
+- Create `.env` with generated `SECRET_KEY`
+- Build Docker images
+- Run migrations
+- Seed sample data
+- Create a superuser
+
+Visit http://localhost:8000/api/docs for the API documentation.
+
+### Using the CLI Tool
+
+```bash
+# Install the CLI
+pipx install create-django-ninja-stack
+
+# Create a new project interactively
+create-django-ninja-stack my-api
+
+# Or with options
+create-django-ninja-stack my-api --type standalone --deployment railway
+```
+
+### Manual Setup
 
 ```bash
 # Clone the repository
 git clone https://github.com/mattjaikaran/django-ninja-boilerplate
 cd django-ninja-boilerplate
 
-# Automated setup
-./scripts/setup.sh
-
-# Or manual setup:
-cp env.example .env
-# Edit .env with your settings
-./scripts/generate_secret_key.sh --update-env
+# Copy environment file
+cp .env.development .env
 
 # Start the services
 make up
@@ -122,12 +154,7 @@ make up
 # Run migrations and create superuser
 make migrate
 make create-superuser
-
-# Generate sample data
-make generate-data
 ```
-
-Visit http://localhost:8000/api/docs for the API documentation.
 
 ### Local Development (Without Docker)
 
@@ -153,10 +180,21 @@ make local-run
 
 ## Available Commands
 
+### Setup & Environment
+
+```bash
+make setup               # One-command project bootstrap
+make doctor              # Validate development environment
+make setup-env           # Create .env from template
+```
+
 ### Docker Commands
 
 ```bash
-make up                  # Start development environment
+make up                  # Start core services (db, redis, django)
+make up-celery           # Start with Celery workers
+make up-monitoring       # Start with Flower dashboard
+make up-full             # Start all services
 make down                # Stop environment
 make logs                # View logs
 make shell               # Django shell
@@ -489,25 +527,55 @@ make celery-beat      # Start scheduler
 make celery-flower    # Monitoring at localhost:5555
 ```
 
-## Production Deployment
+## Deployment
 
-1. Update `.env` with production settings
-2. Configure environment variables for security
-3. Build and run:
+### Docker Compose (Split Services)
 
 ```bash
 make prod-build
 make prod-up
 ```
 
-Production features:
+### Single Container (PaaS)
+
+For Railway, Render, Fly.io, or any PaaS:
+
+```bash
+# Build and test locally
+make single-build
+make single-up
+
+# Deploy to Railway
+railway up
+
+# Deploy to Render
+render blueprint apply
+```
+
+### Kubernetes
+
+```bash
+# Add Bitnami repo for dependencies
+helm repo add bitnami https://charts.bitnami.com/bitnami
+
+# Install the chart
+helm install my-api ./deploy/kubernetes/helm/django-ninja-stack \
+  --set postgresql.auth.password=your-db-password \
+  --set image.repository=your-registry/django-ninja-stack
+```
+
+See [`deploy/`](deploy/) for detailed deployment configurations:
+- `deploy/docker/` - Dockerfiles
+- `deploy/paas/` - Railway, Render configs
+- `deploy/kubernetes/` - Helm chart
+
+### Production Features
 
 - Multi-stage Docker builds
 - Gunicorn with workers
-- Nginx reverse proxy
-- SSL/TLS support
-- Health checks
-- Log management
+- Health checks at `/api/health/`
+- Automatic migrations on deploy
+- Secret management
 
 ## API Documentation
 
