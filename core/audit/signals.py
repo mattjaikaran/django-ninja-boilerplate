@@ -17,7 +17,7 @@ from django.db import models
 from django.db.models.signals import post_delete, post_save, pre_save
 from django.dispatch import receiver
 
-from core.audit.middleware import get_client_ip
+from api.utils.http import get_client_ip
 
 logger = logging.getLogger(__name__)
 

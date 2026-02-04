@@ -10,7 +10,7 @@ import logging
 from collections.abc import Callable
 from typing import Any
 
-from core.audit.middleware import get_client_ip
+from api.utils.http import get_client_ip
 from core.audit.signals import set_audit_context
 
 logger = logging.getLogger(__name__)

@@ -12,27 +12,9 @@ from typing import Any
 from django.conf import settings
 from django.http import HttpRequest, HttpResponse
 
+from api.utils.http import get_client_ip
+
 logger = logging.getLogger(__name__)
-
-
-def get_client_ip(request: HttpRequest) -> str | None:
-    """Extract the client IP address from the request.
-
-    Handles proxy headers (X-Forwarded-For) for load-balanced environments.
-
-    Args:
-        request: The HTTP request object
-
-    Returns:
-        Client IP address or None
-    """
-    x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
-    if x_forwarded_for:
-        # Take the first IP in the chain (client IP)
-        ip = x_forwarded_for.split(",")[0].strip()
-    else:
-        ip = request.META.get("REMOTE_ADDR")
-    return ip
 
 
 class AuditLoggingMiddleware:
@@ -252,5 +234,4 @@ class AuditLoggingMiddleware:
             logger.exception("Failed to create audit log entry: %s", e)
 
 
-# Export the get_client_ip function for use in other modules
-__all__ = ["AuditLoggingMiddleware", "get_client_ip"]
+__all__ = ["AuditLoggingMiddleware"]
