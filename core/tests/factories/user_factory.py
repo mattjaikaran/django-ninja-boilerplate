@@ -29,10 +29,14 @@ class UserFactory(factory.django.DjangoModelFactory):
     first_name = factory.Faker("first_name")
     last_name = factory.Faker("last_name")
     email = factory.LazyAttribute(
-        lambda obj: f"{obj.first_name.lower()}.{obj.last_name.lower()}.{fake.random_int(100, 999)}@example.com"
+        lambda obj: (
+            f"{obj.first_name.lower()}.{obj.last_name.lower()}.{fake.random_int(100, 999)}@example.com"
+        )
     )
     username = factory.LazyAttribute(
-        lambda obj: f"{obj.first_name.lower()}{obj.last_name.lower()}{fake.random_int(100, 999)}"
+        lambda obj: (
+            f"{obj.first_name.lower()}{obj.last_name.lower()}{fake.random_int(100, 999)}"
+        )
     )
     password = factory.LazyFunction(lambda: make_password("testpass123"))
 

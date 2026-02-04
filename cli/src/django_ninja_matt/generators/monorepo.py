@@ -1,6 +1,5 @@
 """Monorepo (fullstack) project generator."""
 
-
 from django_ninja_matt.config import DEFAULT_BRANCH, REPO_URLS, ProjectConfig
 from django_ninja_matt.generators.base import BaseGenerator
 from django_ninja_matt.utils.console import (
@@ -299,7 +298,7 @@ volumes:
         """Create root README.md."""
         content = f"""# {self.config.display_name}
 
-{self.config.description or 'A fullstack application with Django Ninja backend and React frontend.'}
+{self.config.description or "A fullstack application with Django Ninja backend and React frontend."}
 
 ## Project Structure
 
@@ -421,6 +420,7 @@ VITE_API_URL=http://localhost:8000/api
         cli_dir = self.config.path / "backend" / "cli"
         if cli_dir.exists():
             import shutil
+
             shutil.rmtree(cli_dir)
 
 

@@ -54,10 +54,12 @@ def prompt_project_type() -> ProjectType:
     result = questionary.select(
         "What type of project would you like to create?",
         choices=choices,
-        style=questionary.Style([
-            ("highlighted", "fg:cyan bold"),
-            ("selected", "fg:green"),
-        ]),
+        style=questionary.Style(
+            [
+                ("highlighted", "fg:cyan bold"),
+                ("selected", "fg:green"),
+            ]
+        ),
     ).ask()
 
     if result is None:
@@ -117,10 +119,12 @@ def prompt_deployment() -> DeploymentTarget:
     result = questionary.select(
         "What's your primary deployment target?",
         choices=choices,
-        style=questionary.Style([
-            ("highlighted", "fg:cyan bold"),
-            ("selected", "fg:green"),
-        ]),
+        style=questionary.Style(
+            [
+                ("highlighted", "fg:cyan bold"),
+                ("selected", "fg:green"),
+            ]
+        ),
     ).ask()
 
     if result is None:

@@ -116,7 +116,10 @@ def run_doctor() -> None:
     checks = [
         ("Python", check_python_version()),
         ("Docker", (docker_available(), get_docker_version() or "Docker not running")),
-        ("Docker Compose", (docker_compose_available(), get_compose_version() or "Not available")),
+        (
+            "Docker Compose",
+            (docker_compose_available(), get_compose_version() or "Not available"),
+        ),
         ("UV", check_uv()),
         ("Make", check_make()),
         ("Git", check_git()),

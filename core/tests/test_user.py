@@ -1,6 +1,5 @@
 import pytest
 from django.contrib.auth import get_user_model
-from django.core.exceptions import ValidationError
 from django.db import IntegrityError
 
 from core.tests.factories import UserFactory

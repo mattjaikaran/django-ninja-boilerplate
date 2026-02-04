@@ -10,7 +10,6 @@ import core.models.user
 
 
 class Migration(migrations.Migration):
-
     initial = True
 
     dependencies = [

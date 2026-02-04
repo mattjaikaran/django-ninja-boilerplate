@@ -1,6 +1,5 @@
 """Standalone API project generator."""
 
-
 from django_ninja_matt.config import DEFAULT_BRANCH, REPO_URLS, ProjectConfig
 from django_ninja_matt.generators.base import BaseGenerator
 from django_ninja_matt.utils.console import (
@@ -85,7 +84,7 @@ class StandaloneGenerator(BaseGenerator):
         if readme.exists():
             content = f"""# {self.config.display_name}
 
-{self.config.description or 'A Django Ninja API project.'}
+{self.config.description or "A Django Ninja API project."}
 
 ## Quick Start
 
@@ -156,7 +155,8 @@ Created with [Django Ninja Boilerplate](https://github.com/mattjaikaran/django-n
             # Remove celery-related dependencies
             lines = content.split("\n")
             filtered_lines = [
-                line for line in lines
+                line
+                for line in lines
                 if not any(pkg in line.lower() for pkg in ["celery", "flower"])
             ]
             pyproject.write_text("\n".join(filtered_lines))

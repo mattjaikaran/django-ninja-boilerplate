@@ -48,10 +48,13 @@ class TestTodoModel:
         todo2 = TodoFactory(title="Second Todo", user=user)
 
         # Force different timestamps by updating created_at
-        from django.utils import timezone
         from datetime import timedelta
 
-        Todo.objects.filter(id=todo1.id).update(created_at=timezone.now() - timedelta(hours=1))
+        from django.utils import timezone
+
+        Todo.objects.filter(id=todo1.id).update(
+            created_at=timezone.now() - timedelta(hours=1)
+        )
         todo1.refresh_from_db()
 
         todos = list(Todo.objects.all())

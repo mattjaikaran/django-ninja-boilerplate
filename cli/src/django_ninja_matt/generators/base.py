@@ -66,7 +66,17 @@ class BaseGenerator:
                 dest_path.parent.mkdir(parents=True, exist_ok=True)
 
                 # Check if file should be rendered as template
-                if item.suffix in {".py", ".txt", ".md", ".yml", ".yaml", ".json", ".toml", ".sh", ".env"}:
+                if item.suffix in {
+                    ".py",
+                    ".txt",
+                    ".md",
+                    ".yml",
+                    ".yaml",
+                    ".json",
+                    ".toml",
+                    ".sh",
+                    ".env",
+                }:
                     try:
                         template = env.get_template(str(rel_path))
                         content = template.render(**context)

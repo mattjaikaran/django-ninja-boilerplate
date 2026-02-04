@@ -461,8 +461,10 @@ def to_class_name(text: str) -> str:
 def pprint_dict(obj: Any) -> str:
     """Pretty print a dictionary for Python code."""
     if isinstance(obj, dict):
-        items = ", ".join(f'"{k}": "{v}"' if isinstance(v, str) else f'"{k}": {v}'
-                          for k, v in obj.items())
+        items = ", ".join(
+            f'"{k}": "{v}"' if isinstance(v, str) else f'"{k}": {v}'
+            for k, v in obj.items()
+        )
         return "{" + items + "}"
     return str(obj)
 
@@ -653,40 +655,39 @@ Examples:
     python scripts/generate_e2e_tests.py --input tests/user_journeys.yaml
     python scripts/generate_e2e_tests.py --output tests/e2e/
     python scripts/generate_e2e_tests.py --dry-run
-        """
+        """,
     )
 
     parser.add_argument(
-        "--input", "-i",
+        "--input",
+        "-i",
         type=Path,
         default=Path("tests/user_journeys.yaml"),
-        help="Path to the user journeys YAML file (default: tests/user_journeys.yaml)"
+        help="Path to the user journeys YAML file (default: tests/user_journeys.yaml)",
     )
 
     parser.add_argument(
-        "--output", "-o",
+        "--output",
+        "-o",
         type=Path,
         default=Path("tests/e2e"),
-        help="Output directory for generated tests (default: tests/e2e)"
+        help="Output directory for generated tests (default: tests/e2e)",
     )
 
     parser.add_argument(
-        "--dry-run", "-n",
+        "--dry-run",
+        "-n",
         action="store_true",
-        help="Print generated files without writing them"
+        help="Print generated files without writing them",
     )
 
     parser.add_argument(
         "--skip-conftest",
         action="store_true",
-        help="Skip generating conftest.py (useful if you have a custom one)"
+        help="Skip generating conftest.py (useful if you have a custom one)",
     )
 
-    parser.add_argument(
-        "--verbose", "-v",
-        action="store_true",
-        help="Verbose output"
-    )
+    parser.add_argument("--verbose", "-v", action="store_true", help="Verbose output")
 
     args = parser.parse_args()
 
@@ -747,6 +748,7 @@ Examples:
         print(f"\nError: {e}")
         if args.verbose:
             import traceback
+
             traceback.print_exc()
         sys.exit(1)
 

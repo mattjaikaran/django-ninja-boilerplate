@@ -236,7 +236,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     def full_name(self) -> str:
         """Get user's full name."""
         name = f"{self.first_name} {self.last_name}".strip()
-        return name if name else self.username
+        return name or self.username
 
     @property
     def initials(self) -> str:

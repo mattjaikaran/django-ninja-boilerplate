@@ -110,7 +110,8 @@ class TemplateContext:
         return {
             # Project info
             "project_name": self.config.name,
-            "project_description": self.config.description or f"{self.config.display_name} API",
+            "project_description": self.config.description
+            or f"{self.config.display_name} API",
             "python_package_name": self.config.python_package_name,
             "display_name": self.config.display_name,
             # Type

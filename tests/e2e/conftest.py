@@ -143,6 +143,7 @@ def unique_email():
         str: A unique email address
     """
     import uuid
+
     return f"e2e_test_{uuid.uuid4().hex[:8]}@example.com"
 
 
@@ -155,6 +156,7 @@ def mock_email_backend(settings):
     """
     settings.EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
     from django.core import mail
+
     mail.outbox = []
     return mail
 
@@ -205,15 +207,8 @@ def clean_db(db):
 
 def pytest_configure(config):
     """Register custom markers for E2E tests."""
+    config.addinivalue_line("markers", "e2e: mark test as an end-to-end test")
+    config.addinivalue_line("markers", "slow: mark test as slow running")
     config.addinivalue_line(
-        "markers",
-        "e2e: mark test as an end-to-end test"
-    )
-    config.addinivalue_line(
-        "markers",
-        "slow: mark test as slow running"
-    )
-    config.addinivalue_line(
-        "markers",
-        "journey(name): mark test as part of a specific user journey"
+        "markers", "journey(name): mark test as part of a specific user journey"
     )
