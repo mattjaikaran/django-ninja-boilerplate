@@ -508,11 +508,21 @@ Authorization: Bearer <your-jwt-token>
 
 ## Testing
 
+This boilerplate includes comprehensive testing utilities including unit tests, E2E tests, contract tests, and load tests.
+
+### Quick Start
+
+```bash
+make test                    # Run unit tests
+make test-all                # Run all test types
+make test-coverage           # Run with coverage report
+```
+
+### Unit Tests
+
 Tests use Factory Boy for data generation (no mocks):
 
 ```bash
-make test                    # Run all tests
-make test-coverage           # Run with coverage report
 uv run pytest -v             # Verbose output
 uv run pytest -k "test_auth" # Run specific tests
 ```
@@ -527,6 +537,83 @@ def test_create_todo(db, authenticated_client):
     client, user = authenticated_client
     response = client.post("/api/todos/", {"title": "Test"})
     assert response.status_code == 201
+```
+
+### E2E Tests
+
+End-to-end tests for complete user journeys:
+
+```bash
+make test-e2e                # Run E2E tests
+make generate-e2e            # Generate E2E test stubs from YAML
+```
+
+### Contract Tests
+
+API contract tests validate responses against the OpenAPI specification using [Schemathesis](https://schemathesis.readthedocs.io/):
+
+```bash
+# Install testing dependencies
+uv pip install -e ".[testing]"
+
+# Run contract tests (requires running server)
+make test-contract
+
+# Run all contract tests including slow schema-based tests
+make test-contract-full
+```
+
+Contract tests ensure:
+- API responses match the documented schema
+- Required fields are present
+- Data types match the specification
+- Error responses are properly formatted
+
+### Load Tests
+
+Load testing with [Locust](https://locust.io/) for performance validation:
+
+```bash
+# Interactive web UI (http://localhost:8089)
+make test-load
+
+# Quick test (10 users, 30 seconds)
+make test-load-quick
+
+# Moderate test (50 users, 2 minutes)
+make test-load-moderate
+
+# Heavy test (100 users, 5 minutes)
+make test-load-heavy
+
+# Custom test
+make test-load-custom USERS=50 DURATION=2m
+```
+
+See `tests/load/README.md` for detailed load testing documentation.
+
+### Testing Utilities
+
+The `tests/utils/` package provides:
+
+- **api_client.py**: Enhanced test client with auth helpers
+- **assertions.py**: Custom assertions for API responses
+- **factories.py**: Base factory utilities
+
+```python
+from tests.utils import APITestClient, assert_ok, assert_created
+
+# Use the API client
+client = APITestClient()
+response = client.get("/api/health/")
+assert_ok(response)
+
+# Authenticated requests
+from tests.utils import AuthenticatedAPIClient
+auth_client = AuthenticatedAPIClient()
+auth_client.login("user@example.com", "password")
+response = auth_client.get("/api/auth/me")
+assert_ok(response)
 ```
 
 ## Authentication
@@ -582,6 +669,154 @@ email_service.send_templated_email(
 )
 ```
 
+## Feature Flags
+
+The boilerplate includes a comprehensive feature flags system for:
+- **Toggle features** per user, tenant, or environment
+- **Gradual rollouts** with percentage-based targeting
+- **A/B testing** with weighted variant distribution
+- **Time-based activation** for scheduled feature releases
+
+### Basic Usage
+
+```python
+from core.features import feature_flag_service, feature_flag
+
+# Check if a flag is enabled
+if feature_flag_service.is_enabled("new_checkout", user=request.user):
+    # New checkout flow
+    pass
+
+# Use as a decorator on views
+@api_controller("/checkout", tags=["Checkout"])
+class CheckoutController:
+    @http_get("/")
+    @feature_flag("new_checkout")  # Returns 404 if flag is disabled
+    def new_checkout(self, request):
+        return {"message": "New checkout experience!"}
+```
+
+### Creating Feature Flags
+
+```python
+from core.features import feature_flag_service
+from core.features.models import FlagType
+
+# Simple boolean flag
+feature_flag_service.create_flag(
+    name="dark_mode",
+    description="Enable dark mode UI",
+    enabled=True,
+)
+
+# Percentage rollout (gradual release)
+feature_flag_service.create_flag(
+    name="new_dashboard",
+    description="New dashboard redesign",
+    flag_type=FlagType.PERCENTAGE.value,
+    enabled=True,
+    rollout_percentage=25,  # 25% of users
+)
+
+# A/B test with variants
+feature_flag_service.create_flag(
+    name="pricing_page",
+    description="Pricing page A/B test",
+    flag_type=FlagType.AB_TEST.value,
+    enabled=True,
+    variants={"control": 50, "variant_a": 30, "variant_b": 20},
+)
+```
+
+### A/B Testing
+
+```python
+# Get variant for a user
+variant = feature_flag_service.get_variant("pricing_page", user=request.user)
+# Returns: "control", "variant_a", or "variant_b"
+
+# In templates or frontend
+if variant == "variant_a":
+    # Show variant A pricing
+    pass
+```
+
+### Middleware Integration
+
+Add the middleware to automatically attach feature flags to requests:
+
+```python
+# settings.py
+MIDDLEWARE = [
+    ...
+    'core.features.middleware.FeatureFlagMiddleware',
+]
+
+# In views
+def my_view(request):
+    if request.feature_flags.is_enabled("new_feature"):
+        # Feature enabled for this user
+        pass
+
+    variant = request.feature_flags.get_variant("ab_test")
+```
+
+### API Endpoints
+
+```bash
+# Admin endpoints (authenticated)
+POST   /api/admin/feature-flags/          # Create flag
+GET    /api/admin/feature-flags/          # List all flags
+GET    /api/admin/feature-flags/{id}      # Get flag with audit logs
+PUT    /api/admin/feature-flags/{id}      # Update flag
+PATCH  /api/admin/feature-flags/{id}/toggle   # Toggle flag on/off
+PATCH  /api/admin/feature-flags/{id}/rollout  # Update rollout percentage
+DELETE /api/admin/feature-flags/{id}      # Delete flag
+
+# User endpoints (public)
+POST   /api/feature-flags/check           # Check flag status
+GET    /api/feature-flags/me              # Get all flags for current user
+GET    /api/feature-flags/{name}          # Get specific flag status
+```
+
+### Advanced Features
+
+```python
+# User-specific targeting
+flag.add_user(user_id)      # Enable for specific user
+flag.exclude_user(user_id)  # Exclude specific user
+
+# Environment-based flags
+feature_flag_service.create_flag(
+    name="debug_mode",
+    environments=["development", "staging"],  # Not in production
+)
+
+# Time-based activation
+from datetime import datetime, timedelta
+feature_flag_service.create_flag(
+    name="holiday_banner",
+    starts_at=datetime(2024, 12, 20),
+    ends_at=datetime(2024, 12, 26),
+)
+
+# Conditional targeting
+feature_flag_service.create_flag(
+    name="premium_feature",
+    conditions={
+        "user_attributes": {"is_staff": True},
+        "context_match": {"plan": "premium"},
+    },
+)
+```
+
+### Admin Interface
+
+Feature flags can be managed through the Django admin panel at `/admin/core/featureflag/` with:
+- List view with filtering by status, type, and tags
+- Bulk actions (enable/disable, set rollout percentages)
+- Audit log tracking for all changes
+
 ## Background Tasks (Celery)
 
 ```python
@@ -603,6 +838,155 @@ make celery-worker    # Start worker
 make celery-beat      # Start scheduler
 make celery-flower    # Monitoring at localhost:5555
 ```
+
+## Observability
+
+The boilerplate includes a comprehensive observability stack for production monitoring:
+
+### Components
+
+- **OpenTelemetry Tracing** - Distributed tracing with automatic context propagation
+- **Prometheus Metrics** - Request counts, latency histograms, error rates
+- **Structured JSON Logging** - Production-ready logs with trace context
+- **Enhanced Health Checks** - Detailed status for all dependencies
+
+### Quick Setup
+
+```bash
+# Install observability dependencies
+uv sync --extra observability
+
+# Start with Jaeger (tracing backend)
+docker compose --profile observability up -d
+
+# Access Jaeger UI at http://localhost:16686
+# Access Prometheus metrics at http://localhost:8000/api/metrics
+```
+
+### Environment Variables
+
+```bash
+# OpenTelemetry Configuration
+OTEL_SERVICE_NAME=my-api              # Service name in traces
+OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4317  # OTLP endpoint
+
+# Logging
+USE_STRUCTURED_LOGGING=true           # Enable JSON logging (default in production)
+SLOW_REQUEST_THRESHOLD_MS=1000        # Log slow requests above this threshold
+```
+
+### Tracing
+
+Traces are automatically collected for HTTP requests. Add custom spans:
+
+```python
+from core.observability import trace_span, trace_function
+
+# Context manager for custom spans
+with trace_span("process_payment", {"order_id": order.id}):
+    process_payment(order)
+
+# Decorator for functions
+@trace_function("send_notification")
+def send_notification(user_id, message):
+    # Automatically traced
+    pass
+```
+
+### Metrics
+
+Prometheus metrics are exposed at `/api/metrics`:
+
+```python
+from core.observability.metrics import (
+    get_metrics_registry,
+    timed,
+)
+
+# Register custom metrics
+registry = get_metrics_registry()
+my_counter = registry.register_counter(
+    "my_custom_events_total",
+    "Total custom events",
+    ["event_type"],
+)
+my_counter.inc(labels={"event_type": "signup"})
+
+# Time function execution
+@timed("payment_processing_seconds")
+def process_payment(amount):
+    pass
+```
+
+### Structured Logging
+
+In production, logs are output as JSON with trace context:
+
+```json
+{
+  "timestamp": "2024-01-15T10:30:00Z",
+  "level": "INFO",
+  "message": "User created",
+  "trace_id": "abc123",
+  "span_id": "def456",
+  "user_id": "user-789",
+  "service": "my-api"
+}
+```
+
+Use the context logger:
+
+```python
+from core.observability.logging import ContextLogger
+
+logger = ContextLogger(__name__)
+logger.bind(user_id="123", request_id="abc")
+logger.info("Processing order", extra={"order_id": "456"})
+```
+
+### Health Checks
+
+Enhanced health checks with detailed status:
+
+```bash
+# Basic health check
+GET /api/health/
+
+# Detailed status (database, cache, redis)
+GET /api/health/detailed
+
+# Check specific component
+GET /api/health/component/database
+GET /api/health/component/redis
+```
+
+Register custom health checks:
+
+```python
+from core.observability.health import (
+    register_health_check,
+    HealthCheckResult,
+    HealthStatus,
+)
+
+def check_payment_provider():
+    # Check external service
+    return HealthCheckResult(
+        name="payment_provider",
+        status=HealthStatus.HEALTHY,
+        message="Stripe API responding",
+    )
+
+register_health_check("payment_provider", check_payment_provider)
+```
+
+### Middleware
+
+The `ObservabilityMiddleware` automatically:
+- Creates/propagates trace IDs
+- Records request metrics (count, latency)
+- Adds trace context to logs
+- Adds `X-Trace-ID` and `X-Request-ID` headers to responses
 
 ## Deployment
 
@@ -658,6 +1042,59 @@ See [`deploy/`](deploy/) for detailed deployment configurations:
 
 - **Swagger/OpenAPI**: http://localhost:8000/api/docs
 - **Admin Panel**: http://localhost:8000/admin
+
+### OpenAPI Tools
+
+Export your API specification and generate client SDKs:
+
+```bash
+# Export OpenAPI specification
+make openapi
+
+# Generate TypeScript and Python SDK clients
+make sdk
+
+# Export Postman collection
+make postman
+
+# Export Insomnia collection
+make insomnia
+
+# Generate everything (spec, SDKs, collections)
+make openapi-all
+
+# Validate OpenAPI specification
+make openapi-validate
+```
+
+#### SDK Generation
+
+Generate typed client SDKs from your API:
+
+```bash
+# Generate all SDKs
+python manage.py export_openapi --sdk
+
+# TypeScript SDK
+python manage.py export_openapi --sdk-typescript
+
+# Python SDK
+python manage.py export_openapi --sdk-python
+```
+
+#### API Changelog
+
+Compare API versions to generate changelogs:
+
+```bash
+# Generate changelog between two API versions
+make changelog OLD=docs/openapi/openapi-v1.json NEW=docs/openapi/openapi-v2.json
+
+# Or use the script directly
+python scripts/openapi/generate_changelog.py old.json new.json -o CHANGELOG.md
+```
+
+See [docs/openapi/README.md](docs/openapi/README.md) for detailed documentation.
 
 ## Contributing
 
