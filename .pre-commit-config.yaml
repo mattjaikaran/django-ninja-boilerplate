@@ -1,0 +1,142 @@
+# Pre-commit hooks for Django Ninja Boilerplate
+# Install: pip install pre-commit && pre-commit install
+# Run manually: pre-commit run --all-files
+# ============================================================
+
+default_language_version:
+  python: python3.14
+
+repos:
+  # ===========================================
+  # General file checks
+  # ===========================================
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      # File formatting
+      - id: trailing-whitespace
+        args: [--markdown-linebreak-ext=md]
+      - id: end-of-file-fixer
+      - id: mixed-line-ending
+        args: [--fix=lf]
+
+      # File validation
+      - id: check-yaml
+        args: [--unsafe]  # Allow custom tags
+      - id: check-toml
+      - id: check-json
+      - id: check-xml
+
+      # Git checks
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: [--maxkb=1000]
+      - id: no-commit-to-branch
+        args: [--branch, main, --branch, master]
+
+      # Python checks
+      - id: check-ast
+      - id: debug-statements
+      - id: check-docstring-first
+
+      # Security
+      - id: detect-private-key
+
+  # ===========================================
+  # Python - Ruff (linting + formatting)
+  # ===========================================
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.9.0
+    hooks:
+      # Linter
+      - id: ruff
+        args: [--fix, --exit-non-zero-on-fix]
+        types_or: [python, pyi]
+
+      # Formatter (replaces black)
+      - id: ruff-format
+        types_or: [python, pyi]
+
+  # ===========================================
+  # Python - Type checking
+  # ===========================================
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.14.0
+    hooks:
+      - id: mypy
+        additional_dependencies:
+          - django-stubs>=5.0.0
+          - djangorestframework-stubs>=3.14.0
+          - types-requests>=2.31.0
+          - types-python-dateutil>=2.8.19
+        args: [--ignore-missing-imports, --no-strict-optional]
+        exclude: ^(migrations/|tests/|cli/)
+
+  # ===========================================
+  # Django specific
+  # ===========================================
+  - repo: https://github.com/rtts/djhtml
+    rev: "3.0.7"
+    hooks:
+      - id: djhtml
+        args: [--tabwidth=2]
+        types: [html]
+
+  # ===========================================
+  # Security scanning
+  # ===========================================
+  - repo: https://github.com/PyCQA/bandit
+    rev: 1.8.0
+    hooks:
+      - id: bandit
+        args: [-c, pyproject.toml, -r, .]
+        additional_dependencies: ["bandit[toml]"]
+        exclude: ^(tests/|cli/tests/)
+
+  # ===========================================
+  # Dockerfile linting
+  # ===========================================
+  - repo: https://github.com/hadolint/hadolint
+    rev: v2.13.1-beta
+    hooks:
+      - id: hadolint-docker
+        args: [--ignore, DL3008, --ignore, DL3013]  # Allow unpinned apt/pip versions
+
+  # ===========================================
+  # Shell script linting
+  # ===========================================
+  - repo: https://github.com/shellcheck-py/shellcheck-py
+    rev: v0.10.0.1
+    hooks:
+      - id: shellcheck
+        args: [-x]  # Follow sourced files
+
+  # ===========================================
+  # YAML/JSON formatting
+  # ===========================================
+  - repo: https://github.com/pre-commit/mirrors-prettier
+    rev: v4.0.0-alpha.8
+    hooks:
+      - id: prettier
+        types_or: [yaml, json]
+        exclude: ^(uv\.lock|.*\.lock\.json)$
+
+  # ===========================================
+  # Commit message linting
+  # ===========================================
+  - repo: https://github.com/commitizen-tools/commitizen
+    rev: v4.1.0
+    hooks:
+      - id: commitizen
+        stages: [commit-msg]
+
+# ===========================================
+# CI Configuration
+# ===========================================
+ci:
+  autofix_commit_msg: "style: auto-fix by pre-commit hooks"
+  autofix_prs: true
+  autoupdate_branch: develop
+  autoupdate_commit_msg: "chore: update pre-commit hooks"
+  autoupdate_schedule: weekly
+  skip: [hadolint-docker]  # Docker not available in CI

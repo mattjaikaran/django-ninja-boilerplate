@@ -102,7 +102,7 @@ def check_docker_compose_file() -> tuple[bool, str]:
 
 def run_doctor() -> None:
     """Run environment validation checks."""
-    print_header("Django Ninja Stack - Doctor")
+    print_header("Django Ninja Boilerplate - Doctor")
     console.print()
 
     passed = 0

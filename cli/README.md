@@ -1,6 +1,6 @@
 # django-ninja-matt
 
-CLI tool for scaffolding Django Ninja Stack projects with modern tooling and best practices.
+CLI tool for scaffolding Django Ninja Boilerplate projects with modern tooling and best practices.
 
 ## Installation
 

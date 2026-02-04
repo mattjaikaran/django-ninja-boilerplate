@@ -1,11 +1,11 @@
-# Django Ninja Stack - Single Container Production Dockerfile
+# Django Ninja Boilerplate - Single Container Production Dockerfile
 # Combines Django backend serving via Gunicorn
 # Suitable for PaaS deployments (Railway, Render, Fly.io)
 
 # ===========================================
 # Stage 1: Build Stage
 # ===========================================
-FROM python:3.11-slim as builder
+FROM python:3.14-slim as builder
 
 # Install build dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -31,7 +31,7 @@ RUN uv pip install --system --no-cache -e .
 # ===========================================
 # Stage 2: Production Stage
 # ===========================================
-FROM python:3.11-slim as production
+FROM python:3.14-slim as production
 
 # Install runtime dependencies only
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -54,7 +54,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /app
 
 # Copy installed packages from builder
-COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+COPY --from=builder /usr/local/lib/python3.14/site-packages /usr/local/lib/python3.14/site-packages
 COPY --from=builder /usr/local/bin /usr/local/bin
 
 # Copy application code

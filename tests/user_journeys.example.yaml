@@ -1,0 +1,466 @@
+# User Journeys for E2E Testing
+#
+# This file defines user journeys that will be used to generate E2E test stubs.
+# Run `make generate-e2e` or `python scripts/generate_e2e_tests.py` to generate tests.
+#
+# Each journey represents a complete user flow through the application.
+# The generated tests are stubs that need to be filled in with actual test logic.
+#
+# YAML Structure:
+# ---------------
+# journeys:
+#   - name: Journey Name (required)
+#     description: What this journey tests (optional)
+#     preconditions: List of conditions that must be true before starting (optional)
+#     postconditions: List of conditions that should be true after completion (optional)
+#     fixtures: List of pytest fixtures needed for this journey (optional)
+#     steps:
+#       - name: Step name (required)
+#         description: What this step does (optional)
+#         action: The user action being performed (optional)
+#         expected: What should happen as a result (optional)
+#         endpoint: API endpoint for this step (optional)
+#         method: HTTP method (GET, POST, PUT, PATCH, DELETE) (optional, default: GET)
+#         payload: Request body data (optional)
+#         expected_status: Expected HTTP status code (optional)
+#         auth_required: Whether this step needs authentication (optional, default: false)
+#         fixtures: List of fixtures needed for this step (optional)
+#         assertions: List of things to verify (optional)
+#
+# Copy this file to tests/user_journeys.yaml and customize for your application.
+
+journeys:
+  # ===========================================================================
+  # User Registration Flow
+  # ===========================================================================
+  - name: User Registration Flow
+    description: |
+      Complete user registration process including account creation,
+      email verification, and initial profile setup.
+    preconditions:
+      - User is not logged in
+      - Email address is not already registered
+    postconditions:
+      - User account exists in the database
+      - User can log in with their credentials
+    fixtures:
+      - name: unique_email
+        description: Generate a unique email for registration
+    steps:
+      - name: Visit registration page
+        description: User navigates to the registration endpoint
+        action: Navigate to registration endpoint
+        expected: Registration endpoint is accessible
+        endpoint: /api/auth/register
+        method: GET
+        expected_status: 200
+
+      - name: Submit registration form
+        description: User submits their registration details
+        action: Submit registration form with valid data
+        expected: Account is created successfully
+        endpoint: /api/auth/register
+        method: POST
+        payload:
+          email: "{{ unique_email }}"
+          password: "SecurePassword123!"
+          password_confirm: "SecurePassword123!"
+          first_name: "Test"
+          last_name: "User"
+        expected_status: 201
+        assertions:
+          - Response contains user ID
+          - Response contains user email
+          - Password is not returned in response
+
+      - name: Attempt duplicate registration
+        description: Try to register with the same email again
+        action: Submit registration with existing email
+        expected: Registration is rejected
+        endpoint: /api/auth/register
+        method: POST
+        payload:
+          email: "{{ unique_email }}"
+          password: "AnotherPassword123!"
+          password_confirm: "AnotherPassword123!"
+        expected_status: 400
+        assertions:
+          - Error message indicates email already exists
+
+      - name: Verify account
+        description: User verifies their email address
+        action: Click verification link
+        expected: Account is marked as verified
+        endpoint: /api/auth/verify
+        method: POST
+        payload:
+          token: "{{ verification_token }}"
+        expected_status: 200
+        assertions:
+          - User is_verified flag is True
+
+  # ===========================================================================
+  # User Login Flow
+  # ===========================================================================
+  - name: User Login Flow
+    description: |
+      Standard username/password login flow with token-based authentication.
+    preconditions:
+      - User account exists and is verified
+    postconditions:
+      - User has valid access and refresh tokens
+      - User can access protected endpoints
+    steps:
+      - name: Submit login credentials
+        description: User submits their login credentials
+        action: Submit login form with valid credentials
+        expected: Receive authentication tokens
+        endpoint: /api/auth/login
+        method: POST
+        payload:
+          email: "test@example.com"
+          password: "SecurePassword123!"
+        expected_status: 200
+        assertions:
+          - Response contains access token
+          - Response contains refresh token
+          - Access token is valid JWT
+
+      - name: Login with invalid password
+        description: Attempt login with wrong password
+        action: Submit login form with invalid password
+        expected: Login is rejected
+        endpoint: /api/auth/login
+        method: POST
+        payload:
+          email: "test@example.com"
+          password: "WrongPassword123!"
+        expected_status: 401
+        assertions:
+          - Error message indicates invalid credentials
+
+      - name: Access protected endpoint
+        description: User accesses a protected endpoint with token
+        action: Request protected resource with auth token
+        expected: Resource is returned successfully
+        endpoint: /api/users/me
+        method: GET
+        auth_required: true
+        expected_status: 200
+        fixtures:
+          - auth_headers
+        assertions:
+          - Response contains user data
+          - User email matches logged in user
+
+      - name: Refresh access token
+        description: User refreshes their access token
+        action: Submit refresh token to get new access token
+        expected: New access token is returned
+        endpoint: /api/auth/refresh
+        method: POST
+        payload:
+          refresh: "{{ refresh_token }}"
+        expected_status: 200
+        assertions:
+          - Response contains new access token
+          - New access token is valid
+
+  # ===========================================================================
+  # Password Reset Flow
+  # ===========================================================================
+  - name: Password Reset Flow
+    description: |
+      Complete password reset flow including request, token validation,
+      and password update.
+    preconditions:
+      - User account exists
+      - User has forgotten their password
+    postconditions:
+      - User password is updated
+      - User can login with new password
+      - Old password no longer works
+    fixtures:
+      - name: mock_email_backend
+        description: Mock email backend to capture reset emails
+    steps:
+      - name: Request password reset
+        description: User requests a password reset email
+        action: Submit password reset request with email
+        expected: Reset email is sent
+        endpoint: /api/auth/password/reset/request
+        method: POST
+        payload:
+          email: "test@example.com"
+        expected_status: 200
+        fixtures:
+          - mock_email_backend
+        assertions:
+          - Success message is returned
+          - Email was sent (check outbox)
+
+      - name: Request reset for non-existent email
+        description: Request reset for email not in system
+        action: Submit password reset for unknown email
+        expected: Same response (no user enumeration)
+        endpoint: /api/auth/password/reset/request
+        method: POST
+        payload:
+          email: "nonexistent@example.com"
+        expected_status: 200
+        assertions:
+          - Same success message (prevents user enumeration)
+
+      - name: Submit new password with token
+        description: User submits their new password
+        action: Submit password reset form with token
+        expected: Password is updated
+        endpoint: /api/auth/password/reset/confirm
+        method: POST
+        payload:
+          token: "{{ reset_token }}"
+          password: "NewSecurePassword123!"
+          password_confirm: "NewSecurePassword123!"
+        expected_status: 200
+        assertions:
+          - Success message is returned
+
+      - name: Login with new password
+        description: Verify new password works
+        action: Login with the new password
+        expected: Login is successful
+        endpoint: /api/auth/login
+        method: POST
+        payload:
+          email: "test@example.com"
+          password: "NewSecurePassword123!"
+        expected_status: 200
+        assertions:
+          - Authentication tokens are returned
+
+      - name: Login with old password fails
+        description: Verify old password no longer works
+        action: Attempt login with old password
+        expected: Login is rejected
+        endpoint: /api/auth/login
+        method: POST
+        payload:
+          email: "test@example.com"
+          password: "SecurePassword123!"
+        expected_status: 401
+        assertions:
+          - Error message indicates invalid credentials
+
+  # ===========================================================================
+  # Todo CRUD Operations
+  # ===========================================================================
+  - name: Todo CRUD Operations
+    description: |
+      Complete CRUD (Create, Read, Update, Delete) operations for the Todo
+      resource, testing all standard REST API endpoints.
+    preconditions:
+      - User is authenticated
+    postconditions:
+      - Todo operations complete successfully
+      - Data integrity is maintained
+    fixtures:
+      - name: auth_headers
+        description: Authentication headers for the test user
+        dependencies:
+          - test_user
+    steps:
+      - name: Create a new todo
+        description: User creates a new todo item
+        action: Submit a new todo
+        expected: Todo is created and returned
+        endpoint: /api/todos/
+        method: POST
+        auth_required: true
+        payload:
+          title: "E2E Test Todo"
+          description: "This is a test todo created during E2E testing"
+          is_completed: false
+        expected_status: 201
+        fixtures:
+          - auth_headers
+        assertions:
+          - Response contains todo ID
+          - Title matches input
+          - is_completed is false
+          - created_by matches current user
+
+      - name: List all todos
+        description: User lists all their todos
+        action: Request list of todos
+        expected: All user's todos are returned
+        endpoint: /api/todos/
+        method: GET
+        auth_required: true
+        expected_status: 200
+        fixtures:
+          - auth_headers
+        assertions:
+          - Response is a list
+          - Created todo is in the list
+          - Only user's own todos are returned
+
+      - name: Get a specific todo
+        description: User retrieves a specific todo by ID
+        action: Request todo details by ID
+        expected: Todo details are returned
+        endpoint: /api/todos/{todo_id}
+        method: GET
+        auth_required: true
+        expected_status: 200
+        fixtures:
+          - auth_headers
+        assertions:
+          - Response contains correct todo data
+          - ID matches requested ID
+
+      - name: Update todo
+        description: User updates the todo item
+        action: Submit todo updates
+        expected: Todo is updated
+        endpoint: /api/todos/{todo_id}
+        method: PUT
+        auth_required: true
+        payload:
+          title: "Updated E2E Test Todo"
+          description: "This todo has been updated"
+          is_completed: true
+        expected_status: 200
+        fixtures:
+          - auth_headers
+        assertions:
+          - Title is updated
+          - Description is updated
+          - is_completed is now true
+
+      - name: Partial update todo
+        description: User partially updates the todo (PATCH)
+        action: Submit partial todo update
+        expected: Only specified fields are updated
+        endpoint: /api/todos/{todo_id}
+        method: PATCH
+        auth_required: true
+        payload:
+          is_completed: false
+        expected_status: 200
+        fixtures:
+          - auth_headers
+        assertions:
+          - is_completed is updated to false
+          - Other fields remain unchanged
+
+      - name: Access another user's todo
+        description: Attempt to access a todo owned by another user
+        action: Request todo belonging to different user
+        expected: Access is denied
+        endpoint: /api/todos/{other_user_todo_id}
+        method: GET
+        auth_required: true
+        expected_status: 404
+        fixtures:
+          - auth_headers
+        assertions:
+          - User cannot access other users' todos
+
+      - name: Delete todo
+        description: User deletes the todo item
+        action: Delete the todo
+        expected: Todo is deleted
+        endpoint: /api/todos/{todo_id}
+        method: DELETE
+        auth_required: true
+        expected_status: 204
+        fixtures:
+          - auth_headers
+        assertions:
+          - Todo no longer exists
+          - Subsequent GET returns 404
+
+      - name: Verify todo is deleted
+        description: Confirm the todo was actually deleted
+        action: Attempt to retrieve deleted todo
+        expected: Todo is not found
+        endpoint: /api/todos/{todo_id}
+        method: GET
+        auth_required: true
+        expected_status: 404
+        fixtures:
+          - auth_headers
+        assertions:
+          - Error indicates todo not found
+
+  # ===========================================================================
+  # Passwordless Login Flow (OTP-based)
+  # ===========================================================================
+  - name: Passwordless Login Flow
+    description: |
+      One-time password (OTP) based authentication flow for passwordless login.
+    preconditions:
+      - User account exists
+      - Email service is configured
+    postconditions:
+      - User is authenticated
+      - OTP is marked as used
+    fixtures:
+      - name: mock_email_backend
+        description: Mock email backend to capture OTP emails
+    steps:
+      - name: Request OTP
+        description: User requests a one-time password via email
+        action: Submit email for OTP
+        expected: OTP is sent to user's email
+        endpoint: /api/auth/passwordless/login/request
+        method: POST
+        payload:
+          email: "test@example.com"
+        expected_status: 200
+        fixtures:
+          - mock_email_backend
+        assertions:
+          - Success message is returned
+          - OTP email is sent
+
+      - name: Verify OTP and login
+        description: User submits the OTP to complete login
+        action: Submit OTP for verification
+        expected: Authentication tokens are returned
+        endpoint: /api/auth/passwordless/login/verify
+        method: POST
+        payload:
+          email: "test@example.com"
+          token: "{{ otp_token }}"
+        expected_status: 200
+        assertions:
+          - Response contains access token
+          - Response contains refresh token
+          - OTP is marked as used
+
+      - name: Attempt to reuse OTP
+        description: Try to use the same OTP again
+        action: Submit already-used OTP
+        expected: Authentication fails
+        endpoint: /api/auth/passwordless/login/verify
+        method: POST
+        payload:
+          email: "test@example.com"
+          token: "{{ otp_token }}"
+        expected_status: 403
+        assertions:
+          - Error message indicates token is invalid or used
+
+      - name: Invalid OTP
+        description: Submit an invalid OTP
+        action: Submit wrong OTP
+        expected: Authentication fails
+        endpoint: /api/auth/passwordless/login/verify
+        method: POST
+        payload:
+          email: "test@example.com"
+          token: "invalid-token-12345"
+        expected_status: 403
+        assertions:
+          - Error message indicates invalid token

@@ -8,7 +8,6 @@ from jinja2 import Environment, FileSystemLoader
 
 from django_ninja_matt.config import ProjectConfig, TemplateContext
 from django_ninja_matt.utils.console import (
-    create_progress,
     print_error,
     print_info,
     print_success,

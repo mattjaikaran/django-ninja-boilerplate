@@ -1,5 +1,15 @@
-# Django Ninja Stack - Docker Ignore
-# Exclude files from Docker build context for faster builds
+# Django Ninja Boilerplate - Docker Ignore
+# Exclude files from Docker build context for faster builds and smaller images
+# ============================================================
+
+# ===========================================
+# Docker files (prevent nested context issues)
+# ===========================================
+# Keep at top for clarity - these must be excluded
+Dockerfile*
+docker-compose*.yml
+.docker/
+*.dockerfile
 
 # ===========================================
 # Version Control
@@ -7,15 +17,26 @@
 .git
 .gitignore
 .gitattributes
+.github/
+.gitlab-ci.yml
+.travis.yml
+azure-pipelines.yml
+Jenkinsfile
 
 # ===========================================
-# Python
+# Python Cache & Bytecode
 # ===========================================
-__pycache__
+__pycache__/
 *.py[cod]
 *$py.class
 *.so
 .Python
+*.pyo
+*.pyd
+
+# ===========================================
+# Build & Distribution
+# ===========================================
 build/
 develop-eggs/
 dist/
@@ -31,19 +52,21 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+MANIFEST
 
 # ===========================================
 # Virtual Environments
 # ===========================================
-.venv
+.venv/
 venv/
 ENV/
 env/
 .env.local
 .env.*.local
+.uv/
 
 # ===========================================
-# IDE and Editor
+# IDE and Editor Files
 # ===========================================
 .vscode/
 .idea/
@@ -55,18 +78,23 @@ env/
 .settings/
 *.sublime-project
 *.sublime-workspace
+.spyderproject
+.spyproject
 
 # ===========================================
 # Testing and Coverage
 # ===========================================
 .pytest_cache/
 .coverage
+.coverage.*
 htmlcov/
 .tox/
 .nox/
 coverage.xml
 *.cover
 *.py,cover
+.hypothesis/
+nosetests.xml
 
 # ===========================================
 # Type Checking and Linting
@@ -75,30 +103,17 @@ coverage.xml
 .ruff_cache/
 .dmypy.json
 dmypy.json
+.pytype/
 
 # ===========================================
-# Documentation
+# Documentation (keep README for build)
 # ===========================================
-docs/_build/
+docs/
 *.md
 !README.md
 LICENSE
-
-# ===========================================
-# CI/CD
-# ===========================================
-.github/
-.gitlab-ci.yml
-.travis.yml
-azure-pipelines.yml
-Jenkinsfile
-
-# ===========================================
-# Docker (avoid nested contexts)
-# ===========================================
-Dockerfile*
-docker-compose*.yml
-.docker/
+CHANGELOG*
+CONTRIBUTING*
 
 # ===========================================
 # Local Development Files
@@ -108,15 +123,19 @@ docker-compose*.yml
 *.sqlite3
 db.sqlite3
 .env
-.env.local
+.env.*
+!.env.example
 *.bak
+*.backup
+local_settings.py
 
 # ===========================================
-# Media and Static (generated)
+# Media and Static (generated at runtime)
 # ===========================================
 media/
 staticfiles/
 static/admin/
+static/collected/
 
 # ===========================================
 # Temporary Files
@@ -125,9 +144,11 @@ tmp/
 temp/
 *.tmp
 *.temp
+.cache/
+*.swp
 
 # ===========================================
-# OS Generated
+# OS Generated Files
 # ===========================================
 .DS_Store
 .DS_Store?
@@ -136,25 +157,84 @@ temp/
 .Trashes
 ehthumbs.db
 Thumbs.db
+Desktop.ini
 
 # ===========================================
-# Project Specific
+# Project Specific Exclusions
 # ===========================================
+# Database dumps and backups
 *.sql
+*.dump
 backups/
+dumps/
+
+# Test fixtures (large JSON files)
 fixtures/*.json
 !fixtures/.gitkeep
 
-# CLI Tool (separate build)
+# CLI Tool (separate package/build)
 cli/
 
-# Scripts that aren't needed in container
+# Scripts not needed in runtime container
 scripts/setup.sh
 scripts/doctor.sh
+scripts/check_data.sh
+scripts/*.local.sh
+
+# Deployment configs (not needed inside container)
+deploy/
+nginx/
+kubernetes/
+k8s/
 
 # ===========================================
-# Large Files
+# Large/Binary Files
 # ===========================================
 *.zip
+*.tar
 *.tar.gz
+*.tar.bz2
 *.rar
+*.7z
+*.iso
+*.dmg
+
+# Images (unless specifically needed)
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.ico
+*.svg
+!static/images/**
+
+# ===========================================
+# Security - Never include these
+# ===========================================
+*.pem
+*.key
+*.crt
+*.p12
+secrets/
+credentials/
+.secrets
+*.secret
+
+# ===========================================
+# Misc
+# ===========================================
+Makefile
+*.make
+Vagrantfile
+.vagrant/
+*.box
+.pre-commit-config.yaml
+.editorconfig
+.tool-versions
+.python-version
+.node-version
+.nvmrc
+package*.json
+yarn.lock
+pnpm-lock.yaml
+node_modules/

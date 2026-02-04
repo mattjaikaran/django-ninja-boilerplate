@@ -1,13 +1,11 @@
 """Monorepo (fullstack) project generator."""
 
-from pathlib import Path
 
-from django_ninja_matt.config import REPO_URLS, DEFAULT_BRANCH, ProjectConfig
+from django_ninja_matt.config import DEFAULT_BRANCH, REPO_URLS, ProjectConfig
 from django_ninja_matt.generators.base import BaseGenerator
 from django_ninja_matt.utils.console import (
     create_progress,
     print_error,
-    print_info,
     print_success,
 )
 from django_ninja_matt.utils.git import clone_repo, git_available, remove_git_history
@@ -366,7 +364,7 @@ Run `make help` to see all available commands.
 
 ---
 
-Created with [Django Ninja Stack](https://github.com/mattjaikaran/django-ninja-boilerplate)
+Created with [Django Ninja Boilerplate](https://github.com/mattjaikaran/django-ninja-boilerplate)
 """
         (self.config.path / "README.md").write_text(content)
 

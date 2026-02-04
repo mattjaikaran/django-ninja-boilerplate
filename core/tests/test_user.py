@@ -66,7 +66,7 @@ class TestUserAPI:
     @pytest.fixture
     def auth_headers(self, user_with_password):
         """Create auth headers for authenticated requests."""
-        from django_ninja_jwt.tokens import RefreshToken
+        from ninja_jwt.tokens import RefreshToken
 
         refresh = RefreshToken.for_user(user_with_password)
         access_token = refresh.access_token

@@ -1,5 +1,7 @@
 """Base generator class for all feature generators."""
 
+from __future__ import annotations
+
 import keyword
 import logging
 import subprocess
@@ -91,7 +93,7 @@ class BaseGenerator(ABC):
             self.logger.error(f"Failed to create file {file_path}: {e}")
             raise GeneratorError(f"Failed to create file {file_path}: {e}")
 
-    def update_pyproject_toml(self, dependencies: List[str]) -> None:
+    def update_pyproject_toml(self, dependencies: list[str]) -> None:
         """Update pyproject.toml with new dependencies.
 
         Args:

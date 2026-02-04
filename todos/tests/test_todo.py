@@ -23,7 +23,7 @@ def todo(user):
 @pytest.fixture
 def auth_headers(user):
     """Create auth headers for authenticated requests."""
-    from django_ninja_jwt.tokens import RefreshToken
+    from ninja_jwt.tokens import RefreshToken
 
     refresh = RefreshToken.for_user(user)
     access_token = refresh.access_token

@@ -1,17 +1,12 @@
 """Standalone API project generator."""
 
-import shutil
-import subprocess
-from pathlib import Path
 
-from django_ninja_matt.config import REPO_URLS, DEFAULT_BRANCH, ProjectConfig
+from django_ninja_matt.config import DEFAULT_BRANCH, REPO_URLS, ProjectConfig
 from django_ninja_matt.generators.base import BaseGenerator
 from django_ninja_matt.utils.console import (
     create_progress,
     print_error,
     print_info,
-    print_success,
-    print_step,
 )
 from django_ninja_matt.utils.git import clone_repo, git_available
 
@@ -138,7 +133,7 @@ make doctor    # Check environment
 
 ---
 
-Created with [Django Ninja Stack](https://github.com/mattjaikaran/django-ninja-boilerplate)
+Created with [Django Ninja Boilerplate](https://github.com/mattjaikaran/django-ninja-boilerplate)
 """
             readme.write_text(content)
 

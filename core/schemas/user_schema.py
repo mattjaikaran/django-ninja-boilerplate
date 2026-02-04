@@ -4,6 +4,7 @@ This module defines Pydantic schemas for user-related API operations.
 """
 
 from datetime import datetime
+from uuid import UUID
 
 from ninja import Schema
 from pydantic import EmailStr, Field, field_validator
@@ -33,6 +34,14 @@ class UserSchema(Schema):
     date_joined: datetime | None = None
     last_login: datetime | None = None
 
+    @field_validator("id", mode="before")
+    @classmethod
+    def convert_uuid_to_str(cls, v):
+        """Convert UUID to string."""
+        if isinstance(v, UUID):
+            return str(v)
+        return v
+
     class Config:
         from_attributes = True
 
@@ -47,6 +56,14 @@ class UserBasicSchema(Schema):
     last_name: str = ""
     full_name: str = ""
     avatar: str | None = None
+
+    @field_validator("id", mode="before")
+    @classmethod
+    def convert_uuid_to_str(cls, v):
+        """Convert UUID to string."""
+        if isinstance(v, UUID):
+            return str(v)
+        return v
 
     class Config:
         from_attributes = True

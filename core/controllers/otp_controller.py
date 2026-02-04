@@ -15,6 +15,7 @@ from ninja_extra import api_controller, http_post
 from ninja_jwt.tokens import RefreshToken
 
 from api.decorators import handle_exceptions, log_api_call
+from api.utils.http import get_client_ip, get_user_agent
 from core.schemas import MessageResponse, UserSchema
 from core.schemas.otp_schema import (
     OTPRequestSchema,
@@ -32,19 +33,6 @@ from core.services.otp_service import otp_service
 
 User = get_user_model()
 logger = logging.getLogger(__name__)
-
-
-def get_client_ip(request) -> str | None:
-    """Extract client IP from request."""
-    x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
-    if x_forwarded_for:
-        return x_forwarded_for.split(",")[0].strip()
-    return request.META.get("REMOTE_ADDR")
-
-
-def get_user_agent(request) -> str:
-    """Extract user agent from request."""
-    return request.META.get("HTTP_USER_AGENT", "")
 
 
 @api_controller("/auth/otp", tags=["OTP Authentication"])

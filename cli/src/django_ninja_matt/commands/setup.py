@@ -1,7 +1,6 @@
 """Setup command - bootstrap development environment."""
 
 import subprocess
-import sys
 from pathlib import Path
 
 from django_ninja_matt.utils.console import (
@@ -23,7 +22,7 @@ def run_setup(
         skip_docker: Skip Docker build and start
         skip_seed: Skip seeding sample data
     """
-    print_header("Django Ninja Stack - Setup")
+    print_header("Django Ninja Boilerplate - Setup")
 
     # Check if setup script exists
     setup_script = Path("scripts/setup.sh")

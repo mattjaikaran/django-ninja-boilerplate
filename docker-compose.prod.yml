@@ -1,7 +1,18 @@
-# Optimized for OrbStack - Production
+# Django Ninja Boilerplate - Production Docker Compose
+# Optimized for production workloads with resource limits
+#
+# This configuration uses the unified multi-stage Dockerfile:
+#   - All services use 'production' target for optimized performance
+#   - Includes Gunicorn with production-tuned settings
+#   - Non-root user for security
+#
+# Usage:
+#   docker-compose -f docker-compose.prod.yml up -d
 
 services:
-  # PostgreSQL 17 Database
+  # ===========================================
+  # PostgreSQL Database
+  # ===========================================
   db:
     image: postgres:17-alpine
     volumes:
@@ -10,21 +21,44 @@ services:
       - POSTGRES_DB=${DB_NAME}
       - POSTGRES_USER=${DB_USER}
       - POSTGRES_PASSWORD=${DB_PASSWORD}
+      # Production PostgreSQL tuning
+      - POSTGRES_INITDB_ARGS=--encoding=UTF-8 --data-checksums
     networks:
       - app-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
       interval: 30s
       timeout: 10s
       retries: 5
+      start_period: 30s
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    # Security: don't expose port in production
+    # ports:
+    #   - "5432:5432"
 
-  # Redis for caching and sessions
+  # ===========================================
+  # Redis Cache & Message Broker
+  # ===========================================
   redis:
     image: redis:7.2-alpine
     volumes:
       - redis_data:/data
-    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
+    command: >
+      redis-server
+      --appendonly yes
+      --requirepass ${REDIS_PASSWORD}
+      --maxmemory 512mb
+      --maxmemory-policy allkeys-lru
+      --tcp-keepalive 300
+      --timeout 0
     networks:
       - app-network
     healthcheck:
@@ -32,17 +66,44 @@ services:
       interval: 30s
       timeout: 10s
       retries: 5
+      start_period: 10s
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
 
-  # Django Web Application
+  # ===========================================
+  # Django Application Server
+  # Uses 'production' target from unified Dockerfile
+  # ===========================================
   django:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
     command: >
-      sh -c ".venv/bin/python manage.py migrate &&
-             .venv/bin/python manage.py collectstatic --noinput &&
-             .venv/bin/gunicorn api.wsgi:application --bind 0.0.0.0:8000 --workers 3 --timeout 120"
+      sh -c "python manage.py migrate --noinput &&
+             python manage.py collectstatic --noinput &&
+             gunicorn api.wsgi:application
+               --bind 0.0.0.0:8000
+               --workers ${GUNICORN_WORKERS:-4}
+               --threads 2
+               --worker-class gthread
+               --worker-tmp-dir /dev/shm
+               --timeout 120
+               --keep-alive 5
+               --max-requests 1000
+               --max-requests-jitter 50
+               --access-logfile -
+               --error-logfile -
+               --capture-output"
     volumes:
-      - static_volume:/app/static
+      - static_volume:/app/staticfiles
       - media_volume:/app/media
       - logs_volume:/app/logs
     expose:
@@ -61,13 +122,17 @@ services:
       - ALLOWED_HOSTS=${ALLOWED_HOSTS}
       - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS}
       - CSRF_TRUSTED_ORIGINS=${CSRF_TRUSTED_ORIGINS}
-      - USE_TLS=${USE_TLS}
+      - USE_TLS=${USE_TLS:-true}
       - EMAIL_HOST=${EMAIL_HOST}
       - EMAIL_PORT=${EMAIL_PORT}
       - EMAIL_USE_TLS=${EMAIL_USE_TLS}
       - EMAIL_HOST_USER=${EMAIL_HOST_USER}
       - EMAIL_HOST_PASSWORD=${EMAIL_HOST_PASSWORD}
       - DEFAULT_FROM_EMAIL=${DEFAULT_FROM_EMAIL}
+      # Python production settings
+      - PYTHONDONTWRITEBYTECODE=1
+      - PYTHONUNBUFFERED=1
+      - PYTHONOPTIMIZE=2
     depends_on:
       db:
         condition: service_healthy
@@ -76,30 +141,155 @@ services:
     networks:
       - app-network
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '4.0'
+          memory: 2G
+        reservations:
+          cpus: '1.0'
+          memory: 512M
+      replicas: 1
 
+  # ===========================================
+  # Celery Worker (Optional)
+  # Uses 'production' target from unified Dockerfile
+  # ===========================================
+  celery-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    command: >
+      celery -A api worker
+        -l info
+        --concurrency=${CELERY_CONCURRENCY:-4}
+        --max-tasks-per-child=1000
+        -Q default,celery
+    volumes:
+      - logs_volume:/app/logs
+    environment:
+      - DJANGO_SETTINGS_MODULE=api.settings
+      - DEBUG=0
+      - SECRET_KEY=${SECRET_KEY}
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_HOST=db
+      - DB_PORT=5432
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
+      - PYTHONDONTWRITEBYTECODE=1
+      - PYTHONUNBUFFERED=1
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - app-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+    profiles:
+      - celery
+
+  # ===========================================
+  # Celery Beat Scheduler (Optional)
+  # Uses 'production' target from unified Dockerfile
+  # ===========================================
+  celery-beat:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    command: celery -A api beat -l info --scheduler django_celery_beat.schedulers:DatabaseScheduler
+    volumes:
+      - logs_volume:/app/logs
+    environment:
+      - DJANGO_SETTINGS_MODULE=api.settings
+      - DEBUG=0
+      - SECRET_KEY=${SECRET_KEY}
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_HOST=db
+      - DB_PORT=5432
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
+      - PYTHONDONTWRITEBYTECODE=1
+      - PYTHONUNBUFFERED=1
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      celery-worker:
+        condition: service_started
+    networks:
+      - app-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 64M
+    profiles:
+      - celery
+
+  # ===========================================
   # Nginx Reverse Proxy
+  # ===========================================
   nginx:
     build: ./nginx
     ports:
       - "80:80"
       - "443:443"
     volumes:
-      - static_volume:/app/static
-      - media_volume:/app/media
+      - static_volume:/app/staticfiles:ro
+      - media_volume:/app/media:ro
       - ./nginx/certs:/etc/nginx/certs:ro
     depends_on:
       - django
     networks:
       - app-network
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 64M
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/api/health/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
 
 networks:
   app-network:
     driver: bridge
+    driver_opts:
+      com.docker.network.driver.mtu: 1500
 
 volumes:
   postgres_data:
+    driver: local
   redis_data:
+    driver: local
   static_volume:
+    driver: local
   media_volume:
+    driver: local
   logs_volume:
+    driver: local

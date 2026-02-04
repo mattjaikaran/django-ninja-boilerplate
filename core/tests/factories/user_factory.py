@@ -38,7 +38,7 @@ class UserFactory(factory.django.DjangoModelFactory):
 
     # Profile fields
     bio = factory.Faker("sentence", nb_words=10)
-    phone = factory.Faker("phone_number")
+    phone = factory.LazyFunction(lambda: f"+1{fake.random_int(1000000000, 9999999999)}")
     location = factory.Faker("city")
     website = factory.LazyAttribute(lambda obj: f"https://{obj.username}.example.com")
     timezone = "UTC"

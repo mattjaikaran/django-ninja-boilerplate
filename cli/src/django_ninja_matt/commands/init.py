@@ -1,15 +1,12 @@
 """Init command - create a new project."""
 
 from pathlib import Path
-from typing import Optional
 
 import questionary
 from rich.panel import Panel
 from rich.text import Text
 
 from django_ninja_matt.config import (
-    DEFAULT_BRANCH,
-    REPO_URLS,
     DeploymentTarget,
     ProjectConfig,
     ProjectType,
@@ -28,7 +25,7 @@ from django_ninja_matt.utils.console import (
 def show_welcome() -> None:
     """Show welcome banner."""
     text = Text()
-    text.append("Django Ninja Stack", style="bold cyan")
+    text.append("Django Ninja Boilerplate", style="bold cyan")
     text.append("\n")
     text.append("Modern Django API scaffolding with best practices", style="dim")
 
@@ -156,8 +153,8 @@ def prompt_confirmation(config: ProjectConfig) -> bool:
 def run_init(
     name: str,
     path: Path,
-    project_type: Optional[ProjectType] = None,
-    deployment: Optional[DeploymentTarget] = None,
+    project_type: ProjectType | None = None,
+    deployment: DeploymentTarget | None = None,
     use_celery: bool = True,
     use_redis: bool = True,
     init_git: bool = True,

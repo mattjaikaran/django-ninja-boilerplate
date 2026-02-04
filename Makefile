@@ -1,6 +1,6 @@
 # Makefile for Django Ninja Boilerplate with UV Package Management
 
-.PHONY: help build up down logs shell migrate createsuperuser test lint format clean install sync doctor
+.PHONY: help build up down logs shell migrate createsuperuser test lint format clean install sync doctor quickstart quickstart-minimal quickstart-local quickstart-ci
 
 # Variables
 DOCKER_COMPOSE = docker-compose
@@ -274,7 +274,7 @@ monitor: ## Open monitoring dashboard
 # Setup commands
 setup: ## One-command project bootstrap (runs doctor, builds, migrates, seeds)
 	@echo "========================================"
-	@echo "  Django Ninja Stack - Setup"
+	@echo "  Django Ninja Boilerplate - Setup"
 	@echo "========================================"
 	@./scripts/setup.sh --auto
 
@@ -300,6 +300,21 @@ quick-setup: ## Quick setup (up + migrate only, assumes .env exists)
 	@echo "Waiting for services to start..."
 	@sleep 10
 	$(MAKE) migrate
+
+# ===========================================
+# Quickstart - Fastest Clone-to-Running Experience
+# ===========================================
+quickstart: ## Fastest setup: clone -> running API in <2 minutes
+	@./scripts/quickstart.sh
+
+quickstart-minimal: ## Quickstart with minimal data (faster)
+	@./scripts/quickstart.sh --minimal
+
+quickstart-local: ## Quickstart without Docker (local Python)
+	@./scripts/quickstart.sh --no-docker
+
+quickstart-ci: ## Quickstart for CI environments (no browser, no prompts)
+	@./scripts/quickstart.sh --ci
 
 check: ## Run all checks (lint, format-check, test)
 	$(MAKE) lint
@@ -367,3 +382,199 @@ local-celery: ## Start Celery worker locally
 # Docker shortcuts
 exec: ## Execute a command in Django container (usage: make exec CMD="python manage.py showmigrations")
 	$(DOCKER_COMPOSE) exec $(DJANGO_SERVICE) $(UV) run $(CMD)
+
+# ===========================================
+# Status and Monitoring Commands
+# ===========================================
+status: ## Show status of all services
+	@echo "========================================"
+	@echo "  Service Status"
+	@echo "========================================"
+	@$(DOCKER_COMPOSE) ps
+	@echo ""
+	@echo "========================================"
+	@echo "  Port Status"
+	@echo "========================================"
+	@echo "Django API:  http://localhost:8000"
+	@echo "API Docs:    http://localhost:8000/api/docs"
+	@echo "Admin:       http://localhost:8000/admin"
+	@echo "Flower:      http://localhost:5555 (if running)"
+	@echo "PostgreSQL:  localhost:5432"
+	@echo "Redis:       localhost:6379"
+
+logs-error: ## Show only error logs from all services
+	$(DOCKER_COMPOSE) logs -f 2>&1 | grep -i -E "(error|exception|traceback|critical|fatal)"
+
+logs-tail: ## Show last 100 lines of logs
+	$(DOCKER_COMPOSE) logs --tail=100
+
+logs-since: ## Show logs since timestamp (usage: make logs-since TIME="1h")
+	$(DOCKER_COMPOSE) logs --since=$(TIME)
+
+# ===========================================
+# Advanced Restart Commands
+# ===========================================
+restart-all: ## Graceful restart of all services with health verification
+	@echo "Gracefully restarting all services..."
+	$(DOCKER_COMPOSE) stop
+	$(DOCKER_COMPOSE) up -d
+	@echo "Waiting for services to be healthy..."
+	@sleep 5
+	@$(MAKE) health
+	@echo "Restart complete!"
+
+restart-db: ## Restart database service
+	$(DOCKER_COMPOSE) restart $(DB_SERVICE)
+
+restart-redis: ## Restart Redis service
+	$(DOCKER_COMPOSE) restart $(REDIS_SERVICE)
+
+restart-celery: ## Restart Celery services
+	$(DOCKER_COMPOSE) restart $(CELERY_WORKER_SERVICE) $(CELERY_BEAT_SERVICE)
+
+# ===========================================
+# Docker Image Analysis
+# ===========================================
+image-size: ## Show Docker image sizes
+	@echo "========================================"
+	@echo "  Docker Image Sizes"
+	@echo "========================================"
+	@docker images --format "table {{.Repository}}\t{{.Tag}}\t{{.Size}}" | grep -E "(django|ninja|boilerplate|SIZE)"
+
+image-layers: ## Show image layers (usage: make image-layers IMAGE=django-ninja-boilerplate-django)
+	docker history $(IMAGE) --no-trunc
+
+build-stats: ## Show build cache and disk usage
+	@echo "========================================"
+	@echo "  Docker Build Stats"
+	@echo "========================================"
+	@docker system df
+	@echo ""
+	@echo "Build cache:"
+	@docker builder du --verbose 2>/dev/null || echo "BuildKit not available"
+
+prune-builds: ## Clean build cache
+	docker builder prune -f
+
+# ===========================================
+# Performance Testing
+# ===========================================
+benchmark: ## Run basic API benchmark (requires curl)
+	@echo "Running API benchmark..."
+	@echo "Health endpoint (10 requests):"
+	@for i in 1 2 3 4 5 6 7 8 9 10; do \
+		curl -s -o /dev/null -w "%{time_total}s\n" http://localhost:8000/api/health/; \
+	done | awk '{sum+=$$1; count++} END {print "Average: " sum/count "s"}'
+
+# ===========================================
+# Pre-commit Hooks
+# ===========================================
+pre-commit-install: ## Install pre-commit hooks
+	$(UV) pip install pre-commit
+	$(UV) run pre-commit install
+	$(UV) run pre-commit install --hook-type commit-msg
+
+pre-commit-update: ## Update pre-commit hooks to latest versions
+	$(UV) run pre-commit autoupdate
+
+pre-commit-all: ## Run pre-commit on all files
+	$(UV) run pre-commit run --all-files
+
+# ===========================================
+# Documentation
+# ===========================================
+docs-serve: ## Serve documentation locally (if using mkdocs)
+	$(UV) run mkdocs serve
+
+# ===========================================
+# CI/CD Helpers
+# ===========================================
+ci-lint: ## Run CI linting (non-Docker)
+	$(UV) run ruff check .
+	$(UV) run ruff format --check .
+
+ci-test: ## Run CI tests (non-Docker)
+	$(UV) run pytest --cov=. --cov-report=xml
+
+ci-build: ## Build Docker image for CI
+	docker build -t django-ninja-stack:ci .
+
+ci-security: ## Run security audit
+	$(UV) pip install pip-audit
+	$(UV) run pip-audit
+
+# ===========================================
+# Troubleshooting
+# ===========================================
+debug-env: ## Show environment variables in Django container
+	$(DOCKER_COMPOSE) exec $(DJANGO_SERVICE) env | sort
+
+debug-python: ## Show Python and package info
+	$(DOCKER_COMPOSE) exec $(DJANGO_SERVICE) $(UV) run python --version
+	$(DOCKER_COMPOSE) exec $(DJANGO_SERVICE) $(UV) pip list
+
+debug-django: ## Run Django system check
+	$(DOCKER_COMPOSE) exec $(DJANGO_SERVICE) $(UV) run python manage.py check
+
+debug-db: ## Check database connectivity
+	$(DOCKER_COMPOSE) exec $(DJANGO_SERVICE) $(UV) run python manage.py dbshell -c "SELECT version();"
+
+debug-redis: ## Check Redis connectivity
+	$(DOCKER_COMPOSE) exec $(REDIS_SERVICE) redis-cli ping
+
+debug-network: ## Show Docker network info
+	docker network inspect django-ninja-boilerplate_app-network 2>/dev/null || docker network ls
+
+# ===========================================
+# Quick Development Workflows
+# ===========================================
+dev: ## Start development environment (alias for up)
+	$(MAKE) up
+	@echo ""
+	@echo "Development server starting..."
+	@echo "API: http://localhost:8000/api/docs"
+	@echo ""
+
+dev-full: ## Start full development environment with all services
+	$(MAKE) up-full
+	@echo ""
+	@echo "Full development environment starting..."
+	@echo "API:    http://localhost:8000/api/docs"
+	@echo "Flower: http://localhost:5555"
+	@echo ""
+
+dev-reset: ## Reset development environment (down, clean volumes, up fresh)
+	$(MAKE) down-volumes
+	$(MAKE) up-build
+	@sleep 10
+	$(MAKE) migrate
+	$(MAKE) seed-data
+	@echo "Development environment reset complete!"
+
+# ===========================================
+# E2E Test Generation
+# ===========================================
+generate-e2e: ## Generate E2E test stubs from user journey YAML
+	@echo "Generating E2E tests from user journeys..."
+	$(UV) run python scripts/generate_e2e_tests.py
+	@echo "Done! Review the generated tests in tests/e2e/"
+
+generate-e2e-dry: ## Preview E2E test generation (dry run)
+	$(UV) run python scripts/generate_e2e_tests.py --dry-run
+
+test-e2e: ## Run E2E tests
+	$(DOCKER_COMPOSE) exec $(DJANGO_SERVICE) $(UV) run python -m pytest tests/e2e/ -v
+
+local-test-e2e: ## Run E2E tests locally
+	$(UV) run pytest tests/e2e/ -v
+
+# ===========================================
+# Version and Info
+# ===========================================
+version: ## Show version information
+	@echo "Django Ninja Boilerplate v1.0.0"
+	@echo ""
+	@echo "Python: $$(python --version 2>&1)"
+	@echo "UV: $$(uv --version 2>&1)"
+	@echo "Docker: $$(docker --version 2>&1)"
+	@echo "Docker Compose: $$(docker compose version 2>&1)"

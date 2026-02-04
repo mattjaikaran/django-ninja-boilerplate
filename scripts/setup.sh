@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Django Ninja Stack - Development Environment Setup
+# Django Ninja Boilerplate - Development Environment Setup
 # One-command project bootstrap with auto mode support
 #
 # Usage:
@@ -42,7 +42,7 @@ while [[ $# -gt 0 ]]; do
             shift
             ;;
         --help|-h)
-            echo "Django Ninja Stack - Setup Script"
+            echo "Django Ninja Boilerplate - Setup Script"
             echo ""
             echo "Usage: ./scripts/setup.sh [OPTIONS]"
             echo ""
@@ -238,7 +238,7 @@ setup_env_file() {
         else
             # Create minimal .env
             cat > .env << 'EOF'
-# Django Ninja Stack - Environment Variables
+# Django Ninja Boilerplate - Environment Variables
 DEBUG=1
 DJANGO_SETTINGS_MODULE=api.settings
 SECRET_KEY=PLACEHOLDER
@@ -440,7 +440,7 @@ show_summary() {
 # ===========================================
 
 main() {
-    print_header "Django Ninja Stack - Setup"
+    print_header "Django Ninja Boilerplate - Setup"
 
     if [ "$AUTO_MODE" = true ]; then
         print_info "Running in auto mode (no prompts)"

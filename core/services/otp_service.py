@@ -7,6 +7,8 @@ This module provides business logic for:
 - Cleanup of expired OTPs
 """
 
+from __future__ import annotations
+
 import logging
 from typing import TYPE_CHECKING
 
@@ -139,7 +141,7 @@ class OTPService:
         phone: str | None = None,
         code: str | None = None,
         purpose: str = OTPPurpose.LOGIN.value,
-    ) -> tuple[bool, str, "User | None"]:
+    ) -> tuple[bool, str, User | None]:
         """Verify an OTP code.
 
         Args:
@@ -207,7 +209,7 @@ class OTPService:
     def verify_token(
         self,
         token: str,
-    ) -> tuple[bool, str, "User | None"]:
+    ) -> tuple[bool, str, User | None]:
         """Verify an OTP token (magic link).
 
         Args:
@@ -361,7 +363,7 @@ class OTPService:
 
     def request_two_factor(
         self,
-        user: "User",
+        user: User,
         delivery_method: str = OTPDeliveryMethod.EMAIL.value,
         ip_address: str | None = None,
         user_agent: str = "",
@@ -406,7 +408,7 @@ class OTPService:
 
     def verify_two_factor(
         self,
-        user: "User",
+        user: User,
         code: str,
     ) -> tuple[bool, str]:
         """Verify a two-factor authentication code.
@@ -446,7 +448,7 @@ class OTPService:
         self,
         email: str | None = None,
         phone: str | None = None,
-    ) -> "User | None":
+    ) -> User | None:
         """Find a user by email or phone.
 
         Args:
