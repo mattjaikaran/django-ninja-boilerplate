@@ -4,6 +4,7 @@ from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from ninja_extra import api_controller, http_delete, http_get, http_post, http_put
 from ninja_extra.pagination import paginate
+from ninja_jwt.authentication import JWTAuth
 
 from api.decorators import handle_exceptions, log_api_call, validate_request
 from todos.models import Todo
@@ -12,7 +13,7 @@ from todos.schemas import CreateTodoSchema, TodoSchema, UpdateTodoSchema
 logger = logging.getLogger(__name__)
 
 
-@api_controller("/todos", tags=["Todos"])
+@api_controller("/todos", tags=["Todos"], auth=JWTAuth())
 class TodoController:
     @paginate
     @http_get("/", response={200: list[TodoSchema], 500: dict})

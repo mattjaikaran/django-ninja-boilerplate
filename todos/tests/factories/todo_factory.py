@@ -12,6 +12,6 @@ class TodoFactory(factory.django.DjangoModelFactory):
 
     title = factory.Faker("sentence", nb_words=4)
     description = factory.Faker("text", max_nb_chars=200)
-    is_completed = False
-    created_by = factory.SubFactory(UserFactory)
-    updated_by = factory.SelfAttribute("created_by")
+    completed = False
+    priority = "medium"
+    user = factory.SubFactory(UserFactory)

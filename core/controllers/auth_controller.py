@@ -237,7 +237,7 @@ class AuthController:
         # Always return success for security (prevent email enumeration)
         return 200, {"detail": "If registered, you'll receive a magic link"}
 
-    @http_post("/passwordless/login/verify", response={200: dict})
+    @http_post("/passwordless/login/verify", response={200: dict, 404: dict})
     @handle_exceptions()
     @log_api_call()
     def verify_passwordless_login(self, payload: PasswordlessLoginVerify):

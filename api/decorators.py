@@ -8,6 +8,8 @@ import logging
 import time
 from collections.abc import Callable
 
+from django.http import Http404
+
 from .utils.validation import ValidationResult, create_error_response
 
 logger = logging.getLogger(__name__)
@@ -15,6 +17,7 @@ logger = logging.getLogger(__name__)
 # Constants
 TUPLE_RESPONSE_LENGTH = 2
 HTTP_BAD_REQUEST = 400
+HTTP_NOT_FOUND = 404
 HTTP_INTERNAL_SERVER_ERROR = 500
 
 
@@ -36,6 +39,13 @@ def handle_exceptions(
         def wrapper(self, *args, **kwargs):
             try:
                 return func(self, *args, **kwargs)
+
+            except Http404 as e:
+                # Handle 404 errors specially - return proper 404 response
+                return HTTP_NOT_FOUND, {
+                    "error": "Not found",
+                    "message": str(e) if str(e) else "The requested resource was not found",
+                }
 
             except Exception as e:
                 if log_errors:

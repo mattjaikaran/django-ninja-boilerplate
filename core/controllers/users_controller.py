@@ -24,36 +24,36 @@ logger = logging.getLogger(__name__)
 # ie - users
 @api_controller("/users", tags=["Users"])
 class UserController:
-    @http_post("/signup", response={201: UserSignupSchema, 400: dict})
+    @http_post("/signup", response={201: UserSchema, 400: dict, 500: dict})
     @handle_exceptions()
     @log_api_call(include_payload=True)
-    def signup(self, request: UserSignupSchema):
+    def signup(self, request, payload: UserSignupSchema):
         """Create a new user account."""
-        if User.objects.filter(username=request.username).exists():
+        if User.objects.filter(username=payload.username).exists():
             raise ValidationError("A user with this username already exists.")
 
-        validate_password(request.password)
-        if User.objects.filter(email=request.email).exists():
+        validate_password(payload.password)
+        if User.objects.filter(email=payload.email).exists():
             raise ValidationError("A user with this email already exists.")
 
         user = User.objects.create_user(
-            **request.dict(exclude_unset=True),  # Unpack request attributes
+            **payload.model_dump(exclude_unset=True),
             is_staff=False,
             is_superuser=False,
         )
         return 201, UserSchema.from_orm(user)
 
-    @http_post("/superuser", response={201: UserSchema, 400: dict})
+    @http_post("/superuser", response={201: UserSchema, 400: dict, 500: dict})
     @handle_exceptions()
     @log_api_call(include_payload=True)
-    def create_superuser(self, request: UserSignupSchema):
+    def create_superuser(self, request, payload: UserSignupSchema):
         """Create a superuser account (admin only)."""
-        validate_password(request.password)
-        if request.is_superuser and not request.is_staff:
+        validate_password(payload.password)
+        if payload.is_superuser and not payload.is_staff:
             raise ValueError("Superuser must have is_staff=True.")
 
         user = User.objects.create_superuser(
-            **request.dict(exclude_unset=True),
+            **payload.model_dump(exclude_unset=True),
             is_staff=True,
             is_superuser=True,
         )
@@ -114,7 +114,7 @@ class UserController:
     def update_user(self, user_id: UUID, payload: UserUpdateSchema):
         """Update a user (admin only)."""
         user = get_object_or_404(User, id=user_id)
-        for attr, value in payload.dict(exclude_unset=True).items():
+        for attr, value in payload.model_dump(exclude_unset=True).items():
             setattr(user, attr, value)
         user.save()
         return 200, UserSchema.from_orm(user)

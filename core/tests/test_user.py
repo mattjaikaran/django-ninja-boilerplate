@@ -1,6 +1,7 @@
 import pytest
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
+from django.db import IntegrityError
 
 from core.tests.factories import UserFactory
 
@@ -43,11 +44,11 @@ class TestUserModel:
         assert user.full_name == f"{user.first_name} {user.last_name}"
 
     def test_duplicate_email(self, user):
-        with pytest.raises(ValidationError):
+        with pytest.raises(IntegrityError):
             UserFactory(email=user.email)
 
     def test_duplicate_username(self, user):
-        with pytest.raises(ValidationError):
+        with pytest.raises(IntegrityError):
             UserFactory(username=user.username)
 
     def test_email_required(self):
@@ -91,10 +92,11 @@ class TestUserAPI:
         assert response.status_code == 200
         assert response.json()["email"] == user.email
 
-    def test_list_users(self, api_client, user, auth_headers):
+    def test_list_users(self, api_client, auth_headers):
         UserFactory()  # Create second user
         response = api_client.get("/api/users/", **auth_headers)
         assert response.status_code == 200
+        # auth_headers creates user_with_password, plus the UserFactory user = 2 users
         assert len(response.json()) == 2
 
     def test_update_user(self, api_client, user, auth_headers):
