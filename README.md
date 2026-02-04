@@ -427,9 +427,84 @@ make generate-feature FEATURE=organization
 make generate-feature FEATURE=notification
 ```
 
-Available features: `payments`, `rbac`, `organization`, `team`, `subscription`, `notification`, `chat`, `file_storage`, `analytics`, `redis`
+Available features: `payments`, `rbac`, `organization`, `team`, `subscription`, `notification`, `chat`, `file_storage`, `analytics`, `redis`, `graphql`
 
 See [FEATURE_GENERATION.md](FEATURE_GENERATION.md) for details.
+
+## GraphQL (Optional)
+
+This boilerplate includes an optional GraphQL API setup using [Strawberry GraphQL](https://strawberry.rocks/). GraphQL is not included by default since REST APIs (via Django Ninja) are the primary interface.
+
+### Setting Up GraphQL
+
+1. **Install GraphQL dependencies:**
+
+```bash
+uv add 'strawberry-graphql[django]'
+# Or install the optional group:
+uv sync --extra graphql
+```
+
+2. **Generate GraphQL files for your app:**
+
+```bash
+python manage.py generate_feature graphql --app-name=core
+```
+
+This creates:
+- `core/graphql/` - GraphQL package with:
+  - `schema.py` - Main schema combining Query and Mutation
+  - `queries.py` - Query type with example queries
+  - `mutations.py` - Mutation type with example mutations
+  - `types.py` - Strawberry types for models
+  - `context.py` - Custom context class with user access
+- `core/graphql.py` - JWT-authenticated GraphQL view
+
+3. **Access the GraphQL playground:**
+
+Visit http://localhost:8000/graphql/ for the interactive GraphQL playground.
+
+### Example Query
+
+```graphql
+query {
+  me {
+    id
+    email
+    fullName
+  }
+  users(limit: 10) {
+    id
+    email
+    username
+  }
+}
+```
+
+### Example Mutation
+
+```graphql
+mutation {
+  updateUser(input: { firstName: "John", lastName: "Doe" }) {
+    user {
+      id
+      fullName
+    }
+    errors {
+      field
+      message
+    }
+  }
+}
+```
+
+### Authentication
+
+GraphQL endpoints use the same JWT authentication as REST APIs. Include the token in the Authorization header:
+
+```
+Authorization: Bearer <your-jwt-token>
+```
 
 ## Testing
 

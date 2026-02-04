@@ -104,6 +104,9 @@ dev = [
     "factory-boy>=3.3.0",
     "Faker>=30.1.0",
 ]
+graphql = [
+    "strawberry-graphql[django]>=0.220.0",
+]
 
 [project.urls]
 homepage = "https://github.com/mattjaikaran/django-ninja-boilerplate"

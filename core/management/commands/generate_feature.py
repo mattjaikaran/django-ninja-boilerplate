@@ -28,6 +28,7 @@ class Command(BaseCommand):
                 "api_endpoint",
                 "monitoring",
                 "cache",
+                "graphql",
             ],
             help="Type of feature to generate",
         )
@@ -103,6 +104,8 @@ class Command(BaseCommand):
                 self._generate_monitoring_feature(app_name, options)
             elif feature_type == "cache":
                 self._generate_cache_feature(app_name, options)
+            elif feature_type == "graphql":
+                self._generate_graphql_feature(app_name, options)
             else:
                 raise CommandError(f"Unsupported feature type: {feature_type}")
 
@@ -261,6 +264,16 @@ class Command(BaseCommand):
         from .generators.cache_generator import CacheGenerator
 
         generator = CacheGenerator(
+            app_name=app_name,
+            minimal=options.get("minimal", False),
+        )
+        generator.generate()
+
+    def _generate_graphql_feature(self, app_name: str, options: dict) -> None:
+        """Generate GraphQL/Strawberry feature."""
+        from .generators.graphql_generator import GraphQLGenerator
+
+        generator = GraphQLGenerator(
             app_name=app_name,
             minimal=options.get("minimal", False),
         )
