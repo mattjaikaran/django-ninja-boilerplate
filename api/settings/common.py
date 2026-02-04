@@ -108,6 +108,11 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",  # authentication middleware
     "django.contrib.messages.middleware.MessageMiddleware",  # message middleware
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    # Observability middleware (tracing, metrics, structured logging)
+    "core.observability.middleware.ObservabilityMiddleware",
+    # Audit logging middleware
+    "core.audit.decorators.AuditContextMiddleware",  # Sets audit context for signals
+    "core.audit.middleware.AuditLoggingMiddleware",  # Logs API requests/responses
 ]
 
 # Performance: Compress responses larger than 1KB
@@ -383,3 +388,153 @@ ADMIN_INDEX_TITLE = env(
 )
 ADMIN_SITE_URL = "/api/docs"
 ADMIN_VIEW_SITE_NAME = "View Docs"
+
+# =============================================================================
+# Audit Logging Configuration
+# =============================================================================
+# Enable/disable audit logging
+AUDIT_LOG_ENABLED = env.bool("AUDIT_LOG_ENABLED", default=True)
+
+# API paths to audit (prefix matching)
+AUDIT_LOG_PATHS = ["/api/"]
+
+# Paths to exclude from audit logging
+AUDIT_LOG_EXCLUDE_PATHS = [
+    "/api/health/",
+    "/api/docs",
+    "/api/openapi.json",
+    "/api/metrics/",
+]
+
+# Whether to log request/response bodies (disable for privacy in production)
+AUDIT_LOG_BODY = env.bool("AUDIT_LOG_BODY", default=False)
+
+# Maximum body length to log (bytes)
+AUDIT_LOG_MAX_BODY_LENGTH = 1000
+
+# Models to exclude from automatic audit tracking
+AUDIT_EXCLUDED_MODELS = [
+    "AuditLog",
+    "Session",
+    "ContentType",
+    "Permission",
+    "LogEntry",
+    "MigrationHistory",
+    "Migration",
+]
+
+# Specific models to track (None = track all except excluded)
+# AUDIT_TRACKED_MODELS = ["User", "Todo", "MyModel"]
+AUDIT_TRACKED_MODELS = None
+
+# =============================================================================
+# Observability Configuration
+# =============================================================================
+# Application version (used in metrics and health checks)
+VERSION = env("APP_VERSION", default="1.0.0")
+
+# OpenTelemetry Configuration
+OTEL_SERVICE_NAME = env("OTEL_SERVICE_NAME", default="django-ninja-app")
+OTEL_EXPORTER_OTLP_ENDPOINT = env("OTEL_EXPORTER_OTLP_ENDPOINT", default="http://localhost:4317")
+OTEL_CONSOLE_EXPORT = env.bool("OTEL_CONSOLE_EXPORT", default=False)
+
+# Enable structured JSON logging in production
+USE_STRUCTURED_LOGGING = env.bool("USE_STRUCTURED_LOGGING", default=ENVIRONMENT == "production")
+
+# Slow request threshold for logging (in milliseconds)
+SLOW_REQUEST_THRESHOLD_MS = env.int("SLOW_REQUEST_THRESHOLD_MS", default=1000)
+
+# Update LOGGING for structured JSON format when enabled
+if USE_STRUCTURED_LOGGING:
+    LOGGING = {
+        "version": 1,
+        "disable_existing_loggers": False,
+        "filters": {
+            "trace_context": {
+                "()": "core.observability.logging.TraceContextFilter",
+            },
+            "request_context": {
+                "()": "core.observability.logging.RequestContextFilter",
+            },
+        },
+        "formatters": {
+            "json": {
+                "()": "core.observability.logging.StructuredJsonFormatter",
+                "include_trace_context": True,
+                "extra_fields": {"app": OTEL_SERVICE_NAME},
+            },
+            "verbose": {
+                "format": "[{asctime}] {levelname} {name} [{trace_id}] {message}",
+                "style": "{",
+            },
+            "simple": {
+                "format": "{levelname} {message}",
+                "style": "{",
+            },
+        },
+        "handlers": {
+            "console_json": {
+                "level": "DEBUG",
+                "class": "logging.StreamHandler",
+                "formatter": "json",
+                "filters": ["trace_context", "request_context"],
+            },
+            "console": {
+                "level": "DEBUG",
+                "class": "logging.StreamHandler",
+                "formatter": "verbose",
+                "filters": ["trace_context", "request_context"],
+            },
+        },
+        "root": {
+            "handlers": ["console_json"],
+            "level": "INFO",
+        },
+        "loggers": {
+            "django": {
+                "handlers": ["console_json"],
+                "level": "INFO",
+                "propagate": False,
+            },
+            "django.request": {
+                "handlers": ["console_json"],
+                "level": "INFO",
+                "propagate": False,
+            },
+            "django.db.backends": {
+                "handlers": ["console_json"],
+                "level": "WARNING",
+                "propagate": False,
+            },
+            "django.server": {
+                "handlers": ["console_json"],
+                "level": "INFO",
+                "propagate": False,
+            },
+            "core": {
+                "handlers": ["console_json"],
+                "level": "INFO",
+                "propagate": False,
+            },
+            "core.observability": {
+                "handlers": ["console_json"],
+                "level": "INFO",
+                "propagate": False,
+            },
+            "api": {
+                "handlers": ["console_json"],
+                "level": "INFO",
+                "propagate": False,
+            },
+            "celery": {
+                "handlers": ["console_json"],
+                "level": "INFO",
+                "propagate": False,
+            },
+            "todos": {
+                "handlers": ["console_json"],
+                "level": "INFO",
+                "propagate": False,
+            },
+        },
+    }

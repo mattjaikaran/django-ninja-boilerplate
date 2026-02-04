@@ -817,6 +817,145 @@ Feature flags can be managed through the Django admin panel at `/admin/core/feat
 - Bulk actions (enable/disable, set rollout percentages)
 - Audit log tracking for all changes
 
+## Audit Logging
+
+The boilerplate includes a comprehensive audit logging system for compliance tracking (GDPR, SOC2, HIPAA, etc.):
+
+### Features
+
+- **Model Change Tracking** - Automatic logging of all model creates, updates, and deletes via Django signals
+- **API Request Logging** - Middleware captures all API requests with timing and metadata
+- **Authentication Events** - Login, logout, and failed login attempts are logged
+- **User Activity Tracking** - Track who did what, when, and from where (IP address)
+- **Compliance Ready** - Immutable audit trail with preserved user email even after deletion
+
+### Automatic Tracking
+
+Model changes are automatically tracked via Django signals:
+
+```python
+# Any model changes are automatically logged
+user = User.objects.create(email="test@example.com", username="testuser")
+# Creates audit log: CREATE User
+
+user.first_name = "John"
+user.save()
+# Creates audit log: UPDATE User with changes {"first_name": {"old": "", "new": "John"}}
+
+user.soft_delete()
+# Creates audit log: SOFT_DELETE User
+
+user.delete()
+# Creates audit log: DELETE User
+```
+
+### Explicit Audit Actions
+
+Use the decorator for custom audit logging:
+
+```python
+from core.audit import audit_action
+from core.audit.models import AuditAction
+
+@api_controller("/payments", tags=["Payments"])
+class PaymentController:
+    @http_post("/process")
+    @audit_action(
+        action=AuditAction.CUSTOM,
+        action_description="Processed payment",
+        model_name="Payment",
+        get_object_id=lambda *args, **kwargs: kwargs.get('payment_id'),
+        get_extra_data=lambda *args, **kwargs: {'amount': kwargs.get('amount')}
+    )
+    def process_payment(self, request, payment_id: str, amount: float):
+        # Payment processing logic
+        pass
+```
+
+### API Endpoints (Admin Only)
+
+```bash
+# List audit logs with filtering
+GET /api/audit/?action=CREATE&model_name=User&start_date=2024-01-01
+
+# Get specific audit log
+GET /api/audit/{audit_log_id}
+
+# Get audit statistics
+GET /api/audit/stats/summary?days=30
+
+# Get object history (all changes to a specific object)
+GET /api/audit/object/User/{user_id}
+
+# Get user activity
+GET /api/audit/user/{user_email}
+
+# Get IP address activity
+GET /api/audit/ip/{ip_address}
+
+# Get failed login attempts (security monitoring)
+GET /api/audit/failed-logins?hours=24
+
+# List available action types
+GET /api/audit/actions
+
+# List all audited models
+GET /api/audit/models
+```
+
+### Configuration
+
+```python
+# settings.py
+
+# Enable/disable audit logging
+AUDIT_LOG_ENABLED = True
+
+# Paths to audit (prefix matching)
+AUDIT_LOG_PATHS = ["/api/"]
+
+# Paths to exclude
+AUDIT_LOG_EXCLUDE_PATHS = ["/api/health/", "/api/docs"]
+
+# Log request/response bodies (disable for privacy)
+AUDIT_LOG_BODY = False
+
+# Models to exclude from tracking
+AUDIT_EXCLUDED_MODELS = ["AuditLog", "Session", "ContentType"]
+
+# Specific models to track (None = track all except excluded)
+AUDIT_TRACKED_MODELS = None  # or ["User", "Todo", "Payment"]
+```
+
+### Admin Interface
+
+Audit logs can be viewed in the Django admin at `/admin/core/auditlog/`:
+- Read-only interface (audit logs cannot be modified or deleted)
+- Filter by action type, user, model, success status, and date
+- Search by user email, model name, IP address, request path
+- Color-coded action badges for easy scanning
+- Collapsible sections for detailed change data
+
+### Action Types
+
+| Action | Description |
+|--------|-------------|
+| `CREATE` | New record created |
+| `UPDATE` | Record updated |
+| `DELETE` | Record permanently deleted |
+| `SOFT_DELETE` | Record soft deleted (is_active=False) |
+| `RESTORE` | Soft-deleted record restored |
+| `LOGIN` | User logged in |
+| `LOGOUT` | User logged out |
+| `LOGIN_FAILED` | Failed login attempt |
+| `PASSWORD_CHANGE` | User changed password |
+| `PASSWORD_RESET` | Password reset performed |
+| `API_REQUEST` | API endpoint accessed |
+| `PERMISSION_CHANGE` | User permissions modified |
+| `EXPORT` | Data exported |
+| `IMPORT` | Data imported |
+| `CUSTOM` | Custom audit action |
+
 ## Background Tasks (Celery)
 
 ```python
@@ -838,6 +977,172 @@ make celery-worker    # Start worker
 make celery-beat      # Start scheduler
 make celery-flower    # Monitoring at localhost:5555
 ```
+
+## Task Management
+
+The boilerplate includes a comprehensive task management system with progress tracking, periodic task scheduling, and dead letter queue handling.
+
+### Enhanced Task Classes
+
+Use the enhanced task base classes for automatic progress tracking:
+
+```python
+from api.celery import app
+from core.tasks.base import ProgressTask, CriticalTask
+
+@app.task(base=ProgressTask, bind=True)
+def process_data(self, data_id):
+    self.update_progress(0, "Starting processing...")
+
+    # Process data in chunks
+    for i, chunk in enumerate(chunks):
+        process_chunk(chunk)
+        self.update_progress(int((i + 1) / len(chunks) * 100), f"Processing chunk {i + 1}")
+
+    self.update_progress(100, "Complete!")
+    return {"processed": len(chunks)}
+
+# For critical tasks that must complete (no auto-retry)
+@app.task(base=CriticalTask, bind=True)
+def process_payment(self, payment_id):
+    # Critical operation - failures go directly to DLQ
+    pass
+```
+
+### Task Status API
+
+Monitor and manage tasks via REST API:
+
+```bash
+# Get task status and progress
+GET /api/tasks/{task_id}/status
+
+# Get real-time progress
+GET /api/tasks/{task_id}/progress
+
+# Cancel a running task
+POST /api/tasks/{task_id}/revoke
+
+# List active tasks
+GET /api/tasks/active
+
+# List recent tasks with filtering
+GET /api/tasks/recent?limit=50&status=failure&task_name=process
+
+# Get task execution statistics
+GET /api/tasks/stats
+
+# Clean up old task results
+POST /api/tasks/cleanup?days=30
+```
+
+### Periodic Task Scheduling
+
+Manage periodic tasks through the API (uses django-celery-beat):
+
+```bash
+# List all periodic tasks
+GET /api/tasks/scheduler/
+
+# Create an interval task (runs every N seconds/minutes/hours/days)
+POST /api/tasks/scheduler/interval
+{
+    "name": "cleanup_expired_otps",
+    "task": "core.tasks.cleanup_expired_otps",
+    "every": 1,
+    "period": "hours",
+    "enabled": true,
+    "description": "Clean up expired OTP codes hourly"
+}
+
+# Create a crontab task (runs on a schedule)
+POST /api/tasks/scheduler/crontab
+{
+    "name": "daily_digest",
+    "task": "core.tasks.send_daily_digest",
+    "minute": "0",
+    "hour": "8",
+    "day_of_week": "*",
+    "description": "Send daily digest at 8 AM"
+}
+
+# Toggle task enabled/disabled
+POST /api/tasks/scheduler/{task_id}/toggle
+
+# Manually trigger a periodic task
+POST /api/tasks/scheduler/{task_id}/run
+
+# Get scheduler statistics
+GET /api/tasks/scheduler/stats
+```
+
+### Dead Letter Queue
+
+Failed tasks are automatically captured in a Dead Letter Queue for inspection and retry:
+
+```bash
+# List failed tasks
+GET /api/tasks/dlq/?include_resolved=false&priority=high
+
+# Get DLQ entry details
+GET /api/tasks/dlq/{entry_id}
+
+# Retry a failed task
+POST /api/tasks/dlq/{entry_id}/retry
+
+# Retry all pending failures
+POST /api/tasks/dlq/retry-all
+{
+    "task_name": "send_email",
+    "priority": "high",
+    "limit": 10
+}
+
+# Mark as resolved (won't retry)
+POST /api/tasks/dlq/{entry_id}/resolve
+{
+    "notes": "Fixed the underlying issue"
+}
+
+# Bulk resolve entries
+POST /api/tasks/dlq/resolve-bulk
+{
+    "entry_ids": ["uuid1", "uuid2"],
+    "notes": "Known issue, resolved in v2.0"
+}
+
+# Get DLQ statistics
+GET /api/tasks/dlq/stats
+
+# Clean up old resolved entries
+POST /api/tasks/dlq/cleanup?days=30
+```
+
+### TaskResult Model
+
+Task results are persisted to the database for tracking:
+
+```python
+from core.tasks.models import TaskResult, TaskStatus
+
+# Query task results
+recent_failures = TaskResult.objects.filter(
+    status=TaskStatus.FAILURE,
+    created_at__gte=timezone.now() - timedelta(hours=24)
+)
+
+# Get task duration
+task = TaskResult.objects.get(task_id="abc123")
+print(f"Task took {task.duration} seconds")
+```
+
+### Admin Interface
+
+Task management is available in the Django admin:
+- View task execution history with progress bars
+- Inspect failed tasks and errors
+- Manage Dead Letter Queue entries
+- Bulk retry or resolve failed tasks
 
 ## Observability
 

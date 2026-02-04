@@ -1,6 +1,6 @@
 # Makefile for Django Ninja Boilerplate with UV Package Management
 
-.PHONY: help build up down logs shell migrate createsuperuser test lint format clean install sync doctor quickstart quickstart-minimal quickstart-local quickstart-ci
+.PHONY: help build up down logs shell migrate createsuperuser test lint format clean install sync doctor quickstart quickstart-minimal quickstart-local quickstart-ci test-contract test-contract-full local-test-contract test-load test-load-quick test-load-moderate test-load-heavy test-load-stress test-load-custom test-all test-ci
 
 # Variables
 DOCKER_COMPOSE = docker-compose
@@ -567,6 +567,95 @@ test-e2e: ## Run E2E tests
 
 local-test-e2e: ## Run E2E tests locally
 	$(UV) run pytest tests/e2e/ -v
+
+# ===========================================
+# Contract Testing
+# ===========================================
+test-contract: ## Run API contract tests against OpenAPI spec
+	$(UV) run pytest tests/contract/ -v -m contract
+
+test-contract-full: ## Run all contract tests including slow schema tests
+	$(UV) run pytest tests/contract/ -v
+
+local-test-contract: ## Run contract tests locally (requires running server)
+	TEST_BASE_URL=http://localhost:8000 $(UV) run pytest tests/contract/ -v -m contract
+
+# ===========================================
+# Load Testing with Locust
+# ===========================================
+test-load: ## Run load tests (interactive web UI)
+	$(UV) run python scripts/run_load_tests.py --web
+
+test-load-quick: ## Run quick load test (10 users, 30 seconds)
+	$(UV) run python scripts/run_load_tests.py --quick --report
+
+test-load-moderate: ## Run moderate load test (50 users, 2 minutes)
+	$(UV) run python scripts/run_load_tests.py --moderate --report
+
+test-load-heavy: ## Run heavy load test (100 users, 5 minutes)
+	$(UV) run python scripts/run_load_tests.py --heavy --report
+
+test-load-stress: ## Run stress test (200 users, 10 minutes)
+	$(UV) run python scripts/run_load_tests.py --stress --report
+
+test-load-custom: ## Run custom load test (usage: make test-load-custom USERS=50 DURATION=2m)
+	$(UV) run python scripts/run_load_tests.py -u $(USERS) -t $(DURATION) --report
+
+# ===========================================
+# All Tests
+# ===========================================
+test-all: ## Run all test types (unit, e2e, contract)
+	@echo "========================================"
+	@echo "  Running All Tests"
+	@echo "========================================"
+	@echo ""
+	@echo ">>> Running Unit Tests..."
+	$(MAKE) local-test
+	@echo ""
+	@echo ">>> Running E2E Tests..."
+	$(MAKE) local-test-e2e
+	@echo ""
+	@echo ">>> Running Contract Tests..."
+	$(MAKE) local-test-contract
+	@echo ""
+	@echo "========================================"
+	@echo "  All Tests Complete"
+	@echo "========================================"
+
+test-ci: ## Run tests suitable for CI (excludes load tests)
+	$(UV) run pytest --cov=. --cov-report=xml -v
+	$(UV) run pytest tests/e2e/ -v || true
+	@echo "Contract tests require running server - skipped in CI"
+
+# ===========================================
+# OpenAPI Tools
+# ===========================================
+openapi: ## Export OpenAPI specification to docs/openapi/
+	$(UV) run python manage.py export_openapi
+
+openapi-validate: ## Export and validate OpenAPI specification
+	$(UV) run python manage.py export_openapi --validate
+
+openapi-all: ## Generate OpenAPI spec, SDKs, and collections
+	$(UV) run python manage.py export_openapi --all
+
+sdk: ## Generate TypeScript and Python SDK clients
+	$(UV) run python manage.py export_openapi --sdk
+
+sdk-typescript: ## Generate TypeScript SDK client only
+	$(UV) run python manage.py export_openapi --sdk-typescript
+
+sdk-python: ## Generate Python SDK client only
+	$(UV) run python manage.py export_openapi --sdk-python
+
+postman: ## Export Postman collection
+	$(UV) run python manage.py export_openapi --postman
+
+insomnia: ## Export Insomnia collection
+	$(UV) run python manage.py export_openapi --insomnia
+
+changelog: ## Generate API changelog (usage: make changelog OLD=v1.json NEW=v2.json)
+	$(UV) run python scripts/openapi/generate_changelog.py $(OLD) $(NEW)
 
 # ===========================================
 # Version and Info

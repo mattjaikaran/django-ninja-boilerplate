@@ -80,6 +80,8 @@ dependencies = [
     # Template & Markup
     "Jinja2>=3.1.4",
     "MarkupSafe>=2.1.5",
+    # OpenAPI Tools
+    "openapi-spec-validator>=0.7.0",
     # System & Low-level
     "asgiref>=3.8.1",
     "anyio>=3.7.1",
@@ -104,8 +106,31 @@ dev = [
     "factory-boy>=3.3.0",
     "Faker>=30.1.0",
 ]
+testing = [
+    # Load testing
+    "locust>=2.20.0",
+    # Contract testing
+    "schemathesis>=3.25.0",
+    # HTTP client for contract tests
+    "httpx>=0.27.0",
+]
 graphql = [
     "strawberry-graphql[django]>=0.220.0",
+]
+observability = [
+    # OpenTelemetry - Distributed Tracing
+    "opentelemetry-api>=1.20.0",
+    "opentelemetry-sdk>=1.20.0",
+    "opentelemetry-exporter-otlp>=1.20.0",
+    "opentelemetry-instrumentation-django>=0.41b0",
+    "opentelemetry-instrumentation-requests>=0.41b0",
+    "opentelemetry-instrumentation-psycopg2>=0.41b0",
+    "opentelemetry-instrumentation-redis>=0.41b0",
+    "opentelemetry-instrumentation-celery>=0.41b0",
+    # Prometheus metrics (optional - we have a pure Python implementation)
+    "prometheus-client>=0.19.0",
+    # Structured JSON logging
+    "python-json-logger>=2.0.7",
 ]
 
 [project.urls]
@@ -249,6 +274,7 @@ ignore = [
     "TRY301",  # Abstract raise
     "DTZ006",  # datetime.fromtimestamp without tz
     "W293",    # Blank line whitespace
+    "PLW0603", # Global statement (needed for singleton patterns)
 ]
 
 [tool.ruff.lint.per-file-ignores]
@@ -313,6 +339,8 @@ markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
     "integration: marks tests as integration tests",
     "unit: marks tests as unit tests",
+    "contract: marks tests as API contract tests",
+    "e2e: marks tests as end-to-end tests",
 ]
 
 [tool.coverage.run]

@@ -6,7 +6,16 @@ from ninja_extra import NinjaExtraAPI
 from ninja_jwt.controller import NinjaJWTDefaultController
 
 from api.healthcheck import HealthCheckController
-from core.controllers import AuthController, OTPController, UserController
+from core.controllers import (
+    AuditLogController,
+    AuthController,
+    DeadLetterQueueController,
+    OTPController,
+    TaskController,
+    TaskSchedulerController,
+    UserController,
+)
+from core.observability.controllers import EnhancedHealthController, MetricsController
 from todos.controllers import TodoController
 
 # admin site settings
@@ -49,10 +58,17 @@ api.register_controllers(
     NinjaJWTDefaultController,  # JWT Auth. If you want to use JWT, you must include this https://github.com/eadwinCode/django-ninja-jwt
     # System controllers
     HealthCheckController,  # Health Check Controller
+    EnhancedHealthController,  # Enhanced Health Check Controller (detailed status)
+    MetricsController,  # Prometheus Metrics Controller
     # core app
     UserController,  # User Controller
     AuthController,  # Auth Controller (email/password + magic links)
     OTPController,  # OTP Controller (6-digit codes for mobile/iOS apps)
+    AuditLogController,  # Audit Log Controller (admin only)
+    # Task management controllers
+    TaskController,  # Task status and progress tracking
+    TaskSchedulerController,  # Periodic task management
+    DeadLetterQueueController,  # Failed task handling
     # todos app
     TodoController,  # Todo Controller
     # Add more controllers here

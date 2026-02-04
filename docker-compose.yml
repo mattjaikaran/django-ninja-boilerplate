@@ -113,6 +113,10 @@ services:
       - REDIS_URL=${REDIS_URL:-redis://redis:6379/0}
       - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
       - ALLOWED_HOSTS=${ALLOWED_HOSTS:-localhost,127.0.0.1,0.0.0.0,django}
+      # Observability settings
+      - OTEL_SERVICE_NAME=${OTEL_SERVICE_NAME:-django-ninja-app}
+      - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT:-http://jaeger:4317}
+      - USE_STRUCTURED_LOGGING=${USE_STRUCTURED_LOGGING:-false}
       # Python optimizations
       - PYTHONDONTWRITEBYTECODE=1
       - PYTHONUNBUFFERED=1
@@ -222,6 +226,44 @@ services:
   # ===========================================
   # Monitoring Services (profile: monitoring)
   # ===========================================
+
+  # Jaeger - Distributed Tracing Backend
+  # Access UI at http://localhost:16686
+  jaeger:
+    image: jaegertracing/all-in-one:1.53
+    ports:
+      - "6831:6831/udp"   # Jaeger thrift compact protocol
+      - "6832:6832/udp"   # Jaeger thrift binary protocol
+      - "5778:5778"       # Agent serve configs
+      - "16686:16686"     # Jaeger UI
+      - "4317:4317"       # OTLP gRPC receiver
+      - "4318:4318"       # OTLP HTTP receiver
+      - "14250:14250"     # Jaeger gRPC collector
+      - "14268:14268"     # Jaeger HTTP collector
+      - "14269:14269"     # Admin port (health check)
+      - "9411:9411"       # Zipkin compatible endpoint
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+      - LOG_LEVEL=info
+    networks:
+      - app-network
+    profiles:
+      - observability
+      - monitoring
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:14269/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
 
   # Flower - Celery Monitoring Dashboard
   flower:
