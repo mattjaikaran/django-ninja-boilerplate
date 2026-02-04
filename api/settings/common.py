@@ -435,11 +435,15 @@ VERSION = env("APP_VERSION", default="1.0.0")
 
 # OpenTelemetry Configuration
 OTEL_SERVICE_NAME = env("OTEL_SERVICE_NAME", default="django-ninja-app")
-OTEL_EXPORTER_OTLP_ENDPOINT = env("OTEL_EXPORTER_OTLP_ENDPOINT", default="http://localhost:4317")
+OTEL_EXPORTER_OTLP_ENDPOINT = env(
+    "OTEL_EXPORTER_OTLP_ENDPOINT", default="http://localhost:4317"
+)
 OTEL_CONSOLE_EXPORT = env.bool("OTEL_CONSOLE_EXPORT", default=False)
 
 # Enable structured JSON logging in production
-USE_STRUCTURED_LOGGING = env.bool("USE_STRUCTURED_LOGGING", default=ENVIRONMENT == "production")
+USE_STRUCTURED_LOGGING = env.bool(
+    "USE_STRUCTURED_LOGGING", default=ENVIRONMENT == "production"
+)
 
 # Slow request threshold for logging (in milliseconds)
 SLOW_REQUEST_THRESHOLD_MS = env.int("SLOW_REQUEST_THRESHOLD_MS", default=1000)
