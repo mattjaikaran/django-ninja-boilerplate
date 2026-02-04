@@ -44,15 +44,14 @@ def handle_exceptions(
                 # Handle 404 errors specially - return proper 404 response
                 return HTTP_NOT_FOUND, {
                     "error": "Not found",
-                    "message": str(e) if str(e) else "The requested resource was not found",
+                    "message": str(e) or "The requested resource was not found",
                 }
 
             except Exception as e:
                 if log_errors:
                     logger.exception(
-                        "Unhandled exception in %s: %s",
+                        "Unhandled exception in %s",
                         func.__name__,
-                        str(e),
                         extra={
                             "method": func.__name__,
                             "call_args": args,
@@ -66,10 +65,8 @@ def handle_exceptions(
                 if custom_error_handler:
                     try:
                         return custom_error_handler(e, func.__name__)
-                    except Exception as handler_error:
-                        logger.exception(
-                            "Custom error handler failed: %s", str(handler_error)
-                        )
+                    except Exception:
+                        logger.exception("Custom error handler failed")
 
                 # Default error handling
                 if return_500_on_error:
@@ -109,7 +106,7 @@ def log_api_call(
             # Log the incoming request
             log_data = {
                 "method": func.__name__,
-                "call_args": args if args else None,
+                "call_args": args or None,
             }
 
             if include_payload and "payload" in kwargs:
@@ -154,7 +151,7 @@ def log_api_call(
                     log_level, "API call completed: %s", func.__name__, extra=log_data
                 )
 
-                return result
+                return result  # noqa: TRY300
 
             except Exception as e:
                 execution_time = time.time() - start_time

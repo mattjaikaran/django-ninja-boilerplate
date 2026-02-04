@@ -149,7 +149,7 @@ class AuthController:
     @http_post("/logout", response={200: MessageResponse})
     @handle_exceptions()
     @log_api_call()
-    def logout(self, request):
+    def logout(self, request):  # noqa: ARG002
         """Logout the current user.
 
         Note: For stateless JWT, client should discard tokens.
@@ -213,7 +213,7 @@ class AuthController:
 
             # Use the email service if available, fallback to send_mail
             try:
-                from core.services.email.service import EmailService
+                from core.services.email.service import EmailService  # noqa: PLC0415
 
                 email_service = EmailService()
                 email_service.send_simple_email(
@@ -223,7 +223,7 @@ class AuthController:
                 )
                 logger.info("Magic link sent to: %s", email)
             except ImportError:
-                from django.core.mail import send_mail
+                from django.core.mail import send_mail  # noqa: PLC0415
 
                 send_mail(
                     subject="Your Magic Link",

@@ -27,7 +27,7 @@ class UserController:
     @http_post("/signup", response={201: UserSchema, 400: dict, 500: dict})
     @handle_exceptions()
     @log_api_call(include_payload=True)
-    def signup(self, request, payload: UserSignupSchema):
+    def signup(self, request, payload: UserSignupSchema):  # noqa: ARG002
         """Create a new user account."""
         if User.objects.filter(username=payload.username).exists():
             raise ValidationError("A user with this username already exists.")
@@ -46,7 +46,7 @@ class UserController:
     @http_post("/superuser", response={201: UserSchema, 400: dict, 500: dict})
     @handle_exceptions()
     @log_api_call(include_payload=True)
-    def create_superuser(self, request, payload: UserSignupSchema):
+    def create_superuser(self, request, payload: UserSignupSchema):  # noqa: ARG002
         """Create a superuser account (admin only)."""
         validate_password(payload.password)
         if payload.is_superuser and not payload.is_staff:
@@ -134,8 +134,7 @@ class UserController:
     @log_api_call()
     def list_staff_users(self):
         """List staff users."""
-        queryset = User.objects.filter(is_staff=True).order_by("-date_joined")
-        return queryset
+        return User.objects.filter(is_staff=True).order_by("-date_joined")
 
     @paginate
     @http_get("/active", response=list[UserSchema])
@@ -143,5 +142,4 @@ class UserController:
     @log_api_call()
     def list_active_users(self):
         """List active users."""
-        queryset = User.objects.filter(is_active=True).order_by("-last_login")
-        return queryset
+        return User.objects.filter(is_active=True).order_by("-last_login")

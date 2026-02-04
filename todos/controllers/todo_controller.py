@@ -29,14 +29,15 @@ class TodoController:
     ):
         """List todos with advanced filtering, search and pagination.
 
-        Returns:
-            list[TodoSchema]: List of todos
-
         Args:
+            request: The HTTP request object containing the authenticated user
             search: Search in title, description
             completed: Filter by completion status
             priority: Filter by priority level
             ordering: Order by field (title, created_at, updated_at, priority, -title, -created_at, -updated_at, -priority)
+
+        Returns:
+            list[TodoSchema]: List of todos
         """
         queryset = Todo.objects.select_related("user").filter(user=request.user)
 
@@ -89,7 +90,7 @@ class TodoController:
         todo_data["user"] = request.user
         todo = Todo.objects.create(**todo_data)
 
-        logger.info(f"Successfully created todo: {todo.title} (ID: {todo.id})")
+        logger.info("Successfully created todo: %s (ID: %s)", todo.title, todo.id)
 
         return 201, todo
 
