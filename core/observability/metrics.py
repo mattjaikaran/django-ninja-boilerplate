@@ -46,7 +46,9 @@ class MetricValue:
 class Counter:
     """Prometheus-style counter metric."""
 
-    def __init__(self, name: str, description: str, label_names: list[str] | None = None):
+    def __init__(
+        self, name: str, description: str, label_names: list[str] | None = None
+    ):
         self.name = name
         self.description = description
         self.label_names = label_names or []
@@ -78,7 +80,9 @@ class Counter:
 class Gauge:
     """Prometheus-style gauge metric."""
 
-    def __init__(self, name: str, description: str, label_names: list[str] | None = None):
+    def __init__(
+        self, name: str, description: str, label_names: list[str] | None = None
+    ):
         self.name = name
         self.description = description
         self.label_names = label_names or []
@@ -123,7 +127,23 @@ class Histogram:
     """Prometheus-style histogram metric."""
 
     # Default buckets for HTTP request latencies (in seconds)
-    DEFAULT_BUCKETS = (0.005, 0.01, 0.025, 0.05, 0.075, 0.1, 0.25, 0.5, 0.75, 1.0, 2.5, 5.0, 7.5, 10.0, float("inf"))
+    DEFAULT_BUCKETS = (
+        0.005,
+        0.01,
+        0.025,
+        0.05,
+        0.075,
+        0.1,
+        0.25,
+        0.5,
+        0.75,
+        1.0,
+        2.5,
+        5.0,
+        7.5,
+        10.0,
+        float("inf"),
+    )
 
     def __init__(
         self,
@@ -170,7 +190,10 @@ class Histogram:
                 cumulative = 0
                 for bucket in self.buckets:
                     cumulative += self._bucket_counts[label_key].get(bucket, 0)
-                    bucket_labels = {**labels, "le": str(bucket) if bucket != float("inf") else "+Inf"}
+                    bucket_labels = {
+                        **labels,
+                        "le": str(bucket) if bucket != float("inf") else "+Inf",
+                    }
                     samples.append((f"{self.name}_bucket", bucket_labels, cumulative))
 
                 # Sum and count
@@ -286,7 +309,9 @@ class MetricsRegistry:
         """Register a histogram metric."""
         with self._lock:
             if name not in self._histograms:
-                self._histograms[name] = Histogram(name, description, label_names, buckets)
+                self._histograms[name] = Histogram(
+                    name, description, label_names, buckets
+                )
             return self._histograms[name]
 
     def get_counter(self, name: str) -> Counter | None:
@@ -363,7 +388,9 @@ def increment_request_counter(
     registry = get_metrics_registry()
     counter = registry.get_counter("http_requests_total")
     if counter:
-        counter.inc(labels={"method": method, "endpoint": endpoint, "status": str(status)})
+        counter.inc(
+            labels={"method": method, "endpoint": endpoint, "status": str(status)}
+        )
 
 
 def observe_request_latency(
@@ -387,7 +414,9 @@ def record_error(
     registry = get_metrics_registry()
     counter = registry.get_counter("http_request_errors_total")
     if counter:
-        counter.inc(labels={"method": method, "endpoint": endpoint, "error_type": error_type})
+        counter.inc(
+            labels={"method": method, "endpoint": endpoint, "error_type": error_type}
+        )
 
 
 def record_db_query(

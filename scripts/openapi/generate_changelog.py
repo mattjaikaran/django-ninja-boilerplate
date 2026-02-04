@@ -100,7 +100,9 @@ class ChangelogGenerator:
             "breaking_changes": len(
                 [c for c in self.changes if c.breaking == BreakingChange.BREAKING]
             ),
-            "added": len([c for c in self.changes if c.change_type == ChangeType.ADDED]),
+            "added": len(
+                [c for c in self.changes if c.change_type == ChangeType.ADDED]
+            ),
             "removed": len(
                 [c for c in self.changes if c.change_type == ChangeType.REMOVED]
             ),
@@ -170,9 +172,7 @@ class ChangelogGenerator:
         for path in old_path_set & new_path_set:
             self._compare_path_item(path, old_paths[path], new_paths[path])
 
-    def _compare_path_item(
-        self, path: str, old_item: dict, new_item: dict
-    ) -> None:
+    def _compare_path_item(self, path: str, old_item: dict, new_item: dict) -> None:
         """Compare a single path item."""
         methods = {"get", "post", "put", "patch", "delete", "head", "options"}
 
@@ -539,40 +539,58 @@ def format_markdown(changelog: Changelog) -> str:
     ]
 
     # Group changes by breaking status
-    breaking_changes = [c for c in changelog.changes if c.breaking == BreakingChange.BREAKING]
-    possibly_breaking = [c for c in changelog.changes if c.breaking == BreakingChange.POSSIBLY_BREAKING]
-    non_breaking = [c for c in changelog.changes if c.breaking == BreakingChange.NON_BREAKING]
+    breaking_changes = [
+        c for c in changelog.changes if c.breaking == BreakingChange.BREAKING
+    ]
+    possibly_breaking = [
+        c for c in changelog.changes if c.breaking == BreakingChange.POSSIBLY_BREAKING
+    ]
+    non_breaking = [
+        c for c in changelog.changes if c.breaking == BreakingChange.NON_BREAKING
+    ]
 
     if breaking_changes:
-        lines.extend([
-            "### Breaking Changes",
-            "",
-        ])
+        lines.extend(
+            [
+                "### Breaking Changes",
+                "",
+            ]
+        )
         for change in breaking_changes:
             method_str = f"{change.method} " if change.method else ""
-            lines.append(f"- **{change.change_type.value.upper()}** {method_str}{change.path}")
+            lines.append(
+                f"- **{change.change_type.value.upper()}** {method_str}{change.path}"
+            )
             lines.append(f"  - {change.description}")
         lines.append("")
 
     if possibly_breaking:
-        lines.extend([
-            "### Possibly Breaking Changes",
-            "",
-        ])
+        lines.extend(
+            [
+                "### Possibly Breaking Changes",
+                "",
+            ]
+        )
         for change in possibly_breaking:
             method_str = f"{change.method} " if change.method else ""
-            lines.append(f"- **{change.change_type.value.upper()}** {method_str}{change.path}")
+            lines.append(
+                f"- **{change.change_type.value.upper()}** {method_str}{change.path}"
+            )
             lines.append(f"  - {change.description}")
         lines.append("")
 
     if non_breaking:
-        lines.extend([
-            "### Non-Breaking Changes",
-            "",
-        ])
+        lines.extend(
+            [
+                "### Non-Breaking Changes",
+                "",
+            ]
+        )
         for change in non_breaking:
             method_str = f"{change.method} " if change.method else ""
-            lines.append(f"- **{change.change_type.value.upper()}** {method_str}{change.path}")
+            lines.append(
+                f"- **{change.change_type.value.upper()}** {method_str}{change.path}"
+            )
             lines.append(f"  - {change.description}")
         lines.append("")
 

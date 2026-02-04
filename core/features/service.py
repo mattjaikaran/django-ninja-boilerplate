@@ -100,7 +100,9 @@ class FeatureFlagService(CRUDService[FeatureFlag]):
             self._set_in_cache(cache_key, flag)
             return flag
         except FeatureFlag.DoesNotExist:
-            self._set_in_cache(cache_key, "NOT_FOUND", timeout=60)  # Short TTL for misses
+            self._set_in_cache(
+                cache_key, "NOT_FOUND", timeout=60
+            )  # Short TTL for misses
             return None
 
     def is_enabled(
@@ -126,7 +128,9 @@ class FeatureFlagService(CRUDService[FeatureFlag]):
         flag = self.get_flag(flag_name)
 
         if flag is None:
-            logger.debug("Feature flag '%s' not found, returning default: %s", flag_name, default)
+            logger.debug(
+                "Feature flag '%s' not found, returning default: %s", flag_name, default
+            )
             return default
 
         # Master switch check
@@ -270,7 +274,9 @@ class FeatureFlagService(CRUDService[FeatureFlag]):
         Returns:
             List of FeatureFlag instances
         """
-        cache_key = f"{ALL_FLAGS_CACHE_KEY}:enabled" if enabled_only else ALL_FLAGS_CACHE_KEY
+        cache_key = (
+            f"{ALL_FLAGS_CACHE_KEY}:enabled" if enabled_only else ALL_FLAGS_CACHE_KEY
+        )
         cached = self._get_from_cache(cache_key)
 
         if cached is not None:
@@ -483,7 +489,14 @@ class FeatureFlagService(CRUDService[FeatureFlag]):
             flag.flag_type = FlagType.PERCENTAGE.value
             if user:
                 flag.updated_by = user
-            flag.save(update_fields=["rollout_percentage", "flag_type", "updated_by", "updated_at"])
+            flag.save(
+                update_fields=[
+                    "rollout_percentage",
+                    "flag_type",
+                    "updated_by",
+                    "updated_at",
+                ]
+            )
 
             # Create audit log
             FeatureFlagAuditLog.objects.create(

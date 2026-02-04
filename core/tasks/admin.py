@@ -161,7 +161,13 @@ class DeadLetterQueueEntryAdmin(ModelAdmin):
         "is_resolved",
         "created_at",
     ]
-    list_filter = ["is_resolved", "priority", "task_name", "exception_type", "created_at"]
+    list_filter = [
+        "is_resolved",
+        "priority",
+        "task_name",
+        "exception_type",
+        "created_at",
+    ]
     search_fields = ["task_id", "task_name", "exception_message"]
     readonly_fields = [
         "id",

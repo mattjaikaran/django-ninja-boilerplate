@@ -54,7 +54,15 @@ class PostmanExporter:
 
         for path, path_item in self.spec.get("paths", {}).items():
             for method, operation in path_item.items():
-                if method not in ("get", "post", "put", "patch", "delete", "head", "options"):
+                if method not in (
+                    "get",
+                    "post",
+                    "put",
+                    "patch",
+                    "delete",
+                    "head",
+                    "options",
+                ):
                     continue
 
                 tags = operation.get("tags", ["Default"])

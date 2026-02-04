@@ -230,9 +230,7 @@ class Command(BaseCommand):
                         "PyYAML is required for YAML output. Install with: pip install pyyaml"
                     )
                 self.stdout.write(
-                    self.style.WARNING(
-                        "  Skipping YAML export (PyYAML not installed)"
-                    )
+                    self.style.WARNING("  Skipping YAML export (PyYAML not installed)")
                 )
 
         # Return the JSON path (primary format)
@@ -249,13 +247,9 @@ class Command(BaseCommand):
 
             try:
                 validate_spec(schema)
-                self.stdout.write(
-                    self.style.SUCCESS("  Validation passed!")
-                )
+                self.stdout.write(self.style.SUCCESS("  Validation passed!"))
             except OpenAPIValidationError as e:
-                self.stdout.write(
-                    self.style.ERROR(f"  Validation failed: {e}")
-                )
+                self.stdout.write(self.style.ERROR(f"  Validation failed: {e}"))
 
         except ImportError:
             self.stdout.write(
@@ -282,20 +276,14 @@ class Command(BaseCommand):
 
             if language in ("typescript", "all"):
                 ts_path = generator.generate_typescript()
-                self.stdout.write(
-                    self.style.SUCCESS(f"  TypeScript SDK: {ts_path}")
-                )
+                self.stdout.write(self.style.SUCCESS(f"  TypeScript SDK: {ts_path}"))
 
             if language in ("python", "all"):
                 py_path = generator.generate_python()
-                self.stdout.write(
-                    self.style.SUCCESS(f"  Python SDK: {py_path}")
-                )
+                self.stdout.write(self.style.SUCCESS(f"  Python SDK: {py_path}"))
 
         except ImportError as e:
-            self.stdout.write(
-                self.style.ERROR(f"  SDK generation failed: {e}")
-            )
+            self.stdout.write(self.style.ERROR(f"  SDK generation failed: {e}"))
 
     def _export_postman(self, spec_path, output_dir):
         """Export Postman collection."""
@@ -318,9 +306,7 @@ class Command(BaseCommand):
             )
 
         except ImportError as e:
-            self.stdout.write(
-                self.style.ERROR(f"  Postman export failed: {e}")
-            )
+            self.stdout.write(self.style.ERROR(f"  Postman export failed: {e}"))
 
     def _export_insomnia(self, spec_path, output_dir):
         """Export Insomnia collection."""
@@ -343,6 +329,4 @@ class Command(BaseCommand):
             )
 
         except ImportError as e:
-            self.stdout.write(
-                self.style.ERROR(f"  Insomnia export failed: {e}")
-            )
+            self.stdout.write(self.style.ERROR(f"  Insomnia export failed: {e}"))

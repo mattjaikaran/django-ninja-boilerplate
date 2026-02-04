@@ -54,9 +54,7 @@ class TestOpenAPISchemaAvailability:
         schema = response.json()
 
         version = schema.get("openapi", "")
-        assert version.startswith("3."), (
-            f"Expected OpenAPI 3.x, got {version}"
-        )
+        assert version.startswith("3."), f"Expected OpenAPI 3.x, got {version}"
 
     def test_api_info_is_complete(self, base_url):
         """Verify the API info section has required fields."""
@@ -204,10 +202,7 @@ class TestResponseFormatContracts:
         data = response.json()
 
         # Error response should have a message/detail
-        assert any(
-            key in data
-            for key in ["detail", "message", "error", "errors"]
-        )
+        assert any(key in data for key in ["detail", "message", "error", "errors"])
 
     def test_validation_error_format(self, base_url):
         """Verify validation errors have consistent format."""

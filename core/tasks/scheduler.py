@@ -303,7 +303,9 @@ class PeriodicTaskManager:
             return False
 
     @classmethod
-    def toggle_periodic_task(cls, task_id: int, enabled: bool | None = None) -> dict | None:
+    def toggle_periodic_task(
+        cls, task_id: int, enabled: bool | None = None
+    ) -> dict | None:
         """Toggle a periodic task's enabled status.
 
         Args:
@@ -468,5 +470,7 @@ class PeriodicTaskManager:
             "last_run_at": task.last_run_at.isoformat() if task.last_run_at else None,
             "total_run_count": task.total_run_count,
             "description": task.description,
-            "date_changed": task.date_changed.isoformat() if task.date_changed else None,
+            "date_changed": task.date_changed.isoformat()
+            if task.date_changed
+            else None,
         }

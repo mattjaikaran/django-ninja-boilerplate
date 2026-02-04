@@ -4,7 +4,6 @@ This generator creates an optional GraphQL API setup using Strawberry GraphQL.
 It generates schemas, queries, mutations, types, and a JWT-authenticated GraphQL view.
 """
 
-
 from .base_generator import BaseGenerator
 
 
@@ -624,7 +623,10 @@ class AsyncJWTAuthenticatedGraphQLView(JWTAuthenticatedGraphQLView):
             original_content = content
 
             # Check if GraphQL is already configured
-            if "graphql" in content.lower() and "JWTAuthenticatedGraphQLView" in content:
+            if (
+                "graphql" in content.lower()
+                and "JWTAuthenticatedGraphQLView" in content
+            ):
                 self.logger.info("GraphQL URL already configured")
                 return
 
@@ -642,7 +644,9 @@ from {self.app_name}.graphql import schema as graphql_schema
             if import_insert_pos != -1:
                 # Find the end of that import line
                 line_end = content.find("\n", import_insert_pos)
-                content = content[: line_end + 1] + graphql_imports + content[line_end + 1 :]
+                content = (
+                    content[: line_end + 1] + graphql_imports + content[line_end + 1 :]
+                )
 
             # Add GraphQL URL pattern
             graphql_url = """    # GraphQL endpoint
@@ -654,7 +658,11 @@ from {self.app_name}.graphql import schema as graphql_schema
                 # Find the first path entry
                 first_path_pos = content.find('path("', urlpatterns_pos)
                 if first_path_pos != -1:
-                    content = content[:first_path_pos] + graphql_url + content[first_path_pos:]
+                    content = (
+                        content[:first_path_pos]
+                        + graphql_url
+                        + content[first_path_pos:]
+                    )
 
             urls_path.write_text(content, encoding="utf-8")
             self.logger.info("Updated URLs with GraphQL endpoint")

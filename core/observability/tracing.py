@@ -203,7 +203,12 @@ def trace_span(
     with tracer.start_as_current_span(name) as span:
         if attributes:
             for key, value in attributes.items():
-                span.set_attribute(key, str(value) if not isinstance(value, (int, float, bool, str)) else value)
+                span.set_attribute(
+                    key,
+                    str(value)
+                    if not isinstance(value, (int, float, bool, str))
+                    else value,
+                )
 
         try:
             yield span

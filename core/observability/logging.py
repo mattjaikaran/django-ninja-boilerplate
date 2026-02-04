@@ -112,7 +112,9 @@ class StructuredJsonFormatter(logging.Formatter):
         log_entry.update(self.extra_fields)
 
         # Add service name
-        log_entry["service"] = getattr(settings, "OTEL_SERVICE_NAME", "django-ninja-app")
+        log_entry["service"] = getattr(
+            settings, "OTEL_SERVICE_NAME", "django-ninja-app"
+        )
 
         # Add environment
         log_entry["environment"] = getattr(settings, "ENVIRONMENT", "development")

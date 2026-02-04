@@ -135,7 +135,10 @@ class FeatureFlagAdminController:
         """Get a feature flag by name."""
         flag = feature_flag_service.get_flag(flag_name)
         if flag is None:
-            return 404, {"error": "Not found", "message": f"Flag '{flag_name}' not found"}
+            return 404, {
+                "error": "Not found",
+                "message": f"Flag '{flag_name}' not found",
+            }
         return 200, flag
 
     @http_put("/{flag_id}", response={200: FeatureFlagSchema, 400: dict, 404: dict})
@@ -161,7 +164,9 @@ class FeatureFlagAdminController:
         flag = feature_flag_service.toggle_flag(flag.name, enabled, request.user)
         return 200, flag
 
-    @http_patch("/{flag_id}/rollout", response={200: FeatureFlagSchema, 400: dict, 404: dict})
+    @http_patch(
+        "/{flag_id}/rollout", response={200: FeatureFlagSchema, 400: dict, 404: dict}
+    )
     @handle_exceptions()
     @log_api_call(include_payload=True)
     def update_rollout(self, request, flag_id: UUID, payload: RolloutUpdateSchema):
@@ -183,13 +188,17 @@ class FeatureFlagAdminController:
         )
         return 200, flag
 
-    @http_delete("/{flag_id}/users/{user_id}", response={200: FeatureFlagSchema, 404: dict})
+    @http_delete(
+        "/{flag_id}/users/{user_id}", response={200: FeatureFlagSchema, 404: dict}
+    )
     @handle_exceptions()
     @log_api_call()
     def remove_user_from_flag(self, request, flag_id: UUID, user_id: str):
         """Remove a user from a feature flag's enabled list."""
         flag = feature_flag_service.get_by_id_or_raise(flag_id)
-        flag = feature_flag_service.remove_user_from_flag(flag.name, user_id, request.user)
+        flag = feature_flag_service.remove_user_from_flag(
+            flag.name, user_id, request.user
+        )
         return 200, flag
 
     @http_delete("/{flag_id}", response={204: None, 404: dict})
@@ -211,7 +220,9 @@ class FeatureFlagAdminController:
 
         for flag_name in payload.flag_names:
             try:
-                feature_flag_service.toggle_flag(flag_name, payload.enabled, request.user)
+                feature_flag_service.toggle_flag(
+                    flag_name, payload.enabled, request.user
+                )
                 updated += 1
             except Exception as e:
                 failed.append(flag_name)

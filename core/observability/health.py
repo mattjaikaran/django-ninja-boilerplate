@@ -352,7 +352,12 @@ def register_health_check(
 
     Example:
         ```python
-        from core.observability.health import register_health_check, HealthCheckResult, HealthStatus
+        from core.observability.health import (
+            register_health_check,
+            HealthCheckResult,
+            HealthStatus,
+        )
+
 
         def check_payment_provider():
             # Check payment provider availability
@@ -361,6 +366,7 @@ def register_health_check(
                 status=HealthStatus.HEALTHY,
                 message="Payment provider available",
             )
+
 
         register_health_check("payment_provider", check_payment_provider)
         ```

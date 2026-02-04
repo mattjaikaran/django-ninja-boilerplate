@@ -155,7 +155,10 @@ def require_feature(
             )
 
             if not is_enabled:
-                message = error_message or f"Feature '{flag_name}' is required but not enabled"
+                message = (
+                    error_message
+                    or f"Feature '{flag_name}' is required but not enabled"
+                )
                 logger.warning(
                     "Access denied: feature '%s' required but disabled for user %s",
                     flag_name,

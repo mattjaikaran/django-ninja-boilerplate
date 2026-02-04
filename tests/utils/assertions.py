@@ -317,9 +317,7 @@ def assert_response_contains(
     data = response.json()
 
     for field in fields:
-        assert field in data, (
-            message or f"Expected field '{field}' in response"
-        )
+        assert field in data, message or f"Expected field '{field}' in response"
 
     return data
 
@@ -346,7 +344,8 @@ def assert_response_matches(
     for key, expected_value in expected.items():
         actual_value = data.get(key)
         assert actual_value == expected_value, (
-            message or f"Field '{key}': expected {expected_value!r}, got {actual_value!r}"
+            message
+            or f"Field '{key}': expected {expected_value!r}, got {actual_value!r}"
         )
 
     return data
@@ -367,9 +366,7 @@ def assert_status(
     if isinstance(status_code, int):
         status_code = [status_code]
 
-    msg = message or (
-        f"Expected status {status_code}, got {response.status_code}"
-    )
+    msg = message or (f"Expected status {status_code}, got {response.status_code}")
 
     if hasattr(response, "json"):
         try:

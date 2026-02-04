@@ -13,8 +13,14 @@ SET timezone = 'UTC';
 -- Create additional databases for testing (optional)
 -- CREATE DATABASE boilerplate_db_test;
 
--- Grant permissions
-GRANT ALL PRIVILEGES ON DATABASE boilerplate_db TO postgres;
+-- Grant permissions (database is created via POSTGRES_DB env var)
+-- This runs after the database is created by the entrypoint script
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_database WHERE datname = 'boilerplate_db') THEN
+        EXECUTE 'GRANT ALL PRIVILEGES ON DATABASE boilerplate_db TO postgres';
+    END IF;
+END $$;
 
 -- Performance tuning for development
 -- These settings optimize for development, adjust for production

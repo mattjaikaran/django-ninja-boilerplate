@@ -159,7 +159,11 @@ class TaskResult(models.Model):
     @property
     def is_complete(self) -> bool:
         """Check if task has completed (success or failure)."""
-        return self.status in [TaskStatus.SUCCESS, TaskStatus.FAILURE, TaskStatus.REVOKED]
+        return self.status in [
+            TaskStatus.SUCCESS,
+            TaskStatus.FAILURE,
+            TaskStatus.REVOKED,
+        ]
 
     @property
     def is_successful(self) -> bool:

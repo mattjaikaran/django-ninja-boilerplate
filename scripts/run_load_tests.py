@@ -78,11 +78,16 @@ def run_locust(
     """
     cmd = [
         "locust",
-        "-f", str(LOCUSTFILE),
-        "--host", host,
-        "-u", str(users),
-        "-r", str(spawn_rate),
-        "-t", duration,
+        "-f",
+        str(LOCUSTFILE),
+        "--host",
+        host,
+        "-u",
+        str(users),
+        "-r",
+        str(spawn_rate),
+        "-t",
+        duration,
     ]
 
     if headless:
@@ -109,7 +114,7 @@ def run_locust(
     print("=" * 60)
     print()
 
-    result = subprocess.run(cmd)
+    result = subprocess.run(cmd, check=False)
     return result.returncode
 
 
@@ -165,19 +170,22 @@ Examples:
 
     # Test configuration
     parser.add_argument(
-        "-u", "--users",
+        "-u",
+        "--users",
         type=int,
         default=10,
         help="Number of concurrent users (default: 10)",
     )
     parser.add_argument(
-        "-r", "--spawn-rate",
+        "-r",
+        "--spawn-rate",
         type=int,
         default=2,
         help="User spawn rate per second (default: 2)",
     )
     parser.add_argument(
-        "-t", "--duration",
+        "-t",
+        "--duration",
         default="30s",
         help="Test duration (e.g., 30s, 2m, 1h) (default: 30s)",
     )
@@ -303,11 +311,16 @@ Examples:
     if args.dry_run:
         cmd = [
             "locust",
-            "-f", str(LOCUSTFILE),
-            "--host", args.host,
-            "-u", str(args.users),
-            "-r", str(args.spawn_rate),
-            "-t", duration,
+            "-f",
+            str(LOCUSTFILE),
+            "--host",
+            args.host,
+            "-u",
+            str(args.users),
+            "-r",
+            str(args.spawn_rate),
+            "-t",
+            duration,
         ]
         if not args.web:
             cmd.append("--headless")

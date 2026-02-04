@@ -46,7 +46,11 @@ class InsomniaExporter:
 
         # Get base URL
         servers = self.spec.get("servers", [])
-        self.base_url = servers[0].get("url", "http://localhost:8000/api") if servers else "http://localhost:8000/api"
+        self.base_url = (
+            servers[0].get("url", "http://localhost:8000/api")
+            if servers
+            else "http://localhost:8000/api"
+        )
 
         # IDs for resources
         self.workspace_id = generate_id("wrk")
@@ -109,7 +113,15 @@ class InsomniaExporter:
 
         for path, path_item in self.spec.get("paths", {}).items():
             for method, operation in path_item.items():
-                if method not in ("get", "post", "put", "patch", "delete", "head", "options"):
+                if method not in (
+                    "get",
+                    "post",
+                    "put",
+                    "patch",
+                    "delete",
+                    "head",
+                    "options",
+                ):
                     continue
 
                 tags = operation.get("tags", ["Default"])
@@ -173,7 +185,9 @@ class InsomniaExporter:
         url = "{{ _.base_url }}" + path
         for param in operation.get("parameters", []):
             if param["in"] == "path":
-                url = url.replace(f"{{{param['name']}}}", f"{{{{ _.{param['name']} }}}}")
+                url = url.replace(
+                    f"{{{param['name']}}}", f"{{{{ _.{param['name']} }}}}"
+                )
 
         # Build query parameters
         parameters = []
@@ -235,7 +249,10 @@ class InsomniaExporter:
                         }
                     )
 
-                body = {"mimeType": "application/x-www-form-urlencoded", "params": params}
+                body = {
+                    "mimeType": "application/x-www-form-urlencoded",
+                    "params": params,
+                }
 
             elif "multipart/form-data" in content:
                 multipart_content = content["multipart/form-data"]

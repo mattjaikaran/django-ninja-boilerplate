@@ -98,7 +98,13 @@ class FeatureFlagAdmin(ModelAdmin):
         (
             "Audit Information",
             {
-                "fields": ("id", "created_at", "updated_at", "created_by", "updated_by"),
+                "fields": (
+                    "id",
+                    "created_at",
+                    "updated_at",
+                    "created_by",
+                    "updated_by",
+                ),
                 "classes": ("collapse",),
             },
         ),
