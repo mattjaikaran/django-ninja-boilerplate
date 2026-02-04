@@ -121,12 +121,12 @@ class TodoError(BaseAPIException):
 # Exception Handlers
 
 
-def handle_api_exception(request, exception: BaseAPIException) -> JsonResponse:  # noqa: ARG001
+def handle_api_exception(request, exception: BaseAPIException) -> JsonResponse:
     """Handle custom API exceptions and return JSON response."""
     return JsonResponse(exception.to_dict(), status=exception.status_code)
 
 
-def handle_validation_error(request, exception: ValidationError) -> JsonResponse:  # noqa: ARG001
+def handle_validation_error(request, exception: ValidationError) -> JsonResponse:
     """Handle validation exceptions with field-specific errors."""
     response_data = exception.to_dict()
 
@@ -137,7 +137,7 @@ def handle_validation_error(request, exception: ValidationError) -> JsonResponse
     return JsonResponse(response_data, status=exception.status_code)
 
 
-def handle_ninja_http_error(request, exception: HttpError) -> JsonResponse:  # noqa: ARG001
+def handle_ninja_http_error(request, exception: HttpError) -> JsonResponse:
     """Handle Django Ninja HTTP errors."""
     return JsonResponse(
         {"error": True, "message": str(exception), "code": "http_error"},
@@ -145,7 +145,7 @@ def handle_ninja_http_error(request, exception: HttpError) -> JsonResponse:  # n
     )
 
 
-def handle_generic_exception(request, exception: Exception) -> JsonResponse:  # noqa: ARG001
+def handle_generic_exception(request, exception: Exception) -> JsonResponse:
     """Handle generic exceptions in production."""
     # In production, log the full exception but don't expose details
     logger.exception("Unhandled exception occurred")

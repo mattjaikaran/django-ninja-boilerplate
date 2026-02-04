@@ -151,7 +151,7 @@ def log_api_call(
                     log_level, "API call completed: %s", func.__name__, extra=log_data
                 )
 
-                return result  # noqa: TRY300
+                return result
 
             except Exception as e:
                 execution_time = time.time() - start_time

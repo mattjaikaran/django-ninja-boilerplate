@@ -92,7 +92,7 @@ class SimpleEmailBackend(BaseEmailBackend):
         text_content: str | None,
         from_email: str,
         recipient_list: list[str],
-        **kwargs: Any,  # noqa: ARG002
+        **kwargs: Any,
     ) -> bool:
         """Send email using Django's simple send_mail function."""
         try:

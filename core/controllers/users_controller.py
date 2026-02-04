@@ -27,7 +27,7 @@ class UserController:
     @http_post("/signup", response={201: UserSchema, 400: dict, 500: dict})
     @handle_exceptions()
     @log_api_call(include_payload=True)
-    def signup(self, request, payload: UserSignupSchema):  # noqa: ARG002
+    def signup(self, request, payload: UserSignupSchema):
         """Create a new user account."""
         if User.objects.filter(username=payload.username).exists():
             raise ValidationError("A user with this username already exists.")
@@ -46,7 +46,7 @@ class UserController:
     @http_post("/superuser", response={201: UserSchema, 400: dict, 500: dict})
     @handle_exceptions()
     @log_api_call(include_payload=True)
-    def create_superuser(self, request, payload: UserSignupSchema):  # noqa: ARG002
+    def create_superuser(self, request, payload: UserSignupSchema):
         """Create a superuser account (admin only)."""
         validate_password(payload.password)
         if payload.is_superuser and not payload.is_staff:

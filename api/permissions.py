@@ -22,14 +22,14 @@ if TYPE_CHECKING:
 class IsAuthenticated(BasePermission):
     """Permission class that requires user to be authenticated."""
 
-    def has_permission(self, request: HttpRequest, view: Any) -> bool:  # noqa: ARG002
+    def has_permission(self, request: HttpRequest, view: Any) -> bool:
         return request.user and request.user.is_authenticated
 
 
 class IsOwner(BasePermission):
     """Permission class that requires user to be the owner of the object."""
 
-    def has_object_permission(self, request: HttpRequest, view: Any, obj: Any) -> bool:  # noqa: ARG002
+    def has_object_permission(self, request: HttpRequest, view: Any, obj: Any) -> bool:
         if not request.user or not request.user.is_authenticated:
             return False
 
@@ -45,14 +45,14 @@ class IsOwner(BasePermission):
 class IsAdminUser(BasePermission):
     """Permission class that requires user to be an admin."""
 
-    def has_permission(self, request: HttpRequest, view: Any) -> bool:  # noqa: ARG002
+    def has_permission(self, request: HttpRequest, view: Any) -> bool:
         return request.user and request.user.is_authenticated and request.user.is_staff
 
 
 class IsSuperUser(BasePermission):
     """Permission class that requires user to be a superuser."""
 
-    def has_permission(self, request: HttpRequest, view: Any) -> bool:  # noqa: ARG002
+    def has_permission(self, request: HttpRequest, view: Any) -> bool:
         return (
             request.user and request.user.is_authenticated and request.user.is_superuser
         )
@@ -227,9 +227,9 @@ def check_rate_limit(
     def decorator(func: Callable) -> Callable:
         @wraps(func)
         def wrapper(request: HttpRequest, *args, **kwargs):
-            from django.core.cache import cache  # noqa: PLC0415
+            from django.core.cache import cache
 
-            from .utils import get_client_ip  # noqa: PLC0415
+            from .utils import get_client_ip
 
             # Generate cache key
             if key_func:
@@ -241,7 +241,7 @@ def check_rate_limit(
             # Check current count
             current = cache.get(key, 0)
             if current >= limit:
-                from .exceptions import RateLimitError  # noqa: PLC0415
+                from .exceptions import RateLimitError
 
                 msg = f"Rate limit exceeded: {limit} requests per {window} seconds"
                 raise RateLimitError(msg)

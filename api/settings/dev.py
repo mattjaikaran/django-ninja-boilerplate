@@ -86,7 +86,7 @@ DEBUG_TOOLBAR_PANELS = [
 
 
 # Configure debug toolbar to work with Docker
-def show_toolbar(request):  # noqa: ARG001
+def show_toolbar(request):
     return True
 
 

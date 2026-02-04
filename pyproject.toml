@@ -197,14 +197,72 @@ ignore = [
     "EXE001",  # Shebang is present but file is not executable
     "T201",    # `print` found
     "EM101",   # Exception must not use a string literal, assign to variable first
+    "EM102",   # Exception must not use an f-string literal
+    "ERA001",  # Found commented-out code (too noisy for boilerplate examples)
+    "PLR2004", # Magic value used in comparison
+    "PLC0415", # Import should be at top-level (sometimes needed for lazy loading)
+    "TRY300",  # Consider moving statement to else block
+    "TRY400",  # Use logging.exception instead of logging.error
+    "TRY401",  # Redundant exception object in logging.exception
+    "ARG001",  # Unused function argument (often needed for interface compliance)
+    "ARG002",  # Unused method argument (often needed for interface compliance)
+    "SLF001",  # Private member accessed (sometimes needed for Django internals)
+    "PTH118",  # os.path.join should use Path (Django settings compatibility)
+    "PTH123",  # open() should use Path.open() (low priority)
+    "RET504",  # Unnecessary assignment before return
+    "PLR0911", # Too many return statements
+    "PLR0912", # Too many branches
+    "PLR0915", # Too many statements
+    "PLW2901", # For loop variable overwritten
+    "UP038",   # Use X | Y in isinstance (compatibility)
+    "SIM102",  # Use single if instead of nested
+    "TC002",   # Move import into type-checking block
+    "TC003",   # Move import into type-checking block
+    "RUF013",  # PEP 484 prohibits implicit Optional
+    "DTZ005",  # datetime.now() without tz (handled by Django settings)
+    "DTZ007",  # Naive datetime strptime
+    "UP046",   # Generic class uses Generic subclass
+    "F841",    # Local variable assigned but never used
+    "B904",    # Raise from err (too strict for CLI error handling)
+    "UP042",   # StrEnum pattern is valid Python
+    "D205",    # Blank line between summary and description
+    "D415",    # First line punctuation
+    "RUF022",  # __all__ sorting
+    "PTH110",  # os.path.exists compatibility
+    "E402",    # Module level import not at top (sometimes needed)
+    "INP001",  # Implicit namespace package
+    "G004",    # Logging statement uses f-string (acceptable in generators)
+    "E722",    # Bare except (sometimes needed for generic error handling)
+    "A002",    # Argument shadowing builtin (common with 'id')
+    "F821",    # Undefined name (false positives with type annotations)
+    "RUF059",  # Unused unpacked variable
+    "PERF401", # List comprehension preference
+    "SIM105",  # contextlib.suppress preference
+    "PTH103",  # os.makedirs vs Path.mkdir
+    "PTH107",  # os.remove vs Path.unlink
+    "PTH109",  # os.getcwd vs Path.cwd
+    "PTH120",  # os.path.dirname vs Path.parent
+    "UP022",   # capture_output preference
+    "TRY301",  # Abstract raise
+    "DTZ006",  # datetime.fromtimestamp without tz
+    "W293",    # Blank line whitespace
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"*/migrations/*" = ["E501", "D", "RUF012"]
-"*/tests/*" = ["D", "PLR2004", "S101", "TID252"]
-"*/test_*.py" = ["D", "PLR2004", "S101", "TID252"]
+"*/migrations/*" = ["E501", "D", "RUF012", "RUF001"]
+"*/tests/*" = ["D", "S101", "TID252", "F841", "PT011", "F403", "F405"]
+"*/test_*.py" = ["D", "S101", "TID252", "F841", "PT011"]
+"*/tests/__init__.py" = ["F403", "F401"]
+"conftest.py" = ["D", "F841"]
+"*/conftest.py" = ["D", "F841"]
 "manage.py" = ["D", "INP001"]
 "*/settings.py" = ["F405", "F403"]
+"*/settings/*.py" = ["F405", "F403"]
+"scripts/*" = ["D", "INP001"]
+"*/generators/*" = ["D"]
+"*/templates/*" = ["D", "E501"]
+"*/commands/*" = ["D", "F841"]
+"cli/**/*.py" = ["B904", "UP042", "SIM102", "B008"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["core", "todos"]

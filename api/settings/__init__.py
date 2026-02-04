@@ -16,6 +16,6 @@ import os
 environment = os.environ.get("DJANGO_ENVIRONMENT", "dev")
 
 if environment == "prod":
-    from .prod import *  # noqa: F403
+    from .prod import *
 else:
-    from .dev import *  # noqa: F403
+    from .dev import *
