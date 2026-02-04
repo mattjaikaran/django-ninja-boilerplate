@@ -35,7 +35,7 @@ COPY . .
 # ===========================================
 # Stage 2: Production runtime
 # ===========================================
-FROM python:3.13-slim AS production
+FROM python:3.14-slim AS production
 
 # Labels
 LABEL maintainer="Matt Jaikaran <info@mattjaikaran.com>" \
