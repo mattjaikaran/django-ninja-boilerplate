@@ -117,6 +117,7 @@ uv run python manage.py generate_feature team --platform-type saas
 - `chat` - Real-time messaging
 - `file_storage` - File upload and storage
 - `analytics` - Event tracking and analytics
+- `graphql` - Strawberry GraphQL API setup
 
 ## Platform Types
 
@@ -313,10 +314,27 @@ uv run python manage.py generate_feature file_storage --provider local --minimal
 3. Review the Django logs for errors
 4. Check the admin interface for model registration
 
+### GraphQL (Strawberry)
+
+Generate a complete GraphQL setup with Strawberry for any Django app:
+
+```bash
+# Generate GraphQL for the core app
+uv run python manage.py generate_feature graphql --app-name=core
+
+# Generate for a custom app
+uv run python manage.py generate_feature graphql --app-name=todos
+```
+
+This creates:
+- `app/graphql/` - GraphQL package with schema, queries, mutations, and types
+- `app/graphql.py` - JWT-authenticated GraphQL view
+- Automatic URL configuration for `/graphql/` endpoint
+
+See the main [README.md](README.md#graphql-optional) for usage examples.
+
 ## Future Enhancements
 
-- GraphQL API generation
-- Async task queue integration
 - Real-time WebSocket features
 - Machine learning model integration
 - API versioning support

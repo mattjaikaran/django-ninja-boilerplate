@@ -59,6 +59,10 @@ This document provides a comprehensive overview of the Django Ninja Boilerplate 
 | **Task Queue** | Background job processing | Celery |
 | **Scheduler** | Periodic task scheduling | Celery Beat |
 | **Monitoring** | Task monitoring UI | Flower |
+| **Tracing** | Distributed tracing | OpenTelemetry + Jaeger |
+| **Metrics** | Application metrics | Prometheus |
+| **Audit Log** | Compliance tracking | Django signals + middleware |
+| **Feature Flags** | Gradual rollouts & A/B testing | Custom service |
 
 ---
 
@@ -93,6 +97,25 @@ django-ninja-boilerplate/
 │   │   ├── auth_controller.py   # JWT authentication
 │   │   ├── user_controller.py   # User management
 │   │   └── otp_controller.py    # OTP/Magic link auth
+│   ├── audit/                   # Audit logging system
+│   │   ├── models.py            # AuditLog model
+│   │   ├── middleware.py        # Request logging
+│   │   ├── signals.py           # Model change tracking
+│   │   └── decorators.py        # @audit_action
+│   ├── features/                # Feature flags
+│   │   ├── models.py            # FeatureFlag model
+│   │   ├── service.py           # Flag evaluation
+│   │   └── middleware.py        # Request flag attachment
+│   ├── observability/           # Monitoring & tracing
+│   │   ├── tracing.py           # OpenTelemetry setup
+│   │   ├── metrics.py           # Prometheus metrics
+│   │   ├── logging.py           # Structured logging
+│   │   └── health.py            # Health checks
+│   ├── tasks/                   # Task management
+│   │   ├── base.py              # ProgressTask, CriticalTask
+│   │   ├── progress.py          # Progress tracking
+│   │   ├── dlq.py               # Dead Letter Queue
+│   │   └── scheduler.py         # Periodic tasks
 │   ├── models/                  # Django models
 │   ├── schemas/                 # Request/Response schemas
 │   ├── services/                # Business logic
@@ -653,13 +676,134 @@ Total memory = Workers × Memory per worker
 
 ## Monitoring & Observability
 
-### Metrics & Logging
+### Observability Stack
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                         OBSERVABILITY STACK                                 │
 └─────────────────────────────────────────────────────────────────────────────┘
 
+     ┌─────────────────────────────────────────────────────────────────────┐
+     │                        DJANGO APPLICATION                           │
+     │                                                                     │
+     │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌───────────┐  │
+     │  │  Tracing    │  │   Metrics   │  │  Logging    │  │  Health   │  │
+     │  │ (OTel SDK)  │  │ (Prometheus)│  │ (Structured)│  │  Checks   │  │
+     │  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘  └─────┬─────┘  │
+     └─────────┼────────────────┼────────────────┼────────────────┼────────┘
+               │                │                │                │
+               ▼                ▼                ▼                ▼
+     ┌─────────────────┐  ┌───────────┐  ┌─────────────┐  ┌───────────────┐
+     │     Jaeger      │  │  /metrics │  │   stdout    │  │ /api/health/  │
+     │  (Trace UI)     │  │  endpoint │  │   (JSON)    │  │   detailed    │
+     │   :16686        │  │           │  │             │  │               │
+     └─────────────────┘  └───────────┘  └─────────────┘  └───────────────┘
+```
+
+### Trace Propagation
+
+```
+┌──────────┐     ┌──────────┐     ┌──────────┐     ┌──────────┐
+│  Client  │────▶│  Django  │────▶│  Celery  │────▶│ External │
+│ Request  │     │   API    │     │  Worker  │     │   API    │
+└──────────┘     └──────────┘     └──────────┘     └──────────┘
+     │                │                │                │
+     │ trace-id: abc  │ trace-id: abc  │ trace-id: abc  │ trace-id: abc
+     │ span-id: 001   │ span-id: 002   │ span-id: 003   │ span-id: 004
+     └────────────────┴────────────────┴────────────────┘
+                           │
+                           ▼
+                    ┌─────────────┐
+                    │   Jaeger    │
+                    │  Timeline   │
+                    │             │
+                    │  abc-001 ───┤
+                    │    abc-002 ─┤
+                    │      abc-003┤
+                    │        abc-004
+                    └─────────────┘
+```
+
+### Audit Trail Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                          AUDIT LOGGING SYSTEM                               │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+     ┌─────────────────┐
+     │   API Request   │
+     └────────┬────────┘
+              │
+              ▼
+     ┌─────────────────┐     ┌─────────────────┐
+     │    Middleware   │────▶│   AuditLog      │
+     │ (Request/Resp)  │     │    (CREATE)     │
+     └─────────────────┘     └─────────────────┘
+              │
+              ▼
+     ┌─────────────────┐     ┌─────────────────┐
+     │    Signals      │────▶│   AuditLog      │
+     │ (Model Changes) │     │ (UPDATE/DELETE) │
+     └─────────────────┘     └─────────────────┘
+              │
+              ▼
+     ┌─────────────────┐     ┌─────────────────┐
+     │   Decorators    │────▶│   AuditLog      │
+     │  (@audit_action)│     │   (CUSTOM)      │
+     └─────────────────┘     └─────────────────┘
+
+     ┌─────────────────────────────────────────────────────────────────────┐
+     │                      AUDIT LOG ENTRY                                │
+     │                                                                     │
+     │  • action: CREATE | UPDATE | DELETE | LOGIN | CUSTOM                │
+     │  • user: preserved email even after deletion                        │
+     │  • ip_address: client IP (proxy-aware)                              │
+     │  • model_name: affected model                                       │
+     │  • object_id: affected record                                       │
+     │  • changes: { "field": {"old": "x", "new": "y"} }                  │
+     │  • request_id: correlation ID                                       │
+     │  • timestamp: immutable                                             │
+     └─────────────────────────────────────────────────────────────────────┘
+```
+
+### Feature Flags Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         FEATURE FLAGS SYSTEM                                │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+     Request Flow:
+     ┌──────────┐     ┌──────────────┐     ┌──────────────┐     ┌──────────┐
+     │  Client  │────▶│  Middleware  │────▶│   Service    │────▶│   View   │
+     └──────────┘     └──────────────┘     └──────────────┘     └──────────┘
+                             │                    │
+                             ▼                    ▼
+                      request.feature_flags  is_enabled()
+                                            get_variant()
+
+     Flag Types:
+     ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
+     │    BOOLEAN      │     │   PERCENTAGE    │     │    AB_TEST      │
+     │                 │     │                 │     │                 │
+     │  enabled: true  │     │  rollout: 25%   │     │  control: 50%   │
+     │  or false       │     │  (user hash)    │     │  variant_a: 30% │
+     │                 │     │                 │     │  variant_b: 20% │
+     └─────────────────┘     └─────────────────┘     └─────────────────┘
+
+     Targeting:
+     ┌─────────────────────────────────────────────────────────────────────┐
+     │  • User whitelist/blacklist                                        │
+     │  • Environment targeting (dev, staging, prod)                      │
+     │  • Time-based activation (starts_at, ends_at)                      │
+     │  • Custom conditions (user attributes, context)                    │
+     └─────────────────────────────────────────────────────────────────────┘
+```
+
+### Metrics & Logging (External Tools)
+
+```
      ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
      │     Django      │     │     Celery      │     │     Nginx       │
      │     Logs        │     │     Logs        │     │     Logs        │
@@ -727,4 +871,4 @@ make flower         # Start with Flower monitoring
 
 ---
 
-*Last updated: 2026*
+*Last updated: February 2026*

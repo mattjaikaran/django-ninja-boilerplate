@@ -7,6 +7,75 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-02-05
+
+### Added
+- **Audit Logging System** - Comprehensive compliance tracking (GDPR, SOC2, HIPAA ready)
+  - Automatic model change tracking via Django signals
+  - API request/response logging middleware
+  - Authentication event tracking (login, logout, failures)
+  - Immutable audit trail with preserved user emails
+  - Admin interface for viewing and filtering logs
+  - REST API endpoints for audit log queries
+
+- **Feature Flags System** - Gradual rollouts and A/B testing
+  - Boolean, percentage-based, and A/B test flag types
+  - User and environment targeting
+  - Time-based activation windows
+  - Middleware for automatic flag attachment to requests
+  - Admin panel management with bulk actions
+  - REST API for flag management and evaluation
+
+- **Observability Stack** - Production monitoring
+  - OpenTelemetry distributed tracing with Jaeger integration
+  - Prometheus metrics endpoint (`/api/metrics`)
+  - Structured JSON logging with trace context
+  - Enhanced health checks with component status
+  - Request timing and slow request logging
+  - Docker Compose profile for observability services
+
+- **Task Management Improvements** - Enhanced Celery task handling
+  - Progress tracking with `ProgressTask` base class
+  - Dead Letter Queue (DLQ) for failed tasks
+  - Periodic task scheduling API
+  - Task status and progress REST endpoints
+  - `TaskResult` model for persistent task tracking
+  - Bulk retry and resolution for failed tasks
+
+- **Testing Utilities** - Comprehensive testing toolkit
+  - Contract tests with Schemathesis for OpenAPI validation
+  - Load tests with Locust for performance testing
+  - Enhanced test client with auth helpers
+  - Custom assertions for API responses
+  - Factory utilities for test data generation
+
+- **OpenAPI Enhancements** - SDK generation and API tools
+  - TypeScript SDK generator
+  - Python SDK generator
+  - Postman collection export
+  - Insomnia collection export
+  - API changelog generator for version comparison
+  - OpenAPI spec validation
+
+- **GraphQL Generator** - Optional Strawberry GraphQL setup
+  - Management command to scaffold GraphQL for any app
+  - JWT-authenticated GraphQL endpoint
+  - Query and mutation types with examples
+  - Custom context class with user access
+
+### Changed
+- Updated Python requirement to 3.12+ (from 3.11+)
+- Updated all Dockerfiles to Python 3.14-slim
+- Updated CI actions to latest versions (checkout@v6, setup-python@v6, setup-uv@v7)
+- Consolidated `get_client_ip` utility to single canonical source
+- Split pagination module into subpackage (`api/pagination/`)
+- Split throttling module into subpackage (`api/throttling/`)
+- Added `OffsetPaginator` and `TokenBucketRateLimiter` aliases for clarity
+
+### Removed
+- Legacy `todo_controller_legacy.py`
+- Unused flake8 and isort configuration files (Ruff handles all linting)
+
 ## [1.0.0] - 2026-01-26
 
 ### Added
@@ -104,12 +173,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 | Version | Date | Description |
 |---------|------|-------------|
+| 1.1.0 | 2026-02-05 | Audit logging, feature flags, observability, task management |
 | 1.0.0 | 2026-01-26 | DX Overhaul, CLI tool, K8s Helm chart |
 | 0.8.0 | 2026-01-25 | OTP, enhanced user model, rate limiting |
 | 0.7.0 | 2026-01-20 | JWT auth, UV, Docker dev environment |
 | 0.6.0 | 2026-01-15 | Initial release |
 
-[Unreleased]: https://github.com/mattjaikaran/django-ninja-boilerplate/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/mattjaikaran/django-ninja-boilerplate/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/mattjaikaran/django-ninja-boilerplate/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/mattjaikaran/django-ninja-boilerplate/compare/v0.8.0...v1.0.0
 [0.8.0]: https://github.com/mattjaikaran/django-ninja-boilerplate/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/mattjaikaran/django-ninja-boilerplate/compare/v0.6.0...v0.7.0

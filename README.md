@@ -8,6 +8,58 @@ A production-ready Django boilerplate built with **Django Ninja Extra** for crea
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
 [![Django 6.0](https://img.shields.io/badge/django-6.0-green.svg)](https://docs.djangoproject.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Code style: Ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
+[![OpenAPI](https://img.shields.io/badge/OpenAPI-3.1-6BA539.svg)](https://swagger.io/specification/)
+
+## Why This Boilerplate?
+
+| Feature | Benefit |
+|---------|---------|
+| **One-command setup** | `make setup` gets you from clone to running in under 2 minutes |
+| **Class-based controllers** | Clean, organized API code with Django Ninja Extra |
+| **Enterprise features built-in** | Audit logging, feature flags, observability - no need to add later |
+| **Multiple auth methods** | JWT, magic links, OTP codes, 2FA - ready for web and mobile |
+| **Full observability** | Distributed tracing, metrics, structured logging out of the box |
+| **SDK generation** | Auto-generate TypeScript and Python clients from your API |
+| **Production-ready** | Docker, K8s Helm charts, PaaS configs - deploy anywhere |
+| **Test everything** | Unit, E2E, contract, and load tests included |
+
+## Architecture Overview
+
+```
+                                    ┌─────────────────┐
+                                    │   Clients       │
+                                    │ Web/Mobile/API  │
+                                    └────────┬────────┘
+                                             │
+                    ┌────────────────────────┼────────────────────────┐
+                    │                        │                        │
+                    ▼                        ▼                        ▼
+           ┌─────────────┐          ┌─────────────┐          ┌─────────────┐
+           │  REST API   │          │   GraphQL   │          │  WebSocket  │
+           │ Django Ninja│          │  Strawberry │          │  (Future)   │
+           └──────┬──────┘          └──────┬──────┘          └─────────────┘
+                  │                        │
+                  └────────────┬───────────┘
+                               │
+           ┌───────────────────┼───────────────────┐
+           │                   │                   │
+           ▼                   ▼                   ▼
+    ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+    │   Auth      │     │  Features   │     │ Observability│
+    │ JWT/OTP/2FA │     │ Flags/Audit │     │ Traces/Metrics│
+    └─────────────┘     └─────────────┘     └─────────────┘
+           │                   │                   │
+           └───────────────────┼───────────────────┘
+                               │
+           ┌───────────────────┼───────────────────┐
+           │                   │                   │
+           ▼                   ▼                   ▼
+    ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+    │ PostgreSQL  │     │    Redis    │     │   Celery    │
+    │  Database   │     │ Cache/Queue │     │   Workers   │
+    └─────────────┘     └─────────────┘     └─────────────┘
+```
 
 ## What's Included
 
