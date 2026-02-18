@@ -54,6 +54,6 @@ else:
         resolved = "dev"
 
     if resolved == "prod":
-        from .prod import *  # noqa: F403, F401
+        from .prod import *
     else:
-        from .dev import *  # noqa: F403, F401
+        from .dev import *

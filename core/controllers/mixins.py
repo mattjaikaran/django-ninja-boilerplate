@@ -31,11 +31,11 @@ class SoftDeleteMixin:
     model = None
 
     @staticmethod
-    def _get_model(cls):
+    def _get_model(instance):
         """Get the model class from the mixin host."""
-        if cls.model is None:
+        if instance.model is None:
             msg = (
-                f"{cls.__class__.__name__} must define a 'model' attribute "
+                f"{instance.__class__.__name__} must define a 'model' attribute "
                 "to use SoftDeleteMixin"
             )
             raise NotImplementedError(msg)

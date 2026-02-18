@@ -107,7 +107,13 @@ def task_postrun_handler(task_id, task, retval, state, *args, **kwargs):
     """Log when a task finishes with duration."""
     start = _task_start_times.pop(task_id, None)
     duration = f"{time.time() - start:.2f}s" if start else "unknown"
-    logger.info("Task completed: %s [%s] state=%s duration=%s", task.name, task_id, state, duration)
+    logger.info(
+        "Task completed: %s [%s] state=%s duration=%s",
+        task.name,
+        task_id,
+        state,
+        duration,
+    )
 
 
 @task_failure.connect
@@ -139,7 +145,7 @@ def exponential_backoff(retries: int, base: int = 2, max_delay: int = 600) -> in
     """
     delay = min(base * (2**retries), max_delay)
     # Add jitter (up to 25% of delay)
-    jitter = random.uniform(0, delay * 0.25)  # noqa: S311
+    jitter = random.uniform(0, delay * 0.25)
     return int(delay + jitter)
 
 

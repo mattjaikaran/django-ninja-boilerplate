@@ -19,7 +19,6 @@ from django.core.serializers.json import DjangoJSONEncoder
 from django.db import models
 from django.utils import timezone
 
-
 # =============================================================================
 # Tier 1: UUID + Timestamps (lightweight default)
 # =============================================================================

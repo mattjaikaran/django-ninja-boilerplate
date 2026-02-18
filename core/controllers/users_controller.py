@@ -3,7 +3,6 @@ from uuid import UUID
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
-from django.core.exceptions import ValidationError
 from django.shortcuts import get_object_or_404
 from ninja_extra import api_controller, http_delete, http_get, http_post, http_put
 from ninja_extra.pagination import paginate

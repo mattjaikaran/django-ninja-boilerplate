@@ -58,9 +58,7 @@ class AuthController:
 
         # Check if email exists
         if User.objects.filter(email=payload.email.lower()).exists():
-            validation_error = ValidationError(
-                "A user with this email already exists."
-            )
+            validation_error = ValidationError("A user with this email already exists.")
             raise validation_error
 
         # Validate password

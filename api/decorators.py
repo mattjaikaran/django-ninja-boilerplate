@@ -56,7 +56,8 @@ def handle_exceptions(
             except PermissionDenied as e:
                 return HTTP_FORBIDDEN, {
                     "error": "Permission denied",
-                    "message": str(e) or "You do not have permission to perform this action",
+                    "message": str(e)
+                    or "You do not have permission to perform this action",
                 }
 
             except Exception as e:
@@ -260,9 +261,7 @@ def require_authentication(allow_anonymous: bool = False):
                     "message": "No request context available",
                 }
 
-            is_authenticated = (
-                hasattr(request, "auth") and request.auth
-            ) or (
+            is_authenticated = (hasattr(request, "auth") and request.auth) or (
                 hasattr(request, "user")
                 and request.user
                 and request.user.is_authenticated
@@ -362,7 +361,7 @@ def rate_limit(
                 ip = _get_client_ip(request)
                 identifier = f"ip:{ip}"
 
-            cache_key = f"ratelimit:{func.__name__}:{hashlib.md5(identifier.encode()).hexdigest()}"  # noqa: S324
+            cache_key = f"ratelimit:{func.__name__}:{hashlib.md5(identifier.encode()).hexdigest()}"
 
             # Sliding window counter
             current_count = cache.get(cache_key, 0)

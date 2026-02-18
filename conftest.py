@@ -99,17 +99,26 @@ class APITestClient:
 
     def post(self, path, data=None, content_type="application/json", **kwargs):
         return self.client.post(
-            self._url(path), data=data, content_type=content_type, **{**self._headers, **kwargs}
+            self._url(path),
+            data=data,
+            content_type=content_type,
+            **{**self._headers, **kwargs},
         )
 
     def put(self, path, data=None, content_type="application/json", **kwargs):
         return self.client.put(
-            self._url(path), data=data, content_type=content_type, **{**self._headers, **kwargs}
+            self._url(path),
+            data=data,
+            content_type=content_type,
+            **{**self._headers, **kwargs},
         )
 
     def patch(self, path, data=None, content_type="application/json", **kwargs):
         return self.client.patch(
-            self._url(path), data=data, content_type=content_type, **{**self._headers, **kwargs}
+            self._url(path),
+            data=data,
+            content_type=content_type,
+            **{**self._headers, **kwargs},
         )
 
     def delete(self, path, **kwargs):
