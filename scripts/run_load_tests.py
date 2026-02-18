@@ -258,7 +258,7 @@ Examples:
         else:
             print("Error: Locust is not installed.")
             print("Run with --install to install it, or run:")
-            print("  uv pip install locust")
+            print("  uv add locust")
             sys.exit(1)
 
     # Apply presets

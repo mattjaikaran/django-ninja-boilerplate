@@ -1,10 +1,10 @@
 # Pre-commit hooks for Django Ninja Boilerplate
-# Install: pip install pre-commit && pre-commit install
+# Install: uv add --dev pre-commit && pre-commit install
 # Run manually: pre-commit run --all-files
 # ============================================================
 
 default_language_version:
-  python: python3.14
+  python: python3.13
 
 repos:
   # ===========================================

@@ -1,12 +1,15 @@
 """Main CLI application using Typer."""
 
+import os
 import subprocess
+import sys
 from pathlib import Path
 from typing import Annotated
 
 import typer
 from rich.console import Console
 from rich.panel import Panel
+from rich.table import Table
 from rich.text import Text
 
 from django_ninja_matt import __version__
@@ -36,7 +39,19 @@ console = Console()
 def version_callback(value: bool) -> None:
     """Show version and exit."""
     if value:
-        console.print(f"django-ninja-matt version {__version__}")
+        table = Table(show_header=False, box=None, padding=(0, 1))
+        table.add_row("[bold]django-ninja-matt[/bold]", f"v{__version__}")
+        table.add_row(
+            "[dim]Python[/dim]",
+            f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",
+        )
+        try:
+            import django
+
+            table.add_row("[dim]Django[/dim]", django.get_version())
+        except ImportError:
+            pass
+        console.print(table)
         raise typer.Exit()
 
 
@@ -234,15 +249,18 @@ def test(
     if path:
         cmd.append(path)
 
+    # Ensure test settings are used
+    env = {**os.environ, "DJANGO_SETTINGS_MODULE": "api.settings.test"}
+
     try:
-        result = subprocess.run(cmd, check=False)
+        result = subprocess.run(cmd, check=False, env=env)
         if result.returncode == 0:
             print_success("All tests passed!")
         else:
             print_error(f"Tests failed with exit code {result.returncode}")
             raise typer.Exit(result.returncode)
     except FileNotFoundError:
-        print_error("pytest not found. Make sure it's installed: pip install pytest")
+        print_error("pytest not found. Make sure it's installed: uv add --dev pytest")
         raise typer.Exit(1)
     except KeyboardInterrupt:
         print_info("Tests cancelled")
@@ -289,8 +307,6 @@ def lint(
         if not check_only:
             print_step("Running formatter...")
             format_cmd = ["ruff", "format", "."]
-            if check_only:
-                format_cmd.append("--check")
             format_result = subprocess.run(format_cmd, check=False)
             format_passed = format_result.returncode == 0
         else:
@@ -306,7 +322,7 @@ def lint(
             raise typer.Exit(1)
 
     except FileNotFoundError:
-        print_error("ruff not found. Make sure it's installed: pip install ruff")
+        print_error("ruff not found. Make sure it's installed: uv add --dev ruff")
         raise typer.Exit(1)
     except KeyboardInterrupt:
         print_info("Linting cancelled")
@@ -463,6 +479,168 @@ def logs(
     except KeyboardInterrupt:
         print_info("Log streaming stopped")
         raise typer.Exit(0)
+
+
+@app.command(name="add-app")
+def add_app(
+    name: Annotated[
+        str,
+        typer.Argument(help="App name (e.g., 'products', 'orders')"),
+    ],
+    path: Annotated[
+        Path | None,
+        typer.Option(
+            "--path",
+            "-p",
+            help="Parent directory for the app (default: project root)",
+        ),
+    ] = None,
+) -> None:
+    """Scaffold a new Django app with controller, schemas, services, and tests.
+
+    Generates the standard project structure:
+        <app>/
+        ├── __init__.py
+        ├── models/
+        │   └── __init__.py
+        ├── controllers/
+        │   └── __init__.py
+        ├── schemas/
+        │   └── __init__.py
+        ├── services/
+        │   └── __init__.py
+        └── tests/
+            └── __init__.py
+
+    Examples:
+        dnm add-app products
+        dnm add-app orders --path apps/
+    """
+    app_dir = (path or Path.cwd()) / name
+
+    if app_dir.exists():
+        print_error(f"Directory '{app_dir}' already exists")
+        raise typer.Exit(1)
+
+    print_step(f"Scaffolding app '{name}'...")
+
+    # Create directory structure
+    subdirs = ["models", "controllers", "schemas", "services", "tests"]
+    for subdir in subdirs:
+        (app_dir / subdir).mkdir(parents=True, exist_ok=True)
+
+    # App __init__.py
+    (app_dir / "__init__.py").write_text("")
+
+    # models/__init__.py with base model
+    model_name = name.rstrip("s").capitalize()
+    (app_dir / "models" / "__init__.py").write_text(
+        f'"""Models for {name} app."""\n\n'
+        f"from .{name.rstrip('s')} import {model_name}  # noqa: F401\n"
+    )
+    (app_dir / "models" / f"{name.rstrip('s')}.py").write_text(
+        f'"""Model for {model_name}."""\n\n'
+        "from api.models import BaseModel\n"
+        "from django.db import models\n\n\n"
+        f"class {model_name}(BaseModel):\n"
+        f'    """Represents a {model_name.lower()}."""\n\n'
+        "    name = models.CharField(max_length=255)\n"
+        '    description = models.TextField(blank=True, default="")\n\n'
+        "    class Meta:\n"
+        f'        verbose_name = "{model_name}"\n'
+        f'        verbose_name_plural = "{model_name}s"\n'
+        '        ordering = ["-created_at"]\n\n'
+        "    def __str__(self) -> str:\n"
+        "        return self.name\n"
+    )
+
+    # controllers/__init__.py
+    (app_dir / "controllers" / "__init__.py").write_text(
+        f'"""API controllers for {name} app."""\n\n'
+        f"from ninja_extra import api_controller, http_delete, http_get, http_post, http_put\n\n"
+        f"from {name}.models import {model_name}\n"
+        f"from {name}.schemas import {model_name}Schema, Create{model_name}Schema\n\n\n"
+        f'@api_controller("/{name}", tags=["{name.capitalize()}"])\n'
+        f"class {model_name}Controller:\n"
+        f'    @http_get("/", response={{200: list[{model_name}Schema]}})\n'
+        f"    def list_{name}(self, request):\n"
+        f"        return 200, {model_name}.objects.all()\n\n"
+        f'    @http_post("/", response={{201: {model_name}Schema}})\n'
+        f"    def create_{name.rstrip('s')}(self, request, payload: Create{model_name}Schema):\n"
+        f"        obj = {model_name}.objects.create(**payload.dict())\n"
+        f"        return 201, obj\n\n"
+        f'    @http_get("/{{id}}", response={{200: {model_name}Schema}})\n'
+        f"    def get_{name.rstrip('s')}(self, request, id: str):\n"
+        f"        return 200, {model_name}.objects.get(id=id)\n\n"
+        f'    @http_put("/{{id}}", response={{200: {model_name}Schema}})\n'
+        f"    def update_{name.rstrip('s')}(self, request, id: str, payload: Create{model_name}Schema):\n"
+        f"        obj = {model_name}.objects.get(id=id)\n"
+        f"        for attr, value in payload.dict().items():\n"
+        f"            setattr(obj, attr, value)\n"
+        f"        obj.save()\n"
+        f"        return 200, obj\n\n"
+        f'    @http_delete("/{{id}}", response={{204: None}})\n'
+        f"    def delete_{name.rstrip('s')}(self, request, id: str):\n"
+        f"        {model_name}.objects.filter(id=id).delete()\n"
+        f"        return 204, None\n"
+    )
+
+    # schemas/__init__.py
+    (app_dir / "schemas" / "__init__.py").write_text(
+        f'"""Pydantic schemas for {name} app."""\n\n'
+        "from ninja import Schema\n\n\n"
+        f"class {model_name}Schema(Schema):\n"
+        "    id: str\n"
+        "    name: str\n"
+        "    description: str\n\n"
+        "    class Config:\n"
+        "        from_attributes = True\n\n\n"
+        f"class Create{model_name}Schema(Schema):\n"
+        "    name: str\n"
+        '    description: str = ""\n'
+    )
+
+    # services/__init__.py
+    (app_dir / "services" / "__init__.py").write_text(
+        f'"""Business logic services for {name} app."""\n'
+    )
+
+    # tests/__init__.py
+    (app_dir / "tests" / "__init__.py").write_text(f'"""Tests for {name} app."""\n')
+    (app_dir / "tests" / f"test_{name.rstrip('s')}.py").write_text(
+        f'"""Tests for {model_name} endpoints."""\n\n'
+        "import pytest\n"
+        "from django.test import Client\n\n\n"
+        "pytestmark = pytest.mark.django_db\n\n\n"
+        f"class Test{model_name}Endpoints:\n"
+        f"    def test_list_{name}(self, client: Client):\n"
+        f'        response = client.get("/api/{name}/")\n'
+        f"        assert response.status_code == 200\n"
+    )
+
+    # apps.py
+    (app_dir / "apps.py").write_text(
+        "from django.apps import AppConfig\n\n\n"
+        f"class {name.capitalize()}Config(AppConfig):\n"
+        f'    default_auto_field = "django.db.models.BigAutoField"\n'
+        f'    name = "{name}"\n'
+    )
+
+    # admin.py
+    (app_dir / "admin.py").write_text(
+        "from django.contrib import admin\n\n"
+        f"from {name}.models import {model_name}\n\n\n"
+        f"@admin.register({model_name})\n"
+        f"class {model_name}Admin(admin.ModelAdmin):\n"
+        f'    list_display = ["id", "name", "created_at"]\n'
+        f'    search_fields = ["name"]\n'
+    )
+
+    print_success(f"App '{name}' scaffolded at {app_dir}")
+    print_info("Next steps:")
+    print_info(f"  1. Add '{name}' to INSTALLED_APPS in api/settings/common.py")
+    print_info("  2. Register the controller in api/urls.py")
+    print_info("  3. Run: dnm migrate --make")
 
 
 def show_welcome() -> None:

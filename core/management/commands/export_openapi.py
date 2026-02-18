@@ -227,7 +227,7 @@ class Command(BaseCommand):
             except ImportError:
                 if output_format == "yaml":
                     raise CommandError(
-                        "PyYAML is required for YAML output. Install with: pip install pyyaml"
+                        "PyYAML is required for YAML output. Install with: uv add pyyaml"
                     )
                 self.stdout.write(
                     self.style.WARNING("  Skipping YAML export (PyYAML not installed)")

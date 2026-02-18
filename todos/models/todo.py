@@ -26,5 +26,6 @@ class Todo(AbstractBaseModel):
         return self.title
 
     class Meta:
+        ordering = ["-created_at"]
         verbose_name = "Todo"
         verbose_name_plural = "Todos"

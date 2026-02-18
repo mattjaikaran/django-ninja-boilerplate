@@ -58,7 +58,7 @@ def init_tracing(
     except ImportError:
         logger.warning(
             "OpenTelemetry packages not installed. "
-            "Install with: pip install opentelemetry-api opentelemetry-sdk "
+            "Install with: uv add opentelemetry-api opentelemetry-sdk "
             "opentelemetry-exporter-otlp"
         )
         return False
@@ -173,7 +173,7 @@ def trace_span(
     name: str,
     attributes: dict[str, Any] | None = None,
     record_exception: bool = True,
-) -> Generator[Any, None, None]:
+) -> Generator[Any]:
     """Context manager to create a trace span.
 
     Args:
@@ -295,7 +295,7 @@ def instrument_django() -> bool:
     except ImportError:
         logger.warning(
             "Django instrumentation not available. "
-            "Install with: pip install opentelemetry-instrumentation-django"
+            "Install with: uv add opentelemetry-instrumentation-django"
         )
         return False
     except Exception as e:

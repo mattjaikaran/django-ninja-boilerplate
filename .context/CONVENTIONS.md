@@ -684,7 +684,7 @@ logger.debug("Processing payload: %s", payload.model_dump())
 ### Ruff Configuration (pyproject.toml)
 
 - Line length: 88 characters
-- Target Python: 3.12+
+- Target Python: 3.13+
 - Docstring style: Google
 - Quote style: Double quotes
 

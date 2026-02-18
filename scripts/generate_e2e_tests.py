@@ -22,13 +22,13 @@ from typing import Any
 try:
     import yaml
 except ImportError:
-    print("Error: PyYAML is required. Install with: pip install pyyaml")
+    print("Error: PyYAML is required. Install with: uv add pyyaml")
     sys.exit(1)
 
 try:
     from jinja2 import BaseLoader, Environment
 except ImportError:
-    print("Error: Jinja2 is required. Install with: pip install jinja2")
+    print("Error: Jinja2 is required. Install with: uv add jinja2")
     sys.exit(1)
 
 

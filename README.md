@@ -5,7 +5,7 @@ A production-ready Django boilerplate built with **Django Ninja Extra** for crea
 > **Architecture Note:** This boilerplate uses [Django Ninja Extra](https://eadwincode.github.io/django-ninja-extra/) which extends Django Ninja with class-based API controllers, dependency injection, and permissions. Instead of function-based views, you write clean controller classes with decorators like `@api_controller` and `@http_get`.
 
 [![CI](https://github.com/mattjaikaran/django-ninja-boilerplate/actions/workflows/ci.yml/badge.svg)](https://github.com/mattjaikaran/django-ninja-boilerplate/actions/workflows/ci.yml)
-[![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.13+](https://img.shields.io/badge/python-3.13+-blue.svg)](https://www.python.org/downloads/)
 [![Django 6.0](https://img.shields.io/badge/django-6.0-green.svg)](https://docs.djangoproject.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Code style: Ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
@@ -139,7 +139,7 @@ app_name/
 
 ### Core Stack
 
-- **Python 3.12+** with type hints
+- **Python 3.13+** with type hints
 - **[Django 6.0](https://docs.djangoproject.com/en/6.0/)** - Web framework
 - **[Django Ninja](https://django-ninja.dev/)** - Fast API framework
 - **[Django Ninja Extra](https://eadwincode.github.io/django-ninja-extra/)** - Class-based controllers

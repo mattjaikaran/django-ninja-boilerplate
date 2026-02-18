@@ -66,6 +66,7 @@ ipython_config.py
 *.log
 local_settings.py
 db.sqlite3
+test_db.sqlite3
 staticfiles/
 media/
 

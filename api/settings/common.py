@@ -364,18 +364,31 @@ X_FRAME_OPTIONS = "DENY"
 # CSRF_COOKIE_SECURE = True
 
 # =============================================================================
-# Email Configuration
+# Email Configuration (Resend via Anymail)
 # =============================================================================
-EMAIL_BACKEND = env(
-    "EMAIL_BACKEND",
-    default="django.core.mail.backends.console.EmailBackend",
-)
+# Default to Resend for production email delivery.
+# Set RESEND_API_KEY in your environment to enable.
+# Falls back to console backend when RESEND_API_KEY is not set.
+RESEND_API_KEY = env("RESEND_API_KEY", default="")
+
+if RESEND_API_KEY:
+    EMAIL_BACKEND = env("EMAIL_BACKEND", default="anymail.backends.resend.EmailBackend")
+    ANYMAIL = {
+        "RESEND_API_KEY": RESEND_API_KEY,
+    }
+else:
+    EMAIL_BACKEND = env(
+        "EMAIL_BACKEND",
+        default="django.core.mail.backends.console.EmailBackend",
+    )
+
+DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="noreply@example.com")
+# Legacy SMTP settings (used if EMAIL_BACKEND is overridden to SMTP)
 EMAIL_HOST = env("EMAIL_HOST", default="")
 EMAIL_PORT = env.int("EMAIL_PORT", default=587)
 EMAIL_USE_TLS = env.bool("EMAIL_USE_TLS", default=True)
 EMAIL_HOST_USER = env("EMAIL_HOST_USER", default="")
 EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD", default="")
-DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="noreply@example.com")
 
 # =============================================================================
 # Admin Configuration

@@ -25,7 +25,7 @@
 # ===========================================
 # This stage sets up the foundational system packages and environment
 # variables that are shared across all other stages.
-FROM python:3.14-slim AS base
+FROM python:3.13-slim AS base
 
 # Metadata labels for container identification
 LABEL maintainer="Matt Jaikaran <info@mattjaikaran.com>" \

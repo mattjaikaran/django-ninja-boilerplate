@@ -7,8 +7,8 @@ on:
     branches: [main, develop]
 
 env:
-  PYTHON_VERSION: "3.14"  # Default/primary Python version
-  UV_VERSION: "0.5.0"
+  PYTHON_VERSION: "3.13"
+  UV_VERSION: "0.6.0"
 
 jobs:
   lint:
@@ -34,12 +34,10 @@ jobs:
           uv pip install --system -e ".[dev]"
 
       - name: Run Ruff linter
-        run: |
-          uv run ruff check .
+        run: ruff check .
 
       - name: Run Ruff formatter check
-        run: |
-          uv run ruff format --check .
+        run: ruff format --check .
 
   test:
     name: Test (Python ${{ matrix.python-version }}, Django ${{ matrix.django-version }})
@@ -47,12 +45,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.12", "3.13", "3.14"]
+        python-version: ["3.13", "3.14"]
         django-version: ["5.2", "6.0"]
-        exclude:
-          # Django 6.0 requires Python 3.12+
-          - python-version: "3.12"
-            django-version: "6.0"
 
     services:
       postgres:
@@ -88,7 +82,7 @@ jobs:
       DB_HOST: localhost
       DB_PORT: 5432
       REDIS_URL: redis://localhost:6379/0
-      DJANGO_SETTINGS_MODULE: api.settings
+      DJANGO_SETTINGS_MODULE: api.settings.test
 
     steps:
       - name: Checkout code
@@ -114,11 +108,10 @@ jobs:
           python manage.py migrate --noinput
 
       - name: Run tests with coverage
-        run: |
-          uv run pytest --cov=. --cov-report=xml --cov-report=term-missing
+        run: pytest --cov=. --cov-report=xml --cov-report=term-missing
 
       - name: Upload coverage to Codecov
-        if: matrix.python-version == '3.14' && matrix.django-version == '6.0'
+        if: matrix.python-version == '3.13' && matrix.django-version == '6.0'
         uses: codecov/codecov-action@v5
         with:
           file: ./coverage.xml

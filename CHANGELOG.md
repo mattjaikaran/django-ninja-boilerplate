@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-02-17
+
+### Added
+- **Test settings module** (`api/settings/test.py`) - SQLite locally, PostgreSQL in CI
+- **Resend email integration** (`django-anymail[resend]`) - Default mailer with console fallback
+- **CLI `add-app` command** - Scaffold new Django apps with model/controller/schema/test stubs
+- Missing migration for `deleted_at` and `deleted_by` fields on Todo model
+- `ordering = ["-created_at"]` on Todo model Meta
+
+### Changed
+- Updated minimum Python version from 3.12 to **3.13** (supports 3.13 and 3.14)
+- Updated default Python version in CI from 3.14 to **3.13**
+- Updated CI test matrix to Python 3.13 + 3.14 (dropped 3.12)
+- Updated Dockerfile base image from `python:3.14-slim` to `python:3.13-slim`
+- Updated ruff target version from `py312` to `py313`
+- Updated CLI tool to v1.2.0 with enhanced version output
+- Updated CLI `test` command to set `DJANGO_SETTINGS_MODULE=api.settings.test`
+- Updated UV version in CI from 0.5.0 to 0.6.0
+- Updated pytest to use `DJANGO_SETTINGS_MODULE=api.settings.test`
+- Updated pre-commit default Python from 3.14 to 3.13
+- Updated all `pip install` references to `uv add`
+- Updated all documentation to reflect Python 3.13+ requirement
+
+### Fixed
+- Fixed test suite to run locally without PostgreSQL (SQLite fallback)
+- Fixed `test_signup` test URL from `/api/users/signup` to `/api/auth/signup`
+- Fixed Todo model missing `deleted_at`/`deleted_by` migration (schema mismatch)
+- Fixed Todo model ordering (was unspecified, now `-created_at`)
+- Fixed CLI `lint` command dead code in formatter branch
+- All 26 tests now pass locally and in CI
+
 ## [1.1.0] - 2026-02-05
 
 ### Added
@@ -64,8 +95,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Custom context class with user access
 
 ### Changed
-- Updated Python requirement to 3.12+ (from 3.11+)
-- Updated all Dockerfiles to Python 3.14-slim
+- Updated Python requirement to 3.13+ (from 3.11+)
+- Updated all Dockerfiles to Python 3.13-slim
 - Updated CI actions to latest versions (checkout@v6, setup-python@v6, setup-uv@v7)
 - Consolidated `get_client_ip` utility to single canonical source
 - Split pagination module into subpackage (`api/pagination/`)
@@ -173,13 +204,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 | Version | Date | Description |
 |---------|------|-------------|
+| 1.2.0 | 2026-02-17 | Python 3.13+ default, test fixes, migration fixes |
 | 1.1.0 | 2026-02-05 | Audit logging, feature flags, observability, task management |
 | 1.0.0 | 2026-01-26 | DX Overhaul, CLI tool, K8s Helm chart |
 | 0.8.0 | 2026-01-25 | OTP, enhanced user model, rate limiting |
 | 0.7.0 | 2026-01-20 | JWT auth, UV, Docker dev environment |
 | 0.6.0 | 2026-01-15 | Initial release |
 
-[Unreleased]: https://github.com/mattjaikaran/django-ninja-boilerplate/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/mattjaikaran/django-ninja-boilerplate/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/mattjaikaran/django-ninja-boilerplate/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/mattjaikaran/django-ninja-boilerplate/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/mattjaikaran/django-ninja-boilerplate/compare/v0.8.0...v1.0.0
 [0.8.0]: https://github.com/mattjaikaran/django-ninja-boilerplate/compare/v0.7.0...v0.8.0

@@ -10,7 +10,7 @@ Django Ninja Boilerplate is a production-ready Django REST API boilerplate built
 
 | Component | Technology | Version |
 |-----------|------------|---------|
-| Language | Python | 3.12+ |
+| Language | Python | 3.13+ |
 | Framework | Django | 6.0+ |
 | API Framework | Django Ninja Extra | 0.30+ |
 | Authentication | Django Ninja JWT | 5.3+ |

@@ -77,7 +77,8 @@ django-ninja-boilerplate/
 │   ├── settings/                 # Environment-specific settings
 │   │   ├── common.py            # Shared settings
 │   │   ├── dev.py               # Development overrides
-│   │   └── prod.py              # Production overrides
+│   │   ├── prod.py              # Production overrides
+│   │   └── test.py              # Test settings (SQLite locally, PostgreSQL in CI)
 │   ├── pagination/              # Pagination utilities
 │   │   ├── schemas.py           # Pydantic schemas
 │   │   ├── offset.py            # Offset-based pagination
@@ -194,7 +195,7 @@ django-ninja-boilerplate/
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                         STAGE 1: BUILDER                                    │
 │                                                                             │
-│   python:3.14-slim                                                          │
+│   python:3.13-slim                                                          │
 │   ┌─────────────────────────────────────────────────────────────────────┐  │
 │   │  • Install build tools (gcc, build-essential)                       │  │
 │   │  • Install uv package manager                                       │  │
@@ -210,7 +211,7 @@ django-ninja-boilerplate/
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                       STAGE 2: PRODUCTION                                   │
 │                                                                             │
-│   python:3.14-slim                                                          │
+│   python:3.13-slim                                                          │
 │   ┌─────────────────────────────────────────────────────────────────────┐  │
 │   │  • Runtime libraries only (libpq5, curl)                           │  │
 │   │  • Virtual environment from builder                                 │  │
@@ -277,9 +278,9 @@ django-ninja-boilerplate/
 
 | Dockerfile | Use Case | Base Image | Size | Features |
 |------------|----------|------------|------|----------|
-| `Dockerfile` | Production | python:3.14-slim | ~250MB | Multi-stage, health checks, security |
+| `Dockerfile` | Production | python:3.13-slim | ~250MB | Multi-stage, health checks, security |
 | `Dockerfile.uv` | CI/CD | uv:python3.13 | ~200MB | Fast builds, UV native |
-| `deploy/docker/Dockerfile.single` | PaaS | python:3.14-slim | ~250MB | Single container, health checks |
+| `deploy/docker/Dockerfile.single` | PaaS | python:3.13-slim | ~250MB | Single container, health checks |
 
 ---
 
@@ -293,16 +294,19 @@ django-ninja-boilerplate/
 ├─────────────────────┤          ├─────────────────────┤
 │ PK  id (UUID)       │──────────│ PK  id (UUID)       │
 │     email           │          │ FK  user_id         │
-│     password_hash   │          │     title           │
-│     first_name      │          │     description     │
-│     last_name       │          │     completed       │
-│     is_active       │          │     due_date        │
-│     is_staff        │          │     priority        │
-│     created_at      │          │     created_at      │
-│     updated_at      │          │     updated_at      │
-└─────────────────────┘          └─────────────────────┘
-         │
-         │ 1:N
+│     username        │          │     title           │
+│     password_hash   │          │     description     │
+│     first_name      │          │     completed       │
+│     last_name       │          │     priority        │
+│     is_active       │          │     is_active       │
+│     is_staff        │          │     deleted_at      │
+│     is_verified     │          │ FK  created_by      │
+│     metadata (JSON) │          │ FK  updated_by      │
+│     created_at      │          │ FK  deleted_by      │
+│     updated_at      │          │     metadata (JSON) │
+└─────────────────────┘          │     created_at      │
+         │                       │     updated_at      │
+         │ 1:N                   └─────────────────────┘
          ▼
 ┌─────────────────────┐
 │        OTP          │
@@ -310,9 +314,13 @@ django-ninja-boilerplate/
 │ PK  id (UUID)       │
 │ FK  user_id         │
 │     code            │
+│     token           │
 │     purpose         │
+│     delivery_method │
 │     expires_at      │
 │     is_used         │
+│     attempts        │
+│     max_attempts    │
 │     created_at      │
 └─────────────────────┘
 ```

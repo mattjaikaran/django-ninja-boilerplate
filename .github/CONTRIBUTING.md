@@ -30,7 +30,7 @@ By participating in this project, you agree to maintain a respectful and inclusi
 
 Before you begin, ensure you have the following installed:
 
-- **Python 3.12+** - [Download Python](https://www.python.org/downloads/)
+- **Python 3.13+** - [Download Python](https://www.python.org/downloads/)
 - **uv** - Fast Python package manager: `curl -LsSf https://astral.sh/uv/install.sh | sh`
 - **Docker & Docker Compose** - For running services locally
 - **Git** - For version control

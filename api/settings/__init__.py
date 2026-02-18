@@ -27,6 +27,8 @@ _ENV_MAP = {
     "local": "dev",
     "prod": "prod",
     "production": "prod",
+    "test": "test",
+    "testing": "test",
 }
 
 # Check DJANGO_SETTINGS_MODULE first - if it's already set to a specific
@@ -55,5 +57,7 @@ else:
 
     if resolved == "prod":
         from .prod import *
+    elif resolved == "test":
+        from .test import *
     else:
         from .dev import *

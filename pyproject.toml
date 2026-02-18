@@ -5,7 +5,7 @@ description = "A production-ready Django boilerplate using Django Ninja for buil
 authors = [{ name = "Matt Jaikaran", email = "info@mattjaikaran.com" }]
 readme = "README.md"
 license = { text = "Proprietary" }
-requires-python = ">=3.12"
+requires-python = ">=3.13"
 keywords = ["django", "ninja", "api", "boilerplate"]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
@@ -17,7 +17,6 @@ classifiers = [
     "Operating System :: OS Independent",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
     "Topic :: Internet :: WWW/HTTP",
@@ -53,6 +52,8 @@ dependencies = [
     "PyJWT>=2.9.0",
     "python-jose>=3.3.0",
     "passlib>=1.7.4",
+    # Email (Resend via Anymail)
+    "django-anymail[resend]>=14.0",
     # HTTP & API
     "httpx>=0.27.0",
     "httpcore>=1.0.5",
@@ -144,7 +145,7 @@ build-backend = "hatchling.build"
 packages = ["api", "core", "todos"]
 
 [tool.ruff]
-target-version = "py312"  # Use py312 for broad compatibility; ruff handles 3.12-3.14
+target-version = "py313"
 line-length = 88
 fix = true
 show-fixes = true
@@ -318,7 +319,7 @@ docstring-code-format = true
 docstring-code-line-length = "dynamic"
 
 [tool.pytest.ini_options]
-DJANGO_SETTINGS_MODULE = "api.settings"
+DJANGO_SETTINGS_MODULE = "api.settings.test"
 addopts = [
     "--strict-markers",
     "--strict-config",

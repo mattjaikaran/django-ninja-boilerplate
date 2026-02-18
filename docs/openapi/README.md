@@ -206,7 +206,7 @@ The OpenAPI specification can be validated using `openapi-spec-validator`:
 
 ```bash
 # Install validator
-pip install openapi-spec-validator
+uv add openapi-spec-validator
 
 # Validate via management command
 python manage.py export_openapi --validate
@@ -243,11 +243,11 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
+          python-version: '3.13'
 
       - name: Install dependencies
         run: |
-          pip install uv
+          pip install uv  # bootstrap uv
           uv sync
 
       - name: Generate OpenAPI docs
@@ -283,7 +283,7 @@ python manage.py export_openapi --api api.urls.api
 Install PyYAML:
 
 ```bash
-pip install pyyaml
+uv add pyyaml
 ```
 
 ### "openapi-spec-validator not installed"
@@ -291,5 +291,5 @@ pip install pyyaml
 Install the validator:
 
 ```bash
-pip install openapi-spec-validator
+uv add openapi-spec-validator
 ```

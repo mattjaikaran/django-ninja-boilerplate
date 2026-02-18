@@ -11,7 +11,7 @@ Install Locust and testing dependencies:
 uv pip install -e ".[testing]"
 
 # Or directly
-pip install locust
+uv add locust
 ```
 
 ## Quick Start
