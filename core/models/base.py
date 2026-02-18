@@ -1,7 +1,14 @@
 """Base model classes for the application.
 
-This module provides abstract base models that all models should inherit from.
-Includes soft delete support, metadata tracking, and audit fields.
+This module provides a tiered hierarchy of abstract base models:
+
+- TimestampedModel: UUID pk + timestamps (lightweight, for simple models)
+- AuditBaseModel(TimestampedModel): Adds created_by/updated_by tracking
+- SoftDeleteBaseModel(AuditBaseModel): Adds soft delete + metadata
+- AbstractBaseModel: Alias for SoftDeleteBaseModel (backwards compatible)
+
+Existing models can use any tier. New models default to TimestampedModel
+unless they need audit trails or soft delete.
 """
 
 import uuid
@@ -13,36 +20,49 @@ from django.db import models
 from django.utils import timezone
 
 
-class AbstractBaseModel(models.Model):
-    """Abstract base model with common fields for all models.
+# =============================================================================
+# Tier 1: UUID + Timestamps (lightweight default)
+# =============================================================================
 
-    Provides:
-        - UUID primary key
-        - Created/updated timestamps with indexes
-        - Created by/updated by user tracking
-        - Soft delete via is_active flag
-        - JSON metadata field for flexible additional data
-        - Utility methods for soft delete, restore, and metadata management
+
+class TimestampedModel(models.Model):
+    """Simple model with UUID pk and timestamps.
+
+    Use this for models that don't need audit trails or soft delete.
     """
 
     id = models.UUIDField(
         primary_key=True,
         default=uuid.uuid4,
         editable=False,
-        help_text="Unique identifier for this record",
     )
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True, db_index=True)
 
-    created_at = models.DateTimeField(
-        auto_now_add=True,
-        db_index=True,
-        help_text="When this record was created",
-    )
+    class Meta:
+        abstract = True
+        ordering = ["-created_at"]
 
-    updated_at = models.DateTimeField(
-        auto_now=True,
-        db_index=True,
-        help_text="When this record was last updated",
-    )
+    @property
+    def age(self):
+        """Get the age of this record as a timedelta."""
+        return timezone.now() - self.created_at
+
+    def __str__(self) -> str:
+        return f"{self.__class__.__name__} ({self.id})"
+
+
+# =============================================================================
+# Tier 2: Audit tracking (created_by / updated_by)
+# =============================================================================
+
+
+class AuditBaseModel(TimestampedModel):
+    """Model with audit tracking fields.
+
+    Adds created_by/updated_by ForeignKeys on top of TimestampedModel.
+    Use this for models where you need to track who made changes.
+    """
 
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -62,10 +82,60 @@ class AbstractBaseModel(models.Model):
         help_text="User who last updated this record",
     )
 
+    class Meta:
+        abstract = True
+        ordering = ["-created_at"]
+
+
+# =============================================================================
+# Tier 3: Soft delete + metadata (full featured)
+# =============================================================================
+
+
+class ActiveManager(models.Manager):
+    """Manager that only returns active records (is_active=True)."""
+
+    def get_queryset(self):
+        return super().get_queryset().filter(is_active=True)
+
+
+class DeletedManager(models.Manager):
+    """Manager that only returns soft-deleted records (is_active=False)."""
+
+    def get_queryset(self):
+        return super().get_queryset().filter(is_active=False)
+
+
+class SoftDeleteBaseModel(AuditBaseModel):
+    """Full-featured model with soft delete, metadata, and audit tracking.
+
+    Provides:
+        - UUID pk, timestamps, audit tracking (from parent classes)
+        - is_active flag for soft delete with dedicated managers
+        - deleted_at / deleted_by tracking
+        - JSON metadata field for flexible additional data
+        - soft_delete() / restore() / hard_delete() methods
+    """
+
     is_active = models.BooleanField(
         default=True,
         db_index=True,
         help_text="Whether this record is active (soft delete)",
+    )
+
+    deleted_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="When this record was soft-deleted",
+    )
+
+    deleted_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="%(app_label)s_%(class)s_deleted",
+        help_text="User who deleted this record",
     )
 
     metadata = models.JSONField(
@@ -79,181 +149,93 @@ class AbstractBaseModel(models.Model):
         abstract = True
         ordering = ["-created_at"]
         indexes = [
-            models.Index(fields=["-created_at"]),
-            models.Index(fields=["-updated_at"]),
             models.Index(fields=["is_active"]),
+            models.Index(fields=["-created_at"]),
         ]
 
-    def save(self, *args, **kwargs) -> None:
-        """Override save to handle common logic."""
-        self.updated_at = timezone.now()
-        super().save(*args, **kwargs)
-
     def soft_delete(self, user=None) -> None:
-        """Soft delete this record by setting is_active to False.
-
-        Args:
-            user: User performing the deletion
-        """
+        """Soft delete this record."""
         self.is_active = False
+        self.deleted_at = timezone.now()
+        update_fields = ["is_active", "deleted_at", "updated_at"]
         if user:
+            self.deleted_by = user
             self.updated_by = user
-        self.save(update_fields=["is_active", "updated_by", "updated_at"])
+            update_fields.extend(["deleted_by", "updated_by"])
+        self.save(update_fields=update_fields)
 
     def restore(self, user=None) -> None:
-        """Restore a soft-deleted record by setting is_active to True.
-
-        Args:
-            user: User performing the restoration
-        """
+        """Restore a soft-deleted record."""
         self.is_active = True
+        self.deleted_at = None
+        self.deleted_by = None
+        update_fields = ["is_active", "deleted_at", "deleted_by", "updated_at"]
         if user:
             self.updated_by = user
-        self.save(update_fields=["is_active", "updated_by", "updated_at"])
+            update_fields.append("updated_by")
+        self.save(update_fields=update_fields)
+
+    def hard_delete(self):
+        """Permanently delete this record from the database."""
+        super().delete()
 
     def set_metadata(self, key: str, value: Any, user=None) -> None:
-        """Set a metadata key-value pair.
-
-        Args:
-            key: Metadata key
-            value: Metadata value
-            user: User performing the update
-        """
+        """Set a metadata key-value pair."""
         if self.metadata is None:
             self.metadata = {}
-
         self.metadata[key] = value
-
+        update_fields = ["metadata", "updated_at"]
         if user:
             self.updated_by = user
-
-        self.save(update_fields=["metadata", "updated_by", "updated_at"])
+            update_fields.append("updated_by")
+        self.save(update_fields=update_fields)
 
     def get_metadata(self, key: str, default: Any = None) -> Any:
-        """Get a metadata value by key.
-
-        Args:
-            key: Metadata key
-            default: Default value if key doesn't exist
-
-        Returns:
-            Metadata value or default
-        """
+        """Get a metadata value by key."""
         if self.metadata is None:
             return default
         return self.metadata.get(key, default)
 
     def remove_metadata(self, key: str, user=None) -> None:
-        """Remove a metadata key.
-
-        Args:
-            key: Metadata key to remove
-            user: User performing the update
-        """
+        """Remove a metadata key."""
         if self.metadata and key in self.metadata:
             del self.metadata[key]
-
+            update_fields = ["metadata", "updated_at"]
             if user:
                 self.updated_by = user
-
-            self.save(update_fields=["metadata", "updated_by", "updated_at"])
+                update_fields.append("updated_by")
+            self.save(update_fields=update_fields)
 
     def update_metadata(self, updates: dict, user=None) -> None:
-        """Bulk update metadata with a dictionary.
-
-        Args:
-            updates: Dictionary of key-value pairs to update
-            user: User performing the update
-        """
+        """Bulk update metadata with a dictionary."""
         if self.metadata is None:
             self.metadata = {}
-
         self.metadata.update(updates)
-
+        update_fields = ["metadata", "updated_at"]
         if user:
             self.updated_by = user
-
-        self.save(update_fields=["metadata", "updated_by", "updated_at"])
-
-    @property
-    def age(self):
-        """Get the age of this record as a timedelta.
-
-        Returns:
-            timedelta: Age of the record
-        """
-        return timezone.now() - self.created_at
-
-    @property
-    def time_since_updated(self):
-        """Get the time since last update as a timedelta.
-
-        Returns:
-            timedelta: Time since last update
-        """
-        return timezone.now() - self.updated_at
-
-    def __str__(self) -> str:
-        """String representation of the model.
-
-        Returns the model name and ID by default.
-        Override in subclasses for better representation.
-        """
-        return f"{self.__class__.__name__} ({self.id})"
+            update_fields.append("updated_by")
+        self.save(update_fields=update_fields)
 
 
-class ActiveManager(models.Manager):
-    """Manager that only returns active records (is_active=True)."""
+class SoftDeleteModel(SoftDeleteBaseModel):
+    """Soft delete model with custom default managers.
 
-    def get_queryset(self):
-        return super().get_queryset().filter(is_active=True)
-
-
-class SoftDeleteModel(AbstractBaseModel):
-    """Base model that includes soft delete functionality with custom managers.
-
-    This model provides:
-    - All AbstractBaseModel functionality
-    - ActiveManager as default manager (only returns active records)
-    - all_objects manager for accessing all records including deleted
-    - deleted_objects manager for accessing only deleted records
+    Uses ActiveManager as the default manager (only returns active records).
+    Use all_objects to access all records including deleted ones.
     """
 
-    objects = ActiveManager()  # Default manager (only active records)
-    all_objects = models.Manager()  # Manager for all records
-    deleted_objects: models.Manager  # Will be set dynamically
+    objects = ActiveManager()
+    all_objects = models.Manager()
 
     class Meta:
         abstract = True
 
-    @classmethod
-    def __init_subclass__(cls, **kwargs):
-        super().__init_subclass__(**kwargs)
-        # Create deleted_objects manager dynamically
-        cls.deleted_objects = DeletedManager()
 
+# =============================================================================
+# Backwards Compatibility
+# =============================================================================
 
-class DeletedManager(models.Manager):
-    """Manager that only returns soft-deleted records (is_active=False)."""
-
-    def get_queryset(self):
-        return super().get_queryset().filter(is_active=False)
-
-
-class TimestampedModel(models.Model):
-    """Simple model with just timestamps (no soft delete or metadata).
-
-    Use this for models that don't need the full AbstractBaseModel features.
-    """
-
-    id = models.UUIDField(
-        primary_key=True,
-        default=uuid.uuid4,
-        editable=False,
-    )
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        abstract = True
-        ordering = ["-created_at"]
+# AbstractBaseModel is an alias for SoftDeleteBaseModel
+# for backwards compatibility with existing code
+AbstractBaseModel = SoftDeleteBaseModel

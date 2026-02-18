@@ -8,7 +8,9 @@ from core.features.models import FeatureFlag, FeatureFlagAuditLog, FlagType
 from core.models.base import (
     AbstractBaseModel,
     ActiveManager,
+    AuditBaseModel,
     DeletedManager,
+    SoftDeleteBaseModel,
     SoftDeleteModel,
     TimestampedModel,
 )
@@ -25,6 +27,7 @@ __all__ = [
     "AbstractBaseModel",
     "ActiveManager",
     "AuditAction",
+    "AuditBaseModel",
     "AuditLog",
     "CustomUserManager",
     "DeadLetterQueueEntry",
@@ -36,6 +39,7 @@ __all__ = [
     "OTPPurpose",
     "OTPRateLimit",
     "OneTimePassword",
+    "SoftDeleteBaseModel",
     "SoftDeleteModel",
     "TaskResult",
     "TaskStatus",

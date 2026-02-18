@@ -1,13 +1,17 @@
-"""Simple decorator system for the django-ninja-boilerplate API.
+"""Decorator system for the django-ninja-boilerplate API.
 
-This module provides decorators for error handling, logging, and validation.
+This module provides decorators for error handling, logging, validation,
+authentication, and rate limiting.
 """
 
 import functools
+import hashlib
 import logging
 import time
 from collections.abc import Callable
 
+from django.core.cache import cache
+from django.core.exceptions import PermissionDenied
 from django.http import Http404
 
 from .utils.validation import ValidationResult, create_error_response
@@ -17,7 +21,10 @@ logger = logging.getLogger(__name__)
 # Constants
 TUPLE_RESPONSE_LENGTH = 2
 HTTP_BAD_REQUEST = 400
+HTTP_UNAUTHORIZED = 401
+HTTP_FORBIDDEN = 403
 HTTP_NOT_FOUND = 404
+HTTP_TOO_MANY_REQUESTS = 429
 HTTP_INTERNAL_SERVER_ERROR = 500
 
 
@@ -41,10 +48,15 @@ def handle_exceptions(
                 return func(self, *args, **kwargs)
 
             except Http404 as e:
-                # Handle 404 errors specially - return proper 404 response
                 return HTTP_NOT_FOUND, {
                     "error": "Not found",
                     "message": str(e) or "The requested resource was not found",
+                }
+
+            except PermissionDenied as e:
+                return HTTP_FORBIDDEN, {
+                    "error": "Permission denied",
+                    "message": str(e) or "You do not have permission to perform this action",
                 }
 
             except Exception as e:
@@ -221,3 +233,174 @@ def validate_request(validators: list[Callable] | None = None):
         return wrapper
 
     return decorator
+
+
+def require_authentication(allow_anonymous: bool = False):
+    """Decorator to require authentication on controller methods.
+
+    Args:
+        allow_anonymous: If True, allow anonymous access but still set user context
+    """
+
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(self, *args, **kwargs):
+            # Find the request object in args
+            request = None
+            for arg in args:
+                if hasattr(arg, "user"):
+                    request = arg
+                    break
+            if request is None:
+                request = kwargs.get("request")
+
+            if request is None:
+                return HTTP_UNAUTHORIZED, {
+                    "error": "Authentication required",
+                    "message": "No request context available",
+                }
+
+            is_authenticated = (
+                hasattr(request, "auth") and request.auth
+            ) or (
+                hasattr(request, "user")
+                and request.user
+                and request.user.is_authenticated
+            )
+
+            if not is_authenticated and not allow_anonymous:
+                return HTTP_UNAUTHORIZED, {
+                    "error": "Authentication required",
+                    "message": "You must be logged in to access this resource",
+                }
+
+            return func(self, *args, **kwargs)
+
+        return wrapper
+
+    return decorator
+
+
+def require_verified(func):
+    """Decorator to require email verification on controller methods."""
+
+    @functools.wraps(func)
+    def wrapper(self, *args, **kwargs):
+        request = None
+        for arg in args:
+            if hasattr(arg, "user"):
+                request = arg
+                break
+        if request is None:
+            request = kwargs.get("request")
+
+        if request is None or not hasattr(request, "user") or not request.user:
+            return HTTP_UNAUTHORIZED, {
+                "error": "Authentication required",
+                "message": "You must be logged in to access this resource",
+            }
+
+        if not request.user.is_authenticated:
+            return HTTP_UNAUTHORIZED, {
+                "error": "Authentication required",
+                "message": "You must be logged in to access this resource",
+            }
+
+        if not getattr(request.user, "is_verified", False):
+            return HTTP_FORBIDDEN, {
+                "error": "Email not verified",
+                "message": "You must verify your email to access this resource",
+            }
+
+        return func(self, *args, **kwargs)
+
+    return wrapper
+
+
+def rate_limit(
+    requests_per_minute: int = 60,
+    key_func: Callable | None = None,
+):
+    """Decorator for per-endpoint rate limiting using the cache backend.
+
+    Uses a sliding window counter stored in Django's cache framework.
+    Adds X-RateLimit-* headers to the request META for the middleware to pick up.
+
+    Args:
+        requests_per_minute: Maximum requests allowed per minute
+        key_func: Custom function to generate the rate limit key.
+                  Receives (request, func_name) and returns a string.
+    """
+    period = 60  # 1 minute window
+
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(self, *args, **kwargs):
+            # Find the request object
+            request = None
+            for arg in args:
+                if hasattr(arg, "META"):
+                    request = arg
+                    break
+            if request is None:
+                request = kwargs.get("request")
+
+            if request is None:
+                # No request object found, skip rate limiting
+                return func(self, *args, **kwargs)
+
+            # Generate rate limit key
+            if key_func:
+                identifier = key_func(request, func.__name__)
+            elif (
+                hasattr(request, "user")
+                and request.user
+                and request.user.is_authenticated
+            ):
+                identifier = f"user:{request.user.pk}"
+            else:
+                ip = _get_client_ip(request)
+                identifier = f"ip:{ip}"
+
+            cache_key = f"ratelimit:{func.__name__}:{hashlib.md5(identifier.encode()).hexdigest()}"  # noqa: S324
+
+            # Sliding window counter
+            current_count = cache.get(cache_key, 0)
+
+            # Set rate limit headers on request META for middleware
+            request.META["X-RateLimit-Limit"] = str(requests_per_minute)
+            request.META["X-RateLimit-Remaining"] = str(
+                max(0, requests_per_minute - current_count - 1)
+            )
+
+            if current_count >= requests_per_minute:
+                logger.warning(
+                    "Rate limit exceeded for %s on %s",
+                    identifier,
+                    func.__name__,
+                )
+                return HTTP_TOO_MANY_REQUESTS, {
+                    "error": "Rate limit exceeded",
+                    "message": f"Too many requests. Limit: {requests_per_minute}/min",
+                }
+
+            # Increment counter
+            try:
+                cache.set(cache_key, current_count + 1, timeout=period)
+            except Exception:
+                # If cache is unavailable, allow the request
+                logger.warning("Rate limit cache unavailable, allowing request")
+
+            return func(self, *args, **kwargs)
+
+        return wrapper
+
+    return decorator
+
+
+def _get_client_ip(request) -> str:
+    """Extract client IP from request, handling proxies."""
+    x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
+    if x_forwarded_for:
+        return x_forwarded_for.split(",")[0].strip()
+    return request.META.get("REMOTE_ADDR", "unknown")
