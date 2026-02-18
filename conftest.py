@@ -11,6 +11,19 @@ from ninja.testing import TestClient
 from api.urls import api
 
 # =============================================================================
+# Collection Configuration
+# =============================================================================
+
+# Skip collecting test-like files in management commands, migrations, and CLI
+collect_ignore_glob = [
+    "*/management/commands/*",
+    "*/migrations/*",
+    "cli/*",
+    "deploy/*",
+    "scripts/*",
+]
+
+# =============================================================================
 # Database Fixtures
 # =============================================================================
 
@@ -47,6 +60,74 @@ def ninja_client():
     and provides better integration with the Ninja API.
     """
     return TestClient(api)
+
+
+# =============================================================================
+# Convenience API Test Client
+# =============================================================================
+
+
+class APITestClient:
+    """Wrapper around Django's test client that handles /api/ prefix and auth.
+
+    Usage:
+        def test_list_users(api):
+            response = api.get("/users/")  # Automatically prefixed with /api
+            assert response.status_code == 200
+    """
+
+    def __init__(self, client: Client, prefix: str = "/api"):
+        self.client = client
+        self.prefix = prefix
+        self._headers: dict = {}
+
+    def authenticate(self, user):
+        """Set JWT auth headers for the given user."""
+        from ninja_jwt.tokens import RefreshToken
+
+        refresh = RefreshToken.for_user(user)
+        self._headers["HTTP_AUTHORIZATION"] = f"Bearer {refresh.access_token}"
+        return self
+
+    def _url(self, path: str) -> str:
+        if path.startswith(self.prefix):
+            return path
+        return f"{self.prefix}{path}"
+
+    def get(self, path, **kwargs):
+        return self.client.get(self._url(path), **{**self._headers, **kwargs})
+
+    def post(self, path, data=None, content_type="application/json", **kwargs):
+        return self.client.post(
+            self._url(path), data=data, content_type=content_type, **{**self._headers, **kwargs}
+        )
+
+    def put(self, path, data=None, content_type="application/json", **kwargs):
+        return self.client.put(
+            self._url(path), data=data, content_type=content_type, **{**self._headers, **kwargs}
+        )
+
+    def patch(self, path, data=None, content_type="application/json", **kwargs):
+        return self.client.patch(
+            self._url(path), data=data, content_type=content_type, **{**self._headers, **kwargs}
+        )
+
+    def delete(self, path, **kwargs):
+        return self.client.delete(self._url(path), **{**self._headers, **kwargs})
+
+
+@pytest.fixture
+def api_test_client():
+    """Return an APITestClient for convenient API testing."""
+    return APITestClient(Client())
+
+
+@pytest.fixture
+def authenticated_api_client(user):
+    """Return an authenticated APITestClient."""
+    client = APITestClient(Client())
+    client.authenticate(user)
+    return client
 
 
 # =============================================================================

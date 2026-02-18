@@ -10,7 +10,7 @@ from typing import Any, Generic, TypeVar
 from uuid import UUID
 
 from ninja import Schema
-from pydantic import Field
+from pydantic import ConfigDict, Field
 
 # Type variable for generic responses
 T = TypeVar("T")
@@ -30,6 +30,8 @@ class SuccessResponse(Schema):
 
 class ErrorResponse(Schema):
     """Standard error response schema."""
+
+    model_config = ConfigDict(extra="ignore")
 
     error: bool = True
     message: str

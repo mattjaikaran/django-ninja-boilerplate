@@ -658,6 +658,27 @@ changelog: ## Generate API changelog (usage: make changelog OLD=v1.json NEW=v2.j
 	$(UV) run python scripts/openapi/generate_changelog.py $(OLD) $(NEW)
 
 # ===========================================
+# Health & Celery Convenience
+# ===========================================
+health: ## Check health endpoint
+	@curl -s http://localhost:8000/api/health/ | python -m json.tool 2>/dev/null || echo "Server not running"
+
+ready: ## Check readiness endpoint
+	@curl -s http://localhost:8000/api/health/readiness | python -m json.tool 2>/dev/null || echo "Server not running"
+
+seed: ## Run seed data command
+	$(DOCKER_COMPOSE) exec $(DJANGO_SERVICE) $(UV) run python manage.py seed_data
+
+celery-worker: ## Start Celery worker (all queues)
+	$(UV) run celery -A api worker -Q default,emails,bulk -l info
+
+celery-beat: ## Start Celery beat scheduler
+	$(UV) run celery -A api beat -l info
+
+celery-flower: ## Start Celery Flower monitoring
+	$(UV) run celery -A api flower --port=5555
+
+# ===========================================
 # Version and Info
 # ===========================================
 version: ## Show version information

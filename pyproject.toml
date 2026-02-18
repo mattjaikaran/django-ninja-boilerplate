@@ -289,10 +289,15 @@ ignore = [
 "*/generators/*" = ["D"]
 "*/templates/*" = ["D", "E501"]
 "*/commands/*" = ["D", "F841"]
+"*/schemas/*" = ["D"]
+"*/schemas.py" = ["D"]
 "cli/**/*.py" = ["B904", "UP042", "SIM102", "B008"]
 
+[tool.ruff.lint.mccabe]
+max-complexity = 10
+
 [tool.ruff.lint.isort]
-known-first-party = ["core", "todos"]
+known-first-party = ["api", "core", "todos"]
 known-third-party = ["django"]
 section-order = [
     "future",

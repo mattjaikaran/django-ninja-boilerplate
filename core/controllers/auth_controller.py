@@ -17,7 +17,7 @@ from django.utils import timezone
 from ninja_extra import api_controller, http_get, http_post
 from ninja_jwt.tokens import RefreshToken
 
-from api.decorators import handle_exceptions, log_api_call
+from api.decorators import handle_exceptions, log_api_call, rate_limit
 from core.models import OneTimePassword
 from core.schemas import (
     AuthStatusSchema,
@@ -41,6 +41,7 @@ class AuthController:
 
     @http_post("/signup", response={201: UserSchema, 400: dict})
     @handle_exceptions()
+    @rate_limit(requests_per_minute=10)
     @log_api_call(include_payload=True)
     def signup(self, request, payload: UserSignupSchema):
         """Create a new user account.
@@ -81,6 +82,7 @@ class AuthController:
 
     @http_post("/login", response={200: dict, 400: dict})
     @handle_exceptions()
+    @rate_limit(requests_per_minute=10)
     @log_api_call(include_payload=True)
     def login(self, request, payload: LoginSchema):
         """Authenticate user with email and password.
@@ -119,6 +121,7 @@ class AuthController:
 
     @http_post("/login/username", response={200: dict, 400: dict})
     @handle_exceptions()
+    @rate_limit(requests_per_minute=10)
     @log_api_call(include_payload=True)
     def login_username(self, request, payload: UserLoginSchema):
         """Authenticate user with username and password (legacy).
@@ -190,8 +193,9 @@ class AuthController:
 
     @http_post("/passwordless/login/request", response={200: dict})
     @handle_exceptions()
+    @rate_limit(requests_per_minute=5)
     @log_api_call()
-    def request_passwordless_login(self, payload: PasswordlessLoginRequest):
+    def request_passwordless_login(self, request, payload: PasswordlessLoginRequest):
         """Request passwordless login magic link.
 
         Sends a magic link to the user's email if the account exists.
@@ -241,8 +245,9 @@ class AuthController:
 
     @http_post("/passwordless/login/verify", response={200: dict, 404: dict})
     @handle_exceptions()
+    @rate_limit(requests_per_minute=10)
     @log_api_call()
-    def verify_passwordless_login(self, payload: PasswordlessLoginVerify):
+    def verify_passwordless_login(self, request, payload: PasswordlessLoginVerify):
         """Verify passwordless login token and return JWT tokens.
 
         Validates the magic link token and returns access/refresh tokens.
