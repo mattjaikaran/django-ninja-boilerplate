@@ -661,7 +661,7 @@ changelog: ## Generate API changelog (usage: make changelog OLD=v1.json NEW=v2.j
 # Version and Info
 # ===========================================
 version: ## Show version information
-	@echo "Django Ninja Boilerplate v1.0.0"
+	@echo "Django Ninja Boilerplate v1.2.0"
 	@echo ""
 	@echo "Python: $$(python --version 2>&1)"
 	@echo "UV: $$(uv --version 2>&1)"

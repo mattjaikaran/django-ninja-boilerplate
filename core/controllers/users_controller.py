@@ -24,25 +24,6 @@ logger = logging.getLogger(__name__)
 # ie - users
 @api_controller("/users", tags=["Users"])
 class UserController:
-    @http_post("/signup", response={201: UserSchema, 400: dict, 500: dict})
-    @handle_exceptions()
-    @log_api_call(include_payload=True)
-    def signup(self, request, payload: UserSignupSchema):
-        """Create a new user account."""
-        if User.objects.filter(username=payload.username).exists():
-            raise ValidationError("A user with this username already exists.")
-
-        validate_password(payload.password)
-        if User.objects.filter(email=payload.email).exists():
-            raise ValidationError("A user with this email already exists.")
-
-        user = User.objects.create_user(
-            **payload.model_dump(exclude_unset=True),
-            is_staff=False,
-            is_superuser=False,
-        )
-        return 201, UserSchema.from_orm(user)
-
     @http_post("/superuser", response={201: UserSchema, 400: dict, 500: dict})
     @handle_exceptions()
     @log_api_call(include_payload=True)

@@ -1,6 +1,6 @@
 [project]
 name = "django-ninja-boilerplate"
-version = "1.0.0"
+version = "1.2.0"
 description = "A production-ready Django boilerplate using Django Ninja for building modern APIs"
 authors = [{ name = "Matt Jaikaran", email = "info@mattjaikaran.com" }]
 readme = "README.md"
@@ -62,8 +62,6 @@ dependencies = [
     "gunicorn>=21.0.0",
     # AWS S3 Storage
     "boto3>=1.34.0",
-    # Development & Testing
-    "Faker>=30.1.0",
     # Data Validation & Serialization
     "pydantic>=2.5.2",
     "pydantic-core>=2.14.5",
@@ -326,7 +324,7 @@ addopts = [
     "--cov-report=term-missing:skip-covered",
     "--cov-report=html",
     "--cov-report=xml",
-    "--cov-fail-under=20",
+    "--cov-fail-under=60",
 ]
 testpaths = ["core", "todos"]
 filterwarnings = [

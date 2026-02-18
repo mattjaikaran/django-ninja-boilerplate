@@ -42,34 +42,36 @@ class AuthController:
     @http_post("/signup", response={201: UserSchema, 400: dict})
     @handle_exceptions()
     @log_api_call(include_payload=True)
-    def signup(self, data: UserSignupSchema):
+    def signup(self, request, payload: UserSignupSchema):
         """Create a new user account.
 
         Creates a new user with the provided credentials and profile information.
         Returns the created user data on success.
         """
         # Check if username exists
-        if User.objects.filter(username=data.username).exists():
+        if User.objects.filter(username=payload.username).exists():
             validation_error = ValidationError(
                 "A user with this username already exists."
             )
             raise validation_error
 
         # Check if email exists
-        if User.objects.filter(email=data.email.lower()).exists():
-            validation_error = ValidationError("A user with this email already exists.")
+        if User.objects.filter(email=payload.email.lower()).exists():
+            validation_error = ValidationError(
+                "A user with this email already exists."
+            )
             raise validation_error
 
         # Validate password
-        validate_password(data.password)
+        validate_password(payload.password)
 
         # Create user
         user = User.objects.create_user(
-            username=data.username,
-            email=data.email.lower(),
-            password=data.password,
-            first_name=data.first_name,
-            last_name=data.last_name,
+            username=payload.username,
+            email=payload.email.lower(),
+            password=payload.password,
+            first_name=payload.first_name,
+            last_name=payload.last_name,
             is_staff=False,
             is_superuser=False,
         )
@@ -80,7 +82,7 @@ class AuthController:
     @http_post("/login", response={200: dict, 400: dict})
     @handle_exceptions()
     @log_api_call(include_payload=True)
-    def login(self, data: LoginSchema):
+    def login(self, request, payload: LoginSchema):
         """Authenticate user with email and password.
 
         Returns JWT access and refresh tokens along with user data.
@@ -88,8 +90,8 @@ class AuthController:
         """
         # Try to authenticate with email
         try:
-            user_obj = User.objects.get(email=data.email.lower())
-            user = authenticate(username=user_obj.username, password=data.password)
+            user_obj = User.objects.get(email=payload.email.lower())
+            user = authenticate(username=user_obj.username, password=payload.password)
         except User.DoesNotExist:
             user = None
 
@@ -118,13 +120,13 @@ class AuthController:
     @http_post("/login/username", response={200: dict, 400: dict})
     @handle_exceptions()
     @log_api_call(include_payload=True)
-    def login_username(self, data: UserLoginSchema):
+    def login_username(self, request, payload: UserLoginSchema):
         """Authenticate user with username and password (legacy).
 
         Returns JWT access and refresh tokens along with user data.
         Use /login endpoint with email for new implementations.
         """
-        user = authenticate(username=data.username, password=data.password)
+        user = authenticate(username=payload.username, password=payload.password)
 
         if not user:
             validation_error = ValidationError("Invalid credentials")

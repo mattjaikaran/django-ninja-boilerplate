@@ -5,12 +5,44 @@ to provide better error handling and more descriptive error messages.
 """
 
 import logging
+from enum import StrEnum
 from typing import Any
 
 from django.http import JsonResponse
 from ninja.errors import HttpError
 
 logger = logging.getLogger(__name__)
+
+
+class ErrorCode(StrEnum):
+    """Standardized error codes for API responses."""
+
+    # Authentication & Authorization
+    AUTH_REQUIRED = "auth_required"
+    INVALID_CREDENTIALS = "invalid_credentials"
+    TOKEN_EXPIRED = "token_expired"
+    PERMISSION_DENIED = "permission_denied"
+    EMAIL_NOT_VERIFIED = "email_not_verified"
+
+    # Validation
+    VALIDATION_FAILED = "validation_failed"
+    INVALID_INPUT = "invalid_input"
+
+    # Resources
+    RESOURCE_NOT_FOUND = "resource_not_found"
+    RESOURCE_CONFLICT = "resource_conflict"
+    RESOURCE_DELETED = "resource_deleted"
+
+    # Rate Limiting
+    RATE_LIMITED = "rate_limited"
+
+    # Server
+    INTERNAL_ERROR = "internal_error"
+    EXTERNAL_SERVICE_ERROR = "external_service_error"
+    SERVICE_UNAVAILABLE = "service_unavailable"
+
+    # Business Logic
+    OPERATION_FAILED = "operation_failed"
 
 
 class BaseAPIException(Exception):
@@ -158,51 +190,3 @@ def handle_generic_exception(request, exception: Exception) -> JsonResponse:
         },
         status=500,
     )
-
-
-# Exception decorators
-
-
-def handle_exceptions(func):
-    """Decorator to handle exceptions in views."""
-
-    def wrapper(*args, **kwargs):
-        try:
-            return func(*args, **kwargs)
-        except BaseAPIException as e:
-            request = args[0] if args else None
-            return handle_api_exception(request, e)
-        except Exception as e:
-            request = args[0] if args else None
-            return handle_generic_exception(request, e)
-
-    return wrapper
-
-
-def validate_required_fields(required_fields: list):
-    """Decorator to validate required fields in request data."""
-
-    def decorator(func):
-        def wrapper(request, *args, **kwargs):
-            if hasattr(request, "json") and request.json:
-                data = request.json
-            else:
-                data = request.POST
-
-            missing_fields = [
-                field
-                for field in required_fields
-                if field not in data or not data[field]
-            ]
-
-            if missing_fields:
-                raise ValidationError(
-                    message=f"Missing required fields: {', '.join(missing_fields)}",
-                    details={"missing_fields": missing_fields},
-                )
-
-            return func(request, *args, **kwargs)
-
-        return wrapper
-
-    return decorator

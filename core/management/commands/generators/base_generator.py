@@ -155,10 +155,10 @@ class BaseGenerator(ABC):
             # Restore original content if there was an error
             try:
                 pyproject_path.write_text(original_content, encoding="utf-8")
-            except:
+            except Exception:
                 pass
 
-    def update_settings(self, app_name: str, settings_updates: Dict[str, Any]) -> None:
+    def update_settings(self, app_name: str, settings_updates: dict[str, Any]) -> None:
         """Update Django settings with new configurations.
 
         Args:
@@ -220,7 +220,7 @@ class BaseGenerator(ABC):
             # Restore original content if there was an error
             try:
                 settings_path.write_text(original_content, encoding="utf-8")
-            except:
+            except Exception:
                 pass
 
     def create_migration(self) -> None:
@@ -316,11 +316,11 @@ class BaseGenerator(ABC):
             # Restore original content if there was an error
             try:
                 urls_path.write_text(original_content, encoding="utf-8")
-            except:
+            except Exception:
                 pass
 
     # Template helper methods
-    def get_template_context(self) -> Dict[str, Any]:
+    def get_template_context(self) -> dict[str, Any]:
         """Get common template context variables."""
         return {
             "app_name": self.app_name,
@@ -336,7 +336,7 @@ class BaseGenerator(ABC):
 
     # File generation helpers
     def create_init_file(
-        self, directory: Path, imports: List[str], all_exports: List[str]
+        self, directory: Path, imports: list[str], all_exports: list[str]
     ) -> None:
         """Create an __init__.py file with imports and __all__."""
         content = ""
@@ -348,7 +348,7 @@ class BaseGenerator(ABC):
 
         self.create_file(directory / "__init__.py", content)
 
-    def create_directory_structure(self, directories: List[str]) -> None:
+    def create_directory_structure(self, directories: list[str]) -> None:
         """Create multiple directories under the app path."""
         for directory in directories:
             dir_path = self.app_path / directory

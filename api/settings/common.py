@@ -431,7 +431,7 @@ AUDIT_TRACKED_MODELS = None
 # Observability Configuration
 # =============================================================================
 # Application version (used in metrics and health checks)
-VERSION = env("APP_VERSION", default="1.0.0")
+VERSION = env("APP_VERSION", default="1.2.0")
 
 # OpenTelemetry Configuration
 OTEL_SERVICE_NAME = env("OTEL_SERVICE_NAME", default="django-ninja-app")
