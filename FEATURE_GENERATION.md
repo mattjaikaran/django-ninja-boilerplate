@@ -114,7 +114,7 @@ uv run python manage.py generate_feature team --platform-type saas
 
 - `subscription` - Subscription management
 - `notification` - Notification system
-- `chat` - Real-time messaging
+- `chat` - Real-time messaging (uses Centrifugo with `--realtime` flag)
 - `file_storage` - File upload and storage
 - `analytics` - Event tracking and analytics
 - `graphql` - Strawberry GraphQL API setup
@@ -335,7 +335,6 @@ See the main [README.md](README.md#graphql-optional) for usage examples.
 
 ## Future Enhancements
 
-- Real-time WebSocket features
 - Machine learning model integration
 - API versioning support
 - Docker configuration generation

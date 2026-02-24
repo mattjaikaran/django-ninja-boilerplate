@@ -17,6 +17,7 @@ Django Ninja Boilerplate is a production-ready Django REST API boilerplate built
 | Database | PostgreSQL | 15+ |
 | Cache/Broker | Redis | 7+ |
 | Task Queue | Celery | 5.4+ |
+| Real-Time | Centrifugo | 5+ |
 | Package Manager | uv | latest |
 | Linting/Formatting | Ruff | 0.7+ |
 | Testing | pytest + Factory Boy | - |
@@ -29,6 +30,7 @@ django-ninja-boilerplate/
 ├── api/                          # Main Django project configuration
 │   ├── settings/                 # Split settings (common.py, dev.py, prod.py)
 │   ├── celery.py                 # Celery configuration
+│   ├── centrifugo.py             # Centrifugo JWT tokens + HTTP client
 │   ├── decorators.py             # API decorators (@handle_exceptions, @log_api_call)
 │   ├── exceptions.py             # Custom exception classes
 │   ├── healthcheck.py            # Health check controller
@@ -44,6 +46,7 @@ django-ninja-boilerplate/
 │   ├── cache/                    # Caching utilities and decorators
 │   ├── controllers/              # API controllers
 │   │   ├── auth_controller.py    # Login, signup, magic links
+│   │   ├── centrifugo_controller.py # Real-time token endpoints
 │   │   ├── otp_controller.py     # OTP/2FA endpoints
 │   │   └── users_controller.py   # User CRUD endpoints
 │   ├── management/commands/      # Django management commands
@@ -75,6 +78,7 @@ django-ninja-boilerplate/
 │
 ├── cli/                          # CLI tool for project scaffolding
 ├── deploy/                       # Deployment configurations
+│   ├── centrifugo/               # Centrifugo server config
 │   ├── docker/                   # Docker configurations
 │   ├── kubernetes/               # Helm charts
 │   └── paas/                     # Railway, Render configs
@@ -216,6 +220,7 @@ def create_item(self, request, payload: CreateItemSchema):
 # With Docker (recommended)
 make up                  # Start db, redis, django
 make up-celery          # Start with Celery workers
+make up-realtime        # Start with Centrifugo
 make up-full            # Start all services
 
 # Without Docker
@@ -353,6 +358,8 @@ helm install my-api ./deploy/kubernetes/helm/django-ninja-stack
 | Test example | `todos/tests/test_todo.py` |
 | Factory example | `core/tests/factories/user_factory.py` |
 | Celery tasks | `core/tasks.py` |
+| Centrifugo client | `api/centrifugo.py` |
+| Centrifugo tokens | `core/controllers/centrifugo_controller.py` |
 | API decorators | `api/decorators.py` |
 | Exceptions | `api/exceptions.py` |
 | URL routing | `api/urls.py` |

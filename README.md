@@ -37,18 +37,18 @@ A production-ready Django boilerplate built with **Django Ninja Extra** for crea
                     ▼                        ▼                        ▼
            ┌─────────────┐          ┌─────────────┐          ┌─────────────┐
            │  REST API   │          │   GraphQL   │          │  WebSocket  │
-           │ Django Ninja│          │  Strawberry │          │  (Future)   │
-           └──────┬──────┘          └──────┬──────┘          └─────────────┘
-                  │                        │
-                  └────────────┬───────────┘
-                               │
+           │ Django Ninja│          │  Strawberry │          │ Centrifugo  │
+           └──────┬──────┘          └──────┬──────┘          └──────┬──────┘
+                  │                        │                        │
+                  └────────────┬───────────┘          publish via   │
+                               │                      HTTP API ─────┘
            ┌───────────────────┼───────────────────┐
            │                   │                   │
            ▼                   ▼                   ▼
-    ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+    ┌─────────────┐     ┌─────────────┐     ┌──────────────┐
     │   Auth      │     │  Features   │     │ Observability│
     │ JWT/OTP/2FA │     │ Flags/Audit │     │ Traces/Metrics│
-    └─────────────┘     └─────────────┘     └─────────────┘
+    └─────────────┘     └─────────────┘     └──────────────┘
            │                   │                   │
            └───────────────────┼───────────────────┘
                                │
@@ -74,6 +74,7 @@ This boilerplate gives you a solid foundation with:
 - **Service Layer Architecture** - Clean separation of business logic with base service classes
 - **Email Service** - Template-based email system with multiple backend support
 - **Caching Layer** - Redis integration with decorators for easy caching
+- **Real-Time Messaging** - [Centrifugo](https://centrifugal.dev/) WebSocket server with JWT auth, channel namespaces, presence, and history
 - **Background Tasks** - Celery integration with Redis broker and Flower monitoring
 - **Monitoring Tools** - Performance tracking and health check endpoints
 - **Database Management** - Comprehensive dump/restore commands and SQL init scripts
@@ -93,6 +94,7 @@ project/
 ├── api/                      # Main Django project
 │   ├── settings/             # Split settings (common, dev, prod)
 │   ├── celery.py             # Celery configuration
+│   ├── centrifugo.py         # Centrifugo JWT tokens + HTTP client
 │   ├── decorators.py         # API decorators
 │   ├── exceptions.py         # Custom exceptions
 │   ├── permissions.py        # Permission classes
@@ -147,6 +149,7 @@ app_name/
 - **[PostgreSQL](https://www.postgresql.org/)** - Primary database
 - **[Redis](https://redis.io/)** - Caching and task queue
 - **[Celery](https://docs.celeryproject.org/)** - Background task processing
+- **[Centrifugo](https://centrifugal.dev/)** - Real-time WebSocket messaging
 - **[Pydantic](https://docs.pydantic.dev/)** - Data validation
 
 ### Development Tools
@@ -247,6 +250,7 @@ make setup-env           # Create .env from template
 ```bash
 make up                  # Start core services (db, redis, django)
 make up-celery           # Start with Celery workers
+make up-realtime         # Start with Centrifugo real-time server
 make up-monitoring       # Start with Flower dashboard
 make up-full             # Start all services
 make down                # Stop environment
@@ -1030,6 +1034,58 @@ make celery-beat      # Start scheduler
 make celery-flower    # Monitoring at localhost:5555
 ```
 
+## Real-Time Messaging (Centrifugo)
+
+The boilerplate includes [Centrifugo](https://centrifugal.dev/) for real-time WebSocket communication. Centrifugo runs as a standalone server — Django stays WSGI and publishes events via HTTP.
+
+### Quick Start
+
+```bash
+# Start with Centrifugo (runs on port 8800)
+make up-realtime
+
+# Admin UI at http://localhost:8800 (password: admin)
+```
+
+### How It Works
+
+1. **Client connects** to Centrifugo via WebSocket with a JWT token
+2. **Django publishes** events to Centrifugo channels via HTTP API
+3. **Centrifugo delivers** messages to subscribed clients in real-time
+
+```python
+from api.centrifugo import centrifugo_client
+
+# Publish a message to a channel
+centrifugo_client.publish("chat:conversation-123", {
+    "type": "chat_message",
+    "message": {"content": "Hello!", "sender_id": "user-456"},
+})
+
+# Broadcast to multiple users
+centrifugo_client.broadcast(
+    ["notifications:user-1", "notifications:user-2"],
+    {"type": "notification", "data": {"title": "New update"}},
+)
+```
+
+### Token Endpoints
+
+```bash
+POST /api/realtime/connection-token     # Get WebSocket connection JWT
+POST /api/realtime/subscription-token   # Get channel subscription JWT
+```
+
+### Channel Namespaces
+
+| Namespace | Pattern | Features |
+|-----------|---------|----------|
+| `chat` | `chat:<conversation_id>` | Presence, history (100 msgs) |
+| `notifications` | `notifications:<user_id>` | History (50 msgs, 24h TTL) |
+| `organization` | `organization:<org_id>` | Presence, history (50 msgs) |
+
+See [docs/REALTIME.md](docs/REALTIME.md) for full setup guide, client integration examples, and production deployment.
+
 ## Task Management
 
 The boilerplate includes a comprehensive task management system with progress tracking, periodic task scheduling, and dead letter queue handling.
@@ -1384,6 +1440,7 @@ helm install my-api ./deploy/kubernetes/helm/django-ninja-stack \
 
 See [`deploy/`](deploy/) for detailed deployment configurations:
 - `deploy/docker/` - Dockerfiles
+- `deploy/centrifugo/` - Centrifugo server config
 - `deploy/paas/` - Railway, Render configs
 - `deploy/kubernetes/` - Helm chart
 

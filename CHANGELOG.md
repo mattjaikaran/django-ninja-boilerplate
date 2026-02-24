@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Centrifugo Real-Time Messaging** - Standalone WebSocket server replacing Django Channels
+  - `api/centrifugo.py` - JWT token generation and HTTP client for publishing
+  - Token endpoints: `POST /api/realtime/connection-token` and `/subscription-token`
+  - Centrifugo server config with chat, notifications, and organization namespaces
+  - Docker Compose service under `realtime` profile (port 8800)
+  - Nginx WebSocket proxy at `/centrifugo/`
+  - `make up-realtime` command
+  - Full documentation at `docs/REALTIME.md`
+  - 15 unit tests for token generation and client methods
+
+### Changed
+- Replaced Django Channels consumer templates with Centrifugo service templates in code generators
+- Removed `channels` and `channels-redis` dependencies from chat and notification generators
+- Updated notification generator `_send_in_app` to publish via Centrifugo
+- Updated `make up-full` and `make down-full` to include `--profile realtime`
+
 ## [1.2.0] - 2026-02-17
 
 ### Added

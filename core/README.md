@@ -12,6 +12,8 @@ core/
 ├── controllers/          # API controllers/endpoints
 │   ├── __init__.py       # Imports all controllers
 │   ├── auth_controller.py # Authentication-related endpoints
+│   ├── centrifugo_controller.py # Real-time token endpoints (Centrifugo)
+│   ├── otp_controller.py # OTP/2FA endpoints
 │   └── users_controller.py # User-related endpoints
 ├── management/           # Django management commands
 │   ├── __init__.py
@@ -34,6 +36,7 @@ core/
 │   ├── __init__.py       # Imports all tests
 │   ├── conftest.py       # Shared test fixtures and configuration
 │   ├── test_auth.py      # Authentication-related tests
+│   ├── test_centrifugo.py # Centrifugo token + client tests
 │   └── test_user.py      # User-related tests
 ├── __init__.py           # Main app initialization
 ├── apps.py               # App configuration
@@ -52,6 +55,8 @@ core/
 
 - `AuthController`: Handles authentication requests like passwordless logins
 - `UserController`: Manages user operations like signup, profile management
+- `CentrifugoTokenController`: Issues JWT tokens for Centrifugo real-time connections and subscriptions
+- `OTPController`: OTP/2FA verification endpoints
 
 ### Schemas
 
