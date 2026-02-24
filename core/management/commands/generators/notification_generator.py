@@ -56,8 +56,6 @@ class NotificationGenerator(BaseGenerator):
         if not self.minimal:
             dependencies.extend(
                 [
-                    "channels>=4.0.0",
-                    "channels-redis>=4.1.0",
                     "firebase-admin>=6.0.0",
                 ]
             )
@@ -370,8 +368,20 @@ class NotificationService:
         logger.info(f"SMS notification sent to {notification.recipient.username}")
 
     def _send_in_app(self, notification: Notification) -> None:
-        """Send in-app notification."""
-        # TODO: Implement WebSocket/channels for real-time
+        """Send in-app notification via Centrifugo."""
+        from api.centrifugo import centrifugo_client
+
+        channel = f"notifications:{notification.recipient.id}"
+        centrifugo_client.publish(channel, {
+            "type": "notification",
+            "data": {
+                "id": str(notification.id),
+                "subject": notification.subject,
+                "content": notification.content,
+                "priority": notification.priority,
+                "created_at": notification.created_at.isoformat(),
+            },
+        })
         logger.info(f"In-app notification sent to {notification.recipient.username}")
 
     def mark_as_read(self, notification_id: str, user: User) -> bool:

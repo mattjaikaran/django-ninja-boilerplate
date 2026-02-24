@@ -341,6 +341,14 @@ CELERY_TASK_TIME_LIMIT = 30 * 60  # 30 minutes
 CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
 
 # =============================================================================
+# Centrifugo Real-Time Messaging
+# =============================================================================
+CENTRIFUGO_URL = env("CENTRIFUGO_URL", default="http://centrifugo:8000")
+CENTRIFUGO_API_KEY = env("CENTRIFUGO_API_KEY", default="centrifugo-api-key")
+CENTRIFUGO_TOKEN_SECRET = env("CENTRIFUGO_TOKEN_SECRET", default="centrifugo-token-secret")
+CENTRIFUGO_TOKEN_TTL = env.int("CENTRIFUGO_TOKEN_TTL", default=3600)  # 1 hour
+
+# =============================================================================
 # Payment Integration (Stripe)
 # =============================================================================
 STRIPE_PUBLISHABLE_KEY = env("STRIPE_PUBLISHABLE_KEY", default="")

@@ -43,11 +43,8 @@ class ChatGenerator(BaseGenerator):
         self._generate_controllers()
 
         if self.realtime:
-            # Generate WebSocket consumers
-            self._generate_consumers()
-
-            # Generate routing for WebSockets
-            self._generate_routing()
+            # Generate Centrifugo real-time service
+            self._generate_realtime_service()
 
         # Generate admin
         self._generate_admin()
@@ -67,21 +64,12 @@ class ChatGenerator(BaseGenerator):
         print(f"{chat_type.title()} chat feature generated successfully!")
         if not self.realtime:
             print(
-                "Tip: Use --realtime flag to generate WebSocket support for real-time messaging."
+                "Tip: Use --realtime flag to generate Centrifugo real-time service for messaging."
             )
 
     def _update_dependencies(self) -> None:
         """Update project dependencies."""
         dependencies = []
-
-        if self.realtime:
-            dependencies.extend(
-                [
-                    "channels>=4.0.0",
-                    "channels-redis>=4.1.0",
-                    "django-cors-headers>=4.0.0",
-                ]
-            )
 
         if not self.minimal:
             dependencies.extend(
@@ -477,25 +465,17 @@ class MessageController:
             self.app_path / "controllers" / "chat_controller.py", controllers_content
         )
 
-    def _generate_consumers(self) -> None:
-        """Generate WebSocket consumers for real-time chat."""
+    def _generate_realtime_service(self) -> None:
+        """Generate Centrifugo real-time service for chat."""
         if not self.realtime:
             return
 
-        from .templates.websocket_templates import CHAT_CONSUMERS_TEMPLATE
+        from .templates.websocket_templates import CHAT_REALTIME_SERVICE_TEMPLATE
 
-        consumers_content = CHAT_CONSUMERS_TEMPLATE.format(app_name=self.app_name)
-        self.create_file(self.app_path / "consumers.py", consumers_content)
-
-    def _generate_routing(self) -> None:
-        """Generate WebSocket routing."""
-        if not self.realtime:
-            return
-
-        from .templates.websocket_templates import CHAT_ROUTING_TEMPLATE
-
-        routing_content = CHAT_ROUTING_TEMPLATE.format(app_name=self.app_name)
-        self.create_file(self.app_path / "routing.py", routing_content)
+        service_content = CHAT_REALTIME_SERVICE_TEMPLATE.format(app_name=self.app_name)
+        self.create_file(
+            self.app_path / "services" / "realtime_service.py", service_content
+        )
 
     def _generate_admin(self) -> None:
         """Generate chat admin."""
@@ -518,19 +498,5 @@ class MessageController:
             "CHAT_FILE_UPLOAD_MAX_SIZE": 10 * 1024 * 1024,  # 10MB
             "CHAT_CONVERSATION_MAX_PARTICIPANTS": 100,
         }
-
-        if self.realtime:
-            settings_updates.update(
-                {
-                    "CHANNEL_LAYERS": {
-                        "default": {
-                            "BACKEND": "channels_redis.core.RedisChannelLayer",
-                            "CONFIG": {
-                                "hosts": [("redis", 6379)],
-                            },
-                        },
-                    }
-                }
-            )
 
         self.update_settings(self.app_name, settings_updates)

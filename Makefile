@@ -35,14 +35,17 @@ up-celery: ## Start with Celery workers (db, redis, django, celery-worker, celer
 up-monitoring: ## Start with monitoring tools (includes Flower)
 	$(DOCKER_COMPOSE) --profile monitoring up -d
 
-up-full: ## Start all services including Celery and monitoring
-	$(DOCKER_COMPOSE) --profile celery --profile monitoring up -d
+up-realtime: ## Start with Centrifugo real-time server
+	$(DOCKER_COMPOSE) --profile realtime up -d
+
+up-full: ## Start all services including Celery, monitoring, and realtime
+	$(DOCKER_COMPOSE) --profile celery --profile monitoring --profile realtime up -d
 
 down: ## Stop the development environment
 	$(DOCKER_COMPOSE) down
 
 down-full: ## Stop all services including profiled services
-	$(DOCKER_COMPOSE) --profile celery --profile monitoring down
+	$(DOCKER_COMPOSE) --profile celery --profile monitoring --profile realtime down
 
 down-volumes: ## Stop the development environment and remove volumes
 	$(DOCKER_COMPOSE) down -v

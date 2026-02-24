@@ -11,6 +11,7 @@ This document provides a comprehensive overview of the Django Ninja Boilerplate 
 - [API Design](#api-design)
 - [Authentication Flow](#authentication-flow)
 - [Background Tasks](#background-tasks)
+- [Real-Time Messaging](./REALTIME.md) (Centrifugo)
 - [Deployment Options](#deployment-options)
 
 ---
@@ -61,6 +62,7 @@ This document provides a comprehensive overview of the Django Ninja Boilerplate 
 | **Monitoring** | Task monitoring UI | Flower |
 | **Tracing** | Distributed tracing | OpenTelemetry + Jaeger |
 | **Metrics** | Application metrics | Prometheus |
+| **Real-Time** | WebSocket messaging | Centrifugo v5 |
 | **Audit Log** | Compliance tracking | Django signals + middleware |
 | **Feature Flags** | Gradual rollouts & A/B testing | Custom service |
 
@@ -88,6 +90,7 @@ django-ninja-boilerplate/
 │   │   ├── limiter.py           # Rate limiter classes
 │   │   └── decorators.py        # Throttle decorators
 │   ├── utils/                   # HTTP utilities
+│   ├── centrifugo.py            # Centrifugo JWT tokens + HTTP client
 │   ├── decorators.py            # API decorators
 │   ├── exceptions.py            # Custom exceptions
 │   ├── middleware.py            # Request/Response middleware
@@ -96,6 +99,7 @@ django-ninja-boilerplate/
 ├── core/                         # Core Application (Users/Auth)
 │   ├── controllers/             # API Controllers
 │   │   ├── auth_controller.py   # JWT authentication
+│   │   ├── centrifugo_controller.py # Real-time token endpoints
 │   │   ├── user_controller.py   # User management
 │   │   └── otp_controller.py    # OTP/Magic link auth
 │   ├── audit/                   # Audit logging system
@@ -235,21 +239,21 @@ django-ninja-boilerplate/
 │     db      │     │    redis    │     │   django    │
 │ PostgreSQL  │◀────│    Redis    │◀────│   API       │
 │   :5432     │     │   :6379     │     │   :8000     │
-└─────────────┘     └─────────────┘     └──────┬──────┘
+└─────────────┘     └──────┬──────┘     └──────┬──────┘
                            │                    │
-                           │                    │ (profile: celery)
-                           ▼                    ▼
-                    ┌─────────────┐     ┌─────────────┐
-                    │celery-worker│     │ celery-beat │
-                    │  (Tasks)    │     │ (Scheduler) │
-                    └─────────────┘     └─────────────┘
-                           │
-                           │ (profile: monitoring)
-                           ▼
-                    ┌─────────────┐
-                    │   flower    │
-                    │   :5555     │
-                    └─────────────┘
+                    ┌──────┴──────┐             │ (profile: celery)
+                    │ (realtime)  │             ▼
+                    ▼             │      ┌─────────────┐     ┌─────────────┐
+             ┌─────────────┐     │      │celery-worker│     │ celery-beat │
+             │ centrifugo  │     │      │  (Tasks)    │     │ (Scheduler) │
+             │  :8800      │     │      └─────────────┘     └─────────────┘
+             └─────────────┘     │             │
+                                 │             │ (profile: monitoring)
+                                 │             ▼
+                                 │      ┌─────────────┐
+                                 │      │   flower    │
+                                 │      │   :5555     │
+                                 │      └─────────────┘
 
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                       docker-compose.prod.yml (Production)                  │
@@ -259,19 +263,19 @@ django-ninja-boilerplate/
                     │   nginx     │
         ┌──────────▶│   :80/443   │◀──────────┐
         │           └──────┬──────┘           │
-        │                  │                  │
-        │                  ▼                  │
-┌───────┴───────┐   ┌─────────────┐   ┌───────┴───────┐
-│    static     │   │   django    │   │    media      │
-│    files      │   │   :8000     │   │    files      │
-└───────────────┘   └──────┬──────┘   └───────────────┘
-                           │
-              ┌────────────┼────────────┐
-              ▼            ▼            ▼
-       ┌───────────┐ ┌───────────┐ ┌───────────┐
-       │    db     │ │   redis   │ │  celery   │
-       │ PostgreSQL│ │   Redis   │ │  workers  │
-       └───────────┘ └───────────┘ └───────────┘
+        │              /   │   /centrifugo/   │
+        │             ▼    │         ▼        │
+┌───────┴───────┐ ┌────────┴────┐ ┌───────────┴───┐
+│    static     │ │   django    │ │  centrifugo   │
+│    files      │ │   :8000     │ │  (WebSocket)  │
+└───────────────┘ └──────┬──────┘ └───────┬───────┘
+                         │                │
+            ┌────────────┼────────────┐   │
+            ▼            ▼            ▼   │
+     ┌───────────┐ ┌───────────┐ ┌────────┴──┐
+     │    db     │ │   redis   │ │  celery   │
+     │ PostgreSQL│ │   Redis   │ │  workers  │
+     └───────────┘ └───────────┘ └───────────┘
 ```
 
 ### Dockerfile Variants
@@ -349,6 +353,10 @@ django-ninja-boilerplate/
 │   ├── GET                     # List users (admin)
 │   ├── /me/                    # GET → Current user
 │   └── /{id}/                  # GET/PUT/DELETE
+│
+├── /realtime/                  # Centrifugo Real-Time
+│   ├── /connection-token/      # POST → ConnectionTokenResponse
+│   └── /subscription-token/    # POST → SubscriptionTokenResponse
 │
 └── /todos/                     # Example Resource
     ├── GET                     # List (paginated)
@@ -854,6 +862,7 @@ make lint           # Check code quality
 
 # Docker
 make up             # Start all services
+make up-realtime    # Start with Centrifugo
 make down           # Stop all services
 make logs           # View logs
 make shell          # Django shell
@@ -876,6 +885,9 @@ make flower         # Start with Flower monitoring
 | `DATABASE_URL` | PostgreSQL URL | Required |
 | `REDIS_URL` | Redis URL | Required |
 | `ALLOWED_HOSTS` | Allowed hosts | `localhost` |
+| `CENTRIFUGO_URL` | Centrifugo server URL | `http://centrifugo:8000` |
+| `CENTRIFUGO_API_KEY` | Centrifugo API key | Required (prod) |
+| `CENTRIFUGO_TOKEN_SECRET` | JWT signing secret | Required (prod) |
 
 ---
 

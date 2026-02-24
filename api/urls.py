@@ -9,6 +9,7 @@ from api.healthcheck import HealthCheckController
 from core.controllers import (
     AuditLogController,
     AuthController,
+    CentrifugoTokenController,
     DeadLetterQueueController,
     OTPController,
     TaskController,
@@ -64,6 +65,7 @@ api.register_controllers(
     UserController,  # User Controller
     AuthController,  # Auth Controller (email/password + magic links)
     OTPController,  # OTP Controller (6-digit codes for mobile/iOS apps)
+    CentrifugoTokenController,  # Centrifugo real-time token endpoints
     AuditLogController,  # Audit Log Controller (admin only)
     # Task management controllers
     TaskController,  # Task status and progress tracking

@@ -1,0 +1,40 @@
+{
+  "token_hmac_secret_key": "${CENTRIFUGO_TOKEN_SECRET}",
+  "api_key": "${CENTRIFUGO_API_KEY}",
+  "admin": true,
+  "admin_password": "admin",
+  "admin_secret": "admin-secret",
+  "allowed_origins": ["http://localhost:3000", "http://localhost:8000"],
+  "engine": "redis",
+  "redis_address": "redis://redis:6379/1",
+  "namespaces": [
+    {
+      "name": "chat",
+      "presence": true,
+      "join_leave": true,
+      "history_size": 100,
+      "history_ttl": "300s",
+      "force_push_join_leave": true,
+      "allow_publish_for_subscriber": false,
+      "allow_subscribe_for_client": false
+    },
+    {
+      "name": "notifications",
+      "presence": false,
+      "join_leave": false,
+      "history_size": 50,
+      "history_ttl": "86400s",
+      "allow_publish_for_subscriber": false,
+      "allow_subscribe_for_client": false
+    },
+    {
+      "name": "organization",
+      "presence": true,
+      "join_leave": true,
+      "history_size": 50,
+      "history_ttl": "600s",
+      "allow_publish_for_subscriber": false,
+      "allow_subscribe_for_client": false
+    }
+  ]
+}

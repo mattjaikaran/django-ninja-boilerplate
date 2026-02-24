@@ -113,6 +113,10 @@ services:
       - REDIS_URL=${REDIS_URL:-redis://redis:6379/0}
       - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
       - ALLOWED_HOSTS=${ALLOWED_HOSTS:-localhost,127.0.0.1,0.0.0.0,django}
+      # Centrifugo settings
+      - CENTRIFUGO_URL=${CENTRIFUGO_URL:-http://centrifugo:8000}
+      - CENTRIFUGO_API_KEY=${CENTRIFUGO_API_KEY:-centrifugo-api-key}
+      - CENTRIFUGO_TOKEN_SECRET=${CENTRIFUGO_TOKEN_SECRET:-centrifugo-token-secret}
       # Observability settings
       - OTEL_SERVICE_NAME=${OTEL_SERVICE_NAME:-django-ninja-app}
       - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT:-http://jaeger:4317}
@@ -135,6 +139,42 @@ services:
         reservations:
           cpus: '0.5'
           memory: 256M
+
+  # ===========================================
+  # Centrifugo Real-Time Server (profile: realtime)
+  # ===========================================
+
+  centrifugo:
+    image: centrifugo/centrifugo:v5
+    command: centrifugo -c config.json
+    volumes:
+      - ./deploy/centrifugo/config.json:/centrifugo/config.json:ro
+    ports:
+      - "8800:8000"
+    environment:
+      - CENTRIFUGO_TOKEN_SECRET=${CENTRIFUGO_TOKEN_SECRET:-centrifugo-token-secret}
+      - CENTRIFUGO_API_KEY=${CENTRIFUGO_API_KEY:-centrifugo-api-key}
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - app-network
+    profiles:
+      - realtime
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 64M
 
   # ===========================================
   # Celery Services (profile: celery)
