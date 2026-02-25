@@ -473,7 +473,6 @@ benchmark: ## Run basic API benchmark (requires curl)
 # Pre-commit Hooks
 # ===========================================
 pre-commit-install: ## Install pre-commit hooks
-	$(UV) pip install pre-commit
 	$(UV) run pre-commit install
 	$(UV) run pre-commit install --hook-type commit-msg
 

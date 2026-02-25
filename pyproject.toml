@@ -12,7 +12,6 @@ classifiers = [
     "Environment :: Web Environment",
     "Framework :: Django",
     "Framework :: Django :: 5.2",
-    "Framework :: Django :: 6.0",
     "Intended Audience :: Developers",
     "Operating System :: OS Independent",
     "Programming Language :: Python",
@@ -24,7 +23,7 @@ classifiers = [
 ]
 
 dependencies = [
-    # Core Django (supports Django 5.2+ and 6.0+)
+    # Core Django (5.2 LTS default; 6.0 tested, blocked by django-celery-beat<6.0 cap)
     "Django>=5.2,<7.0",
     "django-environ>=0.11.2",
     "psycopg2-binary>=2.9.10",
@@ -104,6 +103,7 @@ dev = [
     "pytest-mock>=3.12.0",
     "factory-boy>=3.3.0",
     "Faker>=30.1.0",
+    "pre-commit>=4.0.0",
 ]
 testing = [
     # Load testing
@@ -317,6 +317,30 @@ skip-magic-trailing-comma = false
 line-ending = "auto"
 docstring-code-format = true
 docstring-code-line-length = "dynamic"
+
+# ===========================================
+# File Length Checker (scripts/check_file_length.py)
+# ===========================================
+[tool.file-length]
+max-lines = 400
+exclude = [
+    "*/migrations/*",
+    "*/management/commands/generators/*",
+    "*/management/commands/generators/templates/*",
+]
+
+[tool.file-length.per-file-max]
+"scripts/*" = 1200
+"cli/*" = 800
+"tests/*" = 600
+"*/management/commands/*.py" = 800
+"api/settings/common.py" = 600
+"api/decorators.py" = 500
+"*/services/*.py" = 700
+"*/tasks/*.py" = 600
+"*/audit/*.py" = 600
+"*/observability/*.py" = 600
+"*/features/*.py" = 700
 
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "api.settings.test"

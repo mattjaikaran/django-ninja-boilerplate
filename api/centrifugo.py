@@ -102,7 +102,9 @@ class CentrifugoClient:
         api_key: str | None = None,
         timeout: float = 5.0,
     ):
-        self.url = (url or getattr(settings, "CENTRIFUGO_URL", "http://localhost:8800")).rstrip("/")
+        self.url = (
+            url or getattr(settings, "CENTRIFUGO_URL", "http://localhost:8800")
+        ).rstrip("/")
         self.api_key = api_key or getattr(settings, "CENTRIFUGO_API_KEY", "")
         self.timeout = timeout
 

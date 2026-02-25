@@ -68,9 +68,7 @@ class TestSubscriptionToken(TestCase):
     """Test generate_subscription_token."""
 
     def test_basic_token(self):
-        token = generate_subscription_token(
-            user_id="user-123", channel="chat:conv-abc"
-        )
+        token = generate_subscription_token(user_id="user-123", channel="chat:conv-abc")
         decoded = jwt.decode(token, "test-secret-key", algorithms=["HS256"])
 
         assert decoded["sub"] == "user-123"

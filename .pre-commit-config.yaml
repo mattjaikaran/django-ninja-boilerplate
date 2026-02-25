@@ -22,7 +22,7 @@ repos:
 
       # File validation
       - id: check-yaml
-        args: [--unsafe]  # Allow custom tags
+        args: [--unsafe] # Allow custom tags
       - id: check-toml
       - id: check-json
       - id: check-xml
@@ -46,7 +46,7 @@ repos:
   # Python - Ruff (linting + formatting)
   # ===========================================
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.9.0
+    rev: v0.13.2
     hooks:
       # Linter
       - id: ruff
@@ -100,7 +100,7 @@ repos:
     rev: v2.13.1-beta
     hooks:
       - id: hadolint-docker
-        args: [--ignore, DL3008, --ignore, DL3013]  # Allow unpinned apt/pip versions
+        args: [--ignore, DL3008, --ignore, DL3013] # Allow unpinned apt/pip versions
 
   # ===========================================
   # Shell script linting
@@ -109,7 +109,7 @@ repos:
     rev: v0.10.0.1
     hooks:
       - id: shellcheck
-        args: [-x]  # Follow sourced files
+        args: [-x] # Follow sourced files
 
   # ===========================================
   # YAML/JSON formatting
@@ -120,6 +120,31 @@ repos:
       - id: prettier
         types_or: [yaml, json]
         exclude: ^(uv\.lock|.*\.lock\.json)$
+
+  # ===========================================
+  # File length enforcement
+  # ===========================================
+  - repo: local
+    hooks:
+      - id: file-length
+        name: Check file length
+        entry: python scripts/check_file_length.py
+        language: python
+        types: [python]
+        pass_filenames: true
+
+  # ===========================================
+  # Tests (pre-push only — keeps commits fast)
+  # ===========================================
+  - repo: local
+    hooks:
+      - id: pytest
+        name: Run tests
+        entry: uv run pytest --no-header -q
+        language: system
+        types: [python]
+        pass_filenames: false
+        stages: [pre-push]
 
   # ===========================================
   # Commit message linting
@@ -139,4 +164,4 @@ ci:
   autoupdate_branch: develop
   autoupdate_commit_msg: "chore: update pre-commit hooks"
   autoupdate_schedule: weekly
-  skip: [hadolint-docker]  # Docker not available in CI
+  skip: [hadolint-docker] # Docker not available in CI

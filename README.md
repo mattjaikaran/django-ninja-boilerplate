@@ -6,7 +6,7 @@ A production-ready Django boilerplate built with **Django Ninja Extra** for crea
 
 [![CI](https://github.com/mattjaikaran/django-ninja-boilerplate/actions/workflows/ci.yml/badge.svg)](https://github.com/mattjaikaran/django-ninja-boilerplate/actions/workflows/ci.yml)
 [![Python 3.13+](https://img.shields.io/badge/python-3.13+-blue.svg)](https://www.python.org/downloads/)
-[![Django 6.0](https://img.shields.io/badge/django-6.0-green.svg)](https://docs.djangoproject.com/)
+[![Django 5.2](https://img.shields.io/badge/django-5.2-green.svg)](https://docs.djangoproject.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Code style: Ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
 [![OpenAPI](https://img.shields.io/badge/OpenAPI-3.1-6BA539.svg)](https://swagger.io/specification/)
@@ -142,7 +142,7 @@ app_name/
 ### Core Stack
 
 - **Python 3.13+** with type hints
-- **[Django 6.0](https://docs.djangoproject.com/en/6.0/)** - Web framework
+- **[Django 5.2 LTS](https://docs.djangoproject.com/en/5.2/)** - Web framework (6.0 tested and ready)
 - **[Django Ninja](https://django-ninja.dev/)** - Fast API framework
 - **[Django Ninja Extra](https://eadwincode.github.io/django-ninja-extra/)** - Class-based controllers
 - **[Django Ninja JWT](https://eadwincode.github.io/django-ninja-jwt/)** - JWT authentication

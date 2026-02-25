@@ -436,6 +436,27 @@ show_summary() {
 }
 
 # ===========================================
+# Pre-commit Hooks
+# ===========================================
+
+setup_pre_commit() {
+    print_step "Setting up pre-commit hooks..."
+
+    if command_exists uv && [ -d .git ]; then
+        if [ -f .pre-commit-config.yaml ]; then
+            uv run pre-commit install
+            uv run pre-commit install --hook-type commit-msg
+            print_success "Pre-commit hooks installed"
+        else
+            print_warning "No .pre-commit-config.yaml found, skipping hooks"
+        fi
+    else
+        print_warning "uv or git not available, skipping pre-commit hooks"
+        print_info "Install manually with: make pre-commit-install"
+    fi
+}
+
+# ===========================================
 # Main Execution
 # ===========================================
 
@@ -448,6 +469,7 @@ main() {
 
     check_requirements
     setup_env_file
+    setup_pre_commit
     setup_docker
     setup_database
     seed_data
