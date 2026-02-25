@@ -1,5 +1,27 @@
 """Model templates for code generation."""
 
+MODEL_TEMPLATE = '''"""{app_name} models."""
+
+from django.db import models
+from core.models import AbstractBaseModel
+
+
+class {model_name}(AbstractBaseModel):
+    """{model_name} model."""
+
+    name = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        verbose_name = "{model_name}"
+        verbose_name_plural = "{app_name_title}"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return self.name
+'''
+
 RBAC_MODELS_TEMPLATE = '''"""RBAC models."""
 
 from django.db import models

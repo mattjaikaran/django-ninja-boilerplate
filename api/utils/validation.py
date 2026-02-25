@@ -88,48 +88,46 @@ def validate_password_strength(password: str) -> dict[str, Any]:
     Returns:
         Dictionary with validation results and requirements
     """
-    result = {
-        "is_valid": True,
-        "errors": [],
-        "score": 0,
-    }
+    is_valid = True
+    errors: list[str] = []
+    score = 0
 
     # Check minimum length
     if len(password) < MIN_PASSWORD_LENGTH:
-        result["is_valid"] = False
-        result["errors"].append("Password must be at least 8 characters long")
+        is_valid = False
+        errors.append("Password must be at least 8 characters long")
     else:
-        result["score"] += 1
+        score += 1
 
     # Check for uppercase letter
     if not re.search(r"[A-Z]", password):
-        result["is_valid"] = False
-        result["errors"].append("Password must contain at least one uppercase letter")
+        is_valid = False
+        errors.append("Password must contain at least one uppercase letter")
     else:
-        result["score"] += 1
+        score += 1
 
     # Check for lowercase letter
     if not re.search(r"[a-z]", password):
-        result["is_valid"] = False
-        result["errors"].append("Password must contain at least one lowercase letter")
+        is_valid = False
+        errors.append("Password must contain at least one lowercase letter")
     else:
-        result["score"] += 1
+        score += 1
 
     # Check for digit
     if not re.search(r"\d", password):
-        result["is_valid"] = False
-        result["errors"].append("Password must contain at least one digit")
+        is_valid = False
+        errors.append("Password must contain at least one digit")
     else:
-        result["score"] += 1
+        score += 1
 
     # Check for special character
     if not re.search(r"[!@#$%^&*(),.?\":{}|<>]", password):
-        result["is_valid"] = False
-        result["errors"].append("Password must contain at least one special character")
+        is_valid = False
+        errors.append("Password must contain at least one special character")
     else:
-        result["score"] += 1
+        score += 1
 
-    return result
+    return {"is_valid": is_valid, "errors": errors, "score": score}
 
 
 def convert_to_bool(value: Any) -> bool:

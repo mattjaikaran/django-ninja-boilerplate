@@ -117,7 +117,7 @@ class RequestFeatureFlags:
                 context=context,
             )
 
-        return self._cache[cache_key]
+        return self._cache[cache_key]  # type: ignore[return-value]
 
     def get_variant(self, flag_name: str, default: str = "control") -> str:
         """Get the A/B test variant for the current user.
@@ -140,7 +140,7 @@ class RequestFeatureFlags:
                 default=default,
             )
 
-        return self._cache[cache_key]
+        return self._cache[cache_key]  # type: ignore[return-value]
 
     def get_all_flags(self) -> dict[str, bool | str]:
         """Get all feature flags for the current user.

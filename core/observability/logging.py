@@ -131,8 +131,8 @@ class StructuredJsonFormatter(logging.Formatter):
 
             if trace_id or span_id:
                 return {
-                    "trace_id": trace_id,
-                    "span_id": span_id,
+                    "trace_id": trace_id or "",
+                    "span_id": span_id or "",
                 }
         except ImportError:
             pass

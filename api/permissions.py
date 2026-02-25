@@ -29,6 +29,9 @@ class IsAuthenticated(BasePermission):
 class IsOwner(BasePermission):
     """Permission class that requires user to be the owner of the object."""
 
+    def has_permission(self, request: HttpRequest, view: Any) -> bool:
+        return request.user and request.user.is_authenticated
+
     def has_object_permission(self, request: HttpRequest, view: Any, obj: Any) -> bool:
         if not request.user or not request.user.is_authenticated:
             return False
@@ -60,6 +63,9 @@ class IsSuperUser(BasePermission):
 
 class IsOwnerOrAdmin(BasePermission):
     """Permission class that requires user to be owner or admin."""
+
+    def has_permission(self, request: HttpRequest, view: Any) -> bool:
+        return request.user and request.user.is_authenticated
 
     def has_object_permission(self, request: HttpRequest, view: Any, obj: Any) -> bool:
         if not request.user or not request.user.is_authenticated:

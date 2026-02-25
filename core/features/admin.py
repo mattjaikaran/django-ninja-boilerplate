@@ -112,14 +112,14 @@ class FeatureFlagAdmin(ModelAdmin):
 
     inlines = [FeatureFlagAuditLogInline]
 
+    @admin.display(description="Environments")
     def environment_display(self, obj):
         """Display environments in a readable format."""
         if not obj.environments:
             return "All"
         return ", ".join(obj.environments)
 
-    environment_display.short_description = "Environments"
-
+    @admin.display(description="Time Window")
     def time_window_display(self, obj):
         """Display time window in a readable format."""
         if not obj.starts_at and not obj.ends_at:
@@ -132,8 +132,6 @@ class FeatureFlagAdmin(ModelAdmin):
             parts.append(f"Until: {obj.ends_at.strftime('%Y-%m-%d %H:%M')}")
 
         return " | ".join(parts)
-
-    time_window_display.short_description = "Time Window"
 
     def save_model(self, request, obj, form, change):
         """Save the model and track the user."""

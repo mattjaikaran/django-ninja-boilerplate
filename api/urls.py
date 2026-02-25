@@ -26,16 +26,10 @@ admin.site.index_title = "Welcome to Django Ninja Boilerplate Panel"
 admin.site.site_url = "/api/docs"
 
 # Instantiate the server
-"""
-normally for django-ninja it looks like -
-api = NinjaAPI()
-
-ninja extra normally looks like -
-api = NinjaExtraAPI()
-
-Below we are adding in Swagger/OpenAPI params
-seen at http://localhost:8000/api/docs
-"""
+# normally for django-ninja it looks like: api = NinjaAPI()
+# ninja extra normally looks like: api = NinjaExtraAPI()
+# Below we are adding in Swagger/OpenAPI params
+# seen at http://localhost:8000/api/docs
 
 api = NinjaExtraAPI(
     # csrf=True,  # this line is to enable CSRF protection
@@ -44,7 +38,7 @@ api = NinjaExtraAPI(
             "termsOfService": "https://example.com/terms/",
         }
     },
-    version=0.1,
+    version="0.1",
     title="Django Ninja Boilerplate API",
     description="API documentation for the Django Ninja Boilerplate API",
     urls_namespace="boilerplate_api",

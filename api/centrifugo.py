@@ -103,9 +103,9 @@ class CentrifugoClient:
         timeout: float = 5.0,
     ):
         self.url = (
-            url or getattr(settings, "CENTRIFUGO_URL", "http://localhost:8800")
+            url or getattr(settings, "CENTRIFUGO_URL", "http://localhost:8800") or ""
         ).rstrip("/")
-        self.api_key = api_key or getattr(settings, "CENTRIFUGO_API_KEY", "")
+        self.api_key = api_key or getattr(settings, "CENTRIFUGO_API_KEY", "") or ""
         self.timeout = timeout
 
     def _headers(self) -> dict[str, str]:

@@ -24,7 +24,7 @@ from __future__ import annotations
 import random
 import string
 import uuid
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
 from faker import Faker
@@ -261,7 +261,7 @@ class TestDataGenerator:
         delta = timedelta(days=random.randint(1, days))
         return datetime.now(UTC) + delta
 
-    def date_of_birth(self, min_age: int = 18, max_age: int = 80) -> datetime:
+    def date_of_birth(self, min_age: int = 18, max_age: int = 80) -> date:
         """Generate a date of birth.
 
         Args:

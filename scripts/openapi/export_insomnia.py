@@ -14,6 +14,7 @@ import re
 import sys
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 # =============================================================================
 # Insomnia Exporter
@@ -74,7 +75,7 @@ class InsomniaExporter:
         resources.append(workspace)
 
         # Create base environment
-        base_env = {
+        base_env: dict[str, Any] = {
             "_id": self.base_env_id,
             "_type": "environment",
             "name": "Base Environment",
@@ -135,7 +136,7 @@ class InsomniaExporter:
         for tag, endpoints in endpoints_by_tag.items():
             # Create folder
             folder_id = generate_id("fld")
-            folder = {
+            folder: dict[str, Any] = {
                 "_id": folder_id,
                 "_type": "request_group",
                 "name": tag,
@@ -251,7 +252,7 @@ class InsomniaExporter:
 
                 body = {
                     "mimeType": "application/x-www-form-urlencoded",
-                    "params": params,
+                    "params": params,  # type: ignore[dict-item]
                 }
 
             elif "multipart/form-data" in content:
@@ -276,7 +277,7 @@ class InsomniaExporter:
 
                     params.append(param)
 
-                body = {"mimeType": "multipart/form-data", "params": params}
+                body = {"mimeType": "multipart/form-data", "params": params}  # type: ignore[dict-item]
 
         # Determine authentication
         authentication = {}
@@ -377,7 +378,7 @@ class InsomniaExporter:
             "boolean": True,
         }
 
-        return type_examples.get(schema_type)
+        return type_examples.get(schema_type)  # type: ignore[return-value]
 
     def save(self, output_path: Path) -> None:
         """Export and save the Insomnia collection."""

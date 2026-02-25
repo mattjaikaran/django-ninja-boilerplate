@@ -112,7 +112,7 @@ class AuthController:
         logger.info("User logged in: %s", user.email)
 
         return 200, {
-            "token": str(refresh.access_token),
+            "token": str(refresh.access_token),  # type: ignore[attr-defined]
             "refresh": str(refresh),
             "user": UserSchema.from_orm(user).dict(),
         }
@@ -144,7 +144,7 @@ class AuthController:
         refresh = RefreshToken.for_user(user)
 
         return 200, {
-            "token": str(refresh.access_token),
+            "token": str(refresh.access_token),  # type: ignore[attr-defined]
             "refresh": str(refresh),
             "user": UserSchema.from_orm(user).dict(),
         }
@@ -268,7 +268,7 @@ class AuthController:
         logger.info("Magic link verified for: %s", otp.user.email)
 
         return 200, {
-            "access": str(refresh.access_token),
+            "access": str(refresh.access_token),  # type: ignore[attr-defined]
             "refresh": str(refresh),
             "user": UserSchema.from_orm(otp.user).dict(),
         }

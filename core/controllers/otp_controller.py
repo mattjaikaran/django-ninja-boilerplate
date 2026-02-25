@@ -115,7 +115,7 @@ class OTPController:
             return 200, OTPVerifyResponseSchema(
                 success=True,
                 message="Login successful",
-                access=str(refresh.access_token),
+                access=str(refresh.access_token),  # type: ignore[attr-defined]
                 refresh=str(refresh),
                 user=UserSchema.from_orm(user).dict(),
             )
@@ -149,7 +149,7 @@ class OTPController:
         return 200, OTPVerifyResponseSchema(
             success=True,
             message="Login successful",
-            access=str(refresh.access_token),
+            access=str(refresh.access_token),  # type: ignore[attr-defined]
             refresh=str(refresh),
             user=UserSchema.from_orm(user).dict(),
         )
@@ -191,6 +191,9 @@ class OTPController:
         Sends a 6-digit code to reset the password.
         Always returns success to prevent email enumeration.
         """
+        if not payload.email:
+            return 400, {"error": "Email is required", "success": False}
+
         success, message = otp_service.request_password_reset(
             email=payload.email,
             ip_address=get_client_ip(request),

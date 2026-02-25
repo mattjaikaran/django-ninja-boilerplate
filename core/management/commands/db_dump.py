@@ -338,7 +338,7 @@ class Command(BaseCommand):
             self.style.SUCCESS(f"✅ Cleaned up {len(to_delete)} old dumps")
         )
 
-    def format_size(self, size: int) -> str:
+    def format_size(self, size: float) -> str:
         """Format file size in human-readable format."""
         for unit in ["B", "KB", "MB", "GB"]:
             if size < 1024:

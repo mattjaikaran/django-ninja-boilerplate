@@ -80,7 +80,7 @@ class PostmanExporter:
                 "item": items,
                 "description": self._get_tag_description(tag),
             }
-            collection["item"].append(folder)
+            collection["item"].append(folder)  # type: ignore[attr-defined]
 
         # Add authentication setup
         collection["auth"] = {
@@ -201,10 +201,10 @@ class PostmanExporter:
                 )
 
         if query_params:
-            url["query"] = query_params
+            url["query"] = query_params  # type: ignore[assignment]
 
         if path_variables:
-            url["variable"] = path_variables
+            url["variable"] = path_variables  # type: ignore[assignment]
 
         return url
 
@@ -397,7 +397,7 @@ class PostmanExporter:
             "boolean": True,
         }
 
-        return type_examples.get(schema_type)
+        return type_examples.get(schema_type)  # type: ignore[return-value]
 
     def save(self, output_path: Path) -> None:
         """Export and save the Postman collection."""

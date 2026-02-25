@@ -190,7 +190,7 @@ class AuditLoggingMiddleware:
             duration: Request duration in seconds
         """
         # Import here to avoid circular imports
-        from core.audit.models import AuditAction, AuditLog
+        from core.audit.models import AuditLog
 
         metadata = getattr(request, "audit_metadata", {})
         request_id = getattr(request, "audit_request_id", "")
@@ -217,7 +217,7 @@ class AuditLoggingMiddleware:
         # Create audit log entry
         try:
             AuditLog.log_action(
-                action=AuditAction.API_REQUEST,
+                action="API_REQUEST",
                 action_description=f"{metadata.get('method', 'UNKNOWN')} {metadata.get('path', 'unknown')}",
                 user=user,
                 ip_address=metadata.get("ip_address"),

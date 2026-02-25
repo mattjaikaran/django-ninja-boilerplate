@@ -187,7 +187,7 @@ class Histogram:
                 labels = dict(label_key) if label_key else {}
 
                 # Bucket samples
-                cumulative = 0
+                cumulative: float = 0.0
                 for bucket in self.buckets:
                     cumulative += self._bucket_counts[label_key].get(bucket, 0)
                     bucket_labels = {
@@ -457,8 +457,10 @@ def set_app_info(version: str | None = None, environment: str | None = None) -> 
     registry = get_metrics_registry()
     gauge = registry.get_gauge("app_info")
     if gauge:
-        version = version or getattr(settings, "VERSION", "unknown")
-        environment = environment or getattr(settings, "ENVIRONMENT", "unknown")
+        version = version or getattr(settings, "VERSION", "unknown") or "unknown"
+        environment = (
+            environment or getattr(settings, "ENVIRONMENT", "unknown") or "unknown"
+        )
         gauge.set(1.0, labels={"version": version, "environment": environment})
 
 

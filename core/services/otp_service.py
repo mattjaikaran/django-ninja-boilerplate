@@ -82,7 +82,7 @@ class OTPService:
         )
 
         if not is_allowed:
-            return False, error_message, None
+            return False, error_message or "", None
 
         # Find user
         user = self._find_user(email=email, phone=phone)
@@ -389,7 +389,7 @@ class OTPService:
         )
 
         if not is_allowed:
-            return False, error_message, None
+            return False, error_message or "", None
 
         otp = OneTimePassword.create_for_user(
             user=user,

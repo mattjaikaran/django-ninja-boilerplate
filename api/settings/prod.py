@@ -73,7 +73,7 @@ DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="noreply@example.com")
 import os
 
 if os.path.exists("/app/logs"):
-    LOGGING["handlers"].update(
+    LOGGING["handlers"].update(  # type: ignore[attr-defined]
         {
             "file": {
                 "level": "INFO",
@@ -84,7 +84,7 @@ if os.path.exists("/app/logs"):
         }
     )
 
-    LOGGING["loggers"].update(
+    LOGGING["loggers"].update(  # type: ignore[attr-defined]
         {
             "django": {
                 "handlers": ["console", "file"],
@@ -105,7 +105,7 @@ if os.path.exists("/app/logs"):
     )
 else:
     # Non-Docker production environment - only console logging
-    LOGGING["loggers"].update(
+    LOGGING["loggers"].update(  # type: ignore[attr-defined]
         {
             "django": {
                 "handlers": ["console"],

@@ -6,6 +6,7 @@ to implement business logic for different models.
 
 from __future__ import annotations
 
+import builtins
 import logging
 from typing import Any, Generic, TypeVar
 from uuid import UUID
@@ -263,7 +264,7 @@ class CRUDService(BaseService[ModelT]):
                 id,
             )
         else:
-            instance.soft_delete(user=user)
+            instance.soft_delete(user=user)  # type: ignore[attr-defined]
             self.logger.info(
                 "Soft deleted %s with id %s",
                 self.model.__name__,
@@ -341,10 +342,10 @@ class CRUDService(BaseService[ModelT]):
 
     def bulk_create(
         self,
-        data_list: list[dict[str, Any]],
+        data_list: builtins.list[dict[str, Any]],
         user=None,
         batch_size: int = 100,
-    ) -> list[ModelT]:
+    ) -> builtins.list[ModelT]:
         """Bulk create multiple instances.
 
         Args:
@@ -371,8 +372,8 @@ class CRUDService(BaseService[ModelT]):
 
     def bulk_update(
         self,
-        instances: list[ModelT],
-        fields: list[str],
+        instances: builtins.list[ModelT],
+        fields: builtins.list[str],
         user=None,
         batch_size: int = 100,
     ) -> int:
@@ -406,7 +407,7 @@ class CRUDService(BaseService[ModelT]):
 
     def bulk_delete(
         self,
-        ids: list[str | UUID],
+        ids: builtins.list[str | UUID],
         user=None,
         hard_delete: bool = False,
     ) -> int:

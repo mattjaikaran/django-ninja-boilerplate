@@ -16,6 +16,7 @@ Usage:
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Any
 
 
@@ -191,7 +192,7 @@ def assert_list_response(
     response,
     min_items: int | None = None,
     max_items: int | None = None,
-    item_validator: callable | None = None,
+    item_validator: Callable | None = None,
 ) -> list[Any]:
     """Assert that the response is a list and optionally validate items.
 
@@ -235,7 +236,7 @@ def assert_paginated_response(
     page: int = 1,
     page_size: int | None = None,
     total_count: int | None = None,
-    item_validator: callable | None = None,
+    item_validator: Callable | None = None,
 ) -> dict[str, Any]:
     """Assert that the response is a paginated response.
 

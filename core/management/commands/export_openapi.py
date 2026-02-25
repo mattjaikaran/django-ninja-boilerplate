@@ -217,7 +217,7 @@ class Command(BaseCommand):
 
         if output_format in ("yaml", "both"):
             try:
-                import yaml as yaml_lib
+                import yaml as yaml_lib  # type: ignore[import-untyped]
 
                 with open(yaml_path, "w") as f:
                     yaml_lib.dump(

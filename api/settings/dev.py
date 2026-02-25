@@ -95,7 +95,7 @@ DEBUG_TOOLBAR_CONFIG = {
 }
 
 # Development-specific logging
-LOGGING["loggers"].update(
+LOGGING["loggers"].update(  # type: ignore[attr-defined]
     {
         "django": {
             "handlers": ["console"],
@@ -115,4 +115,4 @@ LOGGING["loggers"].update(
 RUNSERVER_PLUS_PRINT_SQL = True
 
 # Enable template debug mode for better error reporting
-TEMPLATES[0]["OPTIONS"]["debug"] = True
+TEMPLATES[0]["OPTIONS"]["debug"] = True  # type: ignore[index]

@@ -6,6 +6,7 @@ retry, and resolution.
 """
 
 import logging
+from typing import Any
 
 from django.db import transaction
 from django.utils import timezone
@@ -218,7 +219,7 @@ class DeadLetterQueue:
         """
         from core.tasks.models import DeadLetterQueueEntry
 
-        results = {
+        results: dict[str, Any] = {
             "attempted": 0,
             "succeeded": 0,
             "failed": 0,
@@ -312,7 +313,7 @@ class DeadLetterQueue:
         """
         from core.tasks.models import DeadLetterQueueEntry
 
-        results = {
+        results: dict[str, Any] = {
             "attempted": len(entry_ids),
             "succeeded": 0,
             "failed": 0,

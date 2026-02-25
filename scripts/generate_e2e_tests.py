@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import Any
 
 try:
-    import yaml
+    import yaml  # type: ignore[import-untyped]
 except ImportError:
     print("Error: PyYAML is required. Install with: uv add pyyaml")
     sys.exit(1)
@@ -479,7 +479,7 @@ class JourneyParser:
 
     def __init__(self, yaml_path: Path):
         self.yaml_path = yaml_path
-        self.journeys = []
+        self.journeys: list[dict[str, Any]] = []
 
     def parse(self) -> list[dict]:
         """Parse the YAML file and return list of journeys."""

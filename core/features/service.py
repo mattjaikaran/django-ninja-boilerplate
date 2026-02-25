@@ -313,11 +313,11 @@ class FeatureFlagService(CRUDService[FeatureFlag]):
             if flag.flag_type == FlagType.AB_TEST.value:
                 result[flag.name] = self.get_variant(flag.name, user)
             else:
-                result[flag.name] = self.is_enabled(
+                result[flag.name] = self.is_enabled(  # type: ignore[assignment]
                     flag.name, user, environment=environment
                 )
 
-        return result
+        return result  # type: ignore[return-value]
 
     def create_flag(
         self,

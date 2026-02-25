@@ -394,3 +394,12 @@ exclude_lines = [
     "if __name__ == .__main__.:",
     "if TYPE_CHECKING:",
 ]
+
+[tool.mypy]
+python_version = "3.13"
+ignore_missing_imports = true
+no_strict_optional = true
+exclude = [
+    "migrations/",
+    "cli/",
+]

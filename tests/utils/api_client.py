@@ -424,10 +424,10 @@ class AuthenticatedAPIClient(APITestClient):
         try:
             from ninja_jwt.tokens import RefreshToken
         except ImportError:
-            from django_ninja_jwt.tokens import RefreshToken
+            from django_ninja_jwt.tokens import RefreshToken  # type: ignore[no-redef]
 
         refresh = RefreshToken.for_user(user)
-        api_client.auth_token = str(refresh.access_token)
+        api_client.auth_token = str(refresh.access_token)  # type: ignore[attr-defined]
         api_client.refresh_token = str(refresh)
         api_client.user = user
 

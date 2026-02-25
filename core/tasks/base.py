@@ -41,7 +41,7 @@ class ProgressTask(Task):
     """
 
     # Default retry configuration
-    autoretry_for = (Exception,)
+    autoretry_for: tuple[type[Exception], ...] = (Exception,)
     retry_backoff = True
     retry_backoff_max = 600  # 10 minutes max backoff
     retry_jitter = True
@@ -268,7 +268,7 @@ class CriticalTask(ProgressTask):
     - Detailed logging
     """
 
-    autoretry_for = ()  # No automatic retries
+    autoretry_for: tuple[type[Exception], ...] = ()  # No automatic retries
     max_retries = 0
 
     def on_failure(

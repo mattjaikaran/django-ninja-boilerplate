@@ -73,7 +73,7 @@ class TodoSearchFilter(BaseSearchFilter):
 class AdvancedSearchEngine:
     """Advanced search engine with intelligent filtering and search capabilities."""
 
-    def __init__(self, model_class, search_fields: list[str] = None):
+    def __init__(self, model_class, search_fields: list[str] | None = None):
         """Initialize search engine for a model.
 
         Args:

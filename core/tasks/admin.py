@@ -82,12 +82,12 @@ class TaskResultAdmin(ModelAdmin):
         ),
     )
 
+    @admin.display(description="Task ID")
     def task_id_short(self, obj):
         """Display shortened task ID."""
         return obj.task_id[:8] + "..." if len(obj.task_id) > 8 else obj.task_id
 
-    task_id_short.short_description = "Task ID"
-
+    @admin.display(description="Status")
     def status_badge(self, obj):
         """Display status as a colored badge."""
         colors = {
@@ -107,8 +107,7 @@ class TaskResultAdmin(ModelAdmin):
             obj.get_status_display(),
         )
 
-    status_badge.short_description = "Status"
-
+    @admin.display(description="Progress")
     def progress_bar(self, obj):
         """Display progress as a progress bar."""
         color = "#28a745" if obj.progress == 100 else "#007bff"
@@ -123,8 +122,7 @@ class TaskResultAdmin(ModelAdmin):
             obj.progress,
         )
 
-    progress_bar.short_description = "Progress"
-
+    @admin.display(description="Duration")
     def duration_display(self, obj):
         """Display task duration."""
         if obj.duration:
@@ -136,8 +134,6 @@ class TaskResultAdmin(ModelAdmin):
             seconds = int(obj.duration % 60)
             return f"{minutes}m {seconds}s"
         return "-"
-
-    duration_display.short_description = "Duration"
 
     def has_add_permission(self, request):
         """Disable add permission - tasks are created by Celery."""
@@ -228,12 +224,12 @@ class DeadLetterQueueEntryAdmin(ModelAdmin):
 
     actions = ["mark_resolved", "retry_tasks"]
 
+    @admin.display(description="Task ID")
     def task_id_short(self, obj):
         """Display shortened task ID."""
         return obj.task_id[:8] + "..." if len(obj.task_id) > 8 else obj.task_id
 
-    task_id_short.short_description = "Task ID"
-
+    @admin.display(description="Priority")
     def priority_badge(self, obj):
         """Display priority as a colored badge."""
         colors = {
@@ -250,8 +246,7 @@ class DeadLetterQueueEntryAdmin(ModelAdmin):
             obj.get_priority_display(),
         )
 
-    priority_badge.short_description = "Priority"
-
+    @admin.display(description="Retry Status")
     def retry_status(self, obj):
         """Display retry status."""
         if obj.can_retry:
@@ -265,8 +260,6 @@ class DeadLetterQueueEntryAdmin(ModelAdmin):
             obj.retry_count,
             obj.max_retries,
         )
-
-    retry_status.short_description = "Retry Status"
 
     @admin.action(description="Mark selected entries as resolved")
     def mark_resolved(self, request, queryset):

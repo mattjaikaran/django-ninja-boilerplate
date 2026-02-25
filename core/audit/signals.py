@@ -89,9 +89,9 @@ def get_model_field_values(instance: models.Model) -> dict[str, Any]:
             value = getattr(instance, field_name, None)
 
             # Convert special types to serializable format
-            if hasattr(value, "pk"):
+            if value is not None and hasattr(value, "pk"):
                 value = str(value.pk)
-            elif hasattr(value, "isoformat"):
+            elif value is not None and hasattr(value, "isoformat"):
                 value = value.isoformat()
             elif isinstance(value, bytes):
                 value = "[binary data]"

@@ -1,5 +1,41 @@
 """Schema templates for code generation."""
 
+SCHEMA_TEMPLATE = '''"""{app_name} schemas."""
+
+from ninja import Schema
+from typing import Optional
+from datetime import datetime
+
+
+class {model_name}Schema(Schema):
+    """Schema for {model_name} responses."""
+
+    id: str
+    name: str
+    description: str
+    is_active: bool
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class Create{model_name}Schema(Schema):
+    """Schema for creating a {model_name}."""
+
+    name: str
+    description: str = ""
+
+
+class Update{model_name}Schema(Schema):
+    """Schema for updating a {model_name}."""
+
+    name: Optional[str] = None
+    description: Optional[str] = None
+    is_active: Optional[bool] = None
+'''
+
 RBAC_SCHEMAS_TEMPLATE = '''"""RBAC schemas."""
 
 from ninja import Schema
