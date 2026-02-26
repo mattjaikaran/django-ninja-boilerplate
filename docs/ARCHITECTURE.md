@@ -6,6 +6,7 @@ This document provides a comprehensive overview of the Django Ninja Boilerplate 
 
 - [System Overview](#system-overview)
 - [Application Architecture](#application-architecture)
+- [Progressive Controller Patterns](#progressive-controller-patterns)
 - [Docker Architecture](#docker-architecture)
 - [Database Schema](#database-schema)
 - [API Design](#api-design)
@@ -187,6 +188,158 @@ django-ninja-boilerplate/
 │  │  (ORM Entities) │  │ (Custom Queries)│  │  (Filtering)    │             │
 │  └─────────────────┘  └─────────────────┘  └─────────────────┘             │
 └─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Progressive Controller Patterns
+
+The `todos` app ships four controller variants that demonstrate a progression from maximum verbosity to full service-layer abstraction. All four expose the same CRUD surface — only the implementation style differs.
+
+### Pattern Summary
+
+| Pattern | File | Route Prefix | When to Use |
+|---------|------|-------------|-------------|
+| **1 — Declarative** | `todo_controller_declarative.py` | `/api/todos-declarative/` | Learning the framework; teams that want full visibility into every error path |
+| **2 — Basic** | `todo_controller_basic.py` | `/api/todos-basic/` | Small projects; developers who prefer minimal abstraction |
+| **3 — Partial** | `todo_controller_partial.py` | `/api/todos-partial/` | When reads are simple but writes need structured error handling and logging |
+| **4 — Full (service layer)** | `todo_controller.py` | `/api/todos/` | Production code; teams with multiple controllers sharing business logic |
+
+### Controller to Service Layer Relationship
+
+```
+HTTP Request
+     │
+     ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                     CONTROLLER LAYER                            │
+│                  (HTTP concerns only)                           │
+│                                                                 │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐         │
+│  │ Declarative  │  │    Basic     │  │   Partial    │         │
+│  │(try/except)  │  │(get_or_404) │  │ (selective   │         │
+│  │              │  │              │  │  decorators) │         │
+│  └──────────────┘  └──────────────┘  └──────────────┘         │
+│                                                                 │
+│  ┌──────────────────────────────────────────────────────────┐  │
+│  │  Full — @handle_exceptions + @log_api_call + service    │  │
+│  │         ↓ delegates all logic to TodoService            │  │
+│  └──────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                (Pattern 4 only — others hit DB directly)
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                      SERVICE LAYER                              │
+│               todos/services/todo_service.py                    │
+│                                                                 │
+│  TodoService                                                    │
+│  ├── list_todos(user, search, completed, priority, ordering)    │
+│  ├── get_todo(todo_id, user)          → Todo | Http404          │
+│  ├── create_todo(payload, user)       → Todo                    │
+│  ├── update_todo(todo_id, payload, user) → Todo | Http404       │
+│  ├── delete_todo(todo_id, user)       → None | Http404          │
+│  ├── list_completed_todos(user)       → QuerySet                │
+│  ├── list_pending_todos(user)         → QuerySet                │
+│  └── search_todos(user, q, priority, completed) → QuerySet      │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                       DATA LAYER                                │
+│               todos/models/todo.py (ORM)                        │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Pattern Comparison
+
+**Pattern 1 — Declarative** (`todo_controller_declarative.py`)
+
+Every method wraps its body in `try/except`. No decorator magic. Best for teams that want every error path explicit in the code rather than handled by a shared decorator.
+
+```python
+@http_post("/", response={201: TodoSchema, 400: dict, 500: dict})
+def create_todo(self, request, payload: CreateTodoSchema):
+    try:
+        todo_data = payload.model_dump()
+        todo_data["user"] = request.user
+        todo = Todo.objects.create(**todo_data)
+        return 201, todo
+    except Exception as exc:
+        logger.exception("Failed to create todo")
+        return 500, {"error": "Internal server error", "detail": str(exc)}
+```
+
+**Pattern 2 — Basic** (`todo_controller_basic.py`)
+
+Uses `get_object_or_404` for lookup safety. No custom decorators. Errors that aren't 404s propagate to Django Ninja's default exception handler. Best as a clean starting point.
+
+```python
+@http_post("/", response={201: TodoSchema})
+def create_todo(self, request, payload: CreateTodoSchema):
+    todo_data = payload.model_dump()
+    todo_data["user"] = request.user
+    todo = Todo.objects.create(**todo_data)
+    return 201, todo
+```
+
+**Pattern 3 — Partial** (`todo_controller_partial.py`)
+
+Reads are undecorated. Writes use `@handle_exceptions` and `@log_api_call`. Shows that you can mix and match rather than applying decorators uniformly.
+
+```python
+# Read — no decorators needed
+@http_get("/{todo_id}", response={200: TodoSchema, 404: dict})
+def get_todo(self, request, todo_id: str):
+    return get_object_or_404(Todo, id=todo_id, user=request.user)
+
+# Write — decorated for observability and error handling
+@http_post("/", response={201: TodoSchema, 400: dict, 500: dict})
+@log_api_call(include_payload=True, include_response=False)
+@handle_exceptions(return_500_on_error=True, log_errors=True)
+def create_todo(self, request, payload: CreateTodoSchema):
+    todo_data = payload.model_dump()
+    todo_data["user"] = request.user
+    return 201, Todo.objects.create(**todo_data)
+```
+
+**Pattern 4 — Full service layer** (`todo_controller.py`) — recommended for production
+
+Controller is a thin HTTP adapter. All business logic lives in `TodoService`, injected via `__init__`. Methods are one-liners. The service is trivially swappable in tests.
+
+```python
+class TodoController:
+    def __init__(self):
+        self.service = TodoService()
+
+    @http_post("/", response={201: TodoSchema, 400: dict, 500: dict})
+    @log_api_call(include_payload=True, include_response=False)
+    @handle_exceptions(return_500_on_error=True, log_errors=True)
+    @validate_request()
+    def create_todo(self, request, payload: CreateTodoSchema):
+        return 201, self.service.create_todo(payload, request.user)
+```
+
+### Decorator Stack (Patterns 3 and 4)
+
+```
+HTTP POST /todos/
+     │
+     ▼
+@log_api_call          — logs request start/end, payload, duration
+     │
+     ▼
+@handle_exceptions     — catches exceptions → structured 500 response
+     │
+     ▼
+@validate_request      — runs extra schema validation before handler
+     │
+     ▼
+def create_todo()      — thin handler, delegates to service
+     │
+     ▼
+TodoService.create_todo()  — business logic, ORM calls
 ```
 
 ---

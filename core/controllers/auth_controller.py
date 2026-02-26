@@ -37,7 +37,24 @@ logger = logging.getLogger(__name__)
 
 @api_controller("/auth", tags=["Auth"])
 class AuthController:
-    """Authentication controller for user auth operations."""
+    """HTTP controller for authentication and session management.
+
+    Handles user registration, email/password login, username/password login
+    (legacy), logout, current-user profile retrieval, auth-status checks, and
+    passwordless magic-link login.
+
+    Public endpoints (no JWT required):
+        POST /auth/signup                      — create a new account
+        POST /auth/login                       — email + password login
+        POST /auth/login/username              — username + password login (legacy)
+        POST /auth/passwordless/login/request  — request a magic link
+        POST /auth/passwordless/login/verify   — verify a magic link token
+
+    Protected endpoints (JWT required):
+        POST /auth/logout                      — client-side token discard
+        GET  /auth/me                          — current user profile
+        GET  /auth/status                      — authentication status check
+    """
 
     @http_post("/signup", response={201: UserSchema, 400: dict})
     @handle_exceptions()
@@ -46,8 +63,21 @@ class AuthController:
     def signup(self, request, payload: UserSignupSchema):
         """Create a new user account.
 
-        Creates a new user with the provided credentials and profile information.
-        Returns the created user data on success.
+        Validates that neither the username nor email is already taken,
+        runs Django's password validators, then creates the user. Rate
+        limited to 10 requests per minute per IP.
+
+        Args:
+            request: The HTTP request object.
+            payload: Validated signup data including username, email, and password.
+
+        Returns:
+            Tuple of (201, UserSchema) on success or (400, error_dict) on
+            duplicate username/email or invalid password.
+
+        Raises:
+            ValidationError: If username or email is already in use, or if
+                the password fails Django's password validators.
         """
         # Check if username exists
         if User.objects.filter(username=payload.username).exists():
@@ -83,10 +113,24 @@ class AuthController:
     @rate_limit(requests_per_minute=10)
     @log_api_call(include_payload=True)
     def login(self, request, payload: LoginSchema):
-        """Authenticate user with email and password.
+        """Authenticate a user with email and password.
 
-        Returns JWT access and refresh tokens along with user data.
-        This is the preferred login method using email.
+        Looks up the user by email, delegates to Django's ``authenticate``
+        (which verifies the password), checks the account is active, then
+        issues a JWT access/refresh token pair.
+
+        Args:
+            request: The HTTP request object.
+            payload: Validated login data with ``email`` and ``password`` fields.
+
+        Returns:
+            Tuple of (200, token_dict) containing ``token``, ``refresh``, and
+            ``user`` keys on success, or (400, error_dict) on invalid
+            credentials or inactive account.
+
+        Raises:
+            ValidationError: If credentials are invalid or the account is
+                disabled.
         """
         # Try to authenticate with email
         try:
@@ -122,10 +166,24 @@ class AuthController:
     @rate_limit(requests_per_minute=10)
     @log_api_call(include_payload=True)
     def login_username(self, request, payload: UserLoginSchema):
-        """Authenticate user with username and password (legacy).
+        """Authenticate a user with username and password (legacy).
 
-        Returns JWT access and refresh tokens along with user data.
-        Use /login endpoint with email for new implementations.
+        Provided for backwards compatibility with clients that send a username
+        instead of an email address. New implementations should use the
+        ``/auth/login`` endpoint with email.
+
+        Args:
+            request: The HTTP request object.
+            payload: Validated login data with ``username`` and ``password`` fields.
+
+        Returns:
+            Tuple of (200, token_dict) containing ``token``, ``refresh``, and
+            ``user`` keys on success, or (400, error_dict) on invalid
+            credentials or inactive account.
+
+        Raises:
+            ValidationError: If credentials are invalid or the account is
+                disabled.
         """
         user = authenticate(username=payload.username, password=payload.password)
 
@@ -153,10 +211,19 @@ class AuthController:
     @handle_exceptions()
     @log_api_call()
     def logout(self, request):
-        """Logout the current user.
+        """Log out the current user.
 
-        Note: For stateless JWT, client should discard tokens.
-        This endpoint can be used to blacklist refresh tokens if needed.
+        For stateless JWT authentication the server cannot invalidate tokens
+        directly. The client is responsible for discarding its stored tokens.
+        This endpoint can be extended to blacklist the refresh token if a
+        token-blacklist backend (e.g. django-ninja-jwt's built-in blacklist) is
+        configured.
+
+        Args:
+            request: The HTTP request object.
+
+        Returns:
+            Tuple of (200, MessageResponse) confirming the logout.
         """
         return 200, {"message": "Successfully logged out", "success": True}
 
@@ -164,7 +231,15 @@ class AuthController:
     @handle_exceptions()
     @log_api_call()
     def get_current_user(self, request):
-        """Get the currently authenticated user's profile."""
+        """Retrieve the currently authenticated user's profile.
+
+        Args:
+            request: The HTTP request object containing the JWT-authenticated user.
+
+        Returns:
+            Tuple of (200, UserSchema) on success or (401, error_dict) if the
+            request is not authenticated.
+        """
         if not request.user or not request.user.is_authenticated:
             return 401, {"error": "Not authenticated"}
         return 200, UserSchema.from_orm(request.user)
@@ -172,7 +247,18 @@ class AuthController:
     @http_get("/status", response={200: AuthStatusSchema})
     @handle_exceptions()
     def get_auth_status(self, request):
-        """Check authentication status."""
+        """Check whether the current request is authenticated.
+
+        Always returns HTTP 200. The ``authenticated`` flag in the response
+        body indicates the actual state. Safe to call without a token.
+
+        Args:
+            request: The HTTP request object.
+
+        Returns:
+            Tuple of (200, AuthStatusSchema) with ``authenticated``,
+            ``user_id``, and ``email`` fields.
+        """
         if request.user and request.user.is_authenticated:
             return 200, {
                 "authenticated": True,

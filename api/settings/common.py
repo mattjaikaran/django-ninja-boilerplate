@@ -374,25 +374,30 @@ X_FRAME_OPTIONS = "DENY"
 # CSRF_COOKIE_SECURE = True
 
 # =============================================================================
-# Email Configuration (Resend via Anymail)
+# Email Configuration
 # =============================================================================
-# Default to Resend for production email delivery.
-# Set RESEND_API_KEY in your environment to enable.
-# Falls back to console backend when RESEND_API_KEY is not set.
+# Three backend options (set EMAIL_BACKEND in your .env):
+#   1. Console (default/dev):
+#      django.core.mail.backends.console.EmailBackend
+#   2. Native Resend SDK backend (this package):
+#      core.services.email.backends.ResendEmailBackend
+#   3. Resend via django-anymail (alternative):
+#      anymail.backends.resend.EmailBackend
+#
+# Docs: https://resend.com/docs/send-with-python
+EMAIL_BACKEND = env(
+    "EMAIL_BACKEND",
+    default="django.core.mail.backends.console.EmailBackend",
+)
 RESEND_API_KEY = env("RESEND_API_KEY", default="")
+DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="noreply@example.com")
 
+# Anymail integration (used when EMAIL_BACKEND = anymail.backends.resend.EmailBackend)
 if RESEND_API_KEY:
-    EMAIL_BACKEND = env("EMAIL_BACKEND", default="anymail.backends.resend.EmailBackend")
     ANYMAIL = {
         "RESEND_API_KEY": RESEND_API_KEY,
     }
-else:
-    EMAIL_BACKEND = env(
-        "EMAIL_BACKEND",
-        default="django.core.mail.backends.console.EmailBackend",
-    )
 
-DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="noreply@example.com")
 # Legacy SMTP settings (used if EMAIL_BACKEND is overridden to SMTP)
 EMAIL_HOST = env("EMAIL_HOST", default="")
 EMAIL_PORT = env.int("EMAIL_PORT", default=587)

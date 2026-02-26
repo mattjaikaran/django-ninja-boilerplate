@@ -1,3 +1,4 @@
+# file-length-max: 1100
 """Main CLI application using Typer."""
 
 import os
@@ -16,7 +17,7 @@ from django_ninja_matt import __version__
 from django_ninja_matt.commands.doctor import run_doctor
 from django_ninja_matt.commands.init import run_init
 from django_ninja_matt.commands.setup import run_setup
-from django_ninja_matt.config import DeploymentTarget, ProjectType
+from django_ninja_matt.config import DeploymentTarget, EmailBackend, ProjectType
 from django_ninja_matt.utils.console import (
     print_error,
     print_info,
@@ -27,7 +28,11 @@ from django_ninja_matt.utils.console import (
 # Create Typer app
 app = typer.Typer(
     name="django-ninja-matt",
-    help="CLI tool for scaffolding Django Ninja Boilerplate projects",
+    help=(
+        "Scaffold and manage Django Ninja Boilerplate projects. "
+        "Run [bold]dnm init <name>[/bold] to create a new project, "
+        "or [bold]dnm --help[/bold] on any sub-command for details."
+    ),
     add_completion=False,
     no_args_is_help=True,
     rich_markup_mode="rich",
@@ -62,13 +67,20 @@ def main(
         typer.Option(
             "--version",
             "-v",
-            help="Show version and exit",
+            help=(
+                "Print the current version of django-ninja-matt together with the "
+                "active Python and Django versions, then exit."
+            ),
             callback=version_callback,
             is_eager=True,
         ),
     ] = None,
 ) -> None:
-    """Django Ninja Matt - Modern Django API scaffolding."""
+    """Django Ninja Matt — scaffold and manage Django Ninja Boilerplate projects.
+
+    Run [bold]dnm init <project-name>[/bold] to create a new project, or pass
+    [bold]--help[/bold] to any sub-command for detailed usage information.
+    """
     pass
 
 
@@ -76,14 +88,22 @@ def main(
 def init(
     name: Annotated[
         str,
-        typer.Argument(help="Project name (will be created as directory)"),
+        typer.Argument(
+            help=(
+                "Name of the new project. Used as the directory name and Python "
+                "package identifier (spaces and underscores are normalised to hyphens)."
+            )
+        ),
     ],
     path: Annotated[
         Path | None,
         typer.Option(
             "--path",
             "-p",
-            help="Parent directory for the project",
+            help=(
+                "Parent directory in which to create the project folder. "
+                "Defaults to the current working directory."
+            ),
         ),
     ] = None,
     project_type: Annotated[
@@ -91,7 +111,11 @@ def init(
         typer.Option(
             "--type",
             "-t",
-            help="Project type",
+            help=(
+                "Project layout to generate. "
+                "'standalone' creates a Django API only; "
+                "'monorepo' adds a React Vite frontend alongside the backend."
+            ),
             case_sensitive=False,
         ),
     ] = None,
@@ -100,7 +124,11 @@ def init(
         typer.Option(
             "--deployment",
             "-d",
-            help="Deployment target",
+            help=(
+                "Primary deployment target. Generates the matching configuration "
+                "files (e.g. railway.toml, render.yaml, Helm charts). "
+                "Choices: docker (default), railway, render, kubernetes."
+            ),
             case_sensitive=False,
         ),
     ] = None,
@@ -108,21 +136,30 @@ def init(
         bool,
         typer.Option(
             "--no-celery",
-            help="Skip Celery setup",
+            help=(
+                "Omit Celery and django-celery-beat from the generated project. "
+                "Useful for lightweight APIs that do not require background tasks."
+            ),
         ),
     ] = False,
     no_redis: Annotated[
         bool,
         typer.Option(
             "--no-redis",
-            help="Skip Redis setup",
+            help=(
+                "Omit Redis from the generated project. "
+                "Ignored when Celery is included (Redis is required as the broker)."
+            ),
         ),
     ] = False,
     no_git: Annotated[
         bool,
         typer.Option(
             "--no-git",
-            help="Skip Git initialization",
+            help=(
+                "Skip initialising a git repository inside the new project. "
+                "Useful when you plan to add the project to an existing repo."
+            ),
         ),
     ] = False,
     yes: Annotated[
@@ -130,16 +167,51 @@ def init(
         typer.Option(
             "--yes",
             "-y",
-            help="Skip confirmation prompts",
+            help=(
+                "Accept all defaults and skip interactive confirmation prompts. "
+                "Suitable for scripted or CI environments."
+            ),
         ),
     ] = False,
+    docstrings: Annotated[
+        bool,
+        typer.Option(
+            "--docstrings",
+            help=(
+                "Generate Google-style docstrings on all public classes and methods "
+                "in controllers, service classes, and schema classes. "
+                "Off by default; opt in when you want self-documenting generated code."
+            ),
+        ),
+    ] = False,
+    email_backend: Annotated[
+        EmailBackend,
+        typer.Option(
+            "--email-backend",
+            help=(
+                "Email delivery backend to configure in the generated .env. "
+                "'console' (default) logs emails to stdout for local development; "
+                "'resend' uses the Resend API via django-anymail; "
+                "'smtp' configures a standard SMTP server."
+            ),
+            case_sensitive=False,
+        ),
+    ] = EmailBackend.CONSOLE,
 ) -> None:
     """Create a new Django Ninja Boilerplate project.
 
+    Clones the boilerplate repository, customises it with your project name and
+    selected options, then optionally initialises a fresh git repository.
+
     Examples:
-        django-ninja-matt init my-app
-        dnm init my-app --type standalone
-        dnm init my-app --type monorepo --deployment railway
+
+        dnm init my-api
+
+        dnm init my-api --type standalone --deployment railway
+
+        dnm init my-api --type monorepo --no-celery --yes
+
+        dnm init my-api --docstrings --email-backend resend
     """
     run_init(
         name=name,
@@ -150,15 +222,28 @@ def init(
         use_redis=not no_redis,
         init_git=not no_git,
         skip_prompts=yes,
+        include_docstrings=docstrings,
+        email_backend=email_backend,
     )
 
 
 @app.command()
 def doctor() -> None:
-    """Validate your development environment.
+    """Validate your development environment before starting a project.
 
-    Checks for required tools (Python, Docker, etc.), port availability,
-    and project configuration.
+    Runs a suite of checks and reports pass / warn / fail for each:
+
+    \b
+    System tools : Python 3.13+, uv, Docker, Docker Compose, Make, Git
+    Services     : PostgreSQL (port 5432), Redis (port 6379)
+    Ports        : Django (8000), Celery Flower (5555)
+    Project files: .env, docker-compose.yml
+
+    Exit code is 0 when all required checks pass, 1 if any required check fails.
+
+    Examples:
+
+        dnm doctor
     """
     run_doctor()
 
@@ -170,28 +255,54 @@ def setup(
         typer.Option(
             "--auto",
             "-a",
-            help="Run in auto mode (no prompts)",
+            help=(
+                "Run in fully automatic mode — no interactive prompts. "
+                "All steps use their default values. Suitable for CI pipelines."
+            ),
         ),
     ] = False,
     skip_docker: Annotated[
         bool,
         typer.Option(
             "--skip-docker",
-            help="Skip Docker build and start",
+            help=(
+                "Skip the 'docker compose build' and 'docker compose up' steps. "
+                "Use this when Docker services are already running."
+            ),
         ),
     ] = False,
     skip_seed: Annotated[
         bool,
         typer.Option(
             "--skip-seed",
-            help="Skip seeding sample data",
+            help=(
+                "Skip loading sample / seed data into the database after migrations. "
+                "Useful for fresh production-like environments."
+            ),
         ),
     ] = False,
 ) -> None:
-    """Bootstrap the development environment.
+    """Bootstrap the development environment from scratch.
 
-    Runs the project setup script to build Docker images, run migrations,
-    and seed initial data.
+    Delegates to [bold]scripts/setup.sh[/bold] and runs the following steps
+    in order (unless skipped):
+
+    \b
+    1. Build Docker images
+    2. Start Docker services (db, redis, etc.)
+    3. Apply database migrations
+    4. Seed initial / sample data
+
+    Must be run from the project root directory where [bold]scripts/setup.sh[/bold]
+    is located.
+
+    Examples:
+
+        dnm setup
+
+        dnm setup --auto
+
+        dnm setup --skip-docker --skip-seed
     """
     run_setup(auto=auto, skip_docker=skip_docker, skip_seed=skip_seed)
 
@@ -212,7 +323,7 @@ def test(
         typer.Option(
             "--verbose",
             "-v",
-            help="Run tests in verbose mode",
+            help="Pass -v to pytest for per-test result lines instead of dots.",
         ),
     ] = False,
     coverage: Annotated[
@@ -220,21 +331,36 @@ def test(
         typer.Option(
             "--coverage",
             "-c",
-            help="Run tests with coverage report",
+            help=(
+                "Collect coverage data and print a term-missing report. "
+                "Equivalent to: pytest --cov=. --cov-report=term-missing"
+            ),
         ),
     ] = False,
     path: Annotated[
         str | None,
-        typer.Argument(help="Specific test path or file to run"),
+        typer.Argument(
+            help=(
+                "Optional path to a specific test file, directory, or "
+                "pytest node ID (e.g. core/tests/test_auth.py::TestLogin)."
+            )
+        ),
     ] = None,
 ) -> None:
-    """Run pytest with common options.
+    """Run the test suite with pytest.
+
+    Uses [bold]api.settings.test[/bold] as the Django settings module so that
+    SQLite is used locally and no real services are required.
 
     Examples:
+
         dnm test
+
         dnm test -v
+
         dnm test --coverage
-        dnm test apps/users/tests.py
+
+        dnm test core/tests/test_auth.py
     """
     print_step("Running tests...")
 
@@ -274,22 +400,34 @@ def lint(
         typer.Option(
             "--fix",
             "-f",
-            help="Automatically fix issues where possible",
+            help=(
+                "Pass --fix to ruff so that auto-fixable lint violations are "
+                "corrected in-place before reporting remaining issues."
+            ),
         ),
     ] = False,
     check_only: Annotated[
         bool,
         typer.Option(
             "--check",
-            help="Only check, don't format (useful for CI)",
+            help=(
+                "Run ruff format in check-only mode (exits non-zero if any file "
+                "would be reformatted). No files are modified. Useful in CI."
+            ),
         ),
     ] = False,
 ) -> None:
-    """Run ruff check and format.
+    """Lint and format the codebase with ruff.
+
+    Runs [bold]ruff check[/bold] followed by [bold]ruff format[/bold]. Both tools
+    must be installed (they are listed under [dev] extras in pyproject.toml).
 
     Examples:
+
         dnm lint
+
         dnm lint --fix
+
         dnm lint --check
     """
     print_step("Running linter...")
@@ -333,24 +471,38 @@ def lint(
 def migrate(
     app_label: Annotated[
         str | None,
-        typer.Argument(help="App label to migrate (optional)"),
+        typer.Argument(
+            help=(
+                "Optional Django app label to scope the migration command. "
+                "When omitted all apps are migrated."
+            )
+        ),
     ] = None,
     make: Annotated[
         bool,
         typer.Option(
             "--make",
             "-m",
-            help="Create new migrations (makemigrations)",
+            help=(
+                "Run 'makemigrations' before applying migrations. "
+                "Creates new migration files for any detected model changes."
+            ),
         ),
     ] = False,
 ) -> None:
-    """Run Django migrations.
+    """Apply Django database migrations (optionally creating them first).
+
+    Must be run from the project root directory where [bold]manage.py[/bold] lives.
 
     Examples:
+
         dnm migrate
+
         dnm migrate --make
-        dnm migrate users
-        dnm migrate users --make
+
+        dnm migrate core
+
+        dnm migrate core --make
     """
     if make:
         print_step("Creating migrations...")
@@ -395,14 +547,21 @@ def shell(
         typer.Option(
             "--plus",
             "-p",
-            help="Use shell_plus (requires django-extensions)",
+            help=(
+                "Open shell_plus (from django-extensions) instead of the standard "
+                "Django shell. Provides IPython, auto-imported models, and more."
+            ),
         ),
     ] = False,
 ) -> None:
-    """Open Django shell.
+    """Open an interactive Django shell.
+
+    Must be run from the project root directory where [bold]manage.py[/bold] lives.
 
     Examples:
+
         dnm shell
+
         dnm shell --plus
     """
     if plus:
@@ -429,14 +588,19 @@ def shell(
 def logs(
     service: Annotated[
         str | None,
-        typer.Argument(help="Service name to view logs for (e.g., web, db, redis)"),
+        typer.Argument(
+            help=(
+                "Name of a specific Docker Compose service whose logs you want "
+                "(e.g. web, db, redis, celery). Omit to see all services."
+            )
+        ),
     ] = None,
     follow: Annotated[
         bool,
         typer.Option(
             "--follow",
             "-f",
-            help="Follow log output",
+            help="Stream logs in real time (equivalent to docker compose logs -f).",
         ),
     ] = False,
     tail: Annotated[
@@ -444,16 +608,23 @@ def logs(
         typer.Option(
             "--tail",
             "-n",
-            help="Number of lines to show from the end",
+            help="Number of log lines to show from the end of each service's output.",
         ),
     ] = 100,
 ) -> None:
-    """View Docker logs.
+    """Stream or display Docker Compose service logs.
+
+    Wraps [bold]docker compose logs[/bold]. Docker must be installed and the
+    Compose services must be running (or have been run previously).
 
     Examples:
+
         dnm logs
+
         dnm logs web
+
         dnm logs web -f
+
         dnm logs --tail 50
     """
     print_step("Fetching Docker logs...")
@@ -485,36 +656,69 @@ def logs(
 def add_app(
     name: Annotated[
         str,
-        typer.Argument(help="App name (e.g., 'products', 'orders')"),
+        typer.Argument(
+            help=(
+                "Name of the new Django app (e.g. 'products', 'orders'). "
+                "Used as the directory name, URL prefix, and Python module name."
+            )
+        ),
     ],
     path: Annotated[
         Path | None,
         typer.Option(
             "--path",
             "-p",
-            help="Parent directory for the app (default: project root)",
+            help=(
+                "Parent directory in which to create the app folder. "
+                "Defaults to the current working directory (project root)."
+            ),
         ),
     ] = None,
+    docstrings: Annotated[
+        bool,
+        typer.Option(
+            "--docstrings",
+            help=(
+                "Add Google-style docstrings to all generated public classes and "
+                "methods (controller actions, service methods, schema classes). "
+                "Off by default; opt in for self-documenting generated code."
+            ),
+        ),
+    ] = False,
 ) -> None:
-    """Scaffold a new Django app with controller, schemas, services, and tests.
+    """Scaffold a new Django app following the boilerplate conventions.
 
-    Generates the standard project structure:
-        <app>/
+    Generates the full standard directory structure with stub files for every
+    layer, ready to extend:
+
+    \b
+    <app>/
+    ├── __init__.py
+    ├── apps.py
+    ├── admin.py
+    ├── models/
+    │   ├── __init__.py
+    │   └── <singular>.py      (BaseModel subclass)
+    ├── controllers/
+    │   └── __init__.py        (api_controller with CRUD endpoints)
+    ├── schemas/
+    │   └── __init__.py        (Schema + CreateSchema)
+    ├── services/
+    │   └── __init__.py
+    └── tests/
         ├── __init__.py
-        ├── models/
-        │   └── __init__.py
-        ├── controllers/
-        │   └── __init__.py
-        ├── schemas/
-        │   └── __init__.py
-        ├── services/
-        │   └── __init__.py
-        └── tests/
-            └── __init__.py
+        └── test_<singular>.py
+
+    After scaffolding, add the app to INSTALLED_APPS and register the controller
+    in [bold]api/urls.py[/bold], then run [bold]dnm migrate --make[/bold].
 
     Examples:
+
         dnm add-app products
+
         dnm add-app orders --path apps/
+
+        dnm add-app products --docstrings
     """
     app_dir = (path or Path.cwd()) / name
 
@@ -551,71 +755,197 @@ def add_app(
         f'        verbose_name_plural = "{model_name}s"\n'
         '        ordering = ["-created_at"]\n\n'
         "    def __str__(self) -> str:\n"
-        "        return self.name\n"
+        + (
+            '        """Return a human-readable string representation."""\n'
+            if docstrings
+            else ""
+        )
+        + "        return self.name\n"
     )
+
+    # Build controller content — optionally with Google-style docstrings
+    singular = name.rstrip("s")
+    if docstrings:
+        controller_content = (
+            f'"""API controllers for {name} app."""\n\n'
+            "from ninja_extra import api_controller, http_delete, http_get, http_post, http_put\n\n"
+            f"from {name}.models import {model_name}\n"
+            f"from {name}.schemas import {model_name}Schema, Create{model_name}Schema\n\n\n"
+            f'@api_controller("/{name}", tags=["{name.capitalize()}"])\n'
+            f"class {model_name}Controller:\n"
+            f'    """Controller exposing CRUD endpoints for {model_name} resources."""\n\n'
+            f'    @http_get("/", response={{200: list[{model_name}Schema]}})\n'
+            f"    def list_{name}(self, request):\n"
+            f'        """Return a list of all {name}.\n\n'
+            f"        Returns:\n"
+            f"            HTTP 200 with a list of {model_name}Schema objects.\n"
+            f'        """\n'
+            f"        return 200, {model_name}.objects.all()\n\n"
+            f'    @http_post("/", response={{201: {model_name}Schema}})\n'
+            f"    def create_{singular}(self, request, payload: Create{model_name}Schema):\n"
+            f'        """Create a new {model_name}.\n\n'
+            f"        Args:\n"
+            f"            payload: Validated fields for the new {model_name}.\n\n"
+            f"        Returns:\n"
+            f"            HTTP 201 with the created {model_name}Schema.\n"
+            f'        """\n'
+            f"        obj = {model_name}.objects.create(**payload.dict())\n"
+            f"        return 201, obj\n\n"
+            f'    @http_get("/{{id}}", response={{200: {model_name}Schema}})\n'
+            f"    def get_{singular}(self, request, id: str):\n"
+            f'        """Retrieve a single {model_name} by ID.\n\n'
+            f"        Args:\n"
+            f"            id: UUID primary key of the {model_name}.\n\n"
+            f"        Returns:\n"
+            f"            HTTP 200 with the matching {model_name}Schema.\n"
+            f'        """\n'
+            f"        return 200, {model_name}.objects.get(id=id)\n\n"
+            f'    @http_put("/{{id}}", response={{200: {model_name}Schema}})\n'
+            f"    def update_{singular}(self, request, id: str, payload: Create{model_name}Schema):\n"
+            f'        """Update an existing {model_name}.\n\n'
+            f"        Args:\n"
+            f"            id: UUID primary key of the {model_name} to update.\n"
+            f"            payload: Updated field values.\n\n"
+            f"        Returns:\n"
+            f"            HTTP 200 with the updated {model_name}Schema.\n"
+            f'        """\n'
+            f"        obj = {model_name}.objects.get(id=id)\n"
+            f"        for attr, value in payload.dict().items():\n"
+            f"            setattr(obj, attr, value)\n"
+            f"        obj.save()\n"
+            f"        return 200, obj\n\n"
+            f'    @http_delete("/{{id}}", response={{204: None}})\n'
+            f"    def delete_{singular}(self, request, id: str):\n"
+            f'        """Delete a {model_name} by ID.\n\n'
+            f"        Args:\n"
+            f"            id: UUID primary key of the {model_name} to delete.\n\n"
+            f"        Returns:\n"
+            f"            HTTP 204 with no content.\n"
+            f'        """\n'
+            f"        {model_name}.objects.filter(id=id).delete()\n"
+            f"        return 204, None\n"
+        )
+    else:
+        controller_content = (
+            f'"""API controllers for {name} app."""\n\n'
+            "from ninja_extra import api_controller, http_delete, http_get, http_post, http_put\n\n"
+            f"from {name}.models import {model_name}\n"
+            f"from {name}.schemas import {model_name}Schema, Create{model_name}Schema\n\n\n"
+            f'@api_controller("/{name}", tags=["{name.capitalize()}"])\n'
+            f"class {model_name}Controller:\n"
+            f'    @http_get("/", response={{200: list[{model_name}Schema]}})\n'
+            f"    def list_{name}(self, request):\n"
+            f"        return 200, {model_name}.objects.all()\n\n"
+            f'    @http_post("/", response={{201: {model_name}Schema}})\n'
+            f"    def create_{singular}(self, request, payload: Create{model_name}Schema):\n"
+            f"        obj = {model_name}.objects.create(**payload.dict())\n"
+            f"        return 201, obj\n\n"
+            f'    @http_get("/{{id}}", response={{200: {model_name}Schema}})\n'
+            f"    def get_{singular}(self, request, id: str):\n"
+            f"        return 200, {model_name}.objects.get(id=id)\n\n"
+            f'    @http_put("/{{id}}", response={{200: {model_name}Schema}})\n'
+            f"    def update_{singular}(self, request, id: str, payload: Create{model_name}Schema):\n"
+            f"        obj = {model_name}.objects.get(id=id)\n"
+            f"        for attr, value in payload.dict().items():\n"
+            f"            setattr(obj, attr, value)\n"
+            f"        obj.save()\n"
+            f"        return 200, obj\n\n"
+            f'    @http_delete("/{{id}}", response={{204: None}})\n'
+            f"    def delete_{singular}(self, request, id: str):\n"
+            f"        {model_name}.objects.filter(id=id).delete()\n"
+            f"        return 204, None\n"
+        )
 
     # controllers/__init__.py
-    (app_dir / "controllers" / "__init__.py").write_text(
-        f'"""API controllers for {name} app."""\n\n'
-        f"from ninja_extra import api_controller, http_delete, http_get, http_post, http_put\n\n"
-        f"from {name}.models import {model_name}\n"
-        f"from {name}.schemas import {model_name}Schema, Create{model_name}Schema\n\n\n"
-        f'@api_controller("/{name}", tags=["{name.capitalize()}"])\n'
-        f"class {model_name}Controller:\n"
-        f'    @http_get("/", response={{200: list[{model_name}Schema]}})\n'
-        f"    def list_{name}(self, request):\n"
-        f"        return 200, {model_name}.objects.all()\n\n"
-        f'    @http_post("/", response={{201: {model_name}Schema}})\n'
-        f"    def create_{name.rstrip('s')}(self, request, payload: Create{model_name}Schema):\n"
-        f"        obj = {model_name}.objects.create(**payload.dict())\n"
-        f"        return 201, obj\n\n"
-        f'    @http_get("/{{id}}", response={{200: {model_name}Schema}})\n'
-        f"    def get_{name.rstrip('s')}(self, request, id: str):\n"
-        f"        return 200, {model_name}.objects.get(id=id)\n\n"
-        f'    @http_put("/{{id}}", response={{200: {model_name}Schema}})\n'
-        f"    def update_{name.rstrip('s')}(self, request, id: str, payload: Create{model_name}Schema):\n"
-        f"        obj = {model_name}.objects.get(id=id)\n"
-        f"        for attr, value in payload.dict().items():\n"
-        f"            setattr(obj, attr, value)\n"
-        f"        obj.save()\n"
-        f"        return 200, obj\n\n"
-        f'    @http_delete("/{{id}}", response={{204: None}})\n'
-        f"    def delete_{name.rstrip('s')}(self, request, id: str):\n"
-        f"        {model_name}.objects.filter(id=id).delete()\n"
-        f"        return 204, None\n"
-    )
+    (app_dir / "controllers" / "__init__.py").write_text(controller_content)
 
-    # schemas/__init__.py
-    (app_dir / "schemas" / "__init__.py").write_text(
-        f'"""Pydantic schemas for {name} app."""\n\n'
-        "from ninja import Schema\n\n\n"
-        f"class {model_name}Schema(Schema):\n"
-        "    id: str\n"
-        "    name: str\n"
-        "    description: str\n\n"
-        "    class Config:\n"
-        "        from_attributes = True\n\n\n"
-        f"class Create{model_name}Schema(Schema):\n"
-        "    name: str\n"
-        '    description: str = ""\n'
-    )
+    # schemas/__init__.py — optionally with class-level docstrings
+    if docstrings:
+        schema_content = (
+            f'"""Pydantic schemas for {name} app."""\n\n'
+            "from ninja import Schema\n\n\n"
+            f"class {model_name}Schema(Schema):\n"
+            f'    """Read schema for {model_name} resources.\n\n'
+            "    Attributes:\n"
+            "        id: UUID primary key.\n"
+            "        name: Display name.\n"
+            "        description: Optional longer description.\n"
+            '    """\n\n'
+            "    id: str\n"
+            "    name: str\n"
+            "    description: str\n\n"
+            "    class Config:\n"
+            '        """Pydantic config — enable ORM mode."""\n\n'
+            "        from_attributes = True\n\n\n"
+            f"class Create{model_name}Schema(Schema):\n"
+            f'    """Write schema used when creating or updating a {model_name}.\n\n'
+            "    Attributes:\n"
+            "        name: Display name (required).\n"
+            "        description: Optional longer description.\n"
+            '    """\n\n'
+            "    name: str\n"
+            '    description: str = ""\n'
+        )
+    else:
+        schema_content = (
+            f'"""Pydantic schemas for {name} app."""\n\n'
+            "from ninja import Schema\n\n\n"
+            f"class {model_name}Schema(Schema):\n"
+            "    id: str\n"
+            "    name: str\n"
+            "    description: str\n\n"
+            "    class Config:\n"
+            "        from_attributes = True\n\n\n"
+            f"class Create{model_name}Schema(Schema):\n"
+            "    name: str\n"
+            '    description: str = ""\n'
+        )
 
-    # services/__init__.py
-    (app_dir / "services" / "__init__.py").write_text(
-        f'"""Business logic services for {name} app."""\n'
-    )
+    (app_dir / "schemas" / "__init__.py").write_text(schema_content)
+
+    # services/__init__.py — optionally with a service class stub
+    if docstrings:
+        service_content = (
+            f'"""Business logic services for {name} app."""\n\n'
+            f"from {name}.models import {model_name}\n\n\n"
+            f"class {model_name}Service:\n"
+            f'    """Service layer encapsulating business logic for {model_name} resources.\n\n'
+            "    Keep all non-trivial query logic and side-effects here so that\n"
+            "    controllers remain thin and easy to test.\n"
+            '    """\n\n'
+            f"    def get_all(self) -> list[{model_name}]:\n"
+            f'        """Return all {name} ordered by the model default.\n\n'
+            "        Returns:\n"
+            f"            A QuerySet of all {model_name} instances.\n"
+            '        """\n'
+            f"        return list({model_name}.objects.all())\n"
+        )
+    else:
+        service_content = f'"""Business logic services for {name} app."""\n'
+
+    (app_dir / "services" / "__init__.py").write_text(service_content)
 
     # tests/__init__.py
     (app_dir / "tests" / "__init__.py").write_text(f'"""Tests for {name} app."""\n')
-    (app_dir / "tests" / f"test_{name.rstrip('s')}.py").write_text(
+    (app_dir / "tests" / f"test_{singular}.py").write_text(
         f'"""Tests for {model_name} endpoints."""\n\n'
         "import pytest\n"
         "from django.test import Client\n\n\n"
         "pytestmark = pytest.mark.django_db\n\n\n"
         f"class Test{model_name}Endpoints:\n"
-        f"    def test_list_{name}(self, client: Client):\n"
-        f'        response = client.get("/api/{name}/")\n'
-        f"        assert response.status_code == 200\n"
+        + (
+            f'    """Integration tests for the {model_name} API controller."""\n\n'
+            if docstrings
+            else ""
+        )
+        + f"    def test_list_{name}(self, client: Client):\n"
+        + (
+            f'        """GET /api/{name}/ should return HTTP 200 with a list."""\n'
+            if docstrings
+            else ""
+        )
+        + f'        response = client.get("/api/{name}/")\n'
+        + "        assert response.status_code == 200\n"
     )
 
     # apps.py
@@ -632,8 +962,9 @@ def add_app(
         f"from {name}.models import {model_name}\n\n\n"
         f"@admin.register({model_name})\n"
         f"class {model_name}Admin(admin.ModelAdmin):\n"
-        f'    list_display = ["id", "name", "created_at"]\n'
-        f'    search_fields = ["name"]\n'
+        + (f'    """Admin configuration for {model_name}."""\n\n' if docstrings else "")
+        + '    list_display = ["id", "name", "created_at"]\n'
+        + '    search_fields = ["name"]\n'
     )
 
     print_success(f"App '{name}' scaffolded at {app_dir}")

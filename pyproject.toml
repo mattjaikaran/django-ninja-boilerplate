@@ -92,6 +92,7 @@ dependencies = [
     "typing-extensions>=4.8.0",
     "sqlparse>=0.5.3",
     "psutil>=7.2.1",
+    "resend>=2.23.0",
 ]
 
 [project.optional-dependencies]
@@ -369,6 +370,7 @@ markers = [
     "unit: marks tests as unit tests",
     "contract: marks tests as API contract tests",
     "e2e: marks tests as end-to-end tests",
+    "smoke: marks tests as smoke tests (basic API liveness checks)",
 ]
 
 [tool.coverage.run]

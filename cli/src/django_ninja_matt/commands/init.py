@@ -8,6 +8,7 @@ from rich.text import Text
 
 from django_ninja_matt.config import (
     DeploymentTarget,
+    EmailBackend,
     ProjectConfig,
     ProjectType,
 )
@@ -133,7 +134,14 @@ def prompt_deployment() -> DeploymentTarget:
 
 
 def prompt_confirmation(config: ProjectConfig) -> bool:
-    """Show summary and confirm project creation."""
+    """Show summary and confirm project creation.
+
+    Args:
+        config: The fully assembled project configuration to display.
+
+    Returns:
+        True if the user confirms, False if they cancel.
+    """
     console.print()
     console.print("[bold]Project Summary[/bold]")
     console.print("-" * 40)
@@ -144,6 +152,10 @@ def prompt_confirmation(config: ProjectConfig) -> bool:
     console.print(f"  Redis: [cyan]{'Yes' if config.use_redis else 'No'}[/cyan]")
     console.print(f"  Deployment: [cyan]{config.deployment_target.value}[/cyan]")
     console.print(f"  Git init: [cyan]{'Yes' if config.init_git else 'No'}[/cyan]")
+    console.print(
+        f"  Docstrings: [cyan]{'Yes (Google-style)' if config.include_docstrings else 'No'}[/cyan]"
+    )
+    console.print(f"  Email backend: [cyan]{config.email_backend.value}[/cyan]")
     console.print()
 
     result = questionary.confirm(
@@ -163,18 +175,24 @@ def run_init(
     use_redis: bool = True,
     init_git: bool = True,
     skip_prompts: bool = False,
+    include_docstrings: bool = False,
+    email_backend: EmailBackend = EmailBackend.CONSOLE,
 ) -> None:
     """Run the init command to create a new project.
 
     Args:
-        name: Project name
-        path: Parent directory for the project
-        project_type: Project type (standalone/monorepo)
-        deployment: Deployment target
-        use_celery: Include Celery
-        use_redis: Include Redis
-        init_git: Initialize git repository
-        skip_prompts: Skip confirmation prompts
+        name: Project name used as the directory and package identifier.
+        path: Parent directory in which the project folder will be created.
+        project_type: Project type (standalone API or fullstack monorepo).
+        deployment: Primary deployment target (docker, railway, render, kubernetes).
+        use_celery: Whether to include Celery for background task processing.
+        use_redis: Whether to include Redis for caching and/or as Celery broker.
+        init_git: Whether to initialise a fresh git repository after generation.
+        skip_prompts: Skip all interactive confirmation prompts (non-interactive mode).
+        include_docstrings: When True, generated controllers, services, and schemas
+            will include Google-style docstrings on all public classes and methods.
+        email_backend: Email delivery backend to configure in the generated project.
+            One of 'console' (default), 'resend', or 'smtp'.
     """
     show_welcome()
 
@@ -208,6 +226,8 @@ def run_init(
             use_celery=use_celery,
             use_redis=use_redis,
             init_git=init_git,
+            include_docstrings=include_docstrings,
+            email_backend=email_backend,
         )
 
         # Confirm

@@ -1,7 +1,12 @@
 """Email services package."""
 
-from .backends import BaseEmailBackend, DjangoEmailBackend, SimpleEmailBackend
-from .service import EmailService
+from .backends import (
+    BaseEmailBackend,
+    DjangoEmailBackend,
+    ResendEmailBackend,
+    SimpleEmailBackend,
+)
+from .service import EmailService, is_resend_backend_active
 from .templates import EmailTemplateData
 from .utils import (
     send_email_template,
@@ -15,8 +20,10 @@ __all__ = [
     "DjangoEmailBackend",
     "EmailService",
     "EmailTemplateData",
+    "ResendEmailBackend",
     "SimpleEmailBackend",
     "default_email_service",
+    "is_resend_backend_active",
     "send_email_template",
     "send_welcome_email",
 ]

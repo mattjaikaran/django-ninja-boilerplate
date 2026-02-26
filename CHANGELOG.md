@@ -7,9 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-02-26
+
 ### Added
-- **Centrifugo Real-Time Messaging** - Standalone WebSocket server replacing Django Channels
-  - `api/centrifugo.py` - JWT token generation and HTTP client for publishing
+- **Four progressive Todo controller patterns** — declarative, basic, partial, and full service-layer
+  - `todos/controllers/todo_controller_declarative.py` — explicit `try/except`, no decorator magic
+  - `todos/controllers/todo_controller_basic.py` — minimal, `get_object_or_404`, no custom decorators
+  - `todos/controllers/todo_controller_partial.py` — `@handle_exceptions` + `@log_api_call` on writes only
+  - `todos/controllers/todo_controller.py` — full decorator stack + injected `TodoService`
+- **TodoService** (`todos/services/todo_service.py`) — extracted all business logic from the controller into a dedicated, testable service layer
+- **Resend email backend integration** — `django-anymail[resend]` as default mailer with console fallback
+- **Smoke test suite** — lightweight tests verifying all 4 controller route prefixes are reachable
+- **Google-style docstrings** across all controllers and services
+- **CLI `--docstrings` flag** — generated projects include Google-style docstrings by default
+- **CLI `--email-backend` flag** — select email backend (Resend, console, SMTP) during project generation
+- **Centrifugo Real-Time Messaging** — standalone WebSocket server replacing Django Channels
+  - `api/centrifugo.py` — JWT token generation and HTTP client for publishing
   - Token endpoints: `POST /api/realtime/connection-token` and `/subscription-token`
   - Centrifugo server config with chat, notifications, and organization namespaces
   - Docker Compose service under `realtime` profile (port 8800)
@@ -17,8 +30,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `make up-realtime` command
   - Full documentation at `docs/REALTIME.md`
   - 15 unit tests for token generation and client methods
+- **`todos/README.md`** — dedicated docs for the todos example app with pattern table and code examples
+- **`docs/ARCHITECTURE.md` — Progressive Controller Patterns section** with ASCII diagram, pattern comparison, and decorator stack diagram
 
 ### Changed
+- `TodoController` now delegates all operations to an injected `TodoService`; controller methods are one-liners
+- Bandit security scan moved to pre-push hook (was blocking commits on every save)
 - Replaced Django Channels consumer templates with Centrifugo service templates in code generators
 - Removed `channels` and `channels-redis` dependencies from chat and notification generators
 - Updated notification generator `_send_in_app` to publish via Centrifugo
@@ -221,6 +238,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 | Version | Date | Description |
 |---------|------|-------------|
+| 1.3.0 | 2026-02-26 | 4 controller patterns, TodoService, Resend, Centrifugo real-time |
 | 1.2.0 | 2026-02-17 | Python 3.13+ default, test fixes, migration fixes |
 | 1.1.0 | 2026-02-05 | Audit logging, feature flags, observability, task management |
 | 1.0.0 | 2026-01-26 | DX Overhaul, CLI tool, K8s Helm chart |
@@ -228,7 +246,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 | 0.7.0 | 2026-01-20 | JWT auth, UV, Docker dev environment |
 | 0.6.0 | 2026-01-15 | Initial release |
 
-[Unreleased]: https://github.com/mattjaikaran/django-ninja-boilerplate/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/mattjaikaran/django-ninja-boilerplate/compare/v1.3.0...HEAD
+[1.3.0]: https://github.com/mattjaikaran/django-ninja-boilerplate/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/mattjaikaran/django-ninja-boilerplate/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/mattjaikaran/django-ninja-boilerplate/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/mattjaikaran/django-ninja-boilerplate/compare/v0.8.0...v1.0.0

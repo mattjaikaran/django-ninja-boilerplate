@@ -38,6 +38,20 @@ class AuthMethod(str, Enum):
     OTP = "otp"
 
 
+class EmailBackend(str, Enum):
+    """Email backend options for the generated project.
+
+    Attributes:
+        CONSOLE: Logs emails to the console (default, for local development).
+        RESEND: Sends emails via the Resend API using django-anymail.
+        SMTP: Sends emails via a standard SMTP server.
+    """
+
+    CONSOLE = "console"
+    RESEND = "resend"
+    SMTP = "smtp"
+
+
 @dataclass
 class ProjectConfig:
     """Configuration for a new project."""
@@ -56,6 +70,10 @@ class ProjectConfig:
     use_redis: bool = True
     use_docker: bool = True
     auth_methods: list[AuthMethod] = field(default_factory=lambda: [AuthMethod.JWT])
+
+    # Code generation options
+    include_docstrings: bool = False
+    email_backend: EmailBackend = EmailBackend.CONSOLE
 
     # Deployment
     deployment_target: DeploymentTarget = DeploymentTarget.DOCKER
@@ -130,6 +148,9 @@ class TemplateContext:
             "has_jwt": AuthMethod.JWT in self.config.auth_methods,
             "has_oauth": AuthMethod.OAUTH in self.config.auth_methods,
             "has_otp": AuthMethod.OTP in self.config.auth_methods,
+            # Code generation options
+            "include_docstrings": self.config.include_docstrings,
+            "email_backend": self.config.email_backend.value,
             # Deployment
             "deployment_target": self.config.deployment_target.value,
             "single_container": self.config.single_container,

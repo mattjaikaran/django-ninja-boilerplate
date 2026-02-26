@@ -1,4 +1,23 @@
-"""Main email service implementation."""
+"""Email service — polymorphic email delivery with template support.
+
+Provides ``EmailService``, a high-level facade over pluggable email backends
+(``BaseEmailBackend`` / ``DjangoEmailBackend``). Supports:
+
+- Templated emails rendered via ``EmailTemplateRenderer``.
+- Simple plain-text / HTML emails without templates.
+- Bulk email dispatch with per-message error isolation.
+
+Usage::
+
+    from core.services.email.service import EmailService
+
+    svc = EmailService()
+    svc.send_simple_email(
+        subject="Hello",
+        message="World",
+        recipient_email="user@example.com",
+    )
+"""
 
 import logging
 from typing import Any
@@ -10,12 +29,45 @@ from .templates import EmailTemplateData, EmailTemplateRenderer, dict_to_templat
 
 logger = logging.getLogger(__name__)
 
+# Path of the native Resend backend provided by this package.
+_RESEND_BACKEND_PATH = "core.services.email.backends.ResendEmailBackend"
+
+
+def is_resend_backend_active() -> bool:
+    """Return True when Django's EMAIL_BACKEND is set to ResendEmailBackend.
+
+    Use this helper to branch logic that is specific to Resend (e.g. using
+    Resend's batch send API instead of looping over individual sends).
+
+    Returns:
+        True if the configured EMAIL_BACKEND matches ResendEmailBackend's
+        dotted import path, False otherwise.
+    """
+    configured: str = getattr(settings, "EMAIL_BACKEND", "")
+    return configured == _RESEND_BACKEND_PATH
+
 
 class EmailService:
-    """Polymorphic email service that can handle various email scenarios."""
+    """Polymorphic email service supporting templates, simple, and bulk sends.
+
+    Wraps a ``BaseEmailBackend`` implementation and an ``EmailTemplateRenderer``
+    to provide a unified API for all email delivery scenarios. The backend
+    defaults to ``DjangoEmailBackend`` which delegates to Django's
+    ``EMAIL_BACKEND`` setting, making it easy to swap in Resend, SendGrid, or
+    any other provider without changing calling code.
+
+    Attributes:
+        backend: The email backend used for delivery.
+        renderer: Template renderer for HTML/text content generation.
+    """
 
     def __init__(self, backend: BaseEmailBackend | None = None):
-        """Initialize email service with optional backend."""
+        """Initialise the email service with an optional backend override.
+
+        Args:
+            backend: Custom email backend. Defaults to ``DjangoEmailBackend``
+                which uses Django's configured ``EMAIL_BACKEND`` setting.
+        """
         self.backend = backend or DjangoEmailBackend()
         self.renderer = EmailTemplateRenderer()
 

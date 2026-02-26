@@ -23,15 +23,26 @@ from django_ninja_matt.utils.docker import (
     get_docker_version,
 )
 
+# Minimum required Python version for this boilerplate.
+_MIN_PYTHON_MINOR = 13
+
 
 def check_python_version() -> tuple[bool, str]:
-    """Check Python version meets requirements."""
+    """Check that the running Python version meets the minimum requirement (3.13+).
+
+    Returns:
+        A tuple of (passed, message) where passed is True when the version
+        satisfies the requirement and message is a human-readable description.
+    """
     version = sys.version_info
     version_str = f"{version.major}.{version.minor}.{version.micro}"
 
-    if version.major >= 3 and version.minor >= 11:
+    if version.major >= 3 and version.minor >= _MIN_PYTHON_MINOR:
         return True, f"Python {version_str}"
-    return False, f"Python {version_str} (>= 3.11 required)"
+    return (
+        False,
+        f"Python {version_str} (>= 3.{_MIN_PYTHON_MINOR} required by this boilerplate)",
+    )
 
 
 def check_uv() -> tuple[bool, str]:
@@ -74,7 +85,15 @@ def check_git() -> tuple[bool, str]:
 
 
 def check_port(port: int) -> tuple[bool, str]:
-    """Check if a port is available."""
+    """Check if a local TCP port is available (i.e. nothing is bound to it).
+
+    Args:
+        port: The TCP port number to test.
+
+    Returns:
+        A tuple of (available, message). available is True when the port is
+        free, False when it is already in use.
+    """
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     try:
         sock.bind(("127.0.0.1", port))
@@ -82,6 +101,31 @@ def check_port(port: int) -> tuple[bool, str]:
         return True, f"Port {port} available"
     except OSError:
         return False, f"Port {port} in use"
+
+
+def check_service_reachable(host: str, port: int, label: str) -> tuple[bool, str]:
+    """Attempt a TCP connection to a service to confirm it is reachable.
+
+    Unlike check_port (which checks that a port is *free*), this function
+    checks that a service is *already listening* on the given address.
+
+    Args:
+        host: Hostname or IP address to connect to.
+        port: TCP port to connect to.
+        label: Human-readable service name used in the result message.
+
+    Returns:
+        A tuple of (reachable, message). reachable is True when the connection
+        succeeds within the 1-second timeout.
+    """
+    try:
+        with socket.create_connection((host, port), timeout=1):
+            return True, f"{label} reachable at {host}:{port}"
+    except (OSError, TimeoutError):
+        return (
+            False,
+            f"{label} not reachable at {host}:{port} (optional — start the service)",
+        )
 
 
 def check_env_file() -> tuple[bool, str]:
@@ -101,7 +145,11 @@ def check_docker_compose_file() -> tuple[bool, str]:
 
 
 def run_doctor() -> None:
-    """Run environment validation checks."""
+    """Run environment validation checks and print a detailed report.
+
+    Checks system tools, service connectivity, port availability, and project
+    configuration files.  Exits with code 1 if any *required* check fails.
+    """
     print_header("Django Ninja Boilerplate - Doctor")
     console.print()
 
@@ -109,42 +157,78 @@ def run_doctor() -> None:
     warned = 0
     failed = 0
 
+    # ------------------------------------------------------------------
     # System Requirements
+    # ------------------------------------------------------------------
     console.print("[bold]System Requirements[/bold]")
     console.print("-" * 40)
 
-    checks = [
+    # Required checks: Python 3.13+, Docker, Docker Compose, Git
+    # Optional checks: uv, make (flagged as warnings)
+    required_system_checks = [
         ("Python", check_python_version()),
         ("Docker", (docker_available(), get_docker_version() or "Docker not running")),
         (
             "Docker Compose",
             (docker_compose_available(), get_compose_version() or "Not available"),
         ),
-        ("UV", check_uv()),
-        ("Make", check_make()),
         ("Git", check_git()),
     ]
+    optional_system_checks = [
+        ("uv", check_uv()),
+        ("Make", check_make()),
+    ]
 
-    for name, (success, message) in checks:
+    for label, (success, message) in required_system_checks:
         if success:
-            print_success(f"{name}: {message}")
+            print_success(f"{label}: {message}")
             passed += 1
-        elif "optional" in message.lower():
-            print_warning(f"{name}: {message}")
-            warned += 1
         else:
-            print_error(f"{name}: {message}")
+            print_error(f"{label}: {message}")
             failed += 1
+
+    for label, (success, message) in optional_system_checks:
+        if success:
+            print_success(f"{label}: {message}")
+            passed += 1
+        else:
+            # uv and make are optional — report as warnings, not failures
+            print_warning(f"{label}: {message}")
+            warned += 1
 
     console.print()
 
-    # Port Availability
+    # ------------------------------------------------------------------
+    # Service Connectivity
+    # Checks whether PostgreSQL and Redis are currently reachable on
+    # localhost.  These are warnings (not hard failures) because the
+    # services may simply not be started yet.
+    # ------------------------------------------------------------------
+    console.print("[bold]Service Connectivity[/bold]")
+    console.print("-" * 40)
+
+    service_checks = [
+        check_service_reachable("127.0.0.1", 5432, "PostgreSQL"),
+        check_service_reachable("127.0.0.1", 6379, "Redis"),
+    ]
+
+    for success, message in service_checks:
+        if success:
+            print_success(message)
+            passed += 1
+        else:
+            print_warning(message)
+            warned += 1
+
+    console.print()
+
+    # ------------------------------------------------------------------
+    # Port Availability (for services we are about to start)
+    # ------------------------------------------------------------------
     console.print("[bold]Port Availability[/bold]")
     console.print("-" * 40)
 
     ports = [
-        (5432, "PostgreSQL"),
-        (6379, "Redis"),
         (8000, "Django"),
         (5555, "Flower"),
     ]
@@ -160,7 +244,9 @@ def run_doctor() -> None:
 
     console.print()
 
+    # ------------------------------------------------------------------
     # Project Configuration
+    # ------------------------------------------------------------------
     console.print("[bold]Project Configuration[/bold]")
     console.print("-" * 40)
 
@@ -169,17 +255,19 @@ def run_doctor() -> None:
         ("docker-compose.yml", check_docker_compose_file()),
     ]
 
-    for name, (success, message) in config_checks:
+    for label, (success, message) in config_checks:
         if success:
-            print_success(f"{name}: {message}")
+            print_success(f"{label}: {message}")
             passed += 1
         else:
-            print_error(f"{name}: {message}")
+            print_error(f"{label}: {message}")
             failed += 1
 
     console.print()
 
+    # ------------------------------------------------------------------
     # Summary
+    # ------------------------------------------------------------------
     table = Table(title="Summary", show_header=False)
     table.add_column("Status", style="bold")
     table.add_column("Count", justify="right")

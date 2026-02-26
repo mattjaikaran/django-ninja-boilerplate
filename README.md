@@ -33,15 +33,15 @@ A production-ready, **opinionated** Django boilerplate built with **Django Ninja
 
 The `todos` app ships **four controller variants** so you can compare approaches and pick the one that fits your team. All four expose the same CRUD surface area — only the implementation style differs.
 
-| Pattern | Route prefix | File | Description |
-|---------|-------------|------|-------------|
-| **1 — Declarative** | `/api/todos-declarative/` | `todo_controller_declarative.py` | Explicit `try/except` blocks everywhere. No decorator magic. Maximum verbosity and visibility. |
-| **2 — Basic** | `/api/todos-basic/` | `todo_controller_basic.py` | No custom decorators. Uses `get_object_or_404` and lets Django Ninja handle errors naturally. Cleanest starting point. |
-| **3 — Partial** | `/api/todos-partial/` | `todo_controller_partial.py` | `handle_exceptions` + `log_api_call` on write endpoints only. Mix-and-match approach. |
-| **4 — Service layer** | `/api/todos/` | `todo_controller.py` | Full decorator stack + `TodoService` injected via `__init__`. Controller methods are one-liners. **Recommended for production.** |
+| # | Pattern | Route Prefix | File | When to Use |
+|---|---------|-------------|------|-------------|
+| 1 | **Declarative** | `/api/todos-declarative/` | `todo_controller_declarative.py` | Learning the framework; teams that want every error path explicit with no decorator magic |
+| 2 | **Basic** | `/api/todos-basic/` | `todo_controller_basic.py` | Small projects; minimal abstraction with `get_object_or_404` |
+| 3 | **Partial** | `/api/todos-partial/` | `todo_controller_partial.py` | Mix-and-match: reads are plain, writes use `handle_exceptions` + `log_api_call` |
+| 4 | **Full (service layer)** | `/api/todos/` | `todo_controller.py` | **Recommended for production.** Controller is a thin HTTP adapter; all logic in `TodoService` |
 
 ```python
-# Pattern 1 — Declarative: you see everything
+# Pattern 1 — Declarative: every error path is explicit
 def create_todo(self, request, payload: CreateTodoSchema):
     try:
         todo_data = payload.model_dump()
@@ -53,10 +53,35 @@ def create_todo(self, request, payload: CreateTodoSchema):
         logger.exception("Failed to create todo")
         return 500, {"error": "Internal server error", "detail": str(exc)}
 
-# Pattern 4 — Service layer: controller is a thin HTTP adapter
+# Pattern 2 — Basic: minimal, let Django handle errors
 def create_todo(self, request, payload: CreateTodoSchema):
-    return 201, self.service.create_todo(payload, request.user)
+    todo_data = payload.model_dump()
+    todo_data["user"] = request.user
+    return 201, Todo.objects.create(**todo_data)
+
+# Pattern 3 — Partial: decorators on writes only
+@http_post("/", response={201: TodoSchema, 400: dict, 500: dict})
+@log_api_call(include_payload=True, include_response=False)
+@handle_exceptions(return_500_on_error=True, log_errors=True)
+def create_todo(self, request, payload: CreateTodoSchema):
+    todo_data = payload.model_dump()
+    todo_data["user"] = request.user
+    return 201, Todo.objects.create(**todo_data)
+
+# Pattern 4 — Service layer: controller is a thin HTTP adapter
+class TodoController:
+    def __init__(self):
+        self.service = TodoService()
+
+    @http_post("/", response={201: TodoSchema, 400: dict, 500: dict})
+    @log_api_call(include_payload=True, include_response=False)
+    @handle_exceptions(return_500_on_error=True, log_errors=True)
+    @validate_request()
+    def create_todo(self, request, payload: CreateTodoSchema):
+        return 201, self.service.create_todo(payload, request.user)
 ```
+
+The `TodoService` (`todos/services/todo_service.py`) centralises all business logic — filtering, ordering, ORM calls, and 404 handling — so it can be shared across controllers and tested independently without HTTP context. See [`todos/README.md`](todos/README.md) for full details on each pattern.
 
 ## Architecture Overview
 

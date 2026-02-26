@@ -146,6 +146,9 @@ Created with [Django Ninja Boilerplate](https://github.com/mattjaikaran/django-n
         if not self.config.use_redis and not self.config.use_celery:
             self._remove_redis_config()
 
+        # Configure email backend in .env / .env.example
+        self._configure_email_backend()
+
     def _remove_celery_config(self) -> None:
         """Remove Celery configuration from the project."""
         # Remove Celery from pyproject.toml dependencies
@@ -166,6 +169,58 @@ Created with [Django Ninja Boilerplate](https://github.com/mattjaikaran/django-n
     def _remove_redis_config(self) -> None:
         """Remove Redis configuration from the project."""
         print_info("Note: Redis configuration kept for caching support")
+
+    def _configure_email_backend(self) -> None:
+        """Write EMAIL_BACKEND settings into .env and .env.example.
+
+        Appends the appropriate Django EMAIL_BACKEND value (and any service-
+        specific variables) based on config.email_backend.  Does nothing when
+        the .env file is absent (the project may not have been cloned yet).
+        """
+        from django_ninja_matt.config import EmailBackend
+
+        backend_map = {
+            EmailBackend.CONSOLE: "django.core.mail.backends.console.EmailBackend",
+            EmailBackend.SMTP: "django.core.mail.backends.smtp.EmailBackend",
+            EmailBackend.RESEND: "anymail.backends.resend.EmailBackend",
+        }
+        backend_value = backend_map[self.config.email_backend]
+
+        extra_lines: list[str] = [
+            "",
+            "# Email",
+            f"EMAIL_BACKEND={backend_value}",
+        ]
+
+        if self.config.email_backend == EmailBackend.RESEND:
+            extra_lines += [
+                "RESEND_API_KEY=re_your_api_key_here",
+                "DEFAULT_FROM_EMAIL=noreply@example.com",
+            ]
+        elif self.config.email_backend == EmailBackend.SMTP:
+            extra_lines += [
+                "EMAIL_HOST=smtp.example.com",
+                "EMAIL_PORT=587",
+                "EMAIL_USE_TLS=True",
+                "EMAIL_HOST_USER=",
+                "EMAIL_HOST_PASSWORD=",
+                "DEFAULT_FROM_EMAIL=noreply@example.com",
+            ]
+
+        snippet = "\n".join(extra_lines) + "\n"
+
+        for env_filename in (".env", ".env.example"):
+            env_path = self.config.path / env_filename
+            if env_path.exists():
+                existing = env_path.read_text()
+                if "EMAIL_BACKEND" not in existing:
+                    env_path.write_text(existing + snippet)
+
+        if self.config.email_backend != EmailBackend.CONSOLE:
+            print_info(
+                f"Email backend configured: {self.config.email_backend.value} "
+                f"({backend_value})"
+            )
 
 
 def generate_standalone(config: ProjectConfig) -> bool:
