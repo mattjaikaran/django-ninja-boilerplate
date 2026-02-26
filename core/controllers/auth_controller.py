@@ -65,7 +65,7 @@ class AuthController:
         validate_password(payload.password)
 
         # Create user
-        user = User.objects.create_user(
+        user = User.objects.create_user(  # type: ignore[attr-defined]
             username=payload.username,
             email=payload.email.lower(),
             password=payload.password,
@@ -91,7 +91,7 @@ class AuthController:
         # Try to authenticate with email
         try:
             user_obj = User.objects.get(email=payload.email.lower())
-            user = authenticate(username=user_obj.username, password=payload.password)
+            user = authenticate(username=user_obj.username, password=payload.password)  # type: ignore[attr-defined]
         except User.DoesNotExist:
             user = None
 
@@ -109,7 +109,7 @@ class AuthController:
         # Generate tokens
         refresh = RefreshToken.for_user(user)
 
-        logger.info("User logged in: %s", user.email)
+        logger.info("User logged in: %s", user.email)  # type: ignore[attr-defined]
 
         return 200, {
             "token": str(refresh.access_token),  # type: ignore[attr-defined]

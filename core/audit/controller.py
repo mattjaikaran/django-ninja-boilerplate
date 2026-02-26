@@ -264,7 +264,7 @@ class AuditLogController:
     def list_action_types(self):
         """List all available audit action types."""
         return 200, [
-            {"value": choice.value, "label": choice.label} for choice in AuditAction
+            {"value": value, "label": label} for value, label in AuditAction.choices
         ]
 
     @http_get("/models", response={200: list[str]})

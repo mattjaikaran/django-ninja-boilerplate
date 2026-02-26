@@ -219,7 +219,7 @@ class DetailedHealthChecker:
     def _check_redis(self) -> HealthCheckResult:
         """Check Redis connectivity directly."""
         try:
-            import redis
+            import redis  # type: ignore[import-untyped]
 
             redis_url = getattr(settings, "REDIS_URL", "redis://localhost:6379/0")
             client = redis.from_url(redis_url)

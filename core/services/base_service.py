@@ -390,7 +390,7 @@ class CRUDService(BaseService[ModelT]):
         """
         if user and "updated_by" not in fields and hasattr(self.model, "updated_by"):
             for instance in instances:
-                instance.updated_by = user
+                instance.updated_by = user  # type: ignore[attr-defined]
             fields.append("updated_by")
 
         count = self.model.objects.bulk_update(

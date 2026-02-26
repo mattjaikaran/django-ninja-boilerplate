@@ -32,7 +32,7 @@ class UserController:
         if payload.is_superuser and not payload.is_staff:
             raise ValueError("Superuser must have is_staff=True.")
 
-        user = User.objects.create_superuser(
+        user = User.objects.create_superuser(  # type: ignore[attr-defined]
             **payload.model_dump(exclude_unset=True),
             is_staff=True,
             is_superuser=True,

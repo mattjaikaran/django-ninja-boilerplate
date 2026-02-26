@@ -1,6 +1,10 @@
 # Django Ninja Boilerplate
 
-A production-ready Django boilerplate built with **Django Ninja Extra** for creating modern REST APIs using **class-based controllers** (not function views). This project provides everything you need to quickly build scalable APIs with authentication, caching, monitoring, background tasks, and automated feature generation.
+A production-ready, **opinionated** Django boilerplate built with **Django Ninja Extra** for creating modern REST APIs using **class-based controllers** (not function views). This project provides everything you need to quickly build scalable APIs with authentication, caching, monitoring, background tasks, and automated feature generation.
+
+> **This is an opinionated boilerplate.** Every tool, pattern, and layer of abstraction was chosen deliberately — `uv` over pip/poetry, `ruff` over flake8/black, `uuidv7` PKs, class-based controllers over function views, a service layer for business logic, and a decorator system for cross-cutting concerns. If you disagree with a choice, it is easy to remove, but each default was selected for a reason.
+
+> **Portfolio + DX project.** Beyond being a functional starter, this codebase is designed to showcase developer-experience (DX) tooling and progressive abstraction patterns. The `todos` app ships four controller variants — from maximum verbosity to full service-layer abstraction — so you can study each layer and decide which pattern fits your team.
 
 > **Architecture Note:** This boilerplate uses [Django Ninja Extra](https://eadwincode.github.io/django-ninja-extra/) which extends Django Ninja with class-based API controllers, dependency injection, and permissions. Instead of function-based views, you write clean controller classes with decorators like `@api_controller` and `@http_get`.
 
@@ -23,6 +27,36 @@ A production-ready Django boilerplate built with **Django Ninja Extra** for crea
 | **SDK generation** | Auto-generate TypeScript and Python clients from your API |
 | **Production-ready** | Docker, K8s Helm charts, PaaS configs - deploy anywhere |
 | **Test everything** | Unit, E2E, contract, and load tests included |
+| **Progressive patterns** | Four `todos` controller variants show every abstraction level side-by-side |
+
+## Progressive Controller Patterns
+
+The `todos` app ships **four controller variants** so you can compare approaches and pick the one that fits your team. All four expose the same CRUD surface area — only the implementation style differs.
+
+| Pattern | Route prefix | File | Description |
+|---------|-------------|------|-------------|
+| **1 — Declarative** | `/api/todos-declarative/` | `todo_controller_declarative.py` | Explicit `try/except` blocks everywhere. No decorator magic. Maximum verbosity and visibility. |
+| **2 — Basic** | `/api/todos-basic/` | `todo_controller_basic.py` | No custom decorators. Uses `get_object_or_404` and lets Django Ninja handle errors naturally. Cleanest starting point. |
+| **3 — Partial** | `/api/todos-partial/` | `todo_controller_partial.py` | `handle_exceptions` + `log_api_call` on write endpoints only. Mix-and-match approach. |
+| **4 — Service layer** | `/api/todos/` | `todo_controller.py` | Full decorator stack + `TodoService` injected via `__init__`. Controller methods are one-liners. **Recommended for production.** |
+
+```python
+# Pattern 1 — Declarative: you see everything
+def create_todo(self, request, payload: CreateTodoSchema):
+    try:
+        todo_data = payload.model_dump()
+        todo_data["user"] = request.user
+        todo = Todo.objects.create(**todo_data)
+        logger.info("Created todo '%s'", todo.title)
+        return 201, todo
+    except Exception as exc:
+        logger.exception("Failed to create todo")
+        return 500, {"error": "Internal server error", "detail": str(exc)}
+
+# Pattern 4 — Service layer: controller is a thin HTTP adapter
+def create_todo(self, request, payload: CreateTodoSchema):
+    return 201, self.service.create_todo(payload, request.user)
+```
 
 ## Architecture Overview
 

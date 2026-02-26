@@ -399,7 +399,56 @@ exclude_lines = [
 python_version = "3.13"
 ignore_missing_imports = true
 no_strict_optional = true
+check_untyped_defs = true
 exclude = [
     "migrations/",
     "cli/",
+    "tests/",
+    ".*/tests/.*",
+    "conftest\\.py",
 ]
+
+[[tool.mypy.overrides]]
+module = [
+    "core.models.base",
+    "core.models.user",
+    "core.models.otp",
+    "core.features.models",
+    "core.tasks.models",
+    "core.audit.models",
+    "todos.models.todo",
+]
+disable_error_code = ["var-annotated"]
+
+[[tool.mypy.overrides]]
+# AbstractBaseUser doesn't expose is_staff/is_superuser/has_perm in django-stubs
+# when AUTH_USER_MODEL points to a model extending AbstractBaseUser directly.
+# These modules correctly check those attributes at runtime via the custom User model.
+module = [
+    "api.permissions",
+    "core.observability.middleware",
+    "core.controllers.auth_controller",
+    "core.controllers.users_controller",
+    "core.services.otp_service",
+]
+disable_error_code = ["attr-defined", "return-value"]
+
+[tool.bandit]
+# Exclude test utilities, management commands with intentional patterns,
+# and generated data scripts. These directories contain expected patterns
+# such as assert statements (B101) and non-crypto random usage (B311).
+exclude_dirs = [
+    "tests",
+    "todos/tests",
+    "core/tests",
+    "cli/tests",
+]
+# Skip checks that are expected and safe in this codebase:
+# B101 - assert used in test files (correct pytest pattern)
+# B311 - random.choice in test factories and data generation (not crypto)
+# B106 - hardcoded password in management commands (dev seed data only)
+skips = ["B101", "B311", "B106"]
+# Only fail on medium severity and above with medium confidence and above.
+# Low severity findings are informational only.
+level = "medium"
+confidence = "medium"
