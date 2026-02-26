@@ -3,7 +3,7 @@ name: Release
 on:
   push:
     tags:
-      - 'v*'
+      - "v*"
 
 env:
   PYTHON_VERSION: "3.13"
@@ -12,10 +12,12 @@ jobs:
   release:
     name: Create Release
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -38,12 +40,10 @@ jobs:
           echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Create GitHub Release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref }}
-          release_name: Release ${{ steps.get_version.outputs.VERSION }}
+          name: Release ${{ steps.get_version.outputs.VERSION }}
           body: |
             ## Changes in this Release
 
@@ -52,11 +52,8 @@ jobs:
             ## Installation
 
             ```bash
-            # Clone the repository
             git clone https://github.com/mattjaikaran/django-ninja-boilerplate.git
             cd django-ninja-boilerplate
-
-            # Setup development environment
             make setup
             ```
 
@@ -101,4 +98,4 @@ jobs:
         run: |
           cd cli
           twine upload dist/*
-        continue-on-error: true  # Don't fail if PyPI token not configured
+        continue-on-error: true # Don't fail if PyPI token not configured

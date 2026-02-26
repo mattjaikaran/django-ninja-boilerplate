@@ -108,7 +108,7 @@ jobs:
           python manage.py migrate --noinput
 
       - name: Run tests with coverage
-        run: pytest --cov=. --cov-report=xml --cov-report=term-missing
+        run: pytest --timeout=60
 
       - name: Upload coverage to Codecov
         if: matrix.python-version == '3.13' && matrix.django-version == '5.2'

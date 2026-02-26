@@ -102,6 +102,7 @@ dev = [
     "pytest-django>=4.8.0",
     "pytest-cov>=4.0.0",
     "pytest-mock>=3.12.0",
+    "pytest-timeout>=2.3.0",
     "factory-boy>=3.3.0",
     "Faker>=30.1.0",
     "pre-commit>=4.0.0",
@@ -356,7 +357,7 @@ addopts = [
     "--cov-report=xml",
     "--cov-fail-under=25",
 ]
-testpaths = ["core", "todos"]
+testpaths = ["core", "todos", "tests/smoke"]
 filterwarnings = [
     "error",
     "ignore::UserWarning",
@@ -454,3 +455,8 @@ skips = ["B101", "B311", "B106"]
 # Low severity findings are informational only.
 level = "medium"
 confidence = "medium"
+
+[dependency-groups]
+dev = [
+    "pytest-timeout>=2.4.0",
+]
