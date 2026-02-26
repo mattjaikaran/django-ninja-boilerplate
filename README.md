@@ -4,7 +4,7 @@ A production-ready, **opinionated** Django boilerplate built with **Django Ninja
 
 > **This is an opinionated boilerplate.** Every tool, pattern, and layer of abstraction was chosen deliberately — `uv` over pip/poetry, `ruff` over flake8/black, `uuidv7` PKs, class-based controllers over function views, a service layer for business logic, and a decorator system for cross-cutting concerns. If you disagree with a choice, it is easy to remove, but each default was selected for a reason.
 
-> **Portfolio + DX project.** Beyond being a functional starter, this codebase is designed to showcase developer-experience (DX) tooling and progressive abstraction patterns. The `todos` app ships four controller variants — from maximum verbosity to full service-layer abstraction — so you can study each layer and decide which pattern fits your team.
+> The `todos` app ships four controller variants — from maximum verbosity to full service-layer abstraction - all can perform the same operations with different levels of abstraction.
 
 > **Architecture Note:** This boilerplate uses [Django Ninja Extra](https://eadwincode.github.io/django-ninja-extra/) which extends Django Ninja with class-based API controllers, dependency injection, and permissions. Instead of function-based views, you write clean controller classes with decorators like `@api_controller` and `@http_get`.
 
@@ -17,28 +17,28 @@ A production-ready, **opinionated** Django boilerplate built with **Django Ninja
 
 ## Why This Boilerplate?
 
-| Feature | Benefit |
-|---------|---------|
-| **One-command setup** | `make setup` gets you from clone to running in under 2 minutes |
-| **Class-based controllers** | Clean, organized API code with Django Ninja Extra |
-| **Enterprise features built-in** | Audit logging, feature flags, observability - no need to add later |
-| **Multiple auth methods** | JWT, magic links, OTP codes, 2FA - ready for web and mobile |
-| **Full observability** | Distributed tracing, metrics, structured logging out of the box |
-| **SDK generation** | Auto-generate TypeScript and Python clients from your API |
-| **Production-ready** | Docker, K8s Helm charts, PaaS configs - deploy anywhere |
-| **Test everything** | Unit, E2E, contract, and load tests included |
-| **Progressive patterns** | Four `todos` controller variants show every abstraction level side-by-side |
+| Feature                          | Benefit                                                                    |
+| -------------------------------- | -------------------------------------------------------------------------- |
+| **One-command setup**            | `make setup` gets you from clone to running in under 2 minutes             |
+| **Class-based controllers**      | Clean, organized API code with Django Ninja Extra                          |
+| **Enterprise features built-in** | Audit logging, feature flags, observability - no need to add later         |
+| **Multiple auth methods**        | JWT, magic links, OTP codes, 2FA - ready for web and mobile                |
+| **Full observability**           | Distributed tracing, metrics, structured logging out of the box            |
+| **SDK generation**               | Auto-generate TypeScript and Python clients from your API                  |
+| **Production-ready**             | Docker, K8s Helm charts, PaaS configs - deploy anywhere                    |
+| **Test everything**              | Unit, E2E, contract, and load tests included                               |
+| **Progressive patterns**         | Four `todos` controller variants show every abstraction level side-by-side |
 
 ## Progressive Controller Patterns
 
 The `todos` app ships **four controller variants** so you can compare approaches and pick the one that fits your team. All four expose the same CRUD surface area — only the implementation style differs.
 
-| # | Pattern | Route Prefix | File | When to Use |
-|---|---------|-------------|------|-------------|
-| 1 | **Declarative** | `/api/todos-declarative/` | `todo_controller_declarative.py` | Learning the framework; teams that want every error path explicit with no decorator magic |
-| 2 | **Basic** | `/api/todos-basic/` | `todo_controller_basic.py` | Small projects; minimal abstraction with `get_object_or_404` |
-| 3 | **Partial** | `/api/todos-partial/` | `todo_controller_partial.py` | Mix-and-match: reads are plain, writes use `handle_exceptions` + `log_api_call` |
-| 4 | **Full (service layer)** | `/api/todos/` | `todo_controller.py` | **Recommended for production.** Controller is a thin HTTP adapter; all logic in `TodoService` |
+| #   | Pattern                  | Route Prefix              | File                             | When to Use                                                                                   |
+| --- | ------------------------ | ------------------------- | -------------------------------- | --------------------------------------------------------------------------------------------- |
+| 1   | **Declarative**          | `/api/todos-declarative/` | `todo_controller_declarative.py` | Learning the framework; teams that want every error path explicit with no decorator magic     |
+| 2   | **Basic**                | `/api/todos-basic/`       | `todo_controller_basic.py`       | Small projects; minimal abstraction with `get_object_or_404`                                  |
+| 3   | **Partial**              | `/api/todos-partial/`     | `todo_controller_partial.py`     | Mix-and-match: reads are plain, writes use `handle_exceptions` + `log_api_call`               |
+| 4   | **Full (service layer)** | `/api/todos/`             | `todo_controller.py`             | **Recommended for production.** Controller is a thin HTTP adapter; all logic in `TodoService` |
 
 ```python
 # Pattern 1 — Declarative: every error path is explicit
@@ -232,6 +232,7 @@ make setup
 ```
 
 That's it! The setup command will:
+
 - Check your environment (Docker, Python, etc.)
 - Create `.env` with generated `SECRET_KEY`
 - Build Docker images
@@ -567,6 +568,7 @@ python manage.py generate_feature graphql --app-name=core
 ```
 
 This creates:
+
 - `core/graphql/` - GraphQL package with:
   - `schema.py` - Main schema combining Query and Mutation
   - `queries.py` - Query type with example queries
@@ -679,6 +681,7 @@ make test-contract-full
 ```
 
 Contract tests ensure:
+
 - API responses match the documented schema
 - Required fields are present
 - Data types match the specification
@@ -787,6 +790,7 @@ email_service.send_templated_email(
 ## Feature Flags
 
 The boilerplate includes a comprehensive feature flags system for:
+
 - **Toggle features** per user, tenant, or environment
 - **Gradual rollouts** with percentage-based targeting
 - **A/B testing** with weighted variant distribution
@@ -928,6 +932,7 @@ feature_flag_service.create_flag(
 ### Admin Interface
 
 Feature flags can be managed through the Django admin panel at `/admin/core/featureflag/` with:
+
 - List view with filtering by status, type, and tags
 - Bulk actions (enable/disable, set rollout percentages)
 - Audit log tracking for all changes
@@ -1045,6 +1050,7 @@ AUDIT_TRACKED_MODELS = None  # or ["User", "Todo", "Payment"]
 ### Admin Interface
 
 Audit logs can be viewed in the Django admin at `/admin/core/auditlog/`:
+
 - Read-only interface (audit logs cannot be modified or deleted)
 - Filter by action type, user, model, success status, and date
 - Search by user email, model name, IP address, request path
@@ -1053,23 +1059,23 @@ Audit logs can be viewed in the Django admin at `/admin/core/auditlog/`:
 
 ### Action Types
 
-| Action | Description |
-|--------|-------------|
-| `CREATE` | New record created |
-| `UPDATE` | Record updated |
-| `DELETE` | Record permanently deleted |
-| `SOFT_DELETE` | Record soft deleted (is_active=False) |
-| `RESTORE` | Soft-deleted record restored |
-| `LOGIN` | User logged in |
-| `LOGOUT` | User logged out |
-| `LOGIN_FAILED` | Failed login attempt |
-| `PASSWORD_CHANGE` | User changed password |
-| `PASSWORD_RESET` | Password reset performed |
-| `API_REQUEST` | API endpoint accessed |
-| `PERMISSION_CHANGE` | User permissions modified |
-| `EXPORT` | Data exported |
-| `IMPORT` | Data imported |
-| `CUSTOM` | Custom audit action |
+| Action              | Description                           |
+| ------------------- | ------------------------------------- |
+| `CREATE`            | New record created                    |
+| `UPDATE`            | Record updated                        |
+| `DELETE`            | Record permanently deleted            |
+| `SOFT_DELETE`       | Record soft deleted (is_active=False) |
+| `RESTORE`           | Soft-deleted record restored          |
+| `LOGIN`             | User logged in                        |
+| `LOGOUT`            | User logged out                       |
+| `LOGIN_FAILED`      | Failed login attempt                  |
+| `PASSWORD_CHANGE`   | User changed password                 |
+| `PASSWORD_RESET`    | Password reset performed              |
+| `API_REQUEST`       | API endpoint accessed                 |
+| `PERMISSION_CHANGE` | User permissions modified             |
+| `EXPORT`            | Data exported                         |
+| `IMPORT`            | Data imported                         |
+| `CUSTOM`            | Custom audit action                   |
 
 ## Background Tasks (Celery)
 
@@ -1137,11 +1143,11 @@ POST /api/realtime/subscription-token   # Get channel subscription JWT
 
 ### Channel Namespaces
 
-| Namespace | Pattern | Features |
-|-----------|---------|----------|
-| `chat` | `chat:<conversation_id>` | Presence, history (100 msgs) |
-| `notifications` | `notifications:<user_id>` | History (50 msgs, 24h TTL) |
-| `organization` | `organization:<org_id>` | Presence, history (50 msgs) |
+| Namespace       | Pattern                   | Features                     |
+| --------------- | ------------------------- | ---------------------------- |
+| `chat`          | `chat:<conversation_id>`  | Presence, history (100 msgs) |
+| `notifications` | `notifications:<user_id>` | History (50 msgs, 24h TTL)   |
+| `organization`  | `organization:<org_id>`   | Presence, history (50 msgs)  |
 
 See [docs/REALTIME.md](docs/REALTIME.md) for full setup guide, client integration examples, and production deployment.
 
@@ -1306,6 +1312,7 @@ print(f"Task took {task.duration} seconds")
 ### Admin Interface
 
 Task management is available in the Django admin:
+
 - View task execution history with progress bars
 - Inspect failed tasks and errors
 - Manage Dead Letter Queue entries
@@ -1455,6 +1462,7 @@ register_health_check("payment_provider", check_payment_provider)
 ### Middleware
 
 The `ObservabilityMiddleware` automatically:
+
 - Creates/propagates trace IDs
 - Records request metrics (count, latency)
 - Adds trace context to logs
@@ -1498,6 +1506,7 @@ helm install my-api ./deploy/kubernetes/helm/django-ninja-stack \
 ```
 
 See [`deploy/`](deploy/) for detailed deployment configurations:
+
 - `deploy/docker/` - Dockerfiles
 - `deploy/centrifugo/` - Centrifugo server config
 - `deploy/paas/` - Railway, Render configs
