@@ -29,7 +29,7 @@ class HealthCheckController:
     @http_get("/detailed", response={200: dict})
     def detailed_health_check(self, request):
         """Detailed health check with database and cache status."""
-        health_data = {
+        health_data: dict[str, Any] = {
             "status": "healthy",
             "timestamp": self._get_timestamp(),
             "version": getattr(settings, "VERSION", "unknown"),

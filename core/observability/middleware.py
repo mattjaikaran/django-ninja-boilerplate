@@ -86,7 +86,7 @@ class ObservabilityMiddleware:
 
         # Add user info if authenticated
         if hasattr(request, "user") and request.user and request.user.is_authenticated:
-            span_attributes["user.id"] = str(request.user.id)
+            span_attributes["user.id"] = str(request.user.id)  # type: ignore[attr-defined]
 
         # Process request within a trace span
         with trace_span(f"{method} {endpoint}", span_attributes) as span:
@@ -249,7 +249,7 @@ class ObservabilityMiddleware:
         }
 
         if hasattr(request, "user") and request.user and request.user.is_authenticated:
-            extra["user_id"] = str(request.user.id)
+            extra["user_id"] = str(request.user.id)  # type: ignore[attr-defined]
 
         message = f"{request.method} {request.path} -> {status_code} ({duration_ms}ms)"
 

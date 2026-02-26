@@ -17,7 +17,12 @@ from core.controllers import (
     UserController,
 )
 from core.observability.controllers import EnhancedHealthController, MetricsController
-from todos.controllers import TodoController
+from todos.controllers import (
+    TodoController,
+    TodoControllerBasic,
+    TodoControllerDeclarative,
+    TodoControllerPartial,
+)
 
 # admin site settings
 admin.site.site_header = "Django Ninja Boilerplate Admin"
@@ -65,8 +70,11 @@ api.register_controllers(
     TaskController,  # Task status and progress tracking
     TaskSchedulerController,  # Periodic task management
     DeadLetterQueueController,  # Failed task handling
-    # todos app
-    TodoController,  # Todo Controller
+    # todos app — four controllers demonstrating progressively abstracted patterns
+    TodoController,  # Pattern 4: full decorators + service layer (recommended)
+    TodoControllerPartial,  # Pattern 3: selective decorators, inline DB ops
+    TodoControllerBasic,  # Pattern 2: no decorators, get_object_or_404 only
+    TodoControllerDeclarative,  # Pattern 1: explicit try/except, maximum verbosity
     # Add more controllers here
 )
 

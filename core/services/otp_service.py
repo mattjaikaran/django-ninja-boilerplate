@@ -10,6 +10,7 @@ This module provides business logic for:
 from __future__ import annotations
 
 import logging
+from datetime import timedelta
 from typing import TYPE_CHECKING
 
 from django.conf import settings
@@ -433,7 +434,7 @@ class OTPService:
         Returns:
             int: Number of OTPs deleted
         """
-        cutoff = timezone.now() - timezone.timedelta(days=7)
+        cutoff = timezone.now() - timedelta(days=7)
         deleted, _ = OneTimePassword.objects.filter(
             created_at__lt=cutoff,
         ).delete()
@@ -460,13 +461,13 @@ class OTPService:
         """
         if email:
             try:
-                return UserModel.objects.get(email=email.lower())
+                return UserModel.objects.get(email=email.lower())  # type: ignore[return-value]
             except UserModel.DoesNotExist:
                 return None
 
         if phone:
             try:
-                return UserModel.objects.get(phone=phone)
+                return UserModel.objects.get(phone=phone)  # type: ignore[return-value]
             except UserModel.DoesNotExist:
                 return None
 

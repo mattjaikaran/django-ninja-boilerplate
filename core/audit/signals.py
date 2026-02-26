@@ -264,7 +264,7 @@ def audit_post_save(sender, instance, created, **kwargs):
     state_key = f"{model_name}:{pk}"
 
     if created:
-        action = AuditAction.CREATE
+        action: str = str(AuditAction.CREATE)
         previous_state = {}
         changes = {}
         action_description = f"Created {model_name}"
@@ -282,13 +282,13 @@ def audit_post_save(sender, instance, created, **kwargs):
 
         if is_active_changed:
             if new_is_active:
-                action = AuditAction.RESTORE
+                action = str(AuditAction.RESTORE)
                 action_description = f"Restored {model_name}"
             else:
-                action = AuditAction.SOFT_DELETE
+                action = str(AuditAction.SOFT_DELETE)
                 action_description = f"Soft deleted {model_name}"
         else:
-            action = AuditAction.UPDATE
+            action = str(AuditAction.UPDATE)
             action_description = f"Updated {model_name}"
 
         changes = calculate_changes(previous_state, new_state)
@@ -352,7 +352,7 @@ def audit_post_delete(sender, instance, **kwargs):
 
     try:
         AuditLog.log_action(
-            action=AuditAction.DELETE,
+            action=str(AuditAction.DELETE),
             action_description=f"Deleted {model_name}",
             user=user,
             model_name=model_name,
@@ -385,7 +385,7 @@ def audit_user_login(sender, request, user, **kwargs):
 
     try:
         AuditLog.log_action(
-            action=AuditAction.LOGIN,
+            action=str(AuditAction.LOGIN),
             action_description=f"User {user.email} logged in",
             user=user,
             model_name="User",
@@ -420,7 +420,7 @@ def audit_user_logout(sender, request, user, **kwargs):
 
     try:
         AuditLog.log_action(
-            action=AuditAction.LOGOUT,
+            action=str(AuditAction.LOGOUT),
             action_description=f"User {user.email} logged out",
             user=user,
             model_name="User",
@@ -461,7 +461,7 @@ def audit_user_login_failed(sender, credentials, request, **kwargs):
 
     try:
         AuditLog.log_action(
-            action=AuditAction.LOGIN_FAILED,
+            action=str(AuditAction.LOGIN_FAILED),
             action_description=f"Failed login attempt for {attempted_user}",
             user=None,
             ip_address=ip_address,

@@ -6,6 +6,7 @@ This module provides Django models for:
 """
 
 import uuid
+from datetime import timedelta
 
 from django.core.serializers.json import DjangoJSONEncoder
 from django.db import models
@@ -186,7 +187,7 @@ class TaskResult(models.Model):
         Returns:
             Number of deleted records
         """
-        cutoff = timezone.now() - timezone.timedelta(days=days)
+        cutoff = timezone.now() - timedelta(days=days)
         deleted, _ = cls.objects.filter(created_at__lt=cutoff).delete()
         return deleted
 
@@ -344,7 +345,7 @@ class DeadLetterQueueEntry(models.Model):
         Returns:
             Number of deleted records
         """
-        cutoff = timezone.now() - timezone.timedelta(days=days)
+        cutoff = timezone.now() - timedelta(days=days)
         deleted, _ = cls.objects.filter(
             is_resolved=True,
             updated_at__lt=cutoff,

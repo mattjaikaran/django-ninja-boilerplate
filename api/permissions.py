@@ -23,14 +23,14 @@ class IsAuthenticated(BasePermission):
     """Permission class that requires user to be authenticated."""
 
     def has_permission(self, request: HttpRequest, view: Any) -> bool:
-        return request.user and request.user.is_authenticated
+        return bool(request.user and request.user.is_authenticated)
 
 
 class IsOwner(BasePermission):
     """Permission class that requires user to be the owner of the object."""
 
     def has_permission(self, request: HttpRequest, view: Any) -> bool:
-        return request.user and request.user.is_authenticated
+        return bool(request.user and request.user.is_authenticated)
 
     def has_object_permission(self, request: HttpRequest, view: Any, obj: Any) -> bool:
         if not request.user or not request.user.is_authenticated:
@@ -49,15 +49,21 @@ class IsAdminUser(BasePermission):
     """Permission class that requires user to be an admin."""
 
     def has_permission(self, request: HttpRequest, view: Any) -> bool:
-        return request.user and request.user.is_authenticated and request.user.is_staff
+        return bool(
+            request.user
+            and request.user.is_authenticated
+            and getattr(request.user, "is_staff", False)
+        )
 
 
 class IsSuperUser(BasePermission):
     """Permission class that requires user to be a superuser."""
 
     def has_permission(self, request: HttpRequest, view: Any) -> bool:
-        return (
-            request.user and request.user.is_authenticated and request.user.is_superuser
+        return bool(
+            request.user
+            and request.user.is_authenticated
+            and getattr(request.user, "is_superuser", False)
         )
 
 
@@ -65,14 +71,17 @@ class IsOwnerOrAdmin(BasePermission):
     """Permission class that requires user to be owner or admin."""
 
     def has_permission(self, request: HttpRequest, view: Any) -> bool:
-        return request.user and request.user.is_authenticated
+        return bool(request.user and request.user.is_authenticated)
 
     def has_object_permission(self, request: HttpRequest, view: Any, obj: Any) -> bool:
         if not request.user or not request.user.is_authenticated:
             return False
 
         # Check if user is admin
-        if request.user.is_staff or request.user.is_superuser:
+        is_admin = getattr(request.user, "is_staff", False) or getattr(
+            request.user, "is_superuser", False
+        )
+        if is_admin:
             return True
 
         # Check if user is owner
@@ -105,7 +114,7 @@ def require_admin(func: Callable) -> Callable:
             msg = "Authentication required"
             raise AuthenticationError(msg)
 
-        if not request.user.is_staff:
+        if not request.user.is_staff:  # type: ignore[attr-defined]
             msg = "Admin access required"
             raise APIPermissionError(msg)
 
@@ -123,7 +132,7 @@ def require_superuser(func: Callable) -> Callable:
             msg = "Authentication required"
             raise AuthenticationError(msg)
 
-        if not request.user.is_superuser:
+        if not request.user.is_superuser:  # type: ignore[attr-defined]
             msg = "Superuser access required"
             raise APIPermissionError(msg)
 
@@ -142,7 +151,7 @@ def require_permission(permission: str) -> Callable:
                 msg = "Authentication required"
                 raise AuthenticationError(msg)
 
-            if not request.user.has_perm(permission):
+            if not request.user.has_perm(permission):  # type: ignore[attr-defined]
                 msg = f"Permission required: {permission}"
                 raise APIPermissionError(msg)
 
@@ -176,7 +185,7 @@ def require_owner(obj_param: str = "obj") -> Callable:
             elif hasattr(obj, "owner"):
                 is_owner = obj.owner == request.user
 
-            if not is_owner and not request.user.is_staff:
+            if not is_owner and not getattr(request.user, "is_staff", False):
                 msg = "Access denied: You are not the owner"
                 raise APIPermissionError(msg)
 
@@ -198,7 +207,9 @@ def require_owner_or_admin(obj_param: str = "obj") -> Callable:
                 raise AuthenticationError(msg)
 
             # Admin users can access everything
-            if request.user.is_staff or request.user.is_superuser:
+            if getattr(request.user, "is_staff", False) or getattr(
+                request.user, "is_superuser", False
+            ):
                 return func(request, *args, **kwargs)
 
             # Get the object from kwargs
@@ -270,7 +281,7 @@ def get_user_permissions(user: AbstractUser) -> list:
     if not user or not user.is_authenticated:
         return []
 
-    permissions = []
+    permissions: list[str] = []
 
     # Add user permissions
     permissions.extend(user.user_permissions.values_list("codename", flat=True))
@@ -302,7 +313,7 @@ def has_all_permissions(user: AbstractUser, permissions: list) -> bool:
 
 def can_access_admin(user: AbstractUser) -> bool:
     """Check if user can access admin interface."""
-    return user and user.is_authenticated and user.is_staff
+    return bool(user and user.is_authenticated and user.is_staff)
 
 
 def can_modify_object(user: AbstractUser, obj: Any) -> bool:

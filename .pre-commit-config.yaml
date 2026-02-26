@@ -92,6 +92,7 @@ repos:
         args: [-c, pyproject.toml, -r, .]
         additional_dependencies: ["bandit[toml]"]
         exclude: ^(tests/|cli/tests/)
+        stages: [pre-push]
 
   # ===========================================
   # Dockerfile linting

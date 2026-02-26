@@ -39,7 +39,7 @@ class SoftDeleteMixin:
                 "to use SoftDeleteMixin"
             )
             raise NotImplementedError(msg)
-        return cls.model
+        return instance.model
 
     @handle_exceptions()
     @log_api_call()
