@@ -1,0 +1,57 @@
+# K3s uses Traefik as its default ingress controller
+# No need to install nginx-ingress separately
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: django-ingress
+  namespace: django-ninja
+  annotations:
+    # Traefik-specific annotations (k3s default)
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+    traefik.ingress.kubernetes.io/router.tls: "true"
+    # Rate limiting via Traefik middleware
+    traefik.ingress.kubernetes.io/router.middlewares: django-ninja-ratelimit@kubernetescrd
+    # Request size limit
+    traefik.ingress.kubernetes.io/buffering.maxRequestBodyBytes: "52428800"
+spec:
+  # k3s uses Traefik by default, no ingressClassName needed
+  # Uncomment if you've installed a different controller:
+  # ingressClassName: traefik
+  tls:
+    - hosts:
+        - api.example.com
+      secretName: api-tls
+  rules:
+    - host: api.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: django
+                port:
+                  number: 8000
+---
+# Optional: Traefik rate limiting middleware (CRD)
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: ratelimit
+  namespace: django-ninja
+spec:
+  rateLimit:
+    average: 100
+    burst: 200
+    period: 1m
+---
+# Optional: Redirect HTTP to HTTPS
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: redirect-https
+  namespace: django-ninja
+spec:
+  redirectScheme:
+    scheme: https
+    permanent: true

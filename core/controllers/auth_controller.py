@@ -110,7 +110,7 @@ class AuthController:
 
     @http_post("/login", response={200: dict, 400: dict})
     @handle_exceptions()
-    @rate_limit(requests_per_minute=10)
+    @rate_limit(requests_per_minute=20)
     @log_api_call(include_payload=True)
     def login(self, request, payload: LoginSchema):
         """Authenticate a user with email and password.
@@ -163,7 +163,7 @@ class AuthController:
 
     @http_post("/login/username", response={200: dict, 400: dict})
     @handle_exceptions()
-    @rate_limit(requests_per_minute=10)
+    @rate_limit(requests_per_minute=20)
     @log_api_call(include_payload=True)
     def login_username(self, request, payload: UserLoginSchema):
         """Authenticate a user with username and password (legacy).
@@ -329,7 +329,7 @@ class AuthController:
 
     @http_post("/passwordless/login/verify", response={200: dict, 404: dict})
     @handle_exceptions()
-    @rate_limit(requests_per_minute=10)
+    @rate_limit(requests_per_minute=20)
     @log_api_call()
     def verify_passwordless_login(self, request, payload: PasswordlessLoginVerify):
         """Verify passwordless login token and return JWT tokens.

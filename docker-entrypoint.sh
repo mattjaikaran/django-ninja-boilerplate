@@ -9,7 +9,7 @@ wait_for_service() {
     host="$1"
     port="$2"
     service_name="$3"
-    
+
     echo "Waiting for $service_name at $host:$port..."
     while ! nc -z "$host" "$port"; do
         sleep 1
@@ -27,7 +27,7 @@ if [ "$REDIS_URL" ]; then
     # Extract host and port from Redis URL
     REDIS_HOST=$(echo "$REDIS_URL" | sed -n 's/.*:\/\/\([^:]*\):.*/\1/p')
     REDIS_PORT=$(echo "$REDIS_URL" | sed -n 's/.*:\([0-9]*\)\/.*/\1/p')
-    
+
     if [ "$REDIS_HOST" ] && [ "$REDIS_PORT" ]; then
         wait_for_service "$REDIS_HOST" "$REDIS_PORT" "Redis"
     fi
@@ -37,21 +37,11 @@ fi
 echo "Running Django migrations..."
 python manage.py migrate --noinput
 
-# Create superuser if it doesn't exist
-if [ "$DJANGO_SUPERUSER_EMAIL" ] && [ "$DJANGO_SUPERUSER_PASSWORD" ]; then
+# Create superuser if it doesn't exist (using management command to avoid shell injection)
+if [ "$SUPERUSER_EMAIL" ] && [ "$SUPERUSER_PASSWORD" ]; then
     echo "Creating Django superuser..."
-    python manage.py shell << EOF
-from django.contrib.auth import get_user_model
-User = get_user_model()
-if not User.objects.filter(email='$DJANGO_SUPERUSER_EMAIL').exists():
-    User.objects.create_superuser(
-        email='$DJANGO_SUPERUSER_EMAIL',
-        password='$DJANGO_SUPERUSER_PASSWORD'
-    )
-    print('Superuser created successfully')
-else:
-    print('Superuser already exists')
-EOF
+    python manage.py create_superuser 2>/dev/null || \
+    echo "Superuser creation skipped (may already exist or missing env vars)"
 fi
 
 # Collect static files

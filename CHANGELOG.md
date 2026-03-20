@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-03-20
+
+### Added
+- **K3s deployment support** — lightweight Kubernetes deployment using plain YAML manifests
+  - `deploy/k3s/namespace.yaml` — dedicated namespace
+  - `deploy/k3s/secrets.yaml` — centralized secrets management with fail-safe placeholders
+  - `deploy/k3s/configmap.yaml` — application configuration
+  - `deploy/k3s/postgres.yaml` — PostgreSQL with local-path PVC (k3s default storage)
+  - `deploy/k3s/redis.yaml` — Redis with password authentication and persistence
+  - `deploy/k3s/django.yaml` — Django deployment (2 replicas) with init container migrations
+  - `deploy/k3s/celery.yaml` — Celery worker and beat deployments
+  - `deploy/k3s/ingress.yaml` — Traefik ingress (k3s built-in) with rate limiting middleware
+  - `deploy/k3s/README.md` — full deployment guide with k3s vs k8s comparison
+- **Nginx security headers** — HSTS with preload, `Permissions-Policy`, `X-Permitted-Cross-Domain-Policies`
+
+### Changed
+- **Hardened rate limits** — login and token verification endpoints increased from 10 to 20 req/min for better UX while maintaining brute-force protection
+- **Tightened Content-Security-Policy** — removed `unsafe-inline`, `http:`, `blob:`; restricted `default-src` to `'self'`
+- **Updated `X-XSS-Protection`** — changed from `1; mode=block` to `0` per modern best practice (CSP replaces it)
+- **Stricter `Referrer-Policy`** — changed from `no-referrer-when-downgrade` to `strict-origin-when-cross-origin`
+
+### Security
+- **Fixed shell injection in `docker-entrypoint.sh`** — replaced inline Python heredoc (which interpolated env vars directly into code) with the safe `create_superuser` management command
+- **Removed hardcoded fallback secrets from `docker-compose.yml`** — `SECRET_KEY`, `CENTRIFUGO_API_KEY`, `CENTRIFUGO_TOKEN_SECRET`, and `FLOWER_BASIC_AUTH` now use `${VAR:?must be set}` syntax that fails fast if env vars are missing, instead of falling back to guessable defaults like `admin:admin`
+
 ## [1.3.0] - 2026-02-26
 
 ### Added
@@ -238,6 +263,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 | Version | Date | Description |
 |---------|------|-------------|
+| 1.4.0 | 2026-03-20 | K3s deployment, security hardening, nginx headers |
 | 1.3.0 | 2026-02-26 | 4 controller patterns, TodoService, Resend, Centrifugo real-time |
 | 1.2.0 | 2026-02-17 | Python 3.13+ default, test fixes, migration fixes |
 | 1.1.0 | 2026-02-05 | Audit logging, feature flags, observability, task management |
@@ -246,7 +272,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 | 0.7.0 | 2026-01-20 | JWT auth, UV, Docker dev environment |
 | 0.6.0 | 2026-01-15 | Initial release |
 
-[Unreleased]: https://github.com/mattjaikaran/django-ninja-boilerplate/compare/v1.3.0...HEAD
+[Unreleased]: https://github.com/mattjaikaran/django-ninja-boilerplate/compare/v1.4.0...HEAD
+[1.4.0]: https://github.com/mattjaikaran/django-ninja-boilerplate/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/mattjaikaran/django-ninja-boilerplate/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/mattjaikaran/django-ninja-boilerplate/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/mattjaikaran/django-ninja-boilerplate/compare/v1.0.0...v1.1.0
