@@ -42,10 +42,10 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '1.0'
+          cpus: "1.0"
           memory: 512M
         reservations:
-          cpus: '0.25'
+          cpus: "0.25"
           memory: 128M
 
   # Redis for caching and sessions
@@ -72,10 +72,10 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.5'
+          cpus: "0.5"
           memory: 256M
         reservations:
-          cpus: '0.1'
+          cpus: "0.1"
           memory: 64M
 
   # Django Web Application with Hot Reloading
@@ -104,7 +104,7 @@ services:
     environment:
       - DJANGO_SETTINGS_MODULE=${DJANGO_SETTINGS_MODULE:-api.settings}
       - DEBUG=${DEBUG:-1}
-      - SECRET_KEY=${SECRET_KEY:-your-secret-key-here-change-in-production}
+      - SECRET_KEY=${SECRET_KEY:?SECRET_KEY must be set}
       - DB_NAME=${DB_NAME:-boilerplate_db}
       - DB_USER=${DB_USER:-postgres}
       - DB_PASSWORD=${DB_PASSWORD:-postgres}
@@ -115,8 +115,8 @@ services:
       - ALLOWED_HOSTS=${ALLOWED_HOSTS:-localhost,127.0.0.1,0.0.0.0,django}
       # Centrifugo settings
       - CENTRIFUGO_URL=${CENTRIFUGO_URL:-http://centrifugo:8000}
-      - CENTRIFUGO_API_KEY=${CENTRIFUGO_API_KEY:-centrifugo-api-key}
-      - CENTRIFUGO_TOKEN_SECRET=${CENTRIFUGO_TOKEN_SECRET:-centrifugo-token-secret}
+      - CENTRIFUGO_API_KEY=${CENTRIFUGO_API_KEY:-}
+      - CENTRIFUGO_TOKEN_SECRET=${CENTRIFUGO_TOKEN_SECRET:-}
       # Observability settings
       - OTEL_SERVICE_NAME=${OTEL_SERVICE_NAME:-django-ninja-app}
       - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT:-http://jaeger:4317}
@@ -134,10 +134,10 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '2.0'
+          cpus: "2.0"
           memory: 1G
         reservations:
-          cpus: '0.5'
+          cpus: "0.5"
           memory: 256M
 
   # ===========================================
@@ -170,10 +170,10 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.5'
+          cpus: "0.5"
           memory: 256M
         reservations:
-          cpus: '0.1'
+          cpus: "0.1"
           memory: 64M
 
   # ===========================================
@@ -194,7 +194,7 @@ services:
     environment:
       - DJANGO_SETTINGS_MODULE=${DJANGO_SETTINGS_MODULE:-api.settings}
       - DEBUG=${DEBUG:-1}
-      - SECRET_KEY=${SECRET_KEY:-your-secret-key-here-change-in-production}
+      - SECRET_KEY=${SECRET_KEY:?SECRET_KEY must be set}
       - DB_NAME=${DB_NAME:-boilerplate_db}
       - DB_USER=${DB_USER:-postgres}
       - DB_PASSWORD=${DB_PASSWORD:-postgres}
@@ -215,10 +215,10 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '1.0'
+          cpus: "1.0"
           memory: 512M
         reservations:
-          cpus: '0.25'
+          cpus: "0.25"
           memory: 128M
 
   # Celery Beat Scheduler
@@ -234,7 +234,7 @@ services:
     environment:
       - DJANGO_SETTINGS_MODULE=${DJANGO_SETTINGS_MODULE:-api.settings}
       - DEBUG=${DEBUG:-1}
-      - SECRET_KEY=${SECRET_KEY:-your-secret-key-here-change-in-production}
+      - SECRET_KEY=${SECRET_KEY:?SECRET_KEY must be set}
       - DB_NAME=${DB_NAME:-boilerplate_db}
       - DB_USER=${DB_USER:-postgres}
       - DB_PASSWORD=${DB_PASSWORD:-postgres}
@@ -257,10 +257,10 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.5'
+          cpus: "0.5"
           memory: 256M
         reservations:
-          cpus: '0.1'
+          cpus: "0.1"
           memory: 64M
 
   # ===========================================
@@ -272,16 +272,16 @@ services:
   jaeger:
     image: jaegertracing/all-in-one:1.53
     ports:
-      - "6831:6831/udp"   # Jaeger thrift compact protocol
-      - "6832:6832/udp"   # Jaeger thrift binary protocol
-      - "5778:5778"       # Agent serve configs
-      - "16686:16686"     # Jaeger UI
-      - "4317:4317"       # OTLP gRPC receiver
-      - "4318:4318"       # OTLP HTTP receiver
-      - "14250:14250"     # Jaeger gRPC collector
-      - "14268:14268"     # Jaeger HTTP collector
-      - "14269:14269"     # Admin port (health check)
-      - "9411:9411"       # Zipkin compatible endpoint
+      - "6831:6831/udp" # Jaeger thrift compact protocol
+      - "6832:6832/udp" # Jaeger thrift binary protocol
+      - "5778:5778" # Agent serve configs
+      - "16686:16686" # Jaeger UI
+      - "4317:4317" # OTLP gRPC receiver
+      - "4318:4318" # OTLP HTTP receiver
+      - "14250:14250" # Jaeger gRPC collector
+      - "14268:14268" # Jaeger HTTP collector
+      - "14269:14269" # Admin port (health check)
+      - "9411:9411" # Zipkin compatible endpoint
     environment:
       - COLLECTOR_OTLP_ENABLED=true
       - LOG_LEVEL=info
@@ -299,10 +299,10 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '1.0'
+          cpus: "1.0"
           memory: 512M
         reservations:
-          cpus: '0.25'
+          cpus: "0.25"
           memory: 128M
 
   # Flower - Celery Monitoring Dashboard
@@ -316,9 +316,9 @@ services:
       - "5555:5555"
     environment:
       - DJANGO_SETTINGS_MODULE=${DJANGO_SETTINGS_MODULE:-api.settings}
-      - SECRET_KEY=${SECRET_KEY:-your-secret-key-here-change-in-production}
+      - SECRET_KEY=${SECRET_KEY:?SECRET_KEY must be set}
       - REDIS_URL=${REDIS_URL:-redis://redis:6379/0}
-      - FLOWER_BASIC_AUTH=${FLOWER_BASIC_AUTH:-admin:admin}
+      - FLOWER_BASIC_AUTH=${FLOWER_BASIC_AUTH:?FLOWER_BASIC_AUTH must be set (user:password)}
       - PYTHONDONTWRITEBYTECODE=1
       - PYTHONUNBUFFERED=1
     depends_on:
@@ -331,10 +331,10 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.5'
+          cpus: "0.5"
           memory: 256M
         reservations:
-          cpus: '0.1'
+          cpus: "0.1"
           memory: 64M
 
 networks:

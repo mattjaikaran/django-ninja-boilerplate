@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: django-config
+  namespace: django-ninja
+data:
+  DJANGO_SETTINGS_MODULE: "api.settings"
+  DEBUG: "0"
+  DB_NAME: "django_db"
+  DB_USER: "django"
+  DB_HOST: "postgres"
+  DB_PORT: "5432"
+  REDIS_URL: "redis://:$(REDIS_PASSWORD)@redis:6379/0"
+  ALLOWED_HOSTS: "*"
+  PYTHONDONTWRITEBYTECODE: "1"
+  PYTHONUNBUFFERED: "1"
