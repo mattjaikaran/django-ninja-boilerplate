@@ -1,6 +1,6 @@
 [project]
 name = "django-ninja-boilerplate"
-version = "1.4.0"
+version = "1.5.0"
 description = "A production-ready Django boilerplate using Django Ninja for building modern APIs"
 authors = [{ name = "Matt Jaikaran", email = "info@mattjaikaran.com" }]
 readme = "README.md"

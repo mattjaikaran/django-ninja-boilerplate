@@ -2,6 +2,11 @@
 
 This module provides base Pydantic schemas for standardized API responses
 including error handling, pagination, and common response patterns.
+
+All API schemas should inherit from ``CamelCaseSchema`` for consistent
+camelCase JSON field names.  Input schemas accept **both** camelCase and
+snake_case thanks to ``populate_by_name=True``; output always serialises
+as camelCase.
 """
 
 from datetime import datetime
@@ -11,9 +16,51 @@ from uuid import UUID
 
 from ninja import Schema
 from pydantic import ConfigDict, Field
+from pydantic.alias_generators import to_camel
 
 # Type variable for generic responses
 T = TypeVar("T")
+
+
+# =============================================================================
+# CamelCase Base Schema
+# =============================================================================
+
+
+class CamelCaseSchema(Schema):
+    """Base schema with automatic camelCase aliases.
+
+    Features:
+        - ``alias_generator=to_camel``: field ``first_name`` → JSON key ``firstName``
+        - ``populate_by_name=True``: input accepts both ``firstName`` and ``first_name``
+        - ``model_dump`` overridden to always serialise by alias (camelCase),
+          which is required because Django Ninja passes ``by_alias=False`` by default.
+
+    Usage::
+
+        class UserSchema(CamelCaseSchema):
+            first_name: str
+            last_name: str
+
+
+        # Serialises as {"firstName": "...", "lastName": "..."}
+    """
+
+    model_config = ConfigDict(
+        alias_generator=to_camel,
+        populate_by_name=True,
+        from_attributes=True,
+    )
+
+    def model_dump(self, **kwargs: Any) -> dict[str, Any]:
+        """Always serialise using camelCase aliases.
+
+        Django Ninja calls ``model_dump(by_alias=False)`` by default.
+        This override forces ``by_alias=True`` so JSON responses use
+        the camelCase aliases produced by the alias generator.
+        """
+        kwargs["by_alias"] = True
+        return super().model_dump(**kwargs)
 
 
 # =============================================================================
@@ -21,14 +68,14 @@ T = TypeVar("T")
 # =============================================================================
 
 
-class SuccessResponse(Schema):
+class SuccessResponse(CamelCaseSchema):
     """Standard success response schema."""
 
     success: bool = True
     message: str = "Operation completed successfully"
 
 
-class ErrorResponse(Schema):
+class ErrorResponse(CamelCaseSchema):
     """Standard error response schema."""
 
     model_config = ConfigDict(extra="ignore")
@@ -39,7 +86,7 @@ class ErrorResponse(Schema):
     details: dict[str, Any] | None = None
 
 
-class ValidationErrorResponse(Schema):
+class ValidationErrorResponse(CamelCaseSchema):
     """Validation error response with field-specific errors."""
 
     error: bool = True
@@ -48,14 +95,14 @@ class ValidationErrorResponse(Schema):
     field_errors: dict[str, list[str]] = Field(default_factory=dict)
 
 
-class MessageResponse(Schema):
+class MessageResponse(CamelCaseSchema):
     """Simple message response."""
 
     message: str
     success: bool = True
 
 
-class IdResponse(Schema):
+class IdResponse(CamelCaseSchema):
     """Response containing just an ID."""
 
     id: str | UUID
@@ -66,7 +113,7 @@ class IdResponse(Schema):
 # =============================================================================
 
 
-class PaginationMeta(Schema):
+class PaginationMeta(CamelCaseSchema):
     """Pagination metadata for list responses."""
 
     page: int = 1
@@ -77,7 +124,7 @@ class PaginationMeta(Schema):
     has_prev: bool = False
 
 
-class PaginatedResponse(Schema, Generic[T]):
+class PaginatedResponse(CamelCaseSchema, Generic[T]):
     """Paginated list response wrapper."""
 
     items: list[T]
@@ -89,14 +136,11 @@ class PaginatedResponse(Schema, Generic[T]):
 # =============================================================================
 
 
-class TimestampSchema(Schema):
+class TimestampSchema(CamelCaseSchema):
     """Schema with timestamp fields."""
 
     created_at: datetime
     updated_at: datetime
-
-    class Config:
-        from_attributes = True
 
 
 class AuditSchema(TimestampSchema):
@@ -105,20 +149,14 @@ class AuditSchema(TimestampSchema):
     created_by_id: str | UUID | None = None
     updated_by_id: str | UUID | None = None
 
-    class Config:
-        from_attributes = True
 
-
-class BaseModelSchema(Schema):
+class BaseModelSchema(CamelCaseSchema):
     """Base schema for all model responses."""
 
     id: str | UUID
     created_at: datetime | None = None
     updated_at: datetime | None = None
     is_active: bool = True
-
-    class Config:
-        from_attributes = True
 
 
 # =============================================================================
@@ -133,14 +171,14 @@ class SortOrder(str, Enum):
     DESC = "desc"
 
 
-class BaseSortSchema(Schema):
+class BaseSortSchema(CamelCaseSchema):
     """Base schema for sorting parameters."""
 
     sort_by: str | None = None
     sort_order: SortOrder = SortOrder.DESC
 
 
-class BaseFilterSchema(Schema):
+class BaseFilterSchema(CamelCaseSchema):
     """Base schema for filtering parameters."""
 
     search: str | None = None
@@ -149,7 +187,7 @@ class BaseFilterSchema(Schema):
     created_before: datetime | None = None
 
 
-class DateRangeSchema(Schema):
+class DateRangeSchema(CamelCaseSchema):
     """Date range filter schema."""
 
     start_date: datetime | None = None
@@ -172,20 +210,20 @@ class StatusEnum(str, Enum):
     ARCHIVED = "archived"
 
 
-class StatusUpdateSchema(Schema):
+class StatusUpdateSchema(CamelCaseSchema):
     """Schema for status updates."""
 
     status: StatusEnum
 
 
-class BulkActionSchema(Schema):
+class BulkActionSchema(CamelCaseSchema):
     """Schema for bulk actions on multiple items."""
 
     ids: list[str | UUID]
     action: str
 
 
-class BulkActionResponse(Schema):
+class BulkActionResponse(CamelCaseSchema):
     """Response for bulk actions."""
 
     success: bool = True
@@ -207,7 +245,7 @@ class HealthStatus(str, Enum):
     UNHEALTHY = "unhealthy"
 
 
-class ServiceHealth(Schema):
+class ServiceHealth(CamelCaseSchema):
     """Individual service health status."""
 
     name: str
@@ -216,7 +254,7 @@ class ServiceHealth(Schema):
     message: str | None = None
 
 
-class HealthCheckResponse(Schema):
+class HealthCheckResponse(CamelCaseSchema):
     """Complete health check response."""
 
     status: HealthStatus

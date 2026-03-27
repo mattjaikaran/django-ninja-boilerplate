@@ -130,11 +130,11 @@ __all__ = ["Team", "TeamMember"]
         """Generate team schemas."""
         schemas_content = '''"""Team schemas."""
 
-from ninja import Schema
+from core.schemas.base_schema import CamelCaseSchema
 from typing import Optional, List
 
 
-class TeamSchema(Schema):
+class TeamSchema(CamelCaseSchema):
     id: str
     name: str
     description: str
@@ -144,19 +144,19 @@ class TeamSchema(Schema):
     updated_at: str
 
 
-class CreateTeamSchema(Schema):
+class CreateTeamSchema(CamelCaseSchema):
     name: str
     description: str = ""
     organization_id: Optional[str] = None
 
 
-class UpdateTeamSchema(Schema):
+class UpdateTeamSchema(CamelCaseSchema):
     name: Optional[str] = None
     description: Optional[str] = None
     is_active: Optional[bool] = None
 
 
-class TeamMemberSchema(Schema):
+class TeamMemberSchema(CamelCaseSchema):
     id: str
     team: TeamSchema
     user_id: str
@@ -166,12 +166,12 @@ class TeamMemberSchema(Schema):
     created_at: str
 
 
-class AddMemberSchema(Schema):
+class AddMemberSchema(CamelCaseSchema):
     user_id: str
     role: str = "member"
 
 
-class UpdateMemberRoleSchema(Schema):
+class UpdateMemberRoleSchema(CamelCaseSchema):
     role: str
 '''
 

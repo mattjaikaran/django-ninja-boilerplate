@@ -6,11 +6,12 @@ This module defines Pydantic schemas for user-related API operations.
 from datetime import datetime
 from uuid import UUID
 
-from ninja import Schema
 from pydantic import EmailStr, Field, field_validator
 
+from core.schemas.base_schema import CamelCaseSchema
 
-class UserSchema(Schema):
+
+class UserSchema(CamelCaseSchema):
     """Schema for user responses."""
 
     id: str
@@ -42,11 +43,8 @@ class UserSchema(Schema):
             return str(v)
         return v
 
-    class Config:
-        from_attributes = True
 
-
-class UserBasicSchema(Schema):
+class UserBasicSchema(CamelCaseSchema):
     """Minimal user schema for embedded responses."""
 
     id: str
@@ -65,11 +63,8 @@ class UserBasicSchema(Schema):
             return str(v)
         return v
 
-    class Config:
-        from_attributes = True
 
-
-class UserSignupSchema(Schema):
+class UserSignupSchema(CamelCaseSchema):
     """Schema for user registration."""
 
     email: EmailStr
@@ -90,20 +85,20 @@ class UserSignupSchema(Schema):
         return v
 
 
-class UserLoginSchema(Schema):
+class UserLoginSchema(CamelCaseSchema):
     """Schema for user login."""
 
     email: EmailStr
     password: str
 
 
-class UserLogoutSchema(Schema):
+class UserLogoutSchema(CamelCaseSchema):
     """Schema for logout response."""
 
     message: str
 
 
-class UserUpdateSchema(Schema):
+class UserUpdateSchema(CamelCaseSchema):
     """Schema for updating user profile."""
 
     first_name: str | None = None
@@ -125,17 +120,14 @@ class UserUpdateSchema(Schema):
             return None
         return v
 
-    class Config:
-        from_attributes = True
 
-
-class UserDeleteSchema(Schema):
+class UserDeleteSchema(CamelCaseSchema):
     """Schema for user deletion response."""
 
     message: str
 
 
-class ChangePasswordSchema(Schema):
+class ChangePasswordSchema(CamelCaseSchema):
     """Schema for password change."""
 
     current_password: str
@@ -151,18 +143,15 @@ class ChangePasswordSchema(Schema):
         return v
 
 
-class UserPreferencesSchema(Schema):
+class UserPreferencesSchema(CamelCaseSchema):
     """Schema for user preferences."""
 
     email_notifications: bool = True
     push_notifications: bool = True
     timezone: str = "UTC"
 
-    class Config:
-        from_attributes = True
 
-
-class UserStatsSchema(Schema):
+class UserStatsSchema(CamelCaseSchema):
     """Schema for user statistics."""
 
     total_todos: int = 0

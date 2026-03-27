@@ -321,12 +321,12 @@ class Subscription(AbstractBaseModel):
         """Get the payment schemas content."""
         base_schemas = '''"""Payment schemas."""
 
-from ninja import Schema
+from core.schemas.base_schema import CamelCaseSchema
 from typing import Optional
 from decimal import Decimal
 
 
-class PaymentMethodSchema(Schema):
+class PaymentMethodSchema(CamelCaseSchema):
     id: str
     type: str
     last_four: str
@@ -335,11 +335,11 @@ class PaymentMethodSchema(Schema):
     created_at: str
 
 
-class CreatePaymentMethodSchema(Schema):
+class CreatePaymentMethodSchema(CamelCaseSchema):
     stripe_payment_method_id: str
 
 
-class PaymentIntentSchema(Schema):
+class PaymentIntentSchema(CamelCaseSchema):
     id: str
     stripe_payment_intent_id: str
     amount: Decimal
@@ -349,14 +349,14 @@ class PaymentIntentSchema(Schema):
     created_at: str
 
 
-class CreatePaymentIntentSchema(Schema):
+class CreatePaymentIntentSchema(CamelCaseSchema):
     amount: Decimal
     currency: str = "usd"
     payment_method_id: Optional[str] = None
     description: Optional[str] = None
 
 
-class PaymentSchema(Schema):
+class PaymentSchema(CamelCaseSchema):
     id: str
     amount: Decimal
     currency: str
@@ -366,7 +366,7 @@ class PaymentSchema(Schema):
     payment_method: Optional[PaymentMethodSchema] = None
 
 
-class ProcessPaymentSchema(Schema):
+class ProcessPaymentSchema(CamelCaseSchema):
     payment_intent_id: str
     payment_method_id: Optional[str] = None
 '''
@@ -374,7 +374,7 @@ class ProcessPaymentSchema(Schema):
         if self.include_subscriptions:
             base_schemas += """
 
-class SubscriptionPlanSchema(Schema):
+class SubscriptionPlanSchema(CamelCaseSchema):
     id: str
     name: str
     description: str
@@ -387,7 +387,7 @@ class SubscriptionPlanSchema(Schema):
     is_active: bool
 
 
-class SubscriptionSchema(Schema):
+class SubscriptionSchema(CamelCaseSchema):
     id: str
     plan: SubscriptionPlanSchema
     status: str
@@ -398,7 +398,7 @@ class SubscriptionSchema(Schema):
     canceled_at: Optional[str] = None
 
 
-class CreateSubscriptionSchema(Schema):
+class CreateSubscriptionSchema(CamelCaseSchema):
     plan_id: str
     payment_method_id: Optional[str] = None
     trial_period_days: Optional[int] = None

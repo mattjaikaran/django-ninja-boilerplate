@@ -7,24 +7,24 @@ Provides JWT tokens that clients use to authenticate with Centrifugo:
 
 import logging
 
-from ninja import Schema
 from ninja_extra import api_controller, http_post
 
 from api.centrifugo import generate_connection_token, generate_subscription_token
 from api.decorators import handle_exceptions, log_api_call, rate_limit
+from core.schemas.base_schema import CamelCaseSchema
 
 logger = logging.getLogger(__name__)
 
 
-class ConnectionTokenResponse(Schema):
+class ConnectionTokenResponse(CamelCaseSchema):
     token: str
 
 
-class SubscriptionTokenRequest(Schema):
+class SubscriptionTokenRequest(CamelCaseSchema):
     channel: str
 
 
-class SubscriptionTokenResponse(Schema):
+class SubscriptionTokenResponse(CamelCaseSchema):
     token: str
 
 

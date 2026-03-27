@@ -6,11 +6,12 @@ including mobile/iOS 6-digit code authentication.
 
 from datetime import datetime
 
-from ninja import Schema
 from pydantic import EmailStr, Field, field_validator
 
+from core.schemas.base_schema import CamelCaseSchema
 
-class OTPRequestSchema(Schema):
+
+class OTPRequestSchema(CamelCaseSchema):
     """Schema for requesting an OTP code.
 
     Used for mobile/iOS apps to request a 6-digit code.
@@ -55,7 +56,7 @@ class OTPRequestSchema(Schema):
         return v.upper()
 
 
-class OTPVerifySchema(Schema):
+class OTPVerifySchema(CamelCaseSchema):
     """Schema for verifying an OTP code.
 
     Used for mobile/iOS apps to verify a 6-digit code.
@@ -76,13 +77,13 @@ class OTPVerifySchema(Schema):
         return v
 
 
-class OTPTokenVerifySchema(Schema):
+class OTPTokenVerifySchema(CamelCaseSchema):
     """Schema for verifying an OTP token (magic link)."""
 
     token: str = Field(..., min_length=32)
 
 
-class OTPResponseSchema(Schema):
+class OTPResponseSchema(CamelCaseSchema):
     """Schema for OTP request response."""
 
     success: bool
@@ -91,7 +92,7 @@ class OTPResponseSchema(Schema):
     remaining_attempts: int | None = None
 
 
-class OTPVerifyResponseSchema(Schema):
+class OTPVerifyResponseSchema(CamelCaseSchema):
     """Schema for OTP verification response with tokens."""
 
     success: bool
@@ -101,7 +102,7 @@ class OTPVerifyResponseSchema(Schema):
     user: dict | None = None
 
 
-class OTPStatusSchema(Schema):
+class OTPStatusSchema(CamelCaseSchema):
     """Schema for checking OTP status."""
 
     is_valid: bool
@@ -111,7 +112,7 @@ class OTPStatusSchema(Schema):
     purpose: str
 
 
-class PasswordResetWithOTPSchema(Schema):
+class PasswordResetWithOTPSchema(CamelCaseSchema):
     """Schema for password reset using OTP code."""
 
     email: EmailStr
@@ -137,7 +138,7 @@ class PasswordResetWithOTPSchema(Schema):
         return v
 
 
-class SignupWithOTPSchema(Schema):
+class SignupWithOTPSchema(CamelCaseSchema):
     """Schema for signup verification with OTP."""
 
     email: EmailStr
@@ -153,7 +154,7 @@ class SignupWithOTPSchema(Schema):
         return v
 
 
-class TwoFactorSetupSchema(Schema):
+class TwoFactorSetupSchema(CamelCaseSchema):
     """Schema for setting up two-factor authentication."""
 
     enable: bool = True
@@ -163,7 +164,7 @@ class TwoFactorSetupSchema(Schema):
     )
 
 
-class TwoFactorVerifySchema(Schema):
+class TwoFactorVerifySchema(CamelCaseSchema):
     """Schema for verifying two-factor authentication."""
 
     code: str = Field(..., min_length=6, max_length=6)
@@ -182,7 +183,7 @@ class TwoFactorVerifySchema(Schema):
         return v
 
 
-class ResendOTPSchema(Schema):
+class ResendOTPSchema(CamelCaseSchema):
     """Schema for resending an OTP code."""
 
     email: EmailStr | None = None

@@ -10,12 +10,12 @@ from django.db.models.fields import (
     DecimalField,
     IntegerField,
 )
-from ninja import Schema
-from pydantic import Field
+from pydantic import ConfigDict, Field
+
+from core.schemas.base_schema import CamelCaseSchema
 
 
-# Use Schema as base for now - FilterSchema requires Django settings to be loaded
-class BaseSearchFilter(Schema):
+class BaseSearchFilter(CamelCaseSchema):
     """Base search filter with common search functionality."""
 
     search: str | None = Field(None, description="Search term to filter results")
@@ -28,14 +28,14 @@ class BaseSearchFilter(Schema):
     offset: int | None = Field(0, description="Number of results to skip", ge=0)
 
 
-class DateRangeFilter(Schema):
+class DateRangeFilter(CamelCaseSchema):
     """Date range filtering."""
 
     date_from: date | None = Field(None, description="Start date (YYYY-MM-DD)")
     date_to: date | None = Field(None, description="End date (YYYY-MM-DD)")
 
 
-class DateTimeRangeFilter(Schema):
+class DateTimeRangeFilter(CamelCaseSchema):
     """DateTime range filtering."""
 
     datetime_from: datetime | None = Field(
@@ -54,8 +54,7 @@ class UserSearchFilter(BaseSearchFilter):
     created_after: date | None = Field(None, description="Created after date")
     created_before: date | None = Field(None, description="Created before date")
 
-    class Config:
-        extra = "forbid"
+    model_config = ConfigDict(extra="forbid")
 
 
 class TodoSearchFilter(BaseSearchFilter):
@@ -66,8 +65,7 @@ class TodoSearchFilter(BaseSearchFilter):
     created_after: date | None = Field(None, description="Created after date")
     created_before: date | None = Field(None, description="Created before date")
 
-    class Config:
-        extra = "forbid"
+    model_config = ConfigDict(extra="forbid")
 
 
 class AdvancedSearchEngine:

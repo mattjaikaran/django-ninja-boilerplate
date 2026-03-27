@@ -3,23 +3,24 @@
 This module defines Pydantic schemas for authentication-related API operations.
 """
 
-from ninja import Schema
 from pydantic import EmailStr, Field, field_validator
 
+from core.schemas.base_schema import CamelCaseSchema
 
-class PasswordlessLoginRequest(Schema):
+
+class PasswordlessLoginRequest(CamelCaseSchema):
     """Schema for requesting passwordless login magic link."""
 
     email: EmailStr
 
 
-class PasswordlessLoginVerify(Schema):
+class PasswordlessLoginVerify(CamelCaseSchema):
     """Schema for verifying passwordless login token."""
 
     token: str
 
 
-class LoginSchema(Schema):
+class LoginSchema(CamelCaseSchema):
     """Schema for email/password login.
 
     Note: The User model uses email as the primary authentication field.
@@ -29,7 +30,7 @@ class LoginSchema(Schema):
     password: str
 
 
-class TokenSchema(Schema):
+class TokenSchema(CamelCaseSchema):
     """Schema for authentication token response."""
 
     token: str
@@ -37,19 +38,19 @@ class TokenSchema(Schema):
     user: dict
 
 
-class RefreshTokenSchema(Schema):
+class RefreshTokenSchema(CamelCaseSchema):
     """Schema for token refresh request."""
 
     refresh: str
 
 
-class PasswordResetRequestSchema(Schema):
+class PasswordResetRequestSchema(CamelCaseSchema):
     """Schema for password reset request."""
 
     email: EmailStr
 
 
-class PasswordResetConfirmSchema(Schema):
+class PasswordResetConfirmSchema(CamelCaseSchema):
     """Schema for password reset confirmation."""
 
     token: str
@@ -65,13 +66,13 @@ class PasswordResetConfirmSchema(Schema):
         return v
 
 
-class EmailVerificationSchema(Schema):
+class EmailVerificationSchema(CamelCaseSchema):
     """Schema for email verification."""
 
     token: str
 
 
-class AuthStatusSchema(Schema):
+class AuthStatusSchema(CamelCaseSchema):
     """Schema for authentication status response."""
 
     authenticated: bool
@@ -80,7 +81,7 @@ class AuthStatusSchema(Schema):
 
 
 # Legacy schemas for backwards compatibility
-class UserLoginSchema(Schema):
+class UserLoginSchema(CamelCaseSchema):
     """Legacy login schema using username.
 
     Deprecated: Use LoginSchema instead.
