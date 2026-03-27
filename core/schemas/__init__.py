@@ -22,6 +22,7 @@ from core.schemas.base_schema import (
     BaseSortSchema,
     BulkActionResponse,
     BulkActionSchema,
+    CamelCaseSchema,
     DateRangeSchema,
     ErrorResponse,
     HealthCheckResponse,
@@ -101,6 +102,7 @@ __all__ = [
     "UserStatsSchema",
     "UserUpdateSchema",
     # Base schemas
+    "CamelCaseSchema",
     "AuditSchema",
     "BaseFilterSchema",
     "BaseModelSchema",

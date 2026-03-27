@@ -245,7 +245,7 @@ class {model_name}(AbstractBaseModel):
     )
     title = models.CharField(max_length=255)
     description = models.TextField(blank=True)
-    
+
     def __str__(self):
         return self.title
 
@@ -256,10 +256,10 @@ class {model_name}(AbstractBaseModel):
         return self.create_file(file_path, content)
 
     def create_schema_file(self, app_name, file_path, model_name):
-        content = f"""from ninja import Schema
+        content = f"""from core.schemas.base_schema import CamelCaseSchema
 
 
-class {model_name}Schema(Schema):
+class {model_name}Schema(CamelCaseSchema):
     id: str
     title: str
     description: str
@@ -267,12 +267,12 @@ class {model_name}Schema(Schema):
     updated_at: str
 
 
-class Create{model_name}Schema(Schema):
+class Create{model_name}Schema(CamelCaseSchema):
     title: str
     description: str
 
 
-class Update{model_name}Schema(Schema):
+class Update{model_name}Schema(CamelCaseSchema):
     title: str
     description: str
 """

@@ -2,13 +2,14 @@
 
 from typing import Any, Generic, TypeVar
 
-from ninja import Schema
 from pydantic import Field
+
+from core.schemas.base_schema import CamelCaseSchema
 
 T = TypeVar("T")
 
 
-class PaginationMeta(Schema):
+class PaginationMeta(CamelCaseSchema):
     """Pagination metadata schema."""
 
     current_page: int = Field(..., description="Current page number")
@@ -23,7 +24,7 @@ class PaginationMeta(Schema):
     end_index: int = Field(..., description="Index of last item on current page")
 
 
-class PaginatedResponse(Schema, Generic[T]):
+class PaginatedResponse(CamelCaseSchema, Generic[T]):
     """Generic paginated response schema."""
 
     items: list[T] = Field(..., description="List of items for current page")
@@ -31,21 +32,21 @@ class PaginatedResponse(Schema, Generic[T]):
     filters_applied: dict[str, Any] | None = Field(None, description="Applied filters")
 
 
-class PaginationParams(Schema):
+class PaginationParams(CamelCaseSchema):
     """Pagination parameters schema."""
 
     page: int = Field(1, description="Page number", ge=1)
     per_page: int = Field(20, description="Items per page", ge=1, le=100)
 
 
-class CursorPaginationParams(Schema):
+class CursorPaginationParams(CamelCaseSchema):
     """Cursor-based pagination parameters."""
 
     limit: int = Field(20, description="Maximum items to return", ge=1, le=100)
     cursor: str | None = Field(None, description="Cursor for pagination")
 
 
-class CursorPaginationMeta(Schema):
+class CursorPaginationMeta(CamelCaseSchema):
     """Cursor pagination metadata."""
 
     has_next: bool = Field(..., description="Whether there are more items")
@@ -55,7 +56,7 @@ class CursorPaginationMeta(Schema):
     count: int = Field(..., description="Number of items in current page")
 
 
-class CursorPaginatedResponse(Schema, Generic[T]):
+class CursorPaginatedResponse(CamelCaseSchema, Generic[T]):
     """Cursor-based paginated response schema."""
 
     items: list[T] = Field(..., description="List of items")

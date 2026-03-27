@@ -6,11 +6,12 @@ Defines request and response schemas for the audit log API endpoints.
 from datetime import datetime
 from uuid import UUID
 
-from ninja import Schema
 from pydantic import Field, field_validator
 
+from core.schemas.base_schema import CamelCaseSchema
 
-class AuditLogSchema(Schema):
+
+class AuditLogSchema(CamelCaseSchema):
     """Schema for audit log responses."""
 
     id: str
@@ -41,11 +42,8 @@ class AuditLogSchema(Schema):
             return str(v)
         return v
 
-    class Config:
-        from_attributes = True
 
-
-class AuditLogListSchema(Schema):
+class AuditLogListSchema(CamelCaseSchema):
     """Minimal schema for audit log list responses."""
 
     id: str
@@ -65,11 +63,8 @@ class AuditLogListSchema(Schema):
             return str(v)
         return v
 
-    class Config:
-        from_attributes = True
 
-
-class AuditLogFilterSchema(Schema):
+class AuditLogFilterSchema(CamelCaseSchema):
     """Schema for filtering audit logs."""
 
     action: str | None = Field(None, description="Filter by action type")
@@ -83,7 +78,7 @@ class AuditLogFilterSchema(Schema):
     search: str | None = Field(None, description="Search in description and paths")
 
 
-class AuditLogStatsSchema(Schema):
+class AuditLogStatsSchema(CamelCaseSchema):
     """Schema for audit log statistics."""
 
     total_logs: int
@@ -96,7 +91,7 @@ class AuditLogStatsSchema(Schema):
     date_range: dict
 
 
-class AuditLogExportSchema(Schema):
+class AuditLogExportSchema(CamelCaseSchema):
     """Schema for audit log export request."""
 
     format: str = Field("json", description="Export format: json, csv")
@@ -106,7 +101,7 @@ class AuditLogExportSchema(Schema):
     model_names: list[str] | None = Field(None, description="Filter by model names")
 
 
-class AuditLogExportResponseSchema(Schema):
+class AuditLogExportResponseSchema(CamelCaseSchema):
     """Schema for audit log export response."""
 
     download_url: str | None = None

@@ -863,8 +863,8 @@ def add_app(
     if docstrings:
         schema_content = (
             f'"""Pydantic schemas for {name} app."""\n\n'
-            "from ninja import Schema\n\n\n"
-            f"class {model_name}Schema(Schema):\n"
+            "from core.schemas.base_schema import CamelCaseSchema\n\n\n"
+            f"class {model_name}Schema(CamelCaseSchema):\n"
             f'    """Read schema for {model_name} resources.\n\n'
             "    Attributes:\n"
             "        id: UUID primary key.\n"
@@ -873,11 +873,8 @@ def add_app(
             '    """\n\n'
             "    id: str\n"
             "    name: str\n"
-            "    description: str\n\n"
-            "    class Config:\n"
-            '        """Pydantic config — enable ORM mode."""\n\n'
-            "        from_attributes = True\n\n\n"
-            f"class Create{model_name}Schema(Schema):\n"
+            "    description: str\n\n\n"
+            f"class Create{model_name}Schema(CamelCaseSchema):\n"
             f'    """Write schema used when creating or updating a {model_name}.\n\n'
             "    Attributes:\n"
             "        name: Display name (required).\n"
@@ -889,14 +886,12 @@ def add_app(
     else:
         schema_content = (
             f'"""Pydantic schemas for {name} app."""\n\n'
-            "from ninja import Schema\n\n\n"
-            f"class {model_name}Schema(Schema):\n"
+            "from core.schemas.base_schema import CamelCaseSchema\n\n\n"
+            f"class {model_name}Schema(CamelCaseSchema):\n"
             "    id: str\n"
             "    name: str\n"
-            "    description: str\n\n"
-            "    class Config:\n"
-            "        from_attributes = True\n\n\n"
-            f"class Create{model_name}Schema(Schema):\n"
+            "    description: str\n\n\n"
+            f"class Create{model_name}Schema(CamelCaseSchema):\n"
             "    name: str\n"
             '    description: str = ""\n'
         )

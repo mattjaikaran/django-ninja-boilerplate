@@ -202,11 +202,11 @@ __all__ = ["Notification", "NotificationTemplate", "NotificationPreference"]
         """Generate notification schemas."""
         schemas_content = '''"""Notification schemas."""
 
-from ninja import Schema
+from core.schemas.base_schema import CamelCaseSchema
 from typing import Optional, List
 
 
-class NotificationSchema(Schema):
+class NotificationSchema(CamelCaseSchema):
     id: str
     subject: str
     content: str
@@ -219,14 +219,14 @@ class NotificationSchema(Schema):
     template_name: str
 
 
-class CreateNotificationSchema(Schema):
+class CreateNotificationSchema(CamelCaseSchema):
     recipient_id: str
     template_name: str
     context_data: dict = {}
     priority: str = "normal"
 
 
-class NotificationPreferenceSchema(Schema):
+class NotificationPreferenceSchema(CamelCaseSchema):
     email_enabled: bool
     email_marketing: bool
     email_updates: bool
@@ -237,7 +237,7 @@ class NotificationPreferenceSchema(Schema):
     in_app_enabled: bool
 
 
-class UpdateNotificationPreferenceSchema(Schema):
+class UpdateNotificationPreferenceSchema(CamelCaseSchema):
     email_enabled: Optional[bool] = None
     email_marketing: Optional[bool] = None
     email_updates: Optional[bool] = None

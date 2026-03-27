@@ -13,11 +13,12 @@ Routes that use these schemas:
 from datetime import datetime
 from uuid import UUID
 
-from ninja import Schema
-from pydantic import field_validator
+from pydantic import AliasPath, Field, field_validator
+
+from core.schemas.base_schema import CamelCaseSchema
 
 
-class TodoSchema(Schema):
+class TodoSchema(CamelCaseSchema):
     """Full read schema for a Todo instance.
 
     Returned by all GET and write endpoints. UUID and datetime fields are
@@ -35,7 +36,7 @@ class TodoSchema(Schema):
     """
 
     id: str
-    user: str
+    user: str = Field(validation_alias=AliasPath("user", "id"))
     title: str
     description: str
     completed: bool
@@ -43,23 +44,10 @@ class TodoSchema(Schema):
     created_at: str
     updated_at: str
 
-    class Config:
-        from_attributes = True
-
-    @field_validator("id", mode="before")
+    @field_validator("id", "user", mode="before")
     @classmethod
     def convert_uuid_to_str(cls, v):
         """Convert UUID to string."""
-        if isinstance(v, UUID):
-            return str(v)
-        return v
-
-    @field_validator("user", mode="before")
-    @classmethod
-    def convert_user_to_str(cls, v):
-        """Convert User object to string (user id)."""
-        if hasattr(v, "id"):
-            return str(v.id)
         if isinstance(v, UUID):
             return str(v)
         return v
@@ -73,7 +61,7 @@ class TodoSchema(Schema):
         return v
 
 
-class CreateTodoSchema(Schema):
+class CreateTodoSchema(CamelCaseSchema):
     """Payload schema for creating a new todo.
 
     All fields except ``title`` are optional and default to sensible values.
@@ -91,7 +79,7 @@ class CreateTodoSchema(Schema):
     priority: str = "medium"
 
 
-class UpdateTodoSchema(Schema):
+class UpdateTodoSchema(CamelCaseSchema):
     """Payload schema for partially updating an existing todo.
 
     All fields are optional. Only fields that are explicitly set in the

@@ -10,8 +10,9 @@ from datetime import datetime
 from enum import Enum
 from typing import Any
 
-from ninja import Schema
 from pydantic import Field
+
+from core.schemas.base_schema import CamelCaseSchema
 
 # =============================================================================
 # Task Status Schemas
@@ -30,7 +31,7 @@ class TaskStatusEnum(str, Enum):
     REVOKED = "revoked"
 
 
-class TaskProgressSchema(Schema):
+class TaskProgressSchema(CamelCaseSchema):
     """Schema for task progress information."""
 
     task_id: str
@@ -39,7 +40,7 @@ class TaskProgressSchema(Schema):
     meta: dict[str, Any] = Field(default_factory=dict)
 
 
-class TaskStatusSchema(Schema):
+class TaskStatusSchema(CamelCaseSchema):
     """Schema for full task status."""
 
     task_id: str
@@ -54,7 +55,7 @@ class TaskStatusSchema(Schema):
     duration: float | None = None
 
 
-class TaskResultSchema(Schema):
+class TaskResultSchema(CamelCaseSchema):
     """Schema for task result response."""
 
     id: str
@@ -71,7 +72,7 @@ class TaskResultSchema(Schema):
     duration: float | None = None
 
 
-class TaskListSchema(Schema):
+class TaskListSchema(CamelCaseSchema):
     """Schema for listing tasks with pagination."""
 
     items: list[TaskResultSchema]
@@ -80,7 +81,7 @@ class TaskListSchema(Schema):
     per_page: int
 
 
-class TaskStatsSchema(Schema):
+class TaskStatsSchema(CamelCaseSchema):
     """Schema for task execution statistics."""
 
     total: int = 0
@@ -106,7 +107,7 @@ class ScheduleTypeEnum(str, Enum):
     CLOCKED = "clocked"
 
 
-class IntervalScheduleSchema(Schema):
+class IntervalScheduleSchema(CamelCaseSchema):
     """Schema for interval-based schedule."""
 
     every: int = Field(..., gt=0)
@@ -116,7 +117,7 @@ class IntervalScheduleSchema(Schema):
     )
 
 
-class CrontabScheduleSchema(Schema):
+class CrontabScheduleSchema(CamelCaseSchema):
     """Schema for crontab-based schedule."""
 
     minute: str = "*"
@@ -126,7 +127,7 @@ class CrontabScheduleSchema(Schema):
     month_of_year: str = "*"
 
 
-class PeriodicTaskSchema(Schema):
+class PeriodicTaskSchema(CamelCaseSchema):
     """Schema for periodic task response."""
 
     id: int
@@ -146,7 +147,7 @@ class PeriodicTaskSchema(Schema):
     date_changed: datetime | None = None
 
 
-class CreateIntervalTaskSchema(Schema):
+class CreateIntervalTaskSchema(CamelCaseSchema):
     """Schema for creating an interval-based periodic task."""
 
     name: str = Field(..., min_length=1, max_length=200)
@@ -165,7 +166,7 @@ class CreateIntervalTaskSchema(Schema):
     description: str = ""
 
 
-class CreateCrontabTaskSchema(Schema):
+class CreateCrontabTaskSchema(CamelCaseSchema):
     """Schema for creating a crontab-based periodic task."""
 
     name: str = Field(..., min_length=1, max_length=200)
@@ -184,7 +185,7 @@ class CreateCrontabTaskSchema(Schema):
     description: str = ""
 
 
-class UpdatePeriodicTaskSchema(Schema):
+class UpdatePeriodicTaskSchema(CamelCaseSchema):
     """Schema for updating a periodic task."""
 
     name: str | None = None
@@ -197,7 +198,7 @@ class UpdatePeriodicTaskSchema(Schema):
     description: str | None = None
 
 
-class SchedulerStatsSchema(Schema):
+class SchedulerStatsSchema(CamelCaseSchema):
     """Schema for scheduler statistics."""
 
     total_tasks: int = 0
@@ -224,7 +225,7 @@ class DLQPriorityEnum(str, Enum):
     CRITICAL = "critical"
 
 
-class DLQEntrySchema(Schema):
+class DLQEntrySchema(CamelCaseSchema):
     """Schema for DLQ entry response."""
 
     id: str
@@ -246,27 +247,27 @@ class DLQEntrySchema(Schema):
     updated_at: datetime
 
 
-class DLQListSchema(Schema):
+class DLQListSchema(CamelCaseSchema):
     """Schema for listing DLQ entries with pagination."""
 
     items: list[DLQEntrySchema]
     total: int
 
 
-class DLQResolveSchema(Schema):
+class DLQResolveSchema(CamelCaseSchema):
     """Schema for resolving a DLQ entry."""
 
     notes: str = ""
 
 
-class DLQBulkResolveSchema(Schema):
+class DLQBulkResolveSchema(CamelCaseSchema):
     """Schema for bulk resolving DLQ entries."""
 
     entry_ids: list[str]
     notes: str = ""
 
 
-class DLQRetryResponseSchema(Schema):
+class DLQRetryResponseSchema(CamelCaseSchema):
     """Schema for retry response."""
 
     success: bool
@@ -274,7 +275,7 @@ class DLQRetryResponseSchema(Schema):
     message: str = ""
 
 
-class DLQBulkRetrySchema(Schema):
+class DLQBulkRetrySchema(CamelCaseSchema):
     """Schema for bulk retry request."""
 
     task_name: str | None = None
@@ -282,7 +283,7 @@ class DLQBulkRetrySchema(Schema):
     limit: int = Field(default=10, le=100)
 
 
-class DLQBulkRetryResponseSchema(Schema):
+class DLQBulkRetryResponseSchema(CamelCaseSchema):
     """Schema for bulk retry response."""
 
     attempted: int
@@ -292,7 +293,7 @@ class DLQBulkRetryResponseSchema(Schema):
     errors: list[dict[str, Any]] = Field(default_factory=list)
 
 
-class DLQStatsSchema(Schema):
+class DLQStatsSchema(CamelCaseSchema):
     """Schema for DLQ statistics."""
 
     total: int = 0
@@ -312,7 +313,7 @@ class DLQStatsSchema(Schema):
 # =============================================================================
 
 
-class TaskActionResponseSchema(Schema):
+class TaskActionResponseSchema(CamelCaseSchema):
     """Schema for task action response."""
 
     success: bool
@@ -320,7 +321,7 @@ class TaskActionResponseSchema(Schema):
     task_id: str | None = None
 
 
-class CleanupResponseSchema(Schema):
+class CleanupResponseSchema(CamelCaseSchema):
     """Schema for cleanup operation response."""
 
     success: bool

@@ -6,10 +6,10 @@ which provides the full ``UserSchema`` with UUID primary key and extended
 profile fields.
 """
 
-from ninja import Schema
+from core.schemas.base_schema import CamelCaseSchema
 
 
-class UserSchema(Schema):
+class UserSchema(CamelCaseSchema):
     """Minimal legacy user read schema with integer primary key.
 
     Attributes:
@@ -27,7 +27,7 @@ class UserSchema(Schema):
     last_name: str
 
 
-class UserSignupSchema(Schema):
+class UserSignupSchema(CamelCaseSchema):
     """Legacy schema for user registration payloads.
 
     Attributes:
@@ -45,7 +45,7 @@ class UserSignupSchema(Schema):
     last_name: str
 
 
-class UserLoginSchema(Schema):
+class UserLoginSchema(CamelCaseSchema):
     """Legacy schema for username/password login payloads.
 
     Attributes:
@@ -57,7 +57,7 @@ class UserLoginSchema(Schema):
     password: str
 
 
-class UserLogoutSchema(Schema):
+class UserLogoutSchema(CamelCaseSchema):
     """Legacy schema for logout response.
 
     Attributes:
@@ -67,7 +67,7 @@ class UserLogoutSchema(Schema):
     message: str
 
 
-class UserUpdateSchema(Schema):
+class UserUpdateSchema(CamelCaseSchema):
     """Legacy schema for user profile update payloads.
 
     All fields are required in this legacy schema; prefer the
@@ -87,7 +87,7 @@ class UserUpdateSchema(Schema):
     last_name: str
 
 
-class UserDeleteSchema(Schema):
+class UserDeleteSchema(CamelCaseSchema):
     """Legacy schema for user deletion response.
 
     Attributes:

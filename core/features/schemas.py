@@ -8,8 +8,9 @@ from enum import Enum
 from typing import Any
 from uuid import UUID
 
-from ninja import Schema
 from pydantic import Field, field_validator
+
+from core.schemas.base_schema import CamelCaseSchema
 
 
 class FlagTypeEnum(str, Enum):
@@ -26,7 +27,7 @@ class FlagTypeEnum(str, Enum):
 # =============================================================================
 
 
-class FeatureFlagCreateSchema(Schema):
+class FeatureFlagCreateSchema(CamelCaseSchema):
     """Schema for creating a feature flag."""
 
     name: str = Field(
@@ -105,7 +106,7 @@ class FeatureFlagCreateSchema(Schema):
         return v
 
 
-class FeatureFlagUpdateSchema(Schema):
+class FeatureFlagUpdateSchema(CamelCaseSchema):
     """Schema for updating a feature flag."""
 
     description: str | None = None
@@ -132,13 +133,13 @@ class FeatureFlagUpdateSchema(Schema):
         return v
 
 
-class FeatureFlagToggleSchema(Schema):
+class FeatureFlagToggleSchema(CamelCaseSchema):
     """Schema for toggling a feature flag."""
 
     enabled: bool = Field(..., description="New enabled state")
 
 
-class RolloutUpdateSchema(Schema):
+class RolloutUpdateSchema(CamelCaseSchema):
     """Schema for updating rollout percentage."""
 
     percentage: int = Field(
@@ -149,13 +150,13 @@ class RolloutUpdateSchema(Schema):
     )
 
 
-class UserFlagSchema(Schema):
+class UserFlagSchema(CamelCaseSchema):
     """Schema for adding/removing users from flags."""
 
     user_id: str = Field(..., description="User ID to add/remove")
 
 
-class CheckFlagSchema(Schema):
+class CheckFlagSchema(CamelCaseSchema):
     """Schema for checking flag status."""
 
     flag_name: str = Field(..., description="Name of the flag to check")
@@ -170,7 +171,7 @@ class CheckFlagSchema(Schema):
 # =============================================================================
 
 
-class FeatureFlagSchema(Schema):
+class FeatureFlagSchema(CamelCaseSchema):
     """Schema for feature flag response."""
 
     id: UUID
@@ -192,13 +193,8 @@ class FeatureFlagSchema(Schema):
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        """Pydantic config."""
 
-        from_attributes = True
-
-
-class FeatureFlagListSchema(Schema):
+class FeatureFlagListSchema(CamelCaseSchema):
     """Schema for listing feature flags."""
 
     id: UUID
@@ -211,13 +207,8 @@ class FeatureFlagListSchema(Schema):
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        """Pydantic config."""
 
-        from_attributes = True
-
-
-class FlagStatusSchema(Schema):
+class FlagStatusSchema(CamelCaseSchema):
     """Schema for flag status check response."""
 
     flag_name: str
@@ -225,13 +216,13 @@ class FlagStatusSchema(Schema):
     variant: str | None = None
 
 
-class UserFlagsSchema(Schema):
+class UserFlagsSchema(CamelCaseSchema):
     """Schema for user's feature flags response."""
 
     flags: dict[str, bool | str]
 
 
-class FlagAuditLogSchema(Schema):
+class FlagAuditLogSchema(CamelCaseSchema):
     """Schema for feature flag audit log."""
 
     id: UUID
@@ -240,21 +231,11 @@ class FlagAuditLogSchema(Schema):
     user_id: UUID | None = None
     created_at: datetime
 
-    class Config:
-        """Pydantic config."""
-
-        from_attributes = True
-
 
 class FeatureFlagWithAuditSchema(FeatureFlagSchema):
     """Schema for feature flag with audit logs."""
 
     audit_logs: list[FlagAuditLogSchema] = []
-
-    class Config:
-        """Pydantic config."""
-
-        from_attributes = True
 
 
 # =============================================================================
@@ -262,14 +243,14 @@ class FeatureFlagWithAuditSchema(FeatureFlagSchema):
 # =============================================================================
 
 
-class BulkFlagToggleSchema(Schema):
+class BulkFlagToggleSchema(CamelCaseSchema):
     """Schema for bulk toggling flags."""
 
     flag_names: list[str] = Field(..., description="List of flag names to toggle")
     enabled: bool = Field(..., description="New enabled state for all flags")
 
 
-class BulkFlagResponseSchema(Schema):
+class BulkFlagResponseSchema(CamelCaseSchema):
     """Response schema for bulk operations."""
 
     success: bool = True
