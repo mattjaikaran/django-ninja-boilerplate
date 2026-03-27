@@ -129,7 +129,7 @@ jobs:
         uses: docker/setup-buildx-action@v4
 
       - name: Build Docker image (production target)
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           target: production
@@ -139,7 +139,7 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Build Docker image (development target)
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           target: development
@@ -149,7 +149,7 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Build Docker image (ci target)
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           target: ci
