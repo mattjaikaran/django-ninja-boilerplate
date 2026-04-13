@@ -24,25 +24,25 @@ classifiers = [
 
 dependencies = [
     # Core Django (5.2 LTS default; 6.0 tested, blocked by django-celery-beat<6.0 cap)
-    "Django>=5.2,<7.0",
-    "django-environ>=0.11.2",
+    "Django>=6.0.4,<7.0",
+    "django-environ>=0.13.0",
     "psycopg2-binary>=2.9.10",
     # Django Extensions
-    "django-cors-headers>=4.6.0",
-    "django-debug-toolbar>=4.4.6",
-    "django-flags>=5.0.13",
-    "django-import-export>=4.3.1",
-    "django-js-asset>=2.2.0",
-    "django-storages>=1.14.4",
-    "django-unfold>=0.43.0",
-    "django-redis>=5.4.0",
+    "django-cors-headers>=4.9.0",
+    "django-debug-toolbar>=6.3.0",
+    "django-flags>=5.2.0",
+    "django-import-export>=4.4.0",
+    "django-js-asset>=3.1.2",
+    "django-storages>=1.14.6",
+    "django-unfold>=0.89.0",
+    "django-redis>=6.0.0",
     # API Framework
-    "django-ninja>=1.5.3",
-    "django-ninja-extra>=0.30.8",
-    "django-ninja-jwt>=5.4.0",
+    "django-ninja>=1.6.2",
+    "django-ninja-extra>=0.31.4",
+    "django-ninja-jwt>=5.4.4",
     # Task Queue (Celery)
     "celery>=5.4.0",
-    "django-celery-beat>=2.6.0",
+    "django-celery-beat>=2.9.0",
     "redis>=5.0.0",
     "flower>=2.0.0",
     # Authentication & Security
