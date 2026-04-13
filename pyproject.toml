@@ -43,7 +43,7 @@ dependencies = [
     # Task Queue (Celery)
     "celery>=5.4.0",
     "django-celery-beat>=2.6.0",
-    "redis>=5.0.0",
+    "redis>=7.4.0",
     "flower>=2.0.0",
     # Authentication & Security
     "bcrypt>=4.2.1",
