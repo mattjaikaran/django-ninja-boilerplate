@@ -4,16 +4,15 @@ This project uses [Centrifugo](https://centrifugal.dev/) for real-time WebSocket
 
 ## Architecture
 
-```
-Client (browser/mobile)
-   |
-   |-- REST API ---------> Django (port 8000, WSGI)
-   |                           | publish via HTTP (httpx)
-   |                           v
-   '-- WebSocket ---------> Centrifugo (port 8800)
-                                | PUB/SUB engine
-                                v
-                              Redis (port 6379)
+```mermaid
+graph LR
+    Client["Client<br/>(browser/mobile)"]
+
+    Client -->|"REST API"| Django["Django<br/>:8000 (WSGI)"]
+    Client -->|"WebSocket"| Centrifugo["Centrifugo<br/>:8800"]
+
+    Django -->|"publish via HTTP (httpx)"| Centrifugo
+    Centrifugo -->|"PUB/SUB engine"| Redis[("Redis<br/>:6379")]
 ```
 
 **Why Centrifugo instead of Django Channels:**

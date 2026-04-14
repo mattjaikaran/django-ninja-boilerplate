@@ -1,6 +1,6 @@
 [project]
 name = "django-ninja-boilerplate"
-version = "1.5.0"
+version = "1.5.1"
 description = "A production-ready Django boilerplate using Django Ninja for building modern APIs"
 authors = [{ name = "Matt Jaikaran", email = "info@mattjaikaran.com" }]
 readme = "README.md"
@@ -25,26 +25,26 @@ classifiers = [
 dependencies = [
     # Core Django (5.2 LTS default; 6.0 tested, blocked by django-celery-beat<6.0 cap)
     "Django>=5.2,<7.0",
-    "django-environ>=0.11.2",
+    "django-environ>=0.13.0",
     "psycopg2-binary>=2.9.10",
     # Django Extensions
-    "django-cors-headers>=4.6.0",
-    "django-debug-toolbar>=4.4.6",
-    "django-flags>=5.0.13",
-    "django-import-export>=4.3.1",
-    "django-js-asset>=2.2.0",
-    "django-storages>=1.14.4",
-    "django-unfold>=0.43.0",
+    "django-cors-headers>=4.7.0",
+    "django-debug-toolbar>=5.2.0",
+    "django-flags>=5.0.14",
+    "django-import-export>=4.3.7",
+    "django-js-asset>=3.1.0",
+    "django-storages>=1.14.6",
+    "django-unfold>=0.52.0",
     "django-redis>=5.4.0",
     # API Framework
     "django-ninja>=1.5.3",
-    "django-ninja-extra>=0.30.8",
-    "django-ninja-jwt>=5.4.0",
+    "django-ninja-extra>=0.31.3",
+    "django-ninja-jwt>=5.4.3",
     # Task Queue (Celery)
-    "celery>=5.4.0",
-    "django-celery-beat>=2.6.0",
-    "redis>=5.0.0",
-    "flower>=2.0.0",
+    "celery>=5.5.2",
+    "django-celery-beat>=2.7.0",
+    "redis>=7.4.0",
+    "flower>=2.0.1",
     # Authentication & Security
     "bcrypt>=4.2.1",
     "cryptography>=43.0.1",
@@ -55,11 +55,9 @@ dependencies = [
     "django-anymail[resend]>=14.0",
     # HTTP & API
     "httpx>=0.27.0",
-    "httpcore>=1.0.5",
-    "requests>=2.32.3",
-    "uvicorn>=0.24.0",
-    "uvloop>=0.19.0",
-    "gunicorn>=21.0.0",
+    "httpcore>=1.0.9",
+    "uvloop>=0.22.1",
+    "gunicorn>=25.3.0",
     # AWS S3 Storage
     "boto3>=1.34.0",
     # Data Validation & Serialization
@@ -71,10 +69,8 @@ dependencies = [
     "Pillow>=10.4.0",
     # Utilities
     "python-dateutil>=2.9.0.post0",
-    "python-dotenv>=1.0.0",
+    "python-dotenv>=1.2.2",
     "python-multipart>=0.0.6",
-    "click>=8.1.7",
-    "rich>=13.7.1",
     # Template & Markup
     "Jinja2>=3.1.4",
     "MarkupSafe>=2.1.5",
@@ -84,7 +80,7 @@ dependencies = [
     "asgiref>=3.8.1",
     "anyio>=3.7.1",
     "certifi>=2024.7.4",
-    "charset-normalizer>=3.3.2",
+    "charset-normalizer>=3.4.7",
     "idna>=3.8",
     "urllib3>=2.2.2",
     "dnspython>=2.6.1",
@@ -97,13 +93,13 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-    "ruff>=0.7.0",
-    "pytest>=8.0.0",
-    "pytest-django>=4.8.0",
-    "pytest-cov>=4.0.0",
-    "pytest-mock>=3.12.0",
+    "ruff>=0.15.10",
+    "pytest>=9.0.3",
+    "pytest-django>=4.12.0",
+    "pytest-cov>=6.2.1",
+    "pytest-mock>=3.14.0",
     "pytest-timeout>=2.3.0",
-    "factory-boy>=3.3.0",
+    "factory-boy>=3.3.3",
     "Faker>=30.1.0",
     "pre-commit>=4.0.0",
 ]
