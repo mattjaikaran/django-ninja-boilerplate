@@ -7,6 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.1] - 2026-04-14
+
+### Added
+- **Reusable HTTP client** (`api/utils/http_client.py`) — async/sync wrapper around httpx
+  - Pydantic `response_model` for automatic response parsing via `TypeAdapter`
+  - Configurable retries, timeouts, and expected status code validation
+  - `HttpClientError` with status code and response body for structured error handling
+  - Module-level `http_client` singleton for zero-config usage
+- **Granian migration prompt template** — step-by-step guide in `.context/PROMPTS.md` for swapping Gunicorn to Granian (Rust-based WSGI/ASGI server), covering Dockerfile, docker-compose, k8s, PaaS, logging, and optional ASGI mode
+- **Mermaid diagram upgrades** — converted all ASCII box diagrams in `docs/ARCHITECTURE.md` and `docs/REALTIME.md` to Mermaid for native GitHub rendering
+
+### Changed
+- **Bumped all dependencies to latest versions**
+  - Django ecosystem: django-environ 0.13.0, cors-headers 4.7.0, debug-toolbar 5.2.0, flags 5.0.14, import-export 4.3.7, js-asset 3.1.0, storages 1.14.6, unfold 0.52.0, ninja-extra 0.31.3, ninja-jwt 5.4.3, celery 5.5.2, celery-beat 2.7.0
+  - Infrastructure: redis 7.4.0, flower 2.0.1, httpcore 1.0.9, uvloop 0.22.1, gunicorn 25.3.0, python-dotenv 1.2.2, charset-normalizer 3.4.7
+  - Dev/testing: ruff 0.15.10, pytest 9.0.3, pytest-django 4.12.0, pytest-cov 6.2.1, pytest-mock 3.14.0, factory-boy 3.3.3
+  - CLI deps: typer 0.24.1, rich 15.0.0, jinja2 3.1.6, pyyaml 6.0.3, questionary 2.1.1
+  - CI actions: codecov/codecov-action v5→v6, softprops/action-gh-release v2→v3
+
+### Removed
+- **`requests`** — completely unused; httpx covers all HTTP client needs
+- **`uvicorn`** — project uses WSGI (Gunicorn), not ASGI
+- **`click`** — transitive dependency via Celery, no direct usage
+- **`rich`** (root) — only used in CLI package, which declares its own copy
+
+## [1.5.0] - 2026-03-30
+
+### Added
+- **Pydantic camelCase aliases** — automatic snake_case ↔ camelCase conversion for API schemas
+  - `AliasPath` support for nested field access
+  - `populate_by_name=True` for dual snake_case/camelCase input acceptance
+- **Comprehensive LLM prompt templates** — framework-aware code generation prompts in `.context/`
+
 ## [1.4.0] - 2026-03-20
 
 ### Added
@@ -263,6 +296,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 | Version | Date | Description |
 |---------|------|-------------|
+| 1.5.1 | 2026-04-14 | Dep cleanup, HTTP client, Mermaid diagrams, granian prompt |
+| 1.5.0 | 2026-03-30 | Pydantic camelCase aliases, LLM prompt templates |
 | 1.4.0 | 2026-03-20 | K3s deployment, security hardening, nginx headers |
 | 1.3.0 | 2026-02-26 | 4 controller patterns, TodoService, Resend, Centrifugo real-time |
 | 1.2.0 | 2026-02-17 | Python 3.13+ default, test fixes, migration fixes |
@@ -272,7 +307,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 | 0.7.0 | 2026-01-20 | JWT auth, UV, Docker dev environment |
 | 0.6.0 | 2026-01-15 | Initial release |
 
-[Unreleased]: https://github.com/mattjaikaran/django-ninja-boilerplate/compare/v1.4.0...HEAD
+[Unreleased]: https://github.com/mattjaikaran/django-ninja-boilerplate/compare/v1.5.1...HEAD
+[1.5.1]: https://github.com/mattjaikaran/django-ninja-boilerplate/compare/v1.5.0...v1.5.1
+[1.5.0]: https://github.com/mattjaikaran/django-ninja-boilerplate/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/mattjaikaran/django-ninja-boilerplate/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/mattjaikaran/django-ninja-boilerplate/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/mattjaikaran/django-ninja-boilerplate/compare/v1.1.0...v1.2.0
