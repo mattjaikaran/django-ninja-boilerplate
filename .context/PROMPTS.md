@@ -548,6 +548,175 @@ from .[model]_admin import [Model]Admin
 
 ---
 
+## Migrate from Gunicorn to Granian (Rust-based WSGI/ASGI Server)
+
+```
+Migrate this Django project from Gunicorn to Granian for better performance.
+Granian is a Rust-based HTTP server that supports both WSGI and ASGI interfaces
+with significantly better throughput and lower latency than Gunicorn.
+
+### Step 1: Update dependencies in pyproject.toml
+
+Replace:
+    "gunicorn>=25.3.0",
+With:
+    "granian>=2.3.0",
+
+Run: uv lock && uv sync
+
+### Step 2: Update Dockerfile (production CMD)
+
+Replace the Gunicorn CMD block:
+```dockerfile
+CMD ["gunicorn", "api.wsgi:application", \
+    "--bind", "0.0.0.0:8000", \
+    "--workers", "3", \
+    "--threads", "2", \
+    "--worker-class", "gthread", \
+    "--worker-tmp-dir", "/dev/shm", \
+    "--timeout", "120", \
+    "--keep-alive", "5", \
+    "--max-requests", "1000", \
+    "--max-requests-jitter", "50", \
+    "--access-logfile", "-", \
+    "--error-logfile", "-", \
+    "--capture-output", \
+    "--enable-stdio-inheritance"]
+```
+
+With Granian (WSGI mode — drop-in replacement):
+```dockerfile
+CMD ["granian", "api.wsgi:application", \
+    "--interface", "wsgi", \
+    "--host", "0.0.0.0", \
+    "--port", "8000", \
+    "--workers", "3", \
+    "--threads", "2", \
+    "--blocking-threads", "4", \
+    "--respawn-failed-workers", \
+    "--access-log"]
+```
+
+Or Granian (ASGI mode — for async Django + WebSocket support):
+```dockerfile
+CMD ["granian", "api.asgi:application", \
+    "--interface", "asgi", \
+    "--host", "0.0.0.0", \
+    "--port", "8000", \
+    "--workers", "3", \
+    "--threads", "2", \
+    "--blocking-threads", "4", \
+    "--respawn-failed-workers", \
+    "--access-log"]
+```
+
+### Step 3: Update Dockerfile.uv
+
+Same CMD replacement as Step 2.
+
+### Step 4: Update docker-compose.prod.yml
+
+Replace the gunicorn command in the web service:
+```yaml
+command: >
+  granian api.wsgi:application
+  --interface wsgi
+  --host 0.0.0.0
+  --port 8000
+  --workers 3
+  --threads 2
+  --blocking-threads 4
+  --respawn-failed-workers
+  --access-log
+```
+
+### Step 5: Update deploy/docker/Dockerfile.single
+
+Same CMD pattern as Step 2.
+
+### Step 6: Update deploy/k3s/django.yaml
+
+Replace the gunicorn container args:
+```yaml
+args:
+  - granian
+  - api.wsgi:application
+  - --interface
+  - wsgi
+  - --host
+  - 0.0.0.0
+  - --port
+  - "8000"
+  - --workers
+  - "3"
+  - --threads
+  - "2"
+  - --respawn-failed-workers
+  - --access-log
+```
+
+### Step 7: Update deploy/paas/railway.json
+
+Replace startCommand:
+```json
+"startCommand": "python manage.py migrate --noinput && granian api.wsgi:application --interface wsgi --host 0.0.0.0 --port $PORT --workers 2 --threads 4 --respawn-failed-workers"
+```
+
+### Step 8: Update logging configuration
+
+In core/observability/logging.py, replace the "gunicorn" logger entry:
+```python
+"granian": {
+    "handlers": ["console"],
+    "level": "INFO",
+    "propagate": False,
+},
+```
+
+### Step 9: Update Makefile
+
+Find any make targets that reference gunicorn and update them to granian.
+
+### Step 10: If switching to ASGI mode (optional, enables async views + WebSocket)
+
+1. Create api/asgi.py if it doesn't exist:
+```python
+import os
+from django.core.asgi import get_asgi_application
+
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "api.settings")
+application = get_asgi_application()
+```
+
+2. Celery is unaffected — it connects to Redis directly, not through the HTTP server.
+   django-celery-beat runs via the celery beat process, not the web server.
+   No changes needed for celery or celery-beat.
+
+3. Middleware is fully compatible. Django middleware works the same under
+   both WSGI and ASGI. No changes needed.
+
+4. Update all CMD/command entries to use `api.asgi:application` with
+   `--interface asgi` instead of `api.wsgi:application` with `--interface wsgi`.
+
+### Step 11: Test the migration
+
+1. Build and run locally:
+   docker compose build && docker compose up
+2. Verify health check: curl http://localhost:8000/api/health/
+3. Verify API: curl http://localhost:8000/api/
+4. Run the test suite: make test
+5. Load test to compare performance: make load-test (if available)
+
+### Key differences from Gunicorn:
+- No --worker-class flag (Granian handles threading natively in Rust)
+- No --worker-tmp-dir (Rust manages worker state differently)
+- No --max-requests (Granian's Rust runtime doesn't leak memory like Python workers)
+- --blocking-threads controls the thread pool for blocking I/O operations
+- --respawn-failed-workers replaces Gunicorn's default worker respawning
+```
+
+---
+
 ## Quick Reference Commands
 
 ```bash

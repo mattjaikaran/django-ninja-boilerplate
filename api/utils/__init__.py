@@ -12,6 +12,7 @@ from .http import (
     is_ajax,
     is_mobile_request,
 )
+from .http_client import HttpClient, HttpClientError, http_client
 from .validation import (
     convert_to_bool,
     validate_email,
@@ -26,6 +27,10 @@ __all__ = [
     "format_phone_number",
     "sanitize_string",
     "truncate_text",
+    # HTTP client
+    "HttpClient",
+    "HttpClientError",
+    "http_client",
     # HTTP utilities
     "build_absolute_uri",
     "get_client_ip",

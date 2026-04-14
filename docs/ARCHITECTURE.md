@@ -21,34 +21,31 @@ This document provides a comprehensive overview of the Django Ninja Boilerplate 
 
 ### High-Level Architecture
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                              CLIENT APPLICATIONS                             │
-│                    (Web, Mobile, IoT, Third-party Services)                 │
-└─────────────────────────────────────────────────────────────────────────────┘
-                                       │
-                                       ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                              LOAD BALANCER / CDN                            │
-│                         (Nginx, CloudFlare, AWS ALB)                        │
-└─────────────────────────────────────────────────────────────────────────────┘
-                                       │
-                    ┌──────────────────┼──────────────────┐
-                    ▼                  ▼                  ▼
-          ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐
-          │  Django API     │ │  Django API     │ │  Django API     │
-          │  Instance 1     │ │  Instance 2     │ │  Instance N     │
-          │  (Gunicorn)     │ │  (Gunicorn)     │ │  (Gunicorn)     │
-          └────────┬────────┘ └────────┬────────┘ └────────┬────────┘
-                   │                   │                   │
-                   └───────────────────┼───────────────────┘
-                                       │
-              ┌────────────────────────┼────────────────────────┐
-              ▼                        ▼                        ▼
-     ┌─────────────────┐      ┌─────────────────┐      ┌─────────────────┐
-     │   PostgreSQL    │      │     Redis       │      │   Celery        │
-     │   (Primary DB)  │      │ (Cache/Broker)  │      │   Workers       │
-     └─────────────────┘      └─────────────────┘      └─────────────────┘
+```mermaid
+graph TB
+    subgraph Clients["Client Applications"]
+        Web["Web"]
+        Mobile["Mobile"]
+        IoT["IoT"]
+        ThirdParty["Third-party Services"]
+    end
+
+    LB["Load Balancer / CDN<br/>(Nginx, CloudFlare, AWS ALB)"]
+
+    subgraph API["Django API Cluster"]
+        API1["Django API Instance 1<br/>(Gunicorn)"]
+        API2["Django API Instance 2<br/>(Gunicorn)"]
+        APIN["Django API Instance N<br/>(Gunicorn)"]
+    end
+
+    PG[("PostgreSQL<br/>Primary DB")]
+    Redis[("Redis<br/>Cache / Broker")]
+    Celery["Celery Workers"]
+
+    Clients --> LB --> API
+    API1 & API2 & APIN --> PG
+    API1 & API2 & APIN --> Redis
+    API1 & API2 & APIN --> Celery
 ```
 
 ### Component Summary
@@ -90,7 +87,7 @@ django-ninja-boilerplate/
 │   ├── throttling/              # Rate limiting
 │   │   ├── limiter.py           # Rate limiter classes
 │   │   └── decorators.py        # Throttle decorators
-│   ├── utils/                   # HTTP utilities
+│   ├── utils/                   # HTTP utilities, HTTP client
 │   ├── centrifugo.py            # Centrifugo JWT tokens + HTTP client
 │   ├── decorators.py            # API decorators
 │   ├── exceptions.py            # Custom exceptions
@@ -141,53 +138,53 @@ django-ninja-boilerplate/
 
 ### Request Flow
 
-```
-┌──────────┐     ┌──────────┐     ┌──────────┐     ┌──────────┐     ┌──────────┐
-│  Client  │────▶│  Nginx   │────▶│ Gunicorn │────▶│  Django  │────▶│Controller│
-│ Request  │     │  Proxy   │     │  Worker  │     │Middleware│     │  (View)  │
-└──────────┘     └──────────┘     └──────────┘     └──────────┘     └──────────┘
-                                                                          │
-                                                                          ▼
-┌──────────┐     ┌──────────┐     ┌──────────┐     ┌──────────┐     ┌──────────┐
-│  Client  │◀────│  Nginx   │◀────│ Gunicorn │◀────│  Django  │◀────│ Service  │
-│ Response │     │  Proxy   │     │  Worker  │     │Middleware│     │  Layer   │
-└──────────┘     └──────────┘     └──────────┘     └──────────┘     └──────────┘
-                                                                          │
-                                                                          ▼
-                                                                   ┌──────────┐
-                                                                   │ Database │
-                                                                   │ / Cache  │
-                                                                   └──────────┘
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant N as Nginx Proxy
+    participant G as Gunicorn Worker
+    participant M as Django Middleware
+    participant V as Controller (View)
+    participant S as Service Layer
+    participant DB as Database / Cache
+
+    C->>N: HTTP Request
+    N->>G: Forward
+    G->>M: Process request
+    M->>V: Route to controller
+    V->>S: Delegate logic
+    S->>DB: Query / Mutate
+    DB-->>S: Result
+    S-->>V: Domain object
+    V-->>M: HTTP Response
+    M-->>G: Process response
+    G-->>N: Forward
+    N-->>C: HTTP Response
 ```
 
 ### Layer Responsibilities
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                            PRESENTATION LAYER                               │
-│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐             │
-│  │   Controllers   │  │     Schemas     │  │   Decorators    │             │
-│  │  (API Routes)   │  │ (Validation)    │  │ (Auth/Logging)  │             │
-│  └─────────────────┘  └─────────────────┘  └─────────────────┘             │
-└─────────────────────────────────────────────────────────────────────────────┘
-                                       │
-                                       ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                             BUSINESS LAYER                                  │
-│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐             │
-│  │    Services     │  │   Validators    │  │     Utils       │             │
-│  │ (Business Logic)│  │ (Domain Rules)  │  │   (Helpers)     │             │
-│  └─────────────────┘  └─────────────────┘  └─────────────────┘             │
-└─────────────────────────────────────────────────────────────────────────────┘
-                                       │
-                                       ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                              DATA LAYER                                     │
-│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐             │
-│  │     Models      │  │    Managers     │  │   QuerySets     │             │
-│  │  (ORM Entities) │  │ (Custom Queries)│  │  (Filtering)    │             │
-│  └─────────────────┘  └─────────────────┘  └─────────────────┘             │
-└─────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+graph TB
+    subgraph Presentation["Presentation Layer"]
+        Controllers["Controllers<br/>(API Routes)"]
+        Schemas["Schemas<br/>(Validation)"]
+        Decorators["Decorators<br/>(Auth/Logging)"]
+    end
+
+    subgraph Business["Business Layer"]
+        Services["Services<br/>(Business Logic)"]
+        Validators["Validators<br/>(Domain Rules)"]
+        Utils["Utils<br/>(Helpers)"]
+    end
+
+    subgraph Data["Data Layer"]
+        Models["Models<br/>(ORM Entities)"]
+        Managers["Managers<br/>(Custom Queries)"]
+        QuerySets["QuerySets<br/>(Filtering)"]
+    end
+
+    Presentation --> Business --> Data
 ```
 
 ---
@@ -207,49 +204,28 @@ The `todos` app ships four controller variants that demonstrate a progression fr
 
 ### Controller to Service Layer Relationship
 
-```
-HTTP Request
-     │
-     ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                     CONTROLLER LAYER                            │
-│                  (HTTP concerns only)                           │
-│                                                                 │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐         │
-│  │ Declarative  │  │    Basic     │  │   Partial    │         │
-│  │(try/except)  │  │(get_or_404) │  │ (selective   │         │
-│  │              │  │              │  │  decorators) │         │
-│  └──────────────┘  └──────────────┘  └──────────────┘         │
-│                                                                 │
-│  ┌──────────────────────────────────────────────────────────┐  │
-│  │  Full — @handle_exceptions + @log_api_call + service    │  │
-│  │         ↓ delegates all logic to TodoService            │  │
-│  └──────────────────────────────────────────────────────────┘  │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                (Pattern 4 only — others hit DB directly)
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                      SERVICE LAYER                              │
-│               todos/services/todo_service.py                    │
-│                                                                 │
-│  TodoService                                                    │
-│  ├── list_todos(user, search, completed, priority, ordering)    │
-│  ├── get_todo(todo_id, user)          → Todo | Http404          │
-│  ├── create_todo(payload, user)       → Todo                    │
-│  ├── update_todo(todo_id, payload, user) → Todo | Http404       │
-│  ├── delete_todo(todo_id, user)       → None | Http404          │
-│  ├── list_completed_todos(user)       → QuerySet                │
-│  ├── list_pending_todos(user)         → QuerySet                │
-│  └── search_todos(user, q, priority, completed) → QuerySet      │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                       DATA LAYER                                │
-│               todos/models/todo.py (ORM)                        │
-└─────────────────────────────────────────────────────────────────┘
+```mermaid
+graph TB
+    REQ["HTTP Request"]
+
+    subgraph Controller["Controller Layer (HTTP concerns only)"]
+        D["Declarative<br/>(try/except)"]
+        B["Basic<br/>(get_or_404)"]
+        P["Partial<br/>(selective decorators)"]
+        F["Full — @handle_exceptions + @log_api_call + service<br/>↓ delegates all logic to TodoService"]
+    end
+
+    subgraph Service["Service Layer — todos/services/todo_service.py"]
+        TS["TodoService<br/>├── list_todos(user, search, completed, priority, ordering)<br/>├── get_todo(todo_id, user) → Todo | Http404<br/>├── create_todo(payload, user) → Todo<br/>├── update_todo(todo_id, payload, user) → Todo | Http404<br/>├── delete_todo(todo_id, user) → None | Http404<br/>├── list_completed_todos(user) → QuerySet<br/>├── list_pending_todos(user) → QuerySet<br/>└── search_todos(user, q, priority, completed) → QuerySet"]
+    end
+
+    subgraph DataLayer["Data Layer — todos/models/todo.py (ORM)"]
+        ORM["Django ORM"]
+    end
+
+    REQ --> Controller
+    D & B & P -.->|hit DB directly| ORM
+    F -->|Pattern 4 only| Service --> ORM
 ```
 
 ### Pattern Comparison
@@ -323,23 +299,16 @@ class TodoController:
 
 ### Decorator Stack (Patterns 3 and 4)
 
-```
-HTTP POST /todos/
-     │
-     ▼
-@log_api_call          — logs request start/end, payload, duration
-     │
-     ▼
-@handle_exceptions     — catches exceptions → structured 500 response
-     │
-     ▼
-@validate_request      — runs extra schema validation before handler
-     │
-     ▼
-def create_todo()      — thin handler, delegates to service
-     │
-     ▼
-TodoService.create_todo()  — business logic, ORM calls
+```mermaid
+graph TB
+    REQ["HTTP POST /todos/"]
+    LOG["@log_api_call<br/>logs request start/end, payload, duration"]
+    EXC["@handle_exceptions<br/>catches exceptions → structured 500 response"]
+    VAL["@validate_request<br/>runs extra schema validation before handler"]
+    HANDLER["def create_todo()<br/>thin handler, delegates to service"]
+    SVC["TodoService.create_todo()<br/>business logic, ORM calls"]
+
+    REQ --> LOG --> EXC --> VAL --> HANDLER --> SVC
 ```
 
 ---
@@ -348,87 +317,54 @@ TodoService.create_todo()  — business logic, ORM calls
 
 ### Multi-Stage Build Process
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                         STAGE 1: BUILDER                                    │
-│                                                                             │
-│   python:3.13-slim                                                          │
-│   ┌─────────────────────────────────────────────────────────────────────┐  │
-│   │  • Install build tools (gcc, build-essential)                       │  │
-│   │  • Install uv package manager                                       │  │
-│   │  • Create virtual environment                                       │  │
-│   │  • Install Python dependencies                                      │  │
-│   │                                                                     │  │
-│   │  Size: ~800MB (includes compilers, headers)                        │  │
-│   └─────────────────────────────────────────────────────────────────────┘  │
-└─────────────────────────────────────────────────────────────────────────────┘
-                                       │
-                                       │ COPY /opt/venv
-                                       ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                       STAGE 2: PRODUCTION                                   │
-│                                                                             │
-│   python:3.13-slim                                                          │
-│   ┌─────────────────────────────────────────────────────────────────────┐  │
-│   │  • Runtime libraries only (libpq5, curl)                           │  │
-│   │  • Virtual environment from builder                                 │  │
-│   │  • Application code                                                 │  │
-│   │  • Non-root user (security)                                        │  │
-│   │  • Health checks                                                    │  │
-│   │                                                                     │  │
-│   │  Size: ~250MB (minimal runtime)                                    │  │
-│   └─────────────────────────────────────────────────────────────────────┘  │
-└─────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+graph TB
+    subgraph Stage1["Stage 1: Builder (~800MB)"]
+        S1["python:3.13-slim<br/>• Install build tools (gcc, build-essential)<br/>• Install uv package manager<br/>• Create virtual environment<br/>• Install Python dependencies"]
+    end
+
+    subgraph Stage2["Stage 2: Production (~250MB)"]
+        S2["python:3.13-slim<br/>• Runtime libraries only (libpq5, curl)<br/>• Virtual environment from builder<br/>• Application code<br/>• Non-root user (security)<br/>• Health checks"]
+    end
+
+    Stage1 -->|"COPY /opt/venv"| Stage2
 ```
 
 ### Docker Compose Services
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                        docker-compose.yml (Development)                     │
-└─────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+graph TB
+    subgraph Dev["docker-compose.yml (Development)"]
+        DB[("PostgreSQL<br/>:5432")]
+        REDIS[("Redis<br/>:6379")]
+        DJANGO["Django API<br/>:8000"]
+        CENT["Centrifugo<br/>:8800<br/>(realtime profile)"]
+        WORKER["Celery Worker<br/>(celery profile)"]
+        BEAT["Celery Beat<br/>(celery profile)"]
+        FLOWER["Flower<br/>:5555<br/>(monitoring profile)"]
 
-┌─────────────┐     ┌─────────────┐     ┌─────────────┐
-│     db      │     │    redis    │     │   django    │
-│ PostgreSQL  │◀────│    Redis    │◀────│   API       │
-│   :5432     │     │   :6379     │     │   :8000     │
-└─────────────┘     └──────┬──────┘     └──────┬──────┘
-                           │                    │
-                    ┌──────┴──────┐             │ (profile: celery)
-                    │ (realtime)  │             ▼
-                    ▼             │      ┌─────────────┐     ┌─────────────┐
-             ┌─────────────┐     │      │celery-worker│     │ celery-beat │
-             │ centrifugo  │     │      │  (Tasks)    │     │ (Scheduler) │
-             │  :8800      │     │      └─────────────┘     └─────────────┘
-             └─────────────┘     │             │
-                                 │             │ (profile: monitoring)
-                                 │             ▼
-                                 │      ┌─────────────┐
-                                 │      │   flower    │
-                                 │      │   :5555     │
-                                 │      └─────────────┘
+        DJANGO --> DB
+        DJANGO --> REDIS
+        WORKER --> REDIS
+        BEAT --> REDIS
+        FLOWER --> REDIS
+        CENT --> REDIS
+    end
 
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                       docker-compose.prod.yml (Production)                  │
-└─────────────────────────────────────────────────────────────────────────────┘
+    subgraph Prod["docker-compose.prod.yml (Production)"]
+        NGINX["Nginx<br/>:80/443"]
+        DJPROD["Django<br/>:8000"]
+        CENTPROD["Centrifugo<br/>(WebSocket)"]
+        STATIC["Static Files"]
+        DBPROD[("PostgreSQL")]
+        REDPROD[("Redis")]
+        CELPROD["Celery Workers"]
 
-                    ┌─────────────┐
-                    │   nginx     │
-        ┌──────────▶│   :80/443   │◀──────────┐
-        │           └──────┬──────┘           │
-        │              /   │   /centrifugo/   │
-        │             ▼    │         ▼        │
-┌───────┴───────┐ ┌────────┴────┐ ┌───────────┴───┐
-│    static     │ │   django    │ │  centrifugo   │
-│    files      │ │   :8000     │ │  (WebSocket)  │
-└───────────────┘ └──────┬──────┘ └───────┬───────┘
-                         │                │
-            ┌────────────┼────────────┐   │
-            ▼            ▼            ▼   │
-     ┌───────────┐ ┌───────────┐ ┌────────┴──┐
-     │    db     │ │   redis   │ │  celery   │
-     │ PostgreSQL│ │   Redis   │ │  workers  │
-     └───────────┘ └───────────┘ └───────────┘
+        NGINX -->|"/api/"| DJPROD
+        NGINX -->|"/centrifugo/"| CENTPROD
+        NGINX -->|"/static/"| STATIC
+        DJPROD --> DBPROD & REDPROD & CELPROD
+    end
 ```
 
 ### Dockerfile Variants
@@ -445,41 +381,56 @@ TodoService.create_todo()  — business logic, ORM calls
 
 ### Entity Relationship Diagram
 
-```
-┌─────────────────────┐          ┌─────────────────────┐
-│       User          │          │        Todo         │
-├─────────────────────┤          ├─────────────────────┤
-│ PK  id (UUID)       │──────────│ PK  id (UUID)       │
-│     email           │          │ FK  user_id         │
-│     username        │          │     title           │
-│     password_hash   │          │     description     │
-│     first_name      │          │     completed       │
-│     last_name       │          │     priority        │
-│     is_active       │          │     is_active       │
-│     is_staff        │          │     deleted_at      │
-│     is_verified     │          │ FK  created_by      │
-│     metadata (JSON) │          │ FK  updated_by      │
-│     created_at      │          │ FK  deleted_by      │
-│     updated_at      │          │     metadata (JSON) │
-└─────────────────────┘          │     created_at      │
-         │                       │     updated_at      │
-         │ 1:N                   └─────────────────────┘
-         ▼
-┌─────────────────────┐
-│        OTP          │
-├─────────────────────┤
-│ PK  id (UUID)       │
-│ FK  user_id         │
-│     code            │
-│     token           │
-│     purpose         │
-│     delivery_method │
-│     expires_at      │
-│     is_used         │
-│     attempts        │
-│     max_attempts    │
-│     created_at      │
-└─────────────────────┘
+```mermaid
+erDiagram
+    User {
+        UUID id PK
+        string email
+        string username
+        string password_hash
+        string first_name
+        string last_name
+        boolean is_active
+        boolean is_staff
+        boolean is_verified
+        json metadata
+        datetime created_at
+        datetime updated_at
+    }
+
+    Todo {
+        UUID id PK
+        UUID user_id FK
+        string title
+        text description
+        boolean completed
+        string priority
+        boolean is_active
+        datetime deleted_at
+        UUID created_by FK
+        UUID updated_by FK
+        UUID deleted_by FK
+        json metadata
+        datetime created_at
+        datetime updated_at
+    }
+
+    OTP {
+        UUID id PK
+        UUID user_id FK
+        string code
+        string token
+        string purpose
+        string delivery_method
+        datetime expires_at
+        boolean is_used
+        int attempts
+        int max_attempts
+        datetime created_at
+    }
+
+    User ||--o{ Todo : "has many"
+    User ||--o{ OTP : "has many"
 ```
 
 ---
@@ -548,60 +499,42 @@ TodoService.create_todo()  — business logic, ORM calls
 
 ### JWT Authentication
 
-```
-┌──────────┐                    ┌──────────┐                    ┌──────────┐
-│  Client  │                    │   API    │                    │    DB    │
-└────┬─────┘                    └────┬─────┘                    └────┬─────┘
-     │                               │                               │
-     │  POST /auth/login             │                               │
-     │  {email, password}            │                               │
-     │──────────────────────────────▶│                               │
-     │                               │  Verify credentials           │
-     │                               │──────────────────────────────▶│
-     │                               │◀──────────────────────────────│
-     │                               │                               │
-     │  {access_token, refresh}      │  Generate JWT                 │
-     │◀──────────────────────────────│                               │
-     │                               │                               │
-     │  GET /api/resource            │                               │
-     │  Authorization: Bearer {jwt}  │                               │
-     │──────────────────────────────▶│                               │
-     │                               │  Validate JWT                 │
-     │                               │  Extract user_id              │
-     │                               │──────────────────────────────▶│
-     │  {data}                       │◀──────────────────────────────│
-     │◀──────────────────────────────│                               │
-     │                               │                               │
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant API as API
+    participant DB as Database
+
+    C->>API: POST /auth/login {email, password}
+    API->>DB: Verify credentials
+    DB-->>API: User found
+    API-->>C: {access_token, refresh_token}
+
+    C->>API: GET /api/resource<br/>Authorization: Bearer {jwt}
+    API->>API: Validate JWT, extract user_id
+    API->>DB: Fetch data
+    DB-->>API: Data
+    API-->>C: {data}
 ```
 
-### OTP/Magic Link Flow
+### OTP / Magic Link Flow
 
-```
-┌──────────┐                    ┌──────────┐         ┌──────────┐  ┌──────────┐
-│  Client  │                    │   API    │         │  Redis   │  │  Email   │
-└────┬─────┘                    └────┬─────┘         └────┬─────┘  └────┬─────┘
-     │                               │                    │             │
-     │  POST /auth/otp/request       │                    │             │
-     │  {email}                      │                    │             │
-     │──────────────────────────────▶│                    │             │
-     │                               │  Generate OTP      │             │
-     │                               │  Store with TTL    │             │
-     │                               │───────────────────▶│             │
-     │                               │                    │             │
-     │                               │  Send OTP email    │             │
-     │                               │────────────────────┼────────────▶│
-     │  {success: true}              │                    │             │
-     │◀──────────────────────────────│                    │             │
-     │                               │                    │             │
-     │  POST /auth/otp/verify        │                    │             │
-     │  {email, code}                │                    │             │
-     │──────────────────────────────▶│                    │             │
-     │                               │  Verify OTP        │             │
-     │                               │───────────────────▶│             │
-     │                               │◀──────────────────│             │
-     │  {access_token, refresh}      │                    │             │
-     │◀──────────────────────────────│                    │             │
-     │                               │                    │             │
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant API as API
+    participant R as Redis
+    participant E as Email Service
+
+    C->>API: POST /auth/otp/request {email}
+    API->>R: Generate & store OTP with TTL
+    API->>E: Send OTP email
+    API-->>C: {success: true}
+
+    C->>API: POST /auth/otp/verify {email, code}
+    API->>R: Verify OTP
+    R-->>API: Valid
+    API-->>C: {access_token, refresh_token}
 ```
 
 ---
@@ -610,48 +543,28 @@ TodoService.create_todo()  — business logic, ORM calls
 
 ### Celery Architecture
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                              CELERY ECOSYSTEM                               │
-└─────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+graph TB
+    subgraph Producers
+        DJANGO["Django API<br/>(Producer)"]
+    end
 
-     ┌─────────────────┐
-     │   Django API    │
-     │   (Producer)    │
-     └────────┬────────┘
-              │
-              │ task.delay()
-              ▼
-     ┌─────────────────┐
-     │     Redis       │
-     │  (Broker)       │──────────────────────────────┐
-     │                 │                              │
-     └────────┬────────┘                              │
-              │                                       │
-              │ consume                               │ results
-              ▼                                       ▼
-     ┌─────────────────┐                     ┌─────────────────┐
-     │  Celery Worker  │────────────────────▶│     Redis       │
-     │  (Consumer)     │     store result    │  (Result Store) │
-     └─────────────────┘                     └─────────────────┘
+    BROKER[("Redis<br/>Broker")]
+    RESULTS[("Redis<br/>Result Store")]
 
-     ┌─────────────────┐
-     │  Celery Beat    │
-     │  (Scheduler)    │
-     │                 │
-     │  • Daily tasks  │
-     │  • Cleanup jobs │
-     │  • Reports      │
-     └─────────────────┘
+    subgraph Workers
+        WORKER["Celery Worker<br/>(Consumer)"]
+    end
 
-     ┌─────────────────┐
-     │     Flower      │
-     │  (Monitoring)   │
-     │                 │
-     │  • Task status  │
-     │  • Worker stats │
-     │  • Queue depth  │
-     └─────────────────┘
+    BEAT["Celery Beat<br/>(Scheduler)<br/>• Daily tasks<br/>• Cleanup jobs<br/>• Reports"]
+
+    FLOWER["Flower<br/>(Monitoring)<br/>• Task status<br/>• Worker stats<br/>• Queue depth"]
+
+    DJANGO -->|"task.delay()"| BROKER
+    BROKER -->|"consume"| WORKER
+    WORKER -->|"store result"| RESULTS
+    BEAT -->|"schedule"| BROKER
+    FLOWER -.->|"monitor"| BROKER
 ```
 
 ---
@@ -660,24 +573,22 @@ TodoService.create_todo()  — business logic, ORM calls
 
 ### Decision Tree
 
-```
-                            ┌─────────────────────┐
-                            │  Choose Deployment  │
-                            └──────────┬──────────┘
-                                       │
-                    ┌──────────────────┼──────────────────┐
-                    ▼                  ▼                  ▼
-            ┌──────────────┐   ┌──────────────┐   ┌──────────────┐
-            │   Simple?    │   │   Managed?   │   │  Enterprise? │
-            │ (1-2 devs)   │   │ (PaaS)       │   │ (K8s)        │
-            └──────┬───────┘   └──────┬───────┘   └──────┬───────┘
-                   │                  │                  │
-                   ▼                  ▼                  ▼
-            ┌──────────────┐   ┌──────────────┐   ┌──────────────┐
-            │   Docker     │   │   Railway    │   │  Kubernetes  │
-            │   Compose    │   │   Render     │   │    Helm      │
-            │              │   │   Fly.io     │   │              │
-            └──────────────┘   └──────────────┘   └──────────────┘
+```mermaid
+graph TB
+    START["Choose Deployment"]
+
+    SIMPLE["Simple?<br/>(1-2 devs)"]
+    MANAGED["Managed?<br/>(PaaS)"]
+    ENTERPRISE["Enterprise?<br/>(K8s)"]
+
+    DOCKER["Docker Compose"]
+    PAAS["Railway<br/>Render<br/>Fly.io"]
+    K8S["Kubernetes<br/>Helm"]
+
+    START --> SIMPLE & MANAGED & ENTERPRISE
+    SIMPLE --> DOCKER
+    MANAGED --> PAAS
+    ENTERPRISE --> K8S
 ```
 
 ### Deployment Comparison
@@ -693,49 +604,30 @@ TodoService.create_todo()  — business logic, ORM calls
 
 ### Kubernetes Architecture
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                           KUBERNETES CLUSTER                                │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                             │
-│  ┌─────────────────────────────────────────────────────────────────────┐   │
-│  │                        INGRESS CONTROLLER                           │   │
-│  │                    (nginx-ingress / traefik)                        │   │
-│  └───────────────────────────────┬─────────────────────────────────────┘   │
-│                                  │                                         │
-│                                  ▼                                         │
-│  ┌─────────────────────────────────────────────────────────────────────┐   │
-│  │                            SERVICE                                   │   │
-│  │                    django-ninja-stack-app                           │   │
-│  └───────────────────────────────┬─────────────────────────────────────┘   │
-│                                  │                                         │
-│         ┌────────────────────────┼────────────────────────┐               │
-│         ▼                        ▼                        ▼               │
-│  ┌─────────────┐          ┌─────────────┐          ┌─────────────┐       │
-│  │  Django     │          │  Django     │          │  Django     │       │
-│  │  Pod 1      │          │  Pod 2      │          │  Pod N      │       │
-│  │             │          │             │          │             │       │
-│  │ ┌─────────┐ │          │ ┌─────────┐ │          │ ┌─────────┐ │       │
-│  │ │Container│ │          │ │Container│ │          │ │Container│ │       │
-│  │ └─────────┘ │          │ └─────────┘ │          │ └─────────┘ │       │
-│  └─────────────┘          └─────────────┘          └─────────────┘       │
-│                                  │                                         │
-│                                  ▼                                         │
-│  ┌─────────────────────────────────────────────────────────────────────┐   │
-│  │                        HPA (Autoscaler)                             │   │
-│  │               min: 2 replicas, max: 10 replicas                     │   │
-│  │               CPU target: 70%, Memory target: 80%                   │   │
-│  └─────────────────────────────────────────────────────────────────────┘   │
-│                                                                             │
-│  ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐       │
-│  │    PostgreSQL   │     │      Redis      │     │  Celery Worker  │       │
-│  │   (StatefulSet) │     │   (StatefulSet) │     │   (Deployment)  │       │
-│  │                 │     │                 │     │                 │       │
-│  │  • PVC storage  │     │  • PVC storage  │     │  • Replicas: 3  │       │
-│  │  • Secrets      │     │  • Secrets      │     │  • Resources    │       │
-│  └─────────────────┘     └─────────────────┘     └─────────────────┘       │
-│                                                                             │
-└─────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+graph TB
+    subgraph K8S["Kubernetes Cluster"]
+        INGRESS["Ingress Controller<br/>(nginx-ingress / traefik)"]
+
+        SVC["Service<br/>django-ninja-stack-app"]
+
+        subgraph Pods["Django Pods"]
+            P1["Pod 1"]
+            P2["Pod 2"]
+            PN["Pod N"]
+        end
+
+        HPA["HPA (Autoscaler)<br/>min: 2, max: 10 replicas<br/>CPU: 70%, Memory: 80%"]
+
+        PG[("PostgreSQL<br/>StatefulSet<br/>• PVC storage<br/>• Secrets")]
+        REDIS[("Redis<br/>StatefulSet<br/>• PVC storage<br/>• Secrets")]
+        CELERY["Celery Worker<br/>Deployment<br/>• Replicas: 3<br/>• Resources"]
+    end
+
+    INGRESS --> SVC --> Pods
+    HPA -.->|"scale"| Pods
+    P1 & P2 & PN --> PG & REDIS
+    CELERY --> REDIS
 ```
 
 ---
@@ -757,291 +649,3 @@ With threads (gthread worker class):
 Memory per worker: ~50-100MB
 Total memory = Workers × Memory per worker
 ```
-
-### Caching Strategy
-
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                            CACHING LAYERS                                   │
-└─────────────────────────────────────────────────────────────────────────────┘
-
-     ┌─────────────────┐
-     │   Client        │
-     │  (Browser)      │───────▶  HTTP Cache Headers
-     └─────────────────┘          • ETag
-                                  • Cache-Control
-                                  • Last-Modified
-            │
-            ▼
-     ┌─────────────────┐
-     │      CDN        │───────▶  Static Assets
-     │  (CloudFlare)   │          • CSS, JS, Images
-     └─────────────────┘          • TTL: 1 year
-            │
-            ▼
-     ┌─────────────────┐
-     │     Nginx       │───────▶  Proxy Cache
-     │                 │          • API responses
-     └─────────────────┘          • TTL: varies
-            │
-            ▼
-     ┌─────────────────┐
-     │     Redis       │───────▶  Application Cache
-     │                 │          • Sessions
-     └─────────────────┘          • Rate limits
-                                  • Query results
-            │
-            ▼
-     ┌─────────────────┐
-     │   PostgreSQL    │───────▶  Query Cache
-     │                 │          • Prepared statements
-     └─────────────────┘          • Connection pooling
-```
-
----
-
-## Security Architecture
-
-### Security Layers
-
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                           SECURITY LAYERS                                   │
-└─────────────────────────────────────────────────────────────────────────────┘
-
-     Layer 1: Network
-     ┌─────────────────────────────────────────────────────────────────────┐
-     │  • TLS/HTTPS only                                                   │
-     │  • Firewall rules                                                   │
-     │  • VPC/Private networks                                             │
-     └─────────────────────────────────────────────────────────────────────┘
-
-     Layer 2: Application
-     ┌─────────────────────────────────────────────────────────────────────┐
-     │  • Rate limiting (api/throttling/)                                  │
-     │  • Input validation (Pydantic schemas)                              │
-     │  • CORS configuration                                               │
-     │  • Security headers (X-Frame-Options, CSP, etc.)                    │
-     └─────────────────────────────────────────────────────────────────────┘
-
-     Layer 3: Authentication
-     ┌─────────────────────────────────────────────────────────────────────┐
-     │  • JWT with short expiry (15 min)                                   │
-     │  • Refresh token rotation                                           │
-     │  • Password hashing (bcrypt)                                        │
-     │  • OTP/2FA support                                                  │
-     └─────────────────────────────────────────────────────────────────────┘
-
-     Layer 4: Container
-     ┌─────────────────────────────────────────────────────────────────────┐
-     │  • Non-root user                                                    │
-     │  • Read-only filesystem (where possible)                            │
-     │  • Minimal base image (slim variants)                               │
-     │  • No unnecessary packages                                          │
-     └─────────────────────────────────────────────────────────────────────┘
-```
-
----
-
-## Monitoring & Observability
-
-### Observability Stack
-
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                         OBSERVABILITY STACK                                 │
-└─────────────────────────────────────────────────────────────────────────────┘
-
-     ┌─────────────────────────────────────────────────────────────────────┐
-     │                        DJANGO APPLICATION                           │
-     │                                                                     │
-     │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌───────────┐  │
-     │  │  Tracing    │  │   Metrics   │  │  Logging    │  │  Health   │  │
-     │  │ (OTel SDK)  │  │ (Prometheus)│  │ (Structured)│  │  Checks   │  │
-     │  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘  └─────┬─────┘  │
-     └─────────┼────────────────┼────────────────┼────────────────┼────────┘
-               │                │                │                │
-               ▼                ▼                ▼                ▼
-     ┌─────────────────┐  ┌───────────┐  ┌─────────────┐  ┌───────────────┐
-     │     Jaeger      │  │  /metrics │  │   stdout    │  │ /api/health/  │
-     │  (Trace UI)     │  │  endpoint │  │   (JSON)    │  │   detailed    │
-     │   :16686        │  │           │  │             │  │               │
-     └─────────────────┘  └───────────┘  └─────────────┘  └───────────────┘
-```
-
-### Trace Propagation
-
-```
-┌──────────┐     ┌──────────┐     ┌──────────┐     ┌──────────┐
-│  Client  │────▶│  Django  │────▶│  Celery  │────▶│ External │
-│ Request  │     │   API    │     │  Worker  │     │   API    │
-└──────────┘     └──────────┘     └──────────┘     └──────────┘
-     │                │                │                │
-     │ trace-id: abc  │ trace-id: abc  │ trace-id: abc  │ trace-id: abc
-     │ span-id: 001   │ span-id: 002   │ span-id: 003   │ span-id: 004
-     └────────────────┴────────────────┴────────────────┘
-                           │
-                           ▼
-                    ┌─────────────┐
-                    │   Jaeger    │
-                    │  Timeline   │
-                    │             │
-                    │  abc-001 ───┤
-                    │    abc-002 ─┤
-                    │      abc-003┤
-                    │        abc-004
-                    └─────────────┘
-```
-
-### Audit Trail Architecture
-
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                          AUDIT LOGGING SYSTEM                               │
-└─────────────────────────────────────────────────────────────────────────────┘
-
-     ┌─────────────────┐
-     │   API Request   │
-     └────────┬────────┘
-              │
-              ▼
-     ┌─────────────────┐     ┌─────────────────┐
-     │    Middleware   │────▶│   AuditLog      │
-     │ (Request/Resp)  │     │    (CREATE)     │
-     └─────────────────┘     └─────────────────┘
-              │
-              ▼
-     ┌─────────────────┐     ┌─────────────────┐
-     │    Signals      │────▶│   AuditLog      │
-     │ (Model Changes) │     │ (UPDATE/DELETE) │
-     └─────────────────┘     └─────────────────┘
-              │
-              ▼
-     ┌─────────────────┐     ┌─────────────────┐
-     │   Decorators    │────▶│   AuditLog      │
-     │  (@audit_action)│     │   (CUSTOM)      │
-     └─────────────────┘     └─────────────────┘
-
-     ┌─────────────────────────────────────────────────────────────────────┐
-     │                      AUDIT LOG ENTRY                                │
-     │                                                                     │
-     │  • action: CREATE | UPDATE | DELETE | LOGIN | CUSTOM                │
-     │  • user: preserved email even after deletion                        │
-     │  • ip_address: client IP (proxy-aware)                              │
-     │  • model_name: affected model                                       │
-     │  • object_id: affected record                                       │
-     │  • changes: { "field": {"old": "x", "new": "y"} }                  │
-     │  • request_id: correlation ID                                       │
-     │  • timestamp: immutable                                             │
-     └─────────────────────────────────────────────────────────────────────┘
-```
-
-### Feature Flags Architecture
-
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                         FEATURE FLAGS SYSTEM                                │
-└─────────────────────────────────────────────────────────────────────────────┘
-
-     Request Flow:
-     ┌──────────┐     ┌──────────────┐     ┌──────────────┐     ┌──────────┐
-     │  Client  │────▶│  Middleware  │────▶│   Service    │────▶│   View   │
-     └──────────┘     └──────────────┘     └──────────────┘     └──────────┘
-                             │                    │
-                             ▼                    ▼
-                      request.feature_flags  is_enabled()
-                                            get_variant()
-
-     Flag Types:
-     ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
-     │    BOOLEAN      │     │   PERCENTAGE    │     │    AB_TEST      │
-     │                 │     │                 │     │                 │
-     │  enabled: true  │     │  rollout: 25%   │     │  control: 50%   │
-     │  or false       │     │  (user hash)    │     │  variant_a: 30% │
-     │                 │     │                 │     │  variant_b: 20% │
-     └─────────────────┘     └─────────────────┘     └─────────────────┘
-
-     Targeting:
-     ┌─────────────────────────────────────────────────────────────────────┐
-     │  • User whitelist/blacklist                                        │
-     │  • Environment targeting (dev, staging, prod)                      │
-     │  • Time-based activation (starts_at, ends_at)                      │
-     │  • Custom conditions (user attributes, context)                    │
-     └─────────────────────────────────────────────────────────────────────┘
-```
-
-### Metrics & Logging (External Tools)
-
-```
-     ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
-     │     Django      │     │     Celery      │     │     Nginx       │
-     │     Logs        │     │     Logs        │     │     Logs        │
-     └────────┬────────┘     └────────┬────────┘     └────────┬────────┘
-              │                       │                       │
-              └───────────────────────┼───────────────────────┘
-                                      │
-                                      ▼
-                             ┌─────────────────┐
-                             │   Log Collector │
-                             │  (Fluentd/etc)  │
-                             └────────┬────────┘
-                                      │
-              ┌───────────────────────┼───────────────────────┐
-              ▼                       ▼                       ▼
-     ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
-     │  Elasticsearch  │     │   Prometheus    │     │     Sentry      │
-     │    (Logs)       │     │   (Metrics)     │     │   (Errors)      │
-     └────────┬────────┘     └────────┬────────┘     └─────────────────┘
-              │                       │
-              ▼                       ▼
-     ┌─────────────────┐     ┌─────────────────┐
-     │     Kibana      │     │    Grafana      │
-     │  (Log Viewer)   │     │  (Dashboards)   │
-     └─────────────────┘     └─────────────────┘
-```
-
----
-
-## Quick Reference
-
-### Common Commands
-
-```bash
-# Development
-make setup          # One-command setup
-make dev            # Start development server
-make test           # Run tests
-make lint           # Check code quality
-
-# Docker
-make up             # Start all services
-make up-realtime    # Start with Centrifugo
-make down           # Stop all services
-make logs           # View logs
-make shell          # Django shell
-
-# Database
-make migrate        # Run migrations
-make backup         # Backup database
-
-# Celery
-make celery         # Start with Celery
-make flower         # Start with Flower monitoring
-```
-
-### Environment Variables
-
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `DEBUG` | Debug mode | `False` |
-| `SECRET_KEY` | Django secret | Required |
-| `DATABASE_URL` | PostgreSQL URL | Required |
-| `REDIS_URL` | Redis URL | Required |
-| `ALLOWED_HOSTS` | Allowed hosts | `localhost` |
-| `CENTRIFUGO_URL` | Centrifugo server URL | `http://centrifugo:8000` |
-| `CENTRIFUGO_API_KEY` | Centrifugo API key | Required (prod) |
-| `CENTRIFUGO_TOKEN_SECRET` | JWT signing secret | Required (prod) |
-
----
-
-*Last updated: February 2026*
