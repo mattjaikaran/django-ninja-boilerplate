@@ -98,7 +98,11 @@ repos:
     rev: v2.7.3
     hooks:
       - id: pip-audit
-        args: [--scheme, cyclonedx, --skip-editable]
+        args:
+          - --ignore-vuln
+          - GHSA-58qw-9mgm-455v # pip self-CVE, not a runtime dep
+          - --ignore-vuln
+          - GHSA-jp4c-xjxw-mgf9 # pip self-CVE, fix = upgrade pip itself
         stages: [pre-push]
 
   # ===========================================
@@ -148,13 +152,11 @@ repos:
     hooks:
       - id: pytest
         name: Run tests
-        entry: uv run pytest --no-header -q
+        entry: env DJANGO_SETTINGS_MODULE=api.settings.test uv run pytest --no-header -q
         language: system
         types: [python]
         pass_filenames: false
         stages: [pre-push]
-        env:
-          DJANGO_SETTINGS_MODULE: api.settings.test
 
   # ===========================================
   # Commit message linting
