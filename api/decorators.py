@@ -18,6 +18,36 @@ from .utils.validation import ValidationResult, create_error_response
 
 logger = logging.getLogger(__name__)
 
+# Fields whose values are always scrubbed before logging
+SENSITIVE_FIELDS = frozenset(
+    {
+        "password",
+        "password1",
+        "password2",
+        "new_password",
+        "old_password",
+        "current_password",
+        "confirm_password",
+        "token",
+        "access_token",
+        "refresh_token",
+        "secret",
+        "secret_key",
+        "api_key",
+        "private_key",
+        "authorization",
+        "credit_card",
+        "card_number",
+        "cvv",
+        "ssn",
+    }
+)
+
+
+def _scrub(data: dict) -> dict:
+    return {k: "***" if k.lower() in SENSITIVE_FIELDS else v for k, v in data.items()}
+
+
 # Constants
 TUPLE_RESPONSE_LENGTH = 2
 HTTP_BAD_REQUEST = 400
@@ -125,7 +155,7 @@ def log_api_call(
             if include_payload and "payload" in kwargs:
                 payload = kwargs["payload"]
                 if hasattr(payload, "model_dump"):
-                    log_data["payload"] = payload.model_dump()
+                    log_data["payload"] = _scrub(payload.model_dump())
                 else:
                     log_data["payload"] = str(payload)
 

@@ -96,10 +96,12 @@ INSTALLED_APPS = [
     #####
     "corsheaders",  # django-cors-headers for cross-origin requests
     "import_export",  # django-import-export for importing and exporting data
+    "csp",  # django-csp for Content-Security-Policy headers
 ]
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",  # security middleware
+    "csp.middleware.CSPMiddleware",  # Content-Security-Policy headers
     "django.middleware.gzip.GZipMiddleware",  # Performance: Response compression
     "django.contrib.sessions.middleware.SessionMiddleware",  # session middleware
     "corsheaders.middleware.CorsMiddleware",  # django-cors-headers
@@ -363,6 +365,23 @@ STRIPE_WEBHOOK_SECRET = env("STRIPE_WEBHOOK_SECRET", default="")
 SECURE_BROWSER_XSS_FILTER = True
 SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = "DENY"
+
+# =============================================================================
+# Content-Security-Policy (django-csp)
+# Development: permissive to allow hot-reload tools, local docs, etc.
+# Production overrides in prod.py should lock this down.
+# =============================================================================
+CSP_DEFAULT_SRC = ("'self'",)
+CSP_SCRIPT_SRC = ("'self'", "'unsafe-inline'", "'unsafe-eval'")
+CSP_STYLE_SRC = ("'self'", "'unsafe-inline'")
+CSP_IMG_SRC = ("'self'", "data:", "https:")
+CSP_FONT_SRC = ("'self'", "data:")
+CSP_CONNECT_SRC = ("'self'",)
+CSP_FRAME_ANCESTORS = ("'none'",)
+CSP_BASE_URI = ("'self'",)
+CSP_FORM_ACTION = ("'self'",)
+# Report-only in dev to catch violations without blocking
+CSP_REPORT_ONLY = ENVIRONMENT == "development"
 
 # Production security settings (enabled when not in DEBUG mode)
 # Note: These should be configured in prod.py for production environment

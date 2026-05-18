@@ -29,6 +29,12 @@ from core.schemas import (
     UserSchema,
     UserSignupSchema,
 )
+from core.security.brute_force import (
+    clear_attempts,
+    is_locked_out,
+    record_failed_attempt,
+    remaining_attempts,
+)
 
 User = get_user_model()
 
@@ -108,7 +114,7 @@ class AuthController:
         logger.info("Created new user: %s", user.email)
         return 201, UserSchema.from_orm(user)
 
-    @http_post("/login", response={200: dict, 400: dict})
+    @http_post("/login", response={200: dict, 400: dict, 429: dict})
     @handle_exceptions()
     @rate_limit(requests_per_minute=20)
     @log_api_call(include_payload=True)
@@ -132,6 +138,12 @@ class AuthController:
             ValidationError: If credentials are invalid or the account is
                 disabled.
         """
+        lockout_key = f"login:email:{payload.email.lower()}"
+        if is_locked_out(lockout_key):
+            return 429, {
+                "error": "Account temporarily locked due to too many failed attempts. Try again in 15 minutes."
+            }
+
         # Try to authenticate with email
         try:
             user_obj = User.objects.get(email=payload.email.lower())
@@ -140,12 +152,21 @@ class AuthController:
             user = None
 
         if not user:
+            remaining = remaining_attempts(lockout_key)
+            record_failed_attempt(lockout_key)
+            logger.warning(
+                "Failed login attempt for email: %s (%d attempts remaining)",
+                payload.email.lower(),
+                remaining - 1,
+            )
             validation_error = ValidationError("Invalid credentials")
             raise validation_error
 
         if not user.is_active:
             validation_error = ValidationError("Account is disabled")
             raise validation_error
+
+        clear_attempts(lockout_key)
 
         # Update last login
         user.save(update_fields=["last_login"])
@@ -161,7 +182,7 @@ class AuthController:
             "user": UserSchema.from_orm(user).dict(),
         }
 
-    @http_post("/login/username", response={200: dict, 400: dict})
+    @http_post("/login/username", response={200: dict, 400: dict, 429: dict})
     @handle_exceptions()
     @rate_limit(requests_per_minute=20)
     @log_api_call(include_payload=True)
@@ -185,15 +206,24 @@ class AuthController:
             ValidationError: If credentials are invalid or the account is
                 disabled.
         """
+        lockout_key = f"login:username:{payload.username}"
+        if is_locked_out(lockout_key):
+            return 429, {
+                "error": "Account temporarily locked due to too many failed attempts. Try again in 15 minutes."
+            }
+
         user = authenticate(username=payload.username, password=payload.password)
 
         if not user:
+            record_failed_attempt(lockout_key)
             validation_error = ValidationError("Invalid credentials")
             raise validation_error
 
         if not user.is_active:
             validation_error = ValidationError("Account is disabled")
             raise validation_error
+
+        clear_attempts(lockout_key)
 
         # Update last login
         user.save(update_fields=["last_login"])

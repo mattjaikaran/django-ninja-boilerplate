@@ -94,6 +94,13 @@ repos:
         exclude: ^(tests/|cli/tests/)
         stages: [pre-push]
 
+  - repo: https://github.com/pypa/pip-audit
+    rev: v2.7.3
+    hooks:
+      - id: pip-audit
+        args: [--require-hashes, --disable-pip]
+        stages: [pre-push]
+
   # ===========================================
   # Dockerfile linting
   # ===========================================

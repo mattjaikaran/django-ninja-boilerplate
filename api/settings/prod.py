@@ -136,6 +136,14 @@ DATABASES["default"].update(
     }
 )
 
+# =============================================================================
+# Content-Security-Policy — production: enforce, no unsafe-inline/eval
+# =============================================================================
+CSP_REPORT_ONLY = False
+CSP_SCRIPT_SRC = ("'self'",)  # type: ignore[assignment]
+CSP_STYLE_SRC = ("'self'",)  # type: ignore[assignment]
+CSP_UPGRADE_INSECURE_REQUESTS = True
+
 # Session security for production
 SESSION_COOKIE_AGE = 3600  # 1 hour
 SESSION_COOKIE_HTTPONLY = True
