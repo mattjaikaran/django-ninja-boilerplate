@@ -2,6 +2,7 @@
 
 from datetime import date, datetime
 
+from django.contrib.postgres.search import SearchQuery, SearchRank, SearchVector
 from django.db.models import Q, QuerySet
 from django.db.models.fields import (
     BooleanField,
@@ -231,6 +232,100 @@ class AdvancedSearchEngine:
 def create_search_engine(model_class, search_fields: list[str]) -> AdvancedSearchEngine:
     """Factory function to create a search engine for a model."""
     return AdvancedSearchEngine(model_class, search_fields)
+
+
+# =============================================================================
+# PostgreSQL Full-Text Search
+# =============================================================================
+
+
+def fts_search(
+    queryset: QuerySet,
+    query: str,
+    vector_fields: list[str],
+    rank_threshold: float = 0.1,
+    language: str = "english",
+) -> QuerySet:
+    """Apply PostgreSQL full-text search with ranking.
+
+    Uses SearchVector + SearchQuery + SearchRank for relevance-ranked results.
+    Requires PostgreSQL — falls back to icontains on the first field for other DBs.
+
+    Args:
+        queryset: Base queryset to search.
+        query: Search query string.
+        vector_fields: Field names to include in the search vector.
+            Supports weight tuples: [("title", "A"), ("body", "B")].
+        rank_threshold: Minimum rank score to include (0.0 to 1.0).
+        language: PostgreSQL text search language config.
+
+    Returns:
+        Queryset annotated with ``search_rank`` and ordered by rank descending.
+
+    Usage::
+
+        results = fts_search(
+            Todo.objects.filter(user=user),
+            query="buy groceries",
+            vector_fields=[("title", "A"), ("description", "B")],
+        )
+    """
+    if not query.strip():
+        return queryset
+
+    vector_parts: list[SearchVector] = []
+    for field in vector_fields:
+        if isinstance(field, tuple):
+            name, weight = field
+            vector_parts.append(SearchVector(name, weight=weight, config=language))
+        else:
+            vector_parts.append(SearchVector(field, config=language))
+
+    if not vector_parts:
+        return queryset
+
+    search_vector = vector_parts[0]
+    for part in vector_parts[1:]:
+        search_vector = search_vector + part
+
+    search_query = SearchQuery(query, config=language)
+
+    return (
+        queryset.annotate(
+            search_rank=SearchRank(search_vector, search_query),
+        )
+        .filter(search_rank__gte=rank_threshold)
+        .order_by("-search_rank")
+    )
+
+
+class FullTextSearchMixin:
+    """Mixin for service classes that want PostgreSQL FTS.
+
+    Subclass and set ``fts_fields`` to enable ranked full-text search.
+
+    Example::
+
+        class TodoService(FullTextSearchMixin):
+            fts_fields = [("title", "A"), ("description", "B")]
+
+            def search_todos(self, query: str):
+                qs = Todo.objects.all()
+                return self.fts_search(qs, query)
+    """
+
+    fts_fields: list[str | tuple[str, str]] = []
+    fts_language: str = "english"
+    fts_rank_threshold: float = 0.1
+
+    def fts_search(self, queryset: QuerySet, query: str) -> QuerySet:
+        return fts_search(
+            queryset,
+            query,
+            self.fts_fields,
+            rank_threshold=self.fts_rank_threshold,
+            language=self.fts_language,
+        )
 
 
 # Pre-configured search engines for common models

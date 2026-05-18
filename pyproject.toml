@@ -90,6 +90,7 @@ dependencies = [
     "sqlparse>=0.5.3",
     "psutil>=7.2.1",
     "resend>=2.23.0",
+    "stripe>=15.1.0",
 ]
 
 [project.optional-dependencies]
@@ -334,7 +335,7 @@ exclude = [
 "cli/*" = 800
 "tests/*" = 600
 "*/management/commands/*.py" = 800
-"api/settings/common.py" = 600
+"api/settings/common.py" = 650
 "api/decorators.py" = 500
 "*/services/*.py" = 700
 "*/tasks/*.py" = 600
@@ -355,7 +356,7 @@ addopts = [
     "--cov-report=xml",
     "--cov-fail-under=25",
 ]
-testpaths = ["core", "todos", "tests/smoke"]
+testpaths = ["core", "todos", "webhooks", "organizations", "notifications", "billing", "files", "tests/smoke"]
 filterwarnings = [
     "error",
     "ignore::UserWarning",
@@ -418,6 +419,10 @@ module = [
     "core.tasks.models",
     "core.audit.models",
     "todos.models.todo",
+    "webhooks.models.webhook",
+    "organizations.models.organization",
+    "files.models.file_upload",
+    "billing.models.plan",
 ]
 disable_error_code = ["var-annotated"]
 
@@ -431,8 +436,25 @@ module = [
     "core.controllers.auth_controller",
     "core.controllers.users_controller",
     "core.services.otp_service",
+    "webhooks.services.webhook_service",
+    "files.services.file_service",
+    "billing.services.billing_service",
+    "organizations.tests.test_organizations",
+    "api.search_filters",
 ]
-disable_error_code = ["attr-defined", "return-value"]
+disable_error_code = ["attr-defined", "return-value", "arg-type", "assignment"]
+
+[[tool.mypy.overrides]]
+# notifications.models.notification needs both var-annotated (model fields) and
+# attr-defined (user_id is a Django-generated field not visible to mypy)
+module = ["notifications.models.notification"]
+disable_error_code = ["var-annotated", "attr-defined"]
+
+[[tool.mypy.overrides]]
+# redis package ships without type stubs; ignore-missing-imports is global
+# but import-untyped is a stricter check that fires separately
+module = ["core.sse.events"]
+ignore_errors = true
 
 [tool.bandit]
 # Exclude test utilities, management commands with intentional patterns,

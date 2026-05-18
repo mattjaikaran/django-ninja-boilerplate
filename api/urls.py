@@ -6,6 +6,8 @@ from ninja_extra import NinjaExtraAPI
 from ninja_jwt.controller import NinjaJWTDefaultController
 
 from api.healthcheck import HealthCheckController
+from api.versioning import api_v1, api_v2
+from billing.controllers import BillingController, StripeWebhookController
 from core.controllers import (
     AuditLogController,
     AuthController,
@@ -17,12 +19,17 @@ from core.controllers import (
     UserController,
 )
 from core.observability.controllers import EnhancedHealthController, MetricsController
+from core.sse.views import sse_endpoint
+from files.controllers import FileController
+from notifications.controllers import NotificationController
+from organizations.controllers import OrganizationController
 from todos.controllers import (
     TodoController,
     TodoControllerBasic,
     TodoControllerDeclarative,
     TodoControllerPartial,
 )
+from webhooks.controllers import WebhookController
 
 # admin site settings
 admin.site.site_header = "Django Ninja Boilerplate Admin"
@@ -70,6 +77,17 @@ api.register_controllers(
     TaskController,  # Task status and progress tracking
     TaskSchedulerController,  # Periodic task management
     DeadLetterQueueController,  # Failed task handling
+    # files app — S3 presigned upload pattern
+    FileController,
+    # webhooks app — outbound webhooks with HMAC signing + delivery tracking
+    WebhookController,
+    # organizations app — multi-tenancy
+    OrganizationController,
+    # notifications app — in-app + email notifications
+    NotificationController,
+    # billing app — Stripe plans, subscriptions, and webhooks
+    BillingController,
+    StripeWebhookController,
     # todos app — four controllers demonstrating progressively abstracted patterns
     TodoController,  # Pattern 4: full decorators + service layer (recommended)
     TodoControllerPartial,  # Pattern 3: selective decorators, inline DB ops
@@ -78,12 +96,32 @@ api.register_controllers(
     # Add more controllers here
 )
 
+# Register core controllers on v1 as well (same controllers, versioned mount point)
+api_v1.register_controllers(
+    NinjaJWTDefaultController,
+    AuthController,
+    UserController,
+    OTPController,
+    FileController,
+    WebhookController,
+    OrganizationController,
+    NotificationController,
+    BillingController,
+    StripeWebhookController,
+)
+
+# api_v2 starts empty — add breaking-change controllers here as the API evolves
+
 # add the urls to the urlpatterns
 urlpatterns = [
     path("admin/", admin.site.urls),
-    # this includes all of the endpoints defined in the controllers (api.register_controllers)
-    # and adds a /api prefix to the urls
+    # Unversioned (legacy / internal) — all controllers
     path("api/", api.urls),
+    # Versioned — stable v1 and evolving v2
+    path("api/v1/", api_v1.urls),
+    path("api/v2/", api_v2.urls),
+    # SSE streaming endpoint (outside Ninja so it can use StreamingHttpResponse)
+    path("api/events/stream/", sse_endpoint),
 ]
 
 # Add debug toolbar URLs if available and in debug mode

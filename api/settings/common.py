@@ -91,6 +91,11 @@ INSTALLED_APPS = [
     #####
     "core",  # core app
     "todos",  # todos app
+    "files",  # files app (S3 presigned upload)
+    "webhooks",  # outbound webhooks
+    "organizations",  # multi-tenancy / org membership
+    "notifications",  # in-app + email notifications
+    "billing",  # Stripe billing
     #####
     # third party packages
     #####
@@ -367,21 +372,26 @@ SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = "DENY"
 
 # =============================================================================
-# Content-Security-Policy (django-csp)
+# Content-Security-Policy (django-csp 4.0+)
 # Development: permissive to allow hot-reload tools, local docs, etc.
 # Production overrides in prod.py should lock this down.
 # =============================================================================
-CSP_DEFAULT_SRC = ("'self'",)
-CSP_SCRIPT_SRC = ("'self'", "'unsafe-inline'", "'unsafe-eval'")
-CSP_STYLE_SRC = ("'self'", "'unsafe-inline'")
-CSP_IMG_SRC = ("'self'", "data:", "https:")
-CSP_FONT_SRC = ("'self'", "data:")
-CSP_CONNECT_SRC = ("'self'",)
-CSP_FRAME_ANCESTORS = ("'none'",)
-CSP_BASE_URI = ("'self'",)
-CSP_FORM_ACTION = ("'self'",)
-# Report-only in dev to catch violations without blocking
-CSP_REPORT_ONLY = ENVIRONMENT == "development"
+_csp_directives = {
+    "default-src": ("'self'",),
+    "script-src": ("'self'", "'unsafe-inline'", "'unsafe-eval'"),
+    "style-src": ("'self'", "'unsafe-inline'"),
+    "img-src": ("'self'", "data:", "https:"),
+    "font-src": ("'self'", "data:"),
+    "connect-src": ("'self'",),
+    "frame-ancestors": ("'none'",),
+    "base-uri": ("'self'",),
+    "form-action": ("'self'",),
+}
+
+if ENVIRONMENT == "development":
+    CONTENT_SECURITY_POLICY_REPORT_ONLY = {"DIRECTIVES": _csp_directives}
+else:
+    CONTENT_SECURITY_POLICY = {"DIRECTIVES": _csp_directives}
 
 # Production security settings (enabled when not in DEBUG mode)
 # Note: These should be configured in prod.py for production environment
