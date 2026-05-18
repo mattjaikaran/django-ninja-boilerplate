@@ -98,6 +98,7 @@ repos:
     rev: v2.7.3
     hooks:
       - id: pip-audit
+        args: [--scheme, cyclonedx, --skip-editable]
         stages: [pre-push]
 
   # ===========================================
@@ -152,6 +153,8 @@ repos:
         types: [python]
         pass_filenames: false
         stages: [pre-push]
+        env:
+          DJANGO_SETTINGS_MODULE: api.settings.test
 
   # ===========================================
   # Commit message linting
