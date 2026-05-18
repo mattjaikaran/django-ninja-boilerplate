@@ -4,6 +4,13 @@ This module provides shared fixtures for all tests in the project.
 Individual apps can have their own conftest.py files for app-specific fixtures.
 """
 
+import os
+
+import django
+
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "api.settings.test")
+django.setup()
+
 import pytest
 from django.test import Client
 from ninja.testing import TestClient

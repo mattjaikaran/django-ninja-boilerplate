@@ -52,7 +52,7 @@ class TestUserModel:
 
     def test_email_required(self):
         with pytest.raises(ValueError):
-            User.objects.create_user(username="test", password="test")
+            User.objects.create_user(username="test", password="test")  # type: ignore[attr-defined]
 
 
 @pytest.mark.django_db
