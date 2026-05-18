@@ -445,6 +445,7 @@ exclude_dirs = [
     "cli/tests",
     ".venv",
     "venv",
+    "env",
     "node_modules",
 ]
 # Skip checks that are expected and safe in this codebase:
@@ -457,7 +458,9 @@ exclude_dirs = [
 # B403/B404 - subprocess in CLI tool calling git/system commands (not user input)
 # B603/B607 - subprocess calls in CLI and management commands (fixed arg lists)
 # B104 - 0.0.0.0 in dev settings only (Docker local networking)
-skips = ["B101", "B104", "B105", "B106", "B110", "B311", "B324", "B403", "B404", "B603", "B607"]
+# B608 - SQL keyword in management command template strings (not real SQL)
+# B701 - Jinja2 autoescape in CLI code generator (not rendering user data)
+skips = ["B101", "B104", "B105", "B106", "B110", "B311", "B324", "B403", "B404", "B603", "B607", "B608", "B701"]
 # Only fail on medium severity and above with medium confidence and above.
 # Low severity findings are informational only.
 level = "medium"

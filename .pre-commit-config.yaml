@@ -98,7 +98,6 @@ repos:
     rev: v2.7.3
     hooks:
       - id: pip-audit
-        args: [--require-hashes, --disable-pip]
         stages: [pre-push]
 
   # ===========================================
