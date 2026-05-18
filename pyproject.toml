@@ -443,6 +443,9 @@ exclude_dirs = [
     "todos/tests",
     "core/tests",
     "cli/tests",
+    ".venv",
+    "venv",
+    "node_modules",
 ]
 # Skip checks that are expected and safe in this codebase:
 # B101 - assert used in test files (correct pytest pattern)
