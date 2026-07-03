@@ -190,6 +190,80 @@ single-down: ## Stop single-container production environment
 single-logs: ## Show single-container logs
 	$(DOCKER_COMPOSE_SINGLE) logs -f
 
+# ===========================================
+# Deployment Commands (Multi-Provider)
+# ===========================================
+
+# Deploy config — loaded from .env.deploy
+-include .env.deploy
+export
+
+deploy: ## Deploy to configured provider (set DEPLOY_PROVIDER in .env.deploy)
+	@./scripts/deploy.sh
+
+deploy-railway: ## Deploy to Railway
+	@./scripts/deploy.sh --provider railway
+
+deploy-render: ## Deploy to Render
+	@./scripts/deploy.sh --provider render
+
+deploy-fly: ## Deploy to Fly.io
+	@./scripts/deploy.sh --provider fly
+
+deploy-aws: ## Deploy to AWS ECS/Copilot
+	@./scripts/deploy.sh --provider aws
+
+deploy-gcp: ## Deploy to GCP Cloud Run
+	@./scripts/deploy.sh --provider gcp
+
+deploy-vps: ## Deploy to VPS via SSH
+	@./scripts/deploy.sh --provider vps
+
+deploy-quick: ## Quick deploy (VPS: skip rebuild, just restart)
+	@./scripts/deploy.sh --quick
+
+deploy-safe: ## Deploy with pre-deploy lint + test checks
+	@./scripts/deploy.sh --safe
+
+deploy-dry-run: ## Show what deploy would do without executing
+	@./scripts/deploy.sh --dry-run
+
+deploy-setup: ## One-time setup: install provider CLI and authenticate
+	@./scripts/deploy-setup.sh
+
+deploy-status: ## Check deployment status for configured provider
+	@case "$${DEPLOY_PROVIDER:-}" in \
+		railway) railway status 2>/dev/null || echo "Run: railway link" ;; \
+		fly) fly status --app "$${FLY_APP:-}" 2>/dev/null || echo "Set FLY_APP in .env.deploy" ;; \
+		render) echo "Check: https://dashboard.render.com" ;; \
+		aws) aws ecs describe-services --cluster "$${AWS_CLUSTER}" --services "$${AWS_SERVICE}" --region "$${AWS_REGION:-us-east-1}" --query 'services[0].{status:status,running:runningCount,desired:desiredCount}' --output table 2>/dev/null || echo "Set AWS_CLUSTER/AWS_SERVICE" ;; \
+		gcp) gcloud run services describe "$${GCP_SERVICE:-$${APP_NAME}}" --project "$${GCP_PROJECT}" --region "$${GCP_REGION:-us-central1}" --format 'value(status.url)' 2>/dev/null || echo "Set GCP_PROJECT" ;; \
+		vps) ssh -o StrictHostKeyChecking=accept-new -p "$${DEPLOY_PORT:-22}" "$${DEPLOY_USER:-root}@$${DEPLOY_HOST}" "cd $${DEPLOY_APP_DIR:-/opt/app} && docker compose ps" 2>/dev/null || echo "Set DEPLOY_HOST" ;; \
+		*) echo "Set DEPLOY_PROVIDER in .env.deploy" ;; \
+	esac
+
+deploy-logs: ## Tail deployment logs for configured provider
+	@case "$${DEPLOY_PROVIDER:-}" in \
+		railway) railway logs ;; \
+		fly) fly logs --app "$${FLY_APP:-}" ;; \
+		render) echo "View logs at: https://dashboard.render.com" ;; \
+		aws) aws logs tail "/ecs/$${AWS_SERVICE}" --follow --region "$${AWS_REGION:-us-east-1}" 2>/dev/null || echo "Set AWS_SERVICE" ;; \
+		gcp) gcloud run services logs read "$${GCP_SERVICE:-$${APP_NAME}}" --project "$${GCP_PROJECT}" --region "$${GCP_REGION:-us-central1}" 2>/dev/null || echo "Set GCP_PROJECT" ;; \
+		vps) ssh -p "$${DEPLOY_PORT:-22}" "$${DEPLOY_USER:-root}@$${DEPLOY_HOST}" "cd $${DEPLOY_APP_DIR:-/opt/app} && docker compose logs -f --tail=100" ;; \
+		*) echo "Set DEPLOY_PROVIDER in .env.deploy" ;; \
+	esac
+
+deploy-rollback: ## Rollback to previous deployment
+	@case "$${DEPLOY_PROVIDER:-}" in \
+		railway) railway rollback ;; \
+		fly) fly releases --app "$${FLY_APP:-}" && echo "" && echo "Run: fly deploy --image <previous-image>" ;; \
+		render) echo "Rollback via dashboard: https://dashboard.render.com" ;; \
+		aws) echo "Rolling back ECS..." && aws ecs update-service --cluster "$${AWS_CLUSTER}" --service "$${AWS_SERVICE}" --force-new-deployment --region "$${AWS_REGION:-us-east-1}" ;; \
+		gcp) gcloud run services update-traffic "$${GCP_SERVICE:-$${APP_NAME}}" --to-revisions=LATEST=100 --project "$${GCP_PROJECT}" --region "$${GCP_REGION:-us-central1}" ;; \
+		vps) ssh -p "$${DEPLOY_PORT:-22}" "$${DEPLOY_USER:-root}@$${DEPLOY_HOST}" "cd $${DEPLOY_APP_DIR:-/opt/app} && git checkout \$$(cat /tmp/$${APP_NAME:-app}-pre-deploy-commit) && docker compose up -d" ;; \
+		*) echo "Set DEPLOY_PROVIDER in .env.deploy" ;; \
+	esac
+
 # Utility commands
 clean: ## Clean up Docker resources
 	docker system prune -f

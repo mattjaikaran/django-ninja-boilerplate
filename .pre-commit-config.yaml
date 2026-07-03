@@ -103,6 +103,10 @@ repos:
           - GHSA-58qw-9mgm-455v # pip self-CVE, not a runtime dep
           - --ignore-vuln
           - GHSA-jp4c-xjxw-mgf9 # pip self-CVE, fix = upgrade pip itself
+          - --ignore-vuln
+          - PYSEC-2026-196 # pip transient, not a runtime dep
+          - --ignore-vuln
+          - GHSA-6v7p-g79w-8964 # msgpack, fixed in our deps (>=1.2.1)
         stages: [pre-push]
 
   # ===========================================
@@ -159,13 +163,13 @@ repos:
         stages: [pre-push]
 
   # ===========================================
-  # Commit message linting
+  # Commit message linting (disabled — re-enable if using cz bump)
   # ===========================================
-  - repo: https://github.com/commitizen-tools/commitizen
-    rev: v4.1.0
-    hooks:
-      - id: commitizen
-        stages: [commit-msg]
+  # - repo: https://github.com/commitizen-tools/commitizen
+  #   rev: v4.1.0
+  #   hooks:
+  #     - id: commitizen
+  #       stages: [commit-msg]
 
 # ===========================================
 # CI Configuration

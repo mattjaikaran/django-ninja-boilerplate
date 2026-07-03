@@ -91,6 +91,7 @@ dependencies = [
     "psutil>=7.2.1",
     "resend>=2.23.0",
     "stripe>=15.1.0",
+    "msgpack>=1.2.1",
 ]
 
 [project.optional-dependencies]

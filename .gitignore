@@ -3,6 +3,7 @@
 .env.*
 !.env.example
 !.env.development
+!.env.deploy.example
 
 # Virtual Environments
 env/
@@ -129,4 +130,3 @@ media/
 
 # Claude Code
 CLAUDE.md
-
