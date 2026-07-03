@@ -6,7 +6,6 @@ from ninja_extra import NinjaExtraAPI
 from ninja_jwt.controller import NinjaJWTDefaultController
 
 from api.healthcheck import HealthCheckController
-from api.versioning import api_v1, api_v2
 from billing.controllers import BillingController, StripeWebhookController
 from core.controllers import (
     AuditLogController,
@@ -96,33 +95,36 @@ api.register_controllers(
     # Add more controllers here
 )
 
-# Register core controllers on v1 as well (same controllers, versioned mount point)
-api_v1.register_controllers(
-    NinjaJWTDefaultController,
-    AuthController,
-    UserController,
-    OTPController,
-    FileController,
-    WebhookController,
-    OrganizationController,
-    NotificationController,
-    BillingController,
-    StripeWebhookController,
-)
-
-# api_v2 starts empty — add breaking-change controllers here as the API evolves
-
 # add the urls to the urlpatterns
 urlpatterns = [
     path("admin/", admin.site.urls),
-    # Unversioned (legacy / internal) — all controllers
     path("api/", api.urls),
-    # Versioned — stable v1 and evolving v2
-    path("api/v1/", api_v1.urls),
-    path("api/v2/", api_v2.urls),
     # SSE streaming endpoint (outside Ninja so it can use StreamingHttpResponse)
     path("api/events/stream/", sse_endpoint),
 ]
+
+# Conditionally mount versioned API instances
+if getattr(settings, "API_VERSIONING_ENABLED", False):
+    from api.versioning import api_v1, api_v2
+
+    api_v1.register_controllers(
+        NinjaJWTDefaultController,
+        AuthController,
+        UserController,
+        OTPController,
+        FileController,
+        WebhookController,
+        OrganizationController,
+        NotificationController,
+        BillingController,
+        StripeWebhookController,
+    )
+    # api_v2 starts empty — add breaking-change controllers here as the API evolves
+
+    urlpatterns += [
+        path("api/v1/", api_v1.urls),
+        path("api/v2/", api_v2.urls),
+    ]
 
 # Add debug toolbar URLs if available and in debug mode
 if settings.DEBUG and "debug_toolbar" in settings.INSTALLED_APPS:

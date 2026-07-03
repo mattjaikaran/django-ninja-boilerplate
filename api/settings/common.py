@@ -485,6 +485,13 @@ AUDIT_EXCLUDED_MODELS = [
 AUDIT_TRACKED_MODELS = None
 
 # =============================================================================
+# API Versioning
+# =============================================================================
+# When True, mounts versioned API instances at /api/v1/, /api/v2/, etc.
+# When False (default), only the unversioned /api/ mount is active.
+API_VERSIONING_ENABLED = env.bool("API_VERSIONING_ENABLED", default=False)
+
+# =============================================================================
 # Observability Configuration
 # =============================================================================
 # Application version (used in metrics and health checks)
