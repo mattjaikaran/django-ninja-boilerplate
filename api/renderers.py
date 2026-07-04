@@ -1,9 +1,16 @@
 """Custom renderers for Django Ninja using orjson for performance."""
 
+from decimal import Decimal
 from typing import Any
 
 import orjson
 from ninja.renderers import BaseRenderer
+
+
+def _default(obj: Any) -> Any:
+    if isinstance(obj, Decimal):
+        return float(obj)
+    raise TypeError(f"Type is not JSON serializable: {type(obj)}")
 
 
 class ORJSONRenderer(BaseRenderer):
@@ -18,6 +25,7 @@ class ORJSONRenderer(BaseRenderer):
     def render(self, request, data: Any, *, response_status: int) -> bytes:
         return orjson.dumps(
             data,
+            default=_default,
             option=orjson.OPT_NON_STR_KEYS
             | orjson.OPT_SERIALIZE_NUMPY
             | orjson.OPT_NAIVE_UTC
