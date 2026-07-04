@@ -22,7 +22,7 @@ A production-ready, **opinionated** Django boilerplate built with **Django Ninja
 | **One-command setup**            | `make setup` gets you from clone to running in under 2 minutes             |
 | **Class-based controllers**      | Clean, organized API code with Django Ninja Extra                          |
 | **Enterprise features built-in** | Audit logging, feature flags, observability - no need to add later         |
-| **Multiple auth methods**        | JWT, magic links, OTP codes, 2FA - ready for web and mobile                |
+| **Multiple auth methods**        | JWT, magic links, OTP codes, 2FA, API keys - ready for web, mobile, and M2M |
 | **Full observability**           | Distributed tracing, metrics, structured logging out of the box            |
 | **SDK generation**               | Auto-generate TypeScript and Python clients from your API                  |
 | **Production-ready**             | Docker, K8s Helm charts, PaaS configs - deploy anywhere                    |
@@ -206,15 +206,25 @@ app_name/
 - **[Django Ninja Extra](https://eadwincode.github.io/django-ninja-extra/)** - Class-based controllers
 - **[Django Ninja JWT](https://eadwincode.github.io/django-ninja-jwt/)** - JWT authentication
 - **[PostgreSQL](https://www.postgresql.org/)** - Primary database
-- **[Redis](https://redis.io/)** - Caching and task queue
-- **[Celery](https://docs.celeryproject.org/)** - Background task processing
+- **[Valkey](https://valkey.io/)** - Caching and task broker (Redis-compatible, BSD license)
+- **[Celery](https://docs.celeryproject.org/)** - Background task processing (default; Huey, django-q2, django-rq also supported)
 - **[Centrifugo](https://centrifugal.dev/)** - Real-time WebSocket messaging
 - **[Pydantic](https://docs.pydantic.dev/)** - Data validation
+- **[orjson](https://github.com/ijl/orjson)** - High-performance JSON (global renderer)
+
+### Rust-Powered Toolchain
+
+Performance-critical components use Rust under the hood:
+
+- **[uv](https://docs.astral.sh/uv/)** - Package management (replaces pip/poetry)
+- **[Ruff](https://docs.astral.sh/ruff/)** - Linting and formatting (replaces flake8/black/isort)
+- **[ty](https://github.com/astral-sh/ty)** - Type checking (alongside mypy)
+- **[pydantic-core](https://github.com/pydantic/pydantic-core)** - Validation engine (5-50x faster than v1)
+- **[orjson](https://github.com/ijl/orjson)** - JSON serialization (2-10x faster than stdlib)
+- **[django-vcache](https://pypi.org/project/django-vcache/)** - Cache I/O driver (default backend)
 
 ### Development Tools
 
-- **[uv](https://docs.astral.sh/uv/)** - Fast Python package management
-- **[Ruff](https://docs.astral.sh/ruff/)** - Linting and formatting
 - **[pytest](https://docs.pytest.org/)** - Testing framework
 - **[Factory Boy](https://factoryboy.readthedocs.io/)** - Test data generation
 - **[Docker](https://www.docker.com/)** - Containerization (OrbStack optimized)
@@ -287,7 +297,7 @@ cd django-ninja-boilerplate
 uv sync --dev
 
 # Setup environment
-cp env.example .env
+cp .env.example .env
 ./scripts/generate_secret_key.sh
 
 # Start PostgreSQL and Redis locally, then:
@@ -1077,7 +1087,58 @@ Audit logs can be viewed in the Django admin at `/admin/core/auditlog/`:
 | `IMPORT`            | Data imported                         |
 | `CUSTOM`            | Custom audit action                   |
 
-## Background Tasks (Celery)
+## API Key Authentication
+
+Built-in API key auth for machine-to-machine access alongside JWT:
+
+```python
+from core.security.api_key_auth import APIKeyAuth
+from ninja_jwt.authentication import JWTAuth
+
+# Accept either JWT or API key
+@api_controller("/items", tags=["Items"], auth=[JWTAuth(), APIKeyAuth()])
+class ItemController:
+    ...
+```
+
+Create and manage keys via the API:
+
+```bash
+# Create a key (returns raw key once)
+curl -X POST /api/api-keys/ -H "Authorization: Bearer <jwt>" \
+  -d '{"name": "CI Pipeline", "scopes": ["read:todos"]}'
+
+# Use the key
+curl /api/todos/ -H "X-API-Key: prefix.secret..."
+```
+
+See [docs/API_KEYS.md](docs/API_KEYS.md) for full documentation.
+
+## Background Tasks (Pluggable Backends)
+
+Default backend is Celery. Alternatives available via `TASK_BACKEND` env var:
+
+| Backend | Install | Worker Command |
+|---------|---------|----------------|
+| **Celery** (default) | Built-in | `make celery-worker` |
+| **Huey** | `uv add huey` | `make worker-huey` |
+| **django-q2** | `uv add django-q2` | `make worker-q` |
+| **django-rq** | `uv add django-rq rq` | `make worker-rq` |
+
+```python
+# Backend-agnostic task decorator
+from api.tasks import shared_task
+
+@shared_task
+def send_welcome_email(user_id):
+    ...
+
+send_welcome_email.delay(user.id)
+```
+
+See [docs/TASK_BACKENDS.md](docs/TASK_BACKENDS.md) for comparison and setup.
+
+### Celery (Default)
 
 ```python
 from api.celery import app

@@ -1,6 +1,6 @@
 [project]
 name = "django-ninja-boilerplate"
-version = "1.5.1"
+version = "1.7.0"
 description = "A production-ready Django boilerplate using Django Ninja for building modern APIs"
 authors = [{ name = "Matt Jaikaran", email = "info@mattjaikaran.com" }]
 readme = "README.md"
@@ -36,6 +36,8 @@ dependencies = [
     "django-storages>=1.14.6",
     "django-unfold>=0.52.0",
     "django-redis>=5.4.0",
+    "django-valkey>=0.4.1",
+    "django-vcache>=0.1.0",
     # API Framework
     "django-ninja>=1.5.3",
     "django-ninja-extra>=0.31.3",
@@ -106,6 +108,7 @@ dev = [
     "factory-boy>=3.3.3",
     "Faker>=30.1.0",
     "pre-commit>=4.0.0",
+    "ty>=0.0.1a1",
 ]
 testing = [
     # Load testing
@@ -133,6 +136,16 @@ observability = [
     # Structured JSON logging
     "python-json-logger>=2.0.7",
 ]
+huey = [
+    "huey>=2.5.0",
+]
+django-q = [
+    "django-q2>=1.7.0",
+]
+django-rq = [
+    "django-rq>=2.10.0",
+    "rq>=1.16.0",
+]
 
 [project.urls]
 homepage = "https://github.com/mattjaikaran/django-ninja-boilerplate"
@@ -144,7 +157,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["api", "core", "todos"]
+packages = ["api", "core", "todos", "billing", "files", "webhooks", "organizations", "notifications"]
 
 [tool.ruff]
 target-version = "py313"
@@ -299,7 +312,7 @@ ignore = [
 max-complexity = 10
 
 [tool.ruff.lint.isort]
-known-first-party = ["api", "core", "todos"]
+known-first-party = ["api", "core", "todos", "billing", "files", "webhooks", "organizations", "notifications"]
 known-third-party = ["django"]
 section-order = [
     "future",
@@ -336,7 +349,7 @@ exclude = [
 "cli/*" = 800
 "tests/*" = 600
 "*/management/commands/*.py" = 800
-"api/settings/common.py" = 650
+"api/settings/common.py" = 710
 "api/decorators.py" = 500
 "*/services/*.py" = 700
 "*/tasks/*.py" = 600
@@ -416,6 +429,7 @@ module = [
     "core.models.base",
     "core.models.user",
     "core.models.otp",
+    "core.models.api_key",
     "core.features.models",
     "core.tasks.models",
     "core.audit.models",
@@ -442,6 +456,8 @@ module = [
     "billing.services.billing_service",
     "organizations.tests.test_organizations",
     "api.search_filters",
+    "api.tasks.backends.django_q_backend",
+    "api.tasks.backends.django_rq_backend",
 ]
 disable_error_code = ["attr-defined", "return-value", "arg-type", "assignment"]
 
@@ -456,6 +472,9 @@ disable_error_code = ["var-annotated", "attr-defined"]
 # but import-untyped is a stricter check that fires separately
 module = ["core.sse.events"]
 ignore_errors = true
+
+[tool.ty]
+python-version = "3.13"
 
 [tool.bandit]
 # Exclude test utilities, management commands with intentional patterns,

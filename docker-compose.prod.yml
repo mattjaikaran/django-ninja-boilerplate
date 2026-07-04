@@ -35,24 +35,24 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '2.0'
+          cpus: "2.0"
           memory: 2G
         reservations:
-          cpus: '0.5'
+          cpus: "0.5"
           memory: 512M
     # Security: don't expose port in production
     # ports:
     #   - "5432:5432"
 
   # ===========================================
-  # Redis Cache & Message Broker
+  # Valkey Cache & Message Broker
   # ===========================================
-  redis:
-    image: redis:7.2-alpine
+  valkey:
+    image: valkey/valkey:8-alpine
     volumes:
-      - redis_data:/data
+      - valkey_data:/data
     command: >
-      redis-server
+      valkey-server
       --appendonly yes
       --requirepass ${REDIS_PASSWORD}
       --maxmemory 512mb
@@ -62,7 +62,15 @@ services:
     networks:
       - app-network
     healthcheck:
-      test: ["CMD", "redis-cli", "--no-auth-warning", "-a", "${REDIS_PASSWORD}", "ping"]
+      test:
+        [
+          "CMD",
+          "valkey-cli",
+          "--no-auth-warning",
+          "-a",
+          "${REDIS_PASSWORD}",
+          "ping",
+        ]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -71,10 +79,10 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '1.0'
+          cpus: "1.0"
           memory: 1G
         reservations:
-          cpus: '0.25'
+          cpus: "0.25"
           memory: 256M
 
   # ===========================================
@@ -117,7 +125,8 @@ services:
       - DB_PASSWORD=${DB_PASSWORD}
       - DB_HOST=db
       - DB_PORT=5432
-      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
+      - VALKEY_URL=valkey://:${REDIS_PASSWORD}@valkey:6379/0
+      - REDIS_URL=valkey://:${REDIS_PASSWORD}@valkey:6379/0
       - FRONTEND_URL=${FRONTEND_URL}
       - ALLOWED_HOSTS=${ALLOWED_HOSTS}
       - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS}
@@ -140,7 +149,7 @@ services:
     depends_on:
       db:
         condition: service_healthy
-      redis:
+      valkey:
         condition: service_healthy
     networks:
       - app-network
@@ -148,10 +157,10 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '4.0'
+          cpus: "4.0"
           memory: 2G
         reservations:
-          cpus: '1.0'
+          cpus: "1.0"
           memory: 512M
       replicas: 1
 
@@ -170,7 +179,7 @@ services:
       - CENTRIFUGO_API_KEY=${CENTRIFUGO_API_KEY}
       - CENTRIFUGO_ADMIN=false
     depends_on:
-      redis:
+      valkey:
         condition: service_healthy
     networks:
       - app-network
@@ -186,10 +195,10 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '1.0'
+          cpus: "1.0"
           memory: 512M
         reservations:
-          cpus: '0.25'
+          cpus: "0.25"
           memory: 128M
 
   # ===========================================
@@ -218,13 +227,14 @@ services:
       - DB_PASSWORD=${DB_PASSWORD}
       - DB_HOST=db
       - DB_PORT=5432
-      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
+      - VALKEY_URL=valkey://:${REDIS_PASSWORD}@valkey:6379/0
+      - REDIS_URL=valkey://:${REDIS_PASSWORD}@valkey:6379/0
       - PYTHONDONTWRITEBYTECODE=1
       - PYTHONUNBUFFERED=1
     depends_on:
       db:
         condition: service_healthy
-      redis:
+      valkey:
         condition: service_healthy
     networks:
       - app-network
@@ -232,10 +242,10 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '2.0'
+          cpus: "2.0"
           memory: 1G
         reservations:
-          cpus: '0.5'
+          cpus: "0.5"
           memory: 256M
     profiles:
       - celery
@@ -261,13 +271,14 @@ services:
       - DB_PASSWORD=${DB_PASSWORD}
       - DB_HOST=db
       - DB_PORT=5432
-      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
+      - VALKEY_URL=valkey://:${REDIS_PASSWORD}@valkey:6379/0
+      - REDIS_URL=valkey://:${REDIS_PASSWORD}@valkey:6379/0
       - PYTHONDONTWRITEBYTECODE=1
       - PYTHONUNBUFFERED=1
     depends_on:
       db:
         condition: service_healthy
-      redis:
+      valkey:
         condition: service_healthy
       celery-worker:
         condition: service_started
@@ -277,10 +288,10 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.5'
+          cpus: "0.5"
           memory: 256M
         reservations:
-          cpus: '0.1'
+          cpus: "0.1"
           memory: 64M
     profiles:
       - celery
@@ -305,10 +316,10 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '1.0'
+          cpus: "1.0"
           memory: 256M
         reservations:
-          cpus: '0.1'
+          cpus: "0.1"
           memory: 64M
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost/api/health/"]
@@ -326,7 +337,7 @@ networks:
 volumes:
   postgres_data:
     driver: local
-  redis_data:
+  valkey_data:
     driver: local
   static_volume:
     driver: local

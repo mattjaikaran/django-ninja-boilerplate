@@ -129,20 +129,18 @@ else:
 DATABASES["default"].update(
     {
         "CONN_MAX_AGE": 60,
-        "OPTIONS": {
-            "MAX_CONNS": 20,
-            "MIN_CONNS": 5,
-        },
+        "CONN_HEALTH_CHECKS": True,
     }
 )
 
 # =============================================================================
 # Content-Security-Policy — production: enforce, no unsafe-inline/eval
+# Uses django-csp 4.x CONTENT_SECURITY_POLICY dict format
 # =============================================================================
-CSP_REPORT_ONLY = False
-CSP_SCRIPT_SRC = ("'self'",)  # type: ignore[assignment]
-CSP_STYLE_SRC = ("'self'",)  # type: ignore[assignment]
-CSP_UPGRADE_INSECURE_REQUESTS = True
+CONTENT_SECURITY_POLICY["DIRECTIVES"]["script-src"] = ["'self'"]  # type: ignore[assignment,index]
+CONTENT_SECURITY_POLICY["DIRECTIVES"]["style-src"] = ["'self'"]  # type: ignore[assignment,index]
+CONTENT_SECURITY_POLICY["DIRECTIVES"]["upgrade-insecure-requests"] = True  # type: ignore[assignment,index]
+CONTENT_SECURITY_POLICY["REPORT_ONLY"] = False  # type: ignore[assignment,index]
 
 # Session security for production
 SESSION_COOKIE_AGE = 3600  # 1 hour

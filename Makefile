@@ -8,7 +8,8 @@ DOCKER_COMPOSE_PROD = docker-compose -f docker-compose.prod.yml
 DOCKER_COMPOSE_SINGLE = docker-compose -f docker-compose.single.yml
 DJANGO_SERVICE = django
 DB_SERVICE = db
-REDIS_SERVICE = redis
+VALKEY_SERVICE = valkey
+REDIS_SERVICE = valkey
 CELERY_WORKER_SERVICE = celery-worker
 CELERY_BEAT_SERVICE = celery-beat
 FLOWER_SERVICE = flower
@@ -59,8 +60,11 @@ logs-django: ## Show logs for the django service
 logs-db: ## Show logs for the database service
 	$(DOCKER_COMPOSE) logs -f $(DB_SERVICE)
 
-logs-redis: ## Show logs for the redis service
-	$(DOCKER_COMPOSE) logs -f $(REDIS_SERVICE)
+logs-valkey: ## Show logs for the valkey service
+	$(DOCKER_COMPOSE) logs -f $(VALKEY_SERVICE)
+
+logs-redis: ## Show logs for the valkey service (alias)
+	$(DOCKER_COMPOSE) logs -f $(VALKEY_SERVICE)
 
 # Django management commands
 shell: ## Open Django shell
@@ -94,12 +98,18 @@ db-backup: ## Backup database
 db-restore: ## Restore database (usage: make db-restore FILE=backup.sql)
 	$(DOCKER_COMPOSE) exec -T $(DB_SERVICE) psql -U postgres -d boilerplate_db < $(FILE)
 
-# Redis commands
-redis-cli: ## Open Redis CLI
-	$(DOCKER_COMPOSE) exec $(REDIS_SERVICE) redis-cli
+# Valkey commands
+valkey-cli: ## Open Valkey CLI
+	$(DOCKER_COMPOSE) exec $(VALKEY_SERVICE) valkey-cli
 
-redis-flush: ## Flush Redis cache
-	$(DOCKER_COMPOSE) exec $(REDIS_SERVICE) redis-cli FLUSHALL
+redis-cli: ## Open Valkey CLI (alias for valkey-cli)
+	$(DOCKER_COMPOSE) exec $(VALKEY_SERVICE) valkey-cli
+
+valkey-flush: ## Flush Valkey cache
+	$(DOCKER_COMPOSE) exec $(VALKEY_SERVICE) valkey-cli FLUSHALL
+
+redis-flush: ## Flush Valkey cache (alias)
+	$(DOCKER_COMPOSE) exec $(VALKEY_SERVICE) valkey-cli FLUSHALL
 
 # Celery commands
 celery-worker: ## Start Celery worker
@@ -119,13 +129,13 @@ celery-purge: ## Purge all Celery tasks
 
 # Package Management with UV
 install: ## Install dependencies with UV
-	$(UV) pip install -e .
+	$(UV) sync --extra dev
 
 sync: ## Sync dependencies with UV
-	$(UV) pip sync
+	$(UV) sync
 
 install-dev: ## Install development dependencies
-	$(UV) pip install -e ".[dev]"
+	$(UV) sync --extra dev
 
 add: ## Add a new dependency (usage: make add PACKAGE=package-name)
 	$(UV) add $(PACKAGE)
@@ -160,6 +170,28 @@ format-check: ## Check code formatting
 
 mypy: ## Run type checking with mypy
 	$(DOCKER_COMPOSE) exec $(DJANGO_SERVICE) $(UV) run mypy .
+
+ty: ## Run type checking with ty (Rust-based, Astral)
+	$(DOCKER_COMPOSE) exec $(DJANGO_SERVICE) $(UV) run ty check .
+
+local-ty: ## Run ty type checker locally
+	$(UV) run ty check .
+
+typecheck: ## Run all type checkers (mypy + ty)
+	@echo "Running mypy..."
+	$(UV) run mypy . || true
+	@echo "Running ty..."
+	$(UV) run ty check .
+
+check-all: ## Run lint + format-check + typecheck + tests
+	@echo "=== Lint ==="
+	$(UV) run ruff check .
+	@echo "=== Format ==="
+	$(UV) run ruff format --check .
+	@echo "=== Type Check ==="
+	$(UV) run ty check .
+	@echo "=== Tests ==="
+	$(UV) run python -m pytest
 
 pre-commit: ## Run pre-commit hooks
 	$(DOCKER_COMPOSE) exec $(DJANGO_SERVICE) $(UV) run pre-commit run --all-files
@@ -333,7 +365,7 @@ db-dump-schema: ## Create a schema-only database dump
 db-dump-compressed: ## Create a compressed database dump
 	$(DOCKER_COMPOSE) exec $(DJANGO_SERVICE) $(UV) run python manage.py db_dump dump --compress
 
-db-restore: ## Restore database from dump (usage: make db-restore FILE=docker/postgres/dumps/dump.sql)
+db-restore-mgmt: ## Restore database via management command (usage: make db-restore-mgmt FILE=docker/postgres/dumps/dump.sql)
 	$(DOCKER_COMPOSE) exec $(DJANGO_SERVICE) $(UV) run python manage.py db_dump restore $(FILE)
 
 db-list-dumps: ## List available database dumps
@@ -362,8 +394,6 @@ setup-env: ## Create .env file from example
 	@if [ ! -f .env ]; then \
 		if [ -f .env.example ]; then \
 			cp .env.example .env; \
-		elif [ -f env.example ]; then \
-			cp env.example .env; \
 		else \
 			cp .env.development .env 2>/dev/null || echo "# Django Ninja Boilerplate Environment Variables" > .env; \
 		fi; \
@@ -477,7 +507,7 @@ status: ## Show status of all services
 	@echo "Admin:       http://localhost:8000/admin"
 	@echo "Flower:      http://localhost:5555 (if running)"
 	@echo "PostgreSQL:  localhost:5432"
-	@echo "Redis:       localhost:6379"
+	@echo "Valkey:      localhost:6379"
 
 logs-error: ## Show only error logs from all services
 	$(DOCKER_COMPOSE) logs -f 2>&1 | grep -i -E "(error|exception|traceback|critical|fatal)"
@@ -503,8 +533,11 @@ restart-all: ## Graceful restart of all services with health verification
 restart-db: ## Restart database service
 	$(DOCKER_COMPOSE) restart $(DB_SERVICE)
 
-restart-redis: ## Restart Redis service
-	$(DOCKER_COMPOSE) restart $(REDIS_SERVICE)
+restart-valkey: ## Restart Valkey service
+	$(DOCKER_COMPOSE) restart $(VALKEY_SERVICE)
+
+restart-redis: ## Restart Valkey service (alias)
+	$(DOCKER_COMPOSE) restart $(VALKEY_SERVICE)
 
 restart-celery: ## Restart Celery services
 	$(DOCKER_COMPOSE) restart $(CELERY_WORKER_SERVICE) $(CELERY_BEAT_SERVICE)
@@ -595,8 +628,11 @@ debug-django: ## Run Django system check
 debug-db: ## Check database connectivity
 	$(DOCKER_COMPOSE) exec $(DJANGO_SERVICE) $(UV) run python manage.py dbshell -c "SELECT version();"
 
-debug-redis: ## Check Redis connectivity
-	$(DOCKER_COMPOSE) exec $(REDIS_SERVICE) redis-cli ping
+debug-valkey: ## Check Valkey connectivity
+	$(DOCKER_COMPOSE) exec $(VALKEY_SERVICE) valkey-cli ping
+
+debug-redis: ## Check Valkey connectivity (alias)
+	$(DOCKER_COMPOSE) exec $(VALKEY_SERVICE) valkey-cli ping
 
 debug-network: ## Show Docker network info
 	docker network inspect django-ninja-boilerplate_app-network 2>/dev/null || docker network ls
@@ -734,31 +770,55 @@ changelog: ## Generate API changelog (usage: make changelog OLD=v1.json NEW=v2.j
 	$(UV) run python scripts/openapi/generate_changelog.py $(OLD) $(NEW)
 
 # ===========================================
-# Health & Celery Convenience
+# Health & Celery Convenience (local, no Docker)
 # ===========================================
-health: ## Check health endpoint
+local-health: ## Check health endpoint (local)
 	@curl -s http://localhost:8000/api/health/ | python -m json.tool 2>/dev/null || echo "Server not running"
 
-ready: ## Check readiness endpoint
+local-ready: ## Check readiness endpoint (local)
 	@curl -s http://localhost:8000/api/health/readiness | python -m json.tool 2>/dev/null || echo "Server not running"
 
 seed: ## Run seed data command
 	$(DOCKER_COMPOSE) exec $(DJANGO_SERVICE) $(UV) run python manage.py seed_data
 
-celery-worker: ## Start Celery worker (all queues)
+local-celery-worker: ## Start Celery worker locally (all queues)
 	$(UV) run celery -A api worker -Q default,emails,bulk -l info
 
-celery-beat: ## Start Celery beat scheduler
+local-celery-beat: ## Start Celery beat scheduler locally
 	$(UV) run celery -A api beat -l info
 
-celery-flower: ## Start Celery Flower monitoring
+local-celery-flower: ## Start Celery Flower monitoring locally
 	$(UV) run celery -A api flower --port=5555
+
+# ===========================================
+# Alternative Task Queue Workers
+# ===========================================
+up-observability: ## Start with Jaeger tracing
+	$(DOCKER_COMPOSE) --profile observability up -d
+
+up-huey: ## Start with Huey worker
+	$(DOCKER_COMPOSE) --profile huey up -d
+
+up-django-q: ## Start with django-q2 worker
+	$(DOCKER_COMPOSE) --profile django-q up -d
+
+up-django-rq: ## Start with django-rq worker
+	$(DOCKER_COMPOSE) --profile django-rq up -d
+
+worker-huey: ## Start Huey worker locally
+	TASK_BACKEND=huey $(UV) run python manage.py run_huey
+
+worker-q: ## Start django-q2 cluster locally
+	TASK_BACKEND=django_q $(UV) run python manage.py qcluster
+
+worker-rq: ## Start django-rq worker locally
+	TASK_BACKEND=django_rq $(UV) run python manage.py rqworker default high low
 
 # ===========================================
 # Version and Info
 # ===========================================
 version: ## Show version information
-	@echo "Django Ninja Boilerplate v1.2.0"
+	@echo "Django Ninja Boilerplate v1.7.0"
 	@echo ""
 	@echo "Python: $$(python --version 2>&1)"
 	@echo "UV: $$(uv --version 2>&1)"

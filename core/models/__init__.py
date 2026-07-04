@@ -5,6 +5,7 @@ This module exports all model classes for the core app.
 
 from core.audit.models import AuditAction, AuditLog
 from core.features.models import FeatureFlag, FeatureFlagAuditLog, FlagType
+from core.models.api_key import APIKey
 from core.models.base import (
     AbstractBaseModel,
     ActiveManager,
@@ -24,6 +25,7 @@ from core.models.user import CustomUserManager, User
 from core.tasks.models import DeadLetterQueueEntry, TaskResult, TaskStatus
 
 __all__ = [
+    "APIKey",
     "AbstractBaseModel",
     "ActiveManager",
     "AuditAction",

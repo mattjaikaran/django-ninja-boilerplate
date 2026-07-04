@@ -29,11 +29,14 @@ env = environ.Env(
     DB_HOST=(str, ""),
     DB_PORT=(str, ""),
     DB_URL=(str, ""),
-    # Redis
-    REDIS_URL=(str, "redis://redis:6379/0"),
-    # Celery
-    CELERY_BROKER_URL=(str, "redis://redis:6379/0"),
-    CELERY_RESULT_BACKEND=(str, "redis://redis:6379/0"),
+    # Valkey/Redis
+    REDIS_URL=(str, "valkey://valkey:6379/0"),
+    VALKEY_URL=(str, ""),
+    CACHE_BACKEND=(str, "vcache"),
+    # Task Queue
+    TASK_BACKEND=(str, "celery"),
+    CELERY_BROKER_URL=(str, "valkey://valkey:6379/0"),
+    CELERY_RESULT_BACKEND=(str, "valkey://valkey:6379/0"),
     # Superuser defaults
     SUPERUSER_EMAIL=(str, "admin@example.com"),
     SUPERUSER_USERNAME=(str, "admin"),
@@ -56,6 +59,9 @@ environ.Env.read_env(os.path.join(BASE_DIR, ".env"))
 
 # Environment setting
 ENVIRONMENT = env("ENVIRONMENT", default="development")
+
+# Default DEBUG — overridden in dev.py (True) and prod.py (False)
+DEBUG = env("DEBUG", default=False)
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = env("SECRET_KEY")
@@ -315,20 +321,47 @@ LOGGING = {
 }
 
 # =============================================================================
-# Redis & Caching Configuration
+# Valkey/Redis & Caching Configuration
 # =============================================================================
-REDIS_URL = env("REDIS_URL", default="redis://redis:6379/0")
+# CACHE_BACKEND options: "vcache" (default, Rust-based), "valkey", "redis"
+# Valkey is wire-compatible with Redis — same protocol, same commands.
+CACHE_BACKEND_TYPE = env("CACHE_BACKEND", default="vcache")
+VALKEY_URL = env(
+    "VALKEY_URL", default=env("REDIS_URL", default="valkey://valkey:6379/0")
+)
+# Keep REDIS_URL as alias for backward compatibility
+REDIS_URL = env("REDIS_URL", default=VALKEY_URL)
 
-CACHES = {
-    "default": {
-        "BACKEND": "django.core.cache.backends.redis.RedisCache",
-        "LOCATION": REDIS_URL,
-        "OPTIONS": {
-            "CLIENT_CLASS": "django_redis.client.DefaultClient",
-        },
-        "KEY_PREFIX": "boilerplate",
+if CACHE_BACKEND_TYPE == "vcache":
+    CACHES = {
+        "default": {
+            "BACKEND": "django_vcache.VCache",
+            "LOCATION": VALKEY_URL,
+            "KEY_PREFIX": "boilerplate",
+        }
     }
-}
+elif CACHE_BACKEND_TYPE == "valkey":
+    CACHES = {
+        "default": {
+            "BACKEND": "django_valkey.cache.ValkeyCache",
+            "LOCATION": VALKEY_URL,
+            "OPTIONS": {
+                "CLIENT_CLASS": "django_valkey.client.DefaultClient",
+            },
+            "KEY_PREFIX": "boilerplate",
+        }
+    }
+else:
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.redis.RedisCache",
+            "LOCATION": VALKEY_URL,
+            "OPTIONS": {
+                "CLIENT_CLASS": "django_redis.client.DefaultClient",
+            },
+            "KEY_PREFIX": "boilerplate",
+        }
+    }
 
 # Session configuration (use cache backend for performance)
 SESSION_ENGINE = "django.contrib.sessions.backends.cache"
@@ -337,8 +370,8 @@ SESSION_CACHE_ALIAS = "default"
 # =============================================================================
 # Celery Configuration
 # =============================================================================
-CELERY_BROKER_URL = env("CELERY_BROKER_URL", default="redis://redis:6379/0")
-CELERY_RESULT_BACKEND = env("CELERY_RESULT_BACKEND", default="redis://redis:6379/0")
+CELERY_BROKER_URL = env("CELERY_BROKER_URL", default=VALKEY_URL)
+CELERY_RESULT_BACKEND = env("CELERY_RESULT_BACKEND", default=VALKEY_URL)
 CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TASK_SERIALIZER = "json"
 CELERY_RESULT_SERIALIZER = "json"
@@ -346,6 +379,60 @@ CELERY_TIMEZONE = TIME_ZONE
 CELERY_TASK_TRACK_STARTED = True
 CELERY_TASK_TIME_LIMIT = 30 * 60  # 30 minutes
 CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
+
+# =============================================================================
+# Pluggable Task Backend
+# =============================================================================
+# Options: celery (default), huey, django_q, django_rq
+TASK_BACKEND = env("TASK_BACKEND", default="celery")
+
+# Huey configuration (when TASK_BACKEND=huey)
+if TASK_BACKEND == "huey":
+    INSTALLED_APPS += ["huey.contrib.djhuey"]
+    HUEY = {
+        "huey_class": "huey.RedisHuey",
+        "name": "boilerplate",
+        "url": REDIS_URL,
+        "immediate": DEBUG,
+        "consumer": {
+            "workers": 4,
+            "worker_type": "thread",
+        },
+    }
+
+# django-q2 configuration (when TASK_BACKEND=django_q)
+if TASK_BACKEND == "django_q":
+    INSTALLED_APPS += ["django_q"]
+    Q_CLUSTER = {
+        "name": "boilerplate",
+        "workers": 4,
+        "recycle": 500,
+        "timeout": 60,
+        "compress": True,
+        "save_limit": 250,
+        "queue_limit": 500,
+        "cpu_affinity": 1,
+        "label": "Django Q2",
+        "redis": REDIS_URL,
+    }
+
+# django-rq configuration (when TASK_BACKEND=django_rq)
+if TASK_BACKEND == "django_rq":
+    INSTALLED_APPS += ["django_rq"]
+    RQ_QUEUES = {
+        "default": {
+            "URL": REDIS_URL,
+            "DEFAULT_TIMEOUT": 360,
+        },
+        "high": {
+            "URL": REDIS_URL,
+            "DEFAULT_TIMEOUT": 360,
+        },
+        "low": {
+            "URL": REDIS_URL,
+            "DEFAULT_TIMEOUT": 360,
+        },
+    }
 
 # =============================================================================
 # Centrifugo Real-Time Messaging
@@ -492,10 +579,17 @@ AUDIT_TRACKED_MODELS = None
 API_VERSIONING_ENABLED = env.bool("API_VERSIONING_ENABLED", default=False)
 
 # =============================================================================
+# API Key Authentication
+# =============================================================================
+API_KEY_AUTH_ENABLED = env.bool("API_KEY_AUTH_ENABLED", default=True)
+API_KEY_HEADER = env("API_KEY_HEADER", default="X-API-Key")
+API_KEY_PREFIX = env("API_KEY_PREFIX", default="bnp")
+
+# =============================================================================
 # Observability Configuration
 # =============================================================================
 # Application version (used in metrics and health checks)
-VERSION = env("APP_VERSION", default="1.2.0")
+VERSION = env("APP_VERSION", default="1.7.0")
 
 # OpenTelemetry Configuration
 OTEL_SERVICE_NAME = env("OTEL_SERVICE_NAME", default="django-ninja-app")

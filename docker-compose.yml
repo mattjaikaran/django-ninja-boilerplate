@@ -6,7 +6,7 @@
 #   - Celery services use 'production' target for optimized performance
 #
 # Usage:
-#   make up           - Start default services (db, redis, django)
+#   make up           - Start default services (db, valkey, django)
 #   make up-celery    - Start with Celery workers
 #   make up-monitoring - Start with monitoring (Flower)
 #   make up-full      - Start all services
@@ -48,15 +48,15 @@ services:
           cpus: "0.25"
           memory: 128M
 
-  # Redis for caching and sessions
-  redis:
-    image: redis:7.2-alpine
+  # Valkey for caching and sessions
+  valkey:
+    image: valkey/valkey:8-alpine
     ports:
       - "6379:6379"
     volumes:
-      - redis_data:/data
+      - valkey_data:/data
     command: >
-      redis-server
+      valkey-server
       --appendonly yes
       --maxmemory 128mb
       --maxmemory-policy allkeys-lru
@@ -64,7 +64,7 @@ services:
     networks:
       - app-network
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "valkey-cli", "ping"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -110,7 +110,8 @@ services:
       - DB_PASSWORD=${DB_PASSWORD:-postgres}
       - DB_HOST=${DB_HOST:-db}
       - DB_PORT=${DB_PORT:-5432}
-      - REDIS_URL=${REDIS_URL:-redis://redis:6379/0}
+      - VALKEY_URL=${VALKEY_URL:-valkey://valkey:6379/0}
+      - REDIS_URL=${REDIS_URL:-valkey://valkey:6379/0}
       - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
       - ALLOWED_HOSTS=${ALLOWED_HOSTS:-localhost,127.0.0.1,0.0.0.0,django}
       # Centrifugo settings
@@ -127,7 +128,7 @@ services:
     depends_on:
       db:
         condition: service_healthy
-      redis:
+      valkey:
         condition: service_healthy
     networks:
       - app-network
@@ -155,7 +156,7 @@ services:
       - CENTRIFUGO_TOKEN_SECRET=${CENTRIFUGO_TOKEN_SECRET:-centrifugo-token-secret}
       - CENTRIFUGO_API_KEY=${CENTRIFUGO_API_KEY:-centrifugo-api-key}
     depends_on:
-      redis:
+      valkey:
         condition: service_healthy
     networks:
       - app-network
@@ -200,13 +201,14 @@ services:
       - DB_PASSWORD=${DB_PASSWORD:-postgres}
       - DB_HOST=${DB_HOST:-db}
       - DB_PORT=${DB_PORT:-5432}
-      - REDIS_URL=${REDIS_URL:-redis://redis:6379/0}
+      - VALKEY_URL=${VALKEY_URL:-valkey://valkey:6379/0}
+      - REDIS_URL=${REDIS_URL:-valkey://valkey:6379/0}
       - PYTHONDONTWRITEBYTECODE=1
       - PYTHONUNBUFFERED=1
     depends_on:
       db:
         condition: service_healthy
-      redis:
+      valkey:
         condition: service_healthy
     networks:
       - app-network
@@ -240,13 +242,14 @@ services:
       - DB_PASSWORD=${DB_PASSWORD:-postgres}
       - DB_HOST=${DB_HOST:-db}
       - DB_PORT=${DB_PORT:-5432}
-      - REDIS_URL=${REDIS_URL:-redis://redis:6379/0}
+      - VALKEY_URL=${VALKEY_URL:-valkey://valkey:6379/0}
+      - REDIS_URL=${REDIS_URL:-valkey://valkey:6379/0}
       - PYTHONDONTWRITEBYTECODE=1
       - PYTHONUNBUFFERED=1
     depends_on:
       db:
         condition: service_healthy
-      redis:
+      valkey:
         condition: service_healthy
       celery-worker:
         condition: service_started
@@ -262,6 +265,129 @@ services:
         reservations:
           cpus: "0.1"
           memory: 64M
+
+  # Huey Worker (profile: huey)
+  huey-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    command: python manage.py run_huey
+    volumes:
+      - .:/app
+      - /app/.venv
+    environment:
+      - DJANGO_SETTINGS_MODULE=${DJANGO_SETTINGS_MODULE:-api.settings}
+      - DEBUG=${DEBUG:-1}
+      - SECRET_KEY=${SECRET_KEY:?SECRET_KEY must be set}
+      - DB_NAME=${DB_NAME:-boilerplate_db}
+      - DB_USER=${DB_USER:-postgres}
+      - DB_PASSWORD=${DB_PASSWORD:-postgres}
+      - DB_HOST=${DB_HOST:-db}
+      - DB_PORT=${DB_PORT:-5432}
+      - REDIS_URL=${REDIS_URL:-valkey://valkey:6379/0}
+      - TASK_BACKEND=huey
+      - PYTHONDONTWRITEBYTECODE=1
+      - PYTHONUNBUFFERED=1
+    depends_on:
+      db:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
+    networks:
+      - app-network
+    profiles:
+      - huey
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+        reservations:
+          cpus: "0.25"
+          memory: 128M
+
+  # django-q2 Worker (profile: django-q)
+  django-q-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    command: python manage.py qcluster
+    volumes:
+      - .:/app
+      - /app/.venv
+    environment:
+      - DJANGO_SETTINGS_MODULE=${DJANGO_SETTINGS_MODULE:-api.settings}
+      - DEBUG=${DEBUG:-1}
+      - SECRET_KEY=${SECRET_KEY:?SECRET_KEY must be set}
+      - DB_NAME=${DB_NAME:-boilerplate_db}
+      - DB_USER=${DB_USER:-postgres}
+      - DB_PASSWORD=${DB_PASSWORD:-postgres}
+      - DB_HOST=${DB_HOST:-db}
+      - DB_PORT=${DB_PORT:-5432}
+      - REDIS_URL=${REDIS_URL:-valkey://valkey:6379/0}
+      - TASK_BACKEND=django_q
+      - PYTHONDONTWRITEBYTECODE=1
+      - PYTHONUNBUFFERED=1
+    depends_on:
+      db:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
+    networks:
+      - app-network
+    profiles:
+      - django-q
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+        reservations:
+          cpus: "0.25"
+          memory: 128M
+
+  # django-rq Worker (profile: django-rq)
+  django-rq-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    command: python manage.py rqworker default high low
+    volumes:
+      - .:/app
+      - /app/.venv
+    environment:
+      - DJANGO_SETTINGS_MODULE=${DJANGO_SETTINGS_MODULE:-api.settings}
+      - DEBUG=${DEBUG:-1}
+      - SECRET_KEY=${SECRET_KEY:?SECRET_KEY must be set}
+      - DB_NAME=${DB_NAME:-boilerplate_db}
+      - DB_USER=${DB_USER:-postgres}
+      - DB_PASSWORD=${DB_PASSWORD:-postgres}
+      - DB_HOST=${DB_HOST:-db}
+      - DB_PORT=${DB_PORT:-5432}
+      - REDIS_URL=${REDIS_URL:-valkey://valkey:6379/0}
+      - TASK_BACKEND=django_rq
+      - PYTHONDONTWRITEBYTECODE=1
+      - PYTHONUNBUFFERED=1
+    depends_on:
+      db:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
+    networks:
+      - app-network
+    profiles:
+      - django-rq
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+        reservations:
+          cpus: "0.25"
+          memory: 128M
 
   # ===========================================
   # Monitoring Services (profile: monitoring)
@@ -311,18 +437,18 @@ services:
       context: .
       dockerfile: Dockerfile
       target: production
-    command: celery -A api flower --port=5555 --broker=${REDIS_URL:-redis://redis:6379/0}
+    command: celery -A api flower --port=5555 --broker=${REDIS_URL:-valkey://valkey:6379/0}
     ports:
       - "5555:5555"
     environment:
       - DJANGO_SETTINGS_MODULE=${DJANGO_SETTINGS_MODULE:-api.settings}
       - SECRET_KEY=${SECRET_KEY:?SECRET_KEY must be set}
-      - REDIS_URL=${REDIS_URL:-redis://redis:6379/0}
+      - REDIS_URL=${REDIS_URL:-valkey://valkey:6379/0}
       - FLOWER_BASIC_AUTH=${FLOWER_BASIC_AUTH:?FLOWER_BASIC_AUTH must be set (user:password)}
       - PYTHONDONTWRITEBYTECODE=1
       - PYTHONUNBUFFERED=1
     depends_on:
-      redis:
+      valkey:
         condition: service_healthy
     networks:
       - app-network
@@ -346,7 +472,7 @@ networks:
 volumes:
   postgres_data:
     driver: local
-  redis_data:
+  valkey_data:
     driver: local
   static_volume:
     driver: local

@@ -1,4 +1,5 @@
 from core.audit.controller import AuditLogController
+from core.controllers.api_key_controller import APIKeyController
 from core.controllers.auth_controller import AuthController
 from core.controllers.centrifugo_controller import CentrifugoTokenController
 from core.controllers.otp_controller import OTPController
@@ -10,6 +11,7 @@ from core.tasks.controller import (
 )
 
 __all__ = [
+    "APIKeyController",
     "AuditLogController",
     "AuthController",
     "CentrifugoTokenController",

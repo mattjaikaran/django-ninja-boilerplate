@@ -3,6 +3,13 @@
 This module exports all schema classes for the core app.
 """
 
+from core.schemas.api_key_schema import (
+    APIKeyCreatedResponse,
+    APIKeyResponse,
+    CreateAPIKeyRequest,
+    RevokeAPIKeyRequest,
+    RotateAPIKeyResponse,
+)
 from core.schemas.auth_schema import (
     AuthStatusSchema,
     EmailVerificationSchema,
@@ -101,6 +108,12 @@ __all__ = [
     "UserSignupSchema",
     "UserStatsSchema",
     "UserUpdateSchema",
+    # API Key schemas
+    "APIKeyCreatedResponse",
+    "APIKeyResponse",
+    "CreateAPIKeyRequest",
+    "RevokeAPIKeyRequest",
+    "RotateAPIKeyResponse",
     # Base schemas
     "CamelCaseSchema",
     "AuditSchema",

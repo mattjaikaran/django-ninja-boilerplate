@@ -6,8 +6,11 @@ from ninja_extra import NinjaExtraAPI
 from ninja_jwt.controller import NinjaJWTDefaultController
 
 from api.healthcheck import HealthCheckController
+from api.parsers import ORJSONParser
+from api.renderers import ORJSONRenderer
 from billing.controllers import BillingController, StripeWebhookController
 from core.controllers import (
+    APIKeyController,
     AuditLogController,
     AuthController,
     CentrifugoTokenController,
@@ -53,6 +56,8 @@ api = NinjaExtraAPI(
     title="Django Ninja Boilerplate API",
     description="API documentation for the Django Ninja Boilerplate API",
     urls_namespace="boilerplate_api",
+    renderer=ORJSONRenderer(),
+    parser=ORJSONParser(),
     # docs=Redoc(),  # this line is to use ReDoc instead of Swagger
 )
 
@@ -70,6 +75,7 @@ api.register_controllers(
     UserController,  # User Controller
     AuthController,  # Auth Controller (email/password + magic links)
     OTPController,  # OTP Controller (6-digit codes for mobile/iOS apps)
+    APIKeyController,  # API Key management (create, list, revoke, rotate)
     CentrifugoTokenController,  # Centrifugo real-time token endpoints
     AuditLogController,  # Audit Log Controller (admin only)
     # Task management controllers

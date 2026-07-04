@@ -16,5 +16,6 @@ restartPolicyMaxRetries = 3
 # Required:
 #   - SECRET_KEY
 #   - DATABASE_URL (auto-provided by Railway PostgreSQL)
-#   - REDIS_URL (auto-provided by Railway Redis)
+#   - VALKEY_URL (use Railway Valkey template: https://railway.com/deploy/valkey-1)
+#   - REDIS_URL (fallback alias for VALKEY_URL)
 #   - ALLOWED_HOSTS

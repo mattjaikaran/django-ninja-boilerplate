@@ -29,7 +29,7 @@ cd django-ninja-boilerplate
 
 ```bash
 # Create environment file
-cp env.example .env
+cp .env.example .env
 
 # Edit .env with your database and secret key settings
 ```

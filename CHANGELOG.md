@@ -7,6 +7,69 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.7.0] - 2026-07-04
+
+### Changed
+- **CLAUDE.md rewritten** — slim, Karpathy-inspired behavioral guidelines with 5 principles (ask don't assume, match complexity, surgical changes, flag uncertainty, suggest better approaches)
+- **Version strings synced** — `pyproject.toml`, `api/settings/common.py`, and `Makefile` all report `1.7.0` (were drifted at `1.2.0` in settings/Makefile)
+- **Consolidated env files** — removed duplicate `env.example`, canonical file is `.env.example` with all env vars documented (Valkey, task backends, API keys, JWT, email, Centrifugo, Stripe, OAuth)
+- **Pre-commit ruff version** — bumped `v0.13.2` → `v0.15.10` to match `pyproject.toml`
+- **Ruff isort known-first-party** — added all Django apps (billing, files, webhooks, organizations, notifications)
+- **Hatch wheel packages** — added all satellite apps to `[tool.hatch.build.targets.wheel]`
+- **Makefile cleanup:**
+  - Fixed `install`/`sync`/`install-dev` to use `uv sync` instead of `uv pip install/sync`
+  - Deduplicated `health`, `celery-worker`, `db-restore` targets (renamed duplicates to `local-*` and `db-restore-mgmt`)
+  - Removed stale `env.example` fallback from `setup-env`
+  - Added `typecheck`, `check-all`, `up-observability` targets
+  - Synced version display to `v1.7.0`
+- **Production settings fixes:**
+  - Removed invalid `MAX_CONNS`/`MIN_CONNS` DB options (pgbouncer-only), added `CONN_HEALTH_CHECKS`
+  - Fixed CSP to use django-csp 4.x `CONTENT_SECURITY_POLICY` dict format (was using legacy `CSP_*` vars)
+- **Dev settings cleanup** — removed dead commented-out code (SQLite fallback, debug toolbar INSTALLED_APPS, django-extensions), removed orphaned `RUNSERVER_PLUS_PRINT_SQL`
+- **Docker Compose** — added `VALKEY_URL` to celery-worker and celery-beat services, fixed header comment (`redis` → `valkey`)
+- **Module exports** — `core/schemas/__init__.py` now exports API key schemas, `core/security/__init__.py` exports `APIKeyAuth`
+
+## [1.6.0] - 2026-07-04
+
+### Added
+- **Valkey as default cache/broker** — wire-compatible Redis fork (BSD license) using `valkey/valkey:8-alpine` Docker image. Configurable via `CACHE_BACKEND` env var with three options:
+  - `vcache` (default) — django-vcache with Rust I/O driver for maximum performance
+  - `valkey` — django-valkey, stable fork of django-redis
+  - `redis` — original django-redis backend for backward compatibility
+- **API Key authentication** — built-in machine-to-machine auth via `X-API-Key` header
+  - `APIKey` model with prefix-based lookup and SHA-256 hashed secrets
+  - Scoped permissions (e.g., `read:todos`, `write:todos`)
+  - Key rotation, revocation, and expiry support
+  - CRUD endpoints at `/api/api-keys/` (JWT-protected)
+  - Django admin integration via Unfold
+- **Global orjson renderer** — 2-10x faster JSON serialization for all API responses
+  - `ORJSONRenderer` and `ORJSONParser` for Django Ninja
+  - Native datetime, UUID, dataclass, and numpy handling
+- **Pluggable task queue backends** — `TASK_BACKEND` env var with full parallel support:
+  - Celery (default, unchanged)
+  - Huey (`uv sync --extra huey`)
+  - django-q2 (`uv sync --extra django-q`)
+  - django-rq (`uv sync --extra django-rq`)
+  - Abstraction layer: `from api.tasks import shared_task`
+  - Docker Compose profiles for each backend
+- **ty type checker** — Astral's Rust-based type checker alongside mypy (`make ty`)
+- **New documentation:**
+  - `docs/TASK_BACKENDS.md` — comparison and setup guide for all task queue options
+  - `docs/API_KEYS.md` — API key auth guide with usage examples
+  - `docs/MIGRATION.md` — step-by-step migration guide for existing codebases
+
+### Changed
+- Docker Compose services renamed: `redis` → `valkey` (volumes: `redis_data` → `valkey_data`)
+- `VALKEY_URL` is the new canonical env var (`REDIS_URL` kept as fallback alias)
+- Celery broker/result URLs default to `VALKEY_URL` instead of `REDIS_URL`
+- Makefile: new `valkey-*` targets, `redis-*` kept as aliases
+- Railway deployment config updated for Valkey template
+
+### Dependencies
+- Added: `django-valkey>=0.4.1`, `django-vcache>=0.1.0`
+- Added (optional): `huey>=2.5.0`, `django-q2>=1.7.0`, `django-rq>=2.10.0`, `rq>=1.16.0`
+- Added (dev): `ty>=0.0.1a1`
+
 ## [1.5.1] - 2026-04-14
 
 ### Added
