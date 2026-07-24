@@ -10,7 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.8.0] - 2026-07-24
 
 ### Added
-- **The Gauntlet** — 10-gate quality pipeline inspired by Uncle Bob Martin's constraint philosophy. Every code change must survive all gates before merge:
+- **Constraint Tools Philosophy** — formalized the approach inspired by [Uncle Bob Martin's SwarmForge](https://github.com/unclebob/swarm-forge): agents write the deterministic tools that check constraints. Small programs, binary pass/fail, no human judgment required. If code survives all constraint tools, you don't need to read it. Documented in `docs/CONSTRAINT_TOOLS.md` and `CLAUDE.md`.
+- **The Gauntlet** — 10-gate quality pipeline implementing the constraint tools philosophy. Every code change must survive all gates before merge:
   1. FORMAT (ruff format --check)
   2. LINT (ruff check — 50+ rule categories)
   3. TYPECHECK (mypy)
@@ -28,6 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **CI gauntlet job** — architecture check, file length check, and full gauntlet run as a GitHub Actions job with artifact upload
 - **Pre-commit architecture hook** — validates layer constraints on every commit
 - **Commitizen commit-msg hook** — enforces conventional commit format
+- **Constraint tool template** — documented pattern for writing new gates: deterministic, <400 lines, binary pass/fail, agent-writable. See `docs/CONSTRAINT_TOOLS.md`.
 
 ### Changed
 - **Coverage threshold** raised from 25% to 35% (ratchet toward 80%) — every PR must maintain or increase coverage
