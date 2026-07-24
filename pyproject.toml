@@ -1,6 +1,6 @@
 [project]
 name = "django-ninja-boilerplate"
-version = "1.7.0"
+version = "1.8.0"
 description = "A production-ready Django boilerplate using Django Ninja for building modern APIs"
 authors = [{ name = "Matt Jaikaran", email = "info@mattjaikaran.com" }]
 readme = "README.md"
@@ -109,6 +109,12 @@ dev = [
     "Faker>=30.1.0",
     "pre-commit>=4.0.0",
     "ty>=0.0.1a1",
+    # Gauntlet: mutation testing (Uncle Bob's "do the tests actually catch bugs?")
+    "mutmut>=3.2.0",
+    # Gauntlet: security scanning
+    "bandit[toml]>=1.8.0",
+    # Gauntlet: commit message linting
+    "commitizen>=4.1.0",
 ]
 testing = [
     # Load testing
@@ -368,7 +374,7 @@ addopts = [
     "--cov-report=term-missing:skip-covered",
     "--cov-report=html",
     "--cov-report=xml",
-    "--cov-fail-under=25",
+    "--cov-fail-under=35",
 ]
 testpaths = ["core", "todos", "webhooks", "organizations", "notifications", "billing", "files", "tests/smoke"]
 filterwarnings = [
@@ -507,6 +513,15 @@ skips = ["B101", "B104", "B105", "B106", "B110", "B311", "B324", "B403", "B404",
 # Low severity findings are informational only.
 level = "medium"
 confidence = "medium"
+
+# ===========================================
+# Mutation Testing (mutmut) — "Do your tests actually catch bugs?"
+# ===========================================
+[tool.mutmut]
+paths_to_mutate = "core/,todos/,billing/,files/,webhooks/,organizations/,notifications/"
+tests_dir = "core/tests/,todos/tests/"
+runner = "python -m pytest -x --no-header -q --timeout=30"
+dict_synonyms = "Struct,NamedStruct"
 
 [dependency-groups]
 dev = [

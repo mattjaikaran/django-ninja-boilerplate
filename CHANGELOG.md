@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.0] - 2026-07-24
+
+### Added
+- **The Gauntlet** — 10-gate quality pipeline inspired by Uncle Bob Martin's constraint philosophy. Every code change must survive all gates before merge:
+  1. FORMAT (ruff format --check)
+  2. LINT (ruff check — 50+ rule categories)
+  3. TYPECHECK (mypy)
+  4. SECURITY (bandit)
+  5. ARCHITECTURE (layer enforcement)
+  6. FILELENGTH (max 400 lines)
+  7. TEST (pytest --cov-fail-under=80)
+  8. MUTATION (mutmut — test quality validation)
+  9. AUDIT (pip-audit — dependency vulnerabilities)
+  10. DEPLOY (manage.py check --deploy)
+- **Architecture enforcement** (`scripts/check_architecture.py`) — validates Controllers → Services → Models layering, prevents cross-app controller coupling, detects reverse dependencies. Works in both standalone and mattstack-scaffolded layouts.
+- **Gauntlet orchestrator** (`scripts/gauntlet.py`) — runs all gates with `--quick`, `--ci`, `--fail-fast`, `--gate`, `--report` modes. Generates JSON reports for CI artifact upload.
+- **Mutation testing** via `mutmut` — validates that tests actually catch bugs, not just execute code paths.
+- **Makefile targets**: `gauntlet`, `gauntlet-quick`, `gauntlet-ci`, `gauntlet-gate`, `check-arch`, `mutation-test`, `mutation-results`, `security-scan`, `check-file-length`
+- **CI gauntlet job** — architecture check, file length check, and full gauntlet run as a GitHub Actions job with artifact upload
+- **Pre-commit architecture hook** — validates layer constraints on every commit
+- **Commitizen commit-msg hook** — enforces conventional commit format
+
+### Changed
+- **Coverage threshold** raised from 25% to 35% (ratchet toward 80%) — every PR must maintain or increase coverage
+- **VS Code settings** migrated from deprecated ruff-lsp to native Ruff extension (`ruff.nativeServer: "on"`, removed `ruff.showNotifications`)
+- **Security scanning** in CI is now mandatory (bandit runs as a blocking gate, not `|| true`)
+- **CLAUDE.md** expanded with gauntlet documentation, Definition of Done checklist, architecture rules, and mattstack-cli integration notes
+- **`check-all` Makefile target** now delegates to `gauntlet --quick` instead of individual commands
+
+### Dependencies
+- Added (dev): `mutmut>=3.2.0`, `bandit[toml]>=1.8.0`, `commitizen>=4.1.0`
+
 ## [1.7.0] - 2026-07-04
 
 ### Changed

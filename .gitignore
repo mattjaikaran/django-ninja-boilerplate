@@ -130,3 +130,7 @@ media/
 
 # Claude Code
 CLAUDE.md
+
+# Gauntlet reports
+gauntlet-report.json
+.mutmut-cache/

@@ -183,15 +183,8 @@ typecheck: ## Run all type checkers (mypy + ty)
 	@echo "Running ty..."
 	$(UV) run ty check .
 
-check-all: ## Run lint + format-check + typecheck + tests
-	@echo "=== Lint ==="
-	$(UV) run ruff check .
-	@echo "=== Format ==="
-	$(UV) run ruff format --check .
-	@echo "=== Type Check ==="
-	$(UV) run ty check .
-	@echo "=== Tests ==="
-	$(UV) run python -m pytest
+check-all: ## Run the gauntlet (lint + format + types + security + arch + tests)
+	$(UV) run python scripts/gauntlet.py --quick --verbose
 
 pre-commit: ## Run pre-commit hooks
 	$(DOCKER_COMPOSE) exec $(DJANGO_SERVICE) $(UV) run pre-commit run --all-files
@@ -815,10 +808,40 @@ worker-rq: ## Start django-rq worker locally
 	TASK_BACKEND=django_rq $(UV) run python manage.py rqworker default high low
 
 # ===========================================
+# The Gauntlet — Quality Gates for AI-Generated Code
+# ===========================================
+gauntlet: ## Run the full gauntlet (all quality gates)
+	$(UV) run python scripts/gauntlet.py --verbose
+
+gauntlet-quick: ## Run quick gauntlet (skip mutation testing + audit)
+	$(UV) run python scripts/gauntlet.py --quick --verbose
+
+gauntlet-ci: ## Run gauntlet in CI mode (with JSON report)
+	$(UV) run python scripts/gauntlet.py --ci --report
+
+gauntlet-gate: ## Run a single gauntlet gate (usage: make gauntlet-gate GATE=lint)
+	$(UV) run python scripts/gauntlet.py --gate $(GATE) --verbose
+
+check-arch: ## Check architecture constraints (layer violations)
+	$(UV) run python scripts/check_architecture.py --all
+
+check-file-length: ## Check all Python files against length limits
+	@find . -name "*.py" -not -path "./.venv/*" -not -path "./env/*" -not -path "./.git/*" | xargs python scripts/check_file_length.py
+
+mutation-test: ## Run mutation testing (are your tests actually catching bugs?)
+	$(UV) run mutmut run --paths-to-mutate=core/,todos/ --tests-dir=core/tests/,todos/tests/
+
+mutation-results: ## Show mutation testing results
+	$(UV) run mutmut results
+
+security-scan: ## Run bandit security scanner
+	$(UV) run bandit -c pyproject.toml -r .
+
+# ===========================================
 # Version and Info
 # ===========================================
 version: ## Show version information
-	@echo "Django Ninja Boilerplate v1.7.0"
+	@echo "Django Ninja Boilerplate v1.8.0"
 	@echo ""
 	@echo "Python: $$(python --version 2>&1)"
 	@echo "UV: $$(uv --version 2>&1)"

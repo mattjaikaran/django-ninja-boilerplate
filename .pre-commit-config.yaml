@@ -25,6 +25,7 @@ repos:
         args: [--unsafe] # Allow custom tags
       - id: check-toml
       - id: check-json
+        exclude: ^\.vscode/ # VS Code uses JSONC (comments allowed)
       - id: check-xml
 
       # Git checks
@@ -150,6 +151,18 @@ repos:
         pass_filenames: true
 
   # ===========================================
+  # Architecture enforcement
+  # ===========================================
+  - repo: local
+    hooks:
+      - id: architecture
+        name: Check architecture constraints
+        entry: python scripts/check_architecture.py
+        language: python
+        types: [python]
+        pass_filenames: true
+
+  # ===========================================
   # Tests (pre-push only — keeps commits fast)
   # ===========================================
   - repo: local
@@ -163,13 +176,13 @@ repos:
         stages: [pre-push]
 
   # ===========================================
-  # Commit message linting (disabled — re-enable if using cz bump)
+  # Commit message linting (conventional commits)
   # ===========================================
-  # - repo: https://github.com/commitizen-tools/commitizen
-  #   rev: v4.1.0
-  #   hooks:
-  #     - id: commitizen
-  #       stages: [commit-msg]
+  - repo: https://github.com/commitizen-tools/commitizen
+    rev: v4.1.0
+    hooks:
+      - id: commitizen
+        stages: [commit-msg]
 
 # ===========================================
 # CI Configuration

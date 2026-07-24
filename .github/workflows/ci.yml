@@ -180,10 +180,90 @@ jobs:
         run: |
           uv pip install --system -e ".[dev]"
 
-      - name: Run security checks
+      - name: Run bandit security scan
+        run: bandit -c pyproject.toml -r .
+
+      - name: Run pip-audit
+        run: pip-audit || true
+
+  gauntlet:
+    name: Gauntlet (Quality Gate)
+    runs-on: ubuntu-latest
+    needs: [lint, test]
+
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: test_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7.2-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DEBUG: "1"
+      SECRET_KEY: "gauntlet-ci-key-not-for-production"
+      DB_NAME: test_db
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      DB_HOST: localhost
+      DB_PORT: 5432
+      REDIS_URL: redis://localhost:6379/0
+      DJANGO_SETTINGS_MODULE: api.settings.test
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: ${{ env.UV_VERSION }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
         run: |
-          uv pip install --system pip-audit
-          pip-audit || true  # Don't fail on audit issues, just report
+          uv pip install --system -e ".[dev]"
+
+      - name: Run migrations
+        run: python manage.py migrate --noinput
+
+      - name: Run Architecture Check
+        run: python scripts/check_architecture.py --all
+
+      - name: Run File Length Check
+        run: |
+          find . -name "*.py" -not -path "./.venv/*" -not -path "./env/*" | xargs python scripts/check_file_length.py
+
+      - name: Run Gauntlet (CI mode)
+        run: python scripts/gauntlet.py --ci --report
+
+      - name: Upload Gauntlet Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gauntlet-report
+          path: gauntlet-report.json
 
   cli-test:
     name: CLI Test
