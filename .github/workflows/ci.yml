@@ -243,20 +243,20 @@ jobs:
 
       - name: Install dependencies
         run: |
-          uv pip install --system -e ".[dev]"
+          uv sync --extra dev
 
       - name: Run migrations
-        run: python manage.py migrate --noinput
+        run: uv run python manage.py migrate --noinput
 
       - name: Run Architecture Check
-        run: python scripts/check_architecture.py --all
+        run: uv run python scripts/check_architecture.py --all
 
       - name: Run File Length Check
         run: |
-          find . -name "*.py" -not -path "./.venv/*" -not -path "./env/*" | xargs python scripts/check_file_length.py
+          find . -name "*.py" -not -path "./.venv/*" -not -path "./env/*" | xargs uv run python scripts/check_file_length.py
 
       - name: Run Gauntlet (CI mode)
-        run: python scripts/gauntlet.py --ci --report
+        run: uv run python scripts/gauntlet.py --ci --report
 
       - name: Upload Gauntlet Report
         if: always()

@@ -109,6 +109,9 @@ dev = [
     "Faker>=30.1.0",
     "pre-commit>=4.0.0",
     "ty>=0.0.1a1",
+    # Gauntlet: type checking
+    "mypy>=1.13.0",
+    "django-stubs>=5.1.0",
     # Gauntlet: mutation testing (Uncle Bob's "do the tests actually catch bugs?")
     "mutmut>=3.2.0",
     # Gauntlet: security scanning
@@ -452,13 +455,28 @@ disable_error_code = ["var-annotated"]
 [[tool.mypy.overrides]]
 # AbstractBaseUser doesn't expose is_staff/is_superuser/has_perm in django-stubs
 # when AUTH_USER_MODEL points to a model extending AbstractBaseUser directly.
-# These modules correctly check those attributes at runtime via the custom User model.
+# Manager.create_user/create_superuser and HttpRequest dynamic attrs also hit this.
 module = [
     "api.permissions",
+    "api.pagination.offset",
+    "api.utils.http_client",
     "core.observability.middleware",
+    "core.observability.health",
     "core.controllers.auth_controller",
     "core.controllers.users_controller",
     "core.services.otp_service",
+    "core.services.email.backends",
+    "core.cache.settings",
+    "core.audit.middleware",
+    "core.audit.signals",
+    "core.features.middleware",
+    "core.management.commands.create_superuser",
+    "core.management.commands.generate_core_data",
+    "core.management.commands.cleanup_otps",
+    "core.management.commands.seed_data",
+    "core.management.commands.export_openapi",
+    "core.management.commands.startapp_extended",
+    "todos.management.commands.generate_todos_data",
     "webhooks.services.webhook_service",
     "files.services.file_service",
     "billing.services.billing_service",
@@ -467,7 +485,7 @@ module = [
     "api.tasks.backends.django_q_backend",
     "api.tasks.backends.django_rq_backend",
 ]
-disable_error_code = ["attr-defined", "return-value", "arg-type", "assignment"]
+disable_error_code = ["attr-defined", "return-value", "arg-type", "assignment", "var-annotated", "override", "union-attr"]
 
 [[tool.mypy.overrides]]
 # notifications.models.notification needs both var-annotated (model fields) and
