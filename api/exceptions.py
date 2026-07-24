@@ -179,8 +179,7 @@ def handle_ninja_http_error(request, exception: HttpError) -> JsonResponse:
 
 def handle_generic_exception(request, exception: Exception) -> JsonResponse:
     """Handle generic exceptions in production."""
-    # In production, log the full exception but don't expose details
-    logger.exception("Unhandled exception occurred")
+    logger.error("Unhandled exception occurred", exc_info=exception)
 
     return JsonResponse(
         {

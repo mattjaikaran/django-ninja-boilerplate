@@ -241,6 +241,7 @@ ignore = [
     "DJ012",   # Order of model's inner classes, methods, and fields
     "TRY003",  # Avoid specifying long messages outside the exception class
     "PLR0913", # Too many arguments to function call
+    "PLR0917", # Too many positional arguments (companion to PLR0913)
     "RUF012",  # Mutable class attributes should be annotated with `typing.ClassVar`
     "EXE001",  # Shebang is present but file is not executable
     "T201",    # `print` found
