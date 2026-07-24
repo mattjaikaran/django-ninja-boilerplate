@@ -18,7 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   4. SECURITY (bandit)
   5. ARCHITECTURE (layer enforcement)
   6. FILELENGTH (max 400 lines)
-  7. TEST (pytest --cov-fail-under=80)
+  7. TEST (pytest --cov-fail-under=35)
   8. MUTATION (mutmut — test quality validation)
   9. AUDIT (pip-audit — dependency vulnerabilities)
   10. DEPLOY (manage.py check --deploy)
@@ -393,6 +393,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 | Version | Date | Description |
 |---------|------|-------------|
+| 1.8.0 | 2026-07-24 | The Gauntlet, constraint tools, mutation testing, architecture enforcement |
+| 1.7.0 | 2026-07-04 | CLAUDE.md rewrite, version sync, env consolidation, Makefile cleanup |
+| 1.6.0 | 2026-07-04 | Valkey, API keys, orjson, pluggable task queues, ty type checker |
 | 1.5.1 | 2026-04-14 | Dep cleanup, HTTP client, Mermaid diagrams, granian prompt |
 | 1.5.0 | 2026-03-30 | Pydantic camelCase aliases, LLM prompt templates |
 | 1.4.0 | 2026-03-20 | K3s deployment, security hardening, nginx headers |
@@ -404,7 +407,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 | 0.7.0 | 2026-01-20 | JWT auth, UV, Docker dev environment |
 | 0.6.0 | 2026-01-15 | Initial release |
 
-[Unreleased]: https://github.com/mattjaikaran/django-ninja-boilerplate/compare/v1.5.1...HEAD
+[Unreleased]: https://github.com/mattjaikaran/django-ninja-boilerplate/compare/v1.8.0...HEAD
+[1.8.0]: https://github.com/mattjaikaran/django-ninja-boilerplate/compare/v1.7.0...v1.8.0
+[1.7.0]: https://github.com/mattjaikaran/django-ninja-boilerplate/compare/v1.6.0...v1.7.0
+[1.6.0]: https://github.com/mattjaikaran/django-ninja-boilerplate/compare/v1.5.1...v1.6.0
 [1.5.1]: https://github.com/mattjaikaran/django-ninja-boilerplate/compare/v1.5.0...v1.5.1
 [1.5.0]: https://github.com/mattjaikaran/django-ninja-boilerplate/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/mattjaikaran/django-ninja-boilerplate/compare/v1.3.0...v1.4.0

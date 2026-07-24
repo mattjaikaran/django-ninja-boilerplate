@@ -71,17 +71,42 @@ def count_lines(filepath: Path) -> int:
         return 0
 
 
+def normalize_path(filepath: str) -> str:
+    """Strip leading ./ from paths for consistent matching."""
+    while filepath.startswith("./"):
+        filepath = filepath[2:]
+    return filepath
+
+
+def match_pattern(filepath: str, pattern: str) -> bool:
+    """Match filepath against a pattern, supporting recursive directory globs.
+
+    Patterns like "scripts/*" match both direct children (scripts/foo.py)
+    and nested paths (scripts/openapi/foo.py). Exact file paths match exactly.
+    """
+    if fnmatch.fnmatch(filepath, pattern):
+        return True
+    if "*" in pattern:
+        prefix = pattern.split("*", maxsplit=1)[0].rstrip("/")
+        if prefix and filepath.startswith(prefix + "/"):
+            return True
+    return False
+
+
 def matches_any(filepath: str, patterns: list[str]) -> bool:
     """Check if filepath matches any glob pattern."""
-    return any(fnmatch.fnmatch(filepath, pat) for pat in patterns)
+    return any(match_pattern(filepath, pat) for pat in patterns)
 
 
 def get_per_file_max(filepath: str, per_file_max: dict[str, int]) -> int | None:
-    """Get per-file max from config patterns."""
+    """Get per-file max from config patterns. Most specific match wins."""
+    best_match: tuple[int, int | None] = (0, None)
     for pattern, max_lines in per_file_max.items():
-        if fnmatch.fnmatch(filepath, pattern):
-            return max_lines
-    return None
+        if match_pattern(filepath, pattern):
+            specificity = len(pattern)
+            if specificity > best_match[0]:
+                best_match = (specificity, max_lines)
+    return best_match[1]
 
 
 def main() -> int:
@@ -103,6 +128,7 @@ def main() -> int:
     failures = []
 
     for filepath_str in args.files:
+        filepath_str = normalize_path(filepath_str)
         filepath = Path(filepath_str)
 
         if not filepath.exists() or not filepath.is_file():

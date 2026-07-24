@@ -48,8 +48,8 @@ Paste logs here
 <!-- Please complete the following information -->
 
 - **OS**: [e.g., macOS 15.0, Ubuntu 24.04, Windows 11]
-- **Python Version**: [e.g., 3.12.0]
-- **Django Version**: [e.g., 5.1]
+- **Python Version**: [e.g., 3.13.0]
+- **Django Version**: [e.g., 5.2]
 - **Django Ninja Version**: [e.g., 1.3.0]
 - **Database**: [e.g., PostgreSQL 16, SQLite]
 - **Deployment**: [e.g., Local, Docker, Kubernetes]

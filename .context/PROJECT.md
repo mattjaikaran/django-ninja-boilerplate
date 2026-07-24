@@ -4,7 +4,7 @@ This document provides a comprehensive overview of the project to help LLMs quic
 
 ## Project Purpose
 
-Django Ninja Boilerplate is a production-ready Django REST API boilerplate built with **Django Ninja Extra** for creating modern, high-performance APIs using **class-based controllers**. It provides authentication (JWT, magic links, OTP), background tasks (Celery), caching (Redis), and comprehensive tooling for rapid API development.
+Django Ninja Boilerplate is a production-ready Django REST API boilerplate built with **Django Ninja Extra** for creating modern, high-performance APIs using **class-based controllers**. It provides authentication (JWT, magic links, OTP), background tasks (Celery), caching (Valkey), and comprehensive tooling for rapid API development.
 
 ## Tech Stack
 
@@ -15,7 +15,7 @@ Django Ninja Boilerplate is a production-ready Django REST API boilerplate built
 | API Framework | Django Ninja Extra | 0.30+ |
 | Authentication | Django Ninja JWT | 5.3+ |
 | Database | PostgreSQL | 15+ |
-| Cache/Broker | Redis | 7+ |
+| Cache/Broker | Valkey (Redis-compatible) | 8+ |
 | Task Queue | Celery | 5.4+ |
 | Real-Time | Centrifugo | 5+ |
 | Package Manager | uv | latest |

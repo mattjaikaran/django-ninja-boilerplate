@@ -17,17 +17,17 @@ A production-ready, **opinionated** Django boilerplate built with **Django Ninja
 
 ## Why This Boilerplate?
 
-| Feature                          | Benefit                                                                    |
-| -------------------------------- | -------------------------------------------------------------------------- |
-| **One-command setup**            | `make setup` gets you from clone to running in under 2 minutes             |
-| **Class-based controllers**      | Clean, organized API code with Django Ninja Extra                          |
-| **Enterprise features built-in** | Audit logging, feature flags, observability - no need to add later         |
+| Feature                          | Benefit                                                                     |
+| -------------------------------- | --------------------------------------------------------------------------- |
+| **One-command setup**            | `make setup` gets you from clone to running in under 2 minutes              |
+| **Class-based controllers**      | Clean, organized API code with Django Ninja Extra                           |
+| **Enterprise features built-in** | Audit logging, feature flags, observability - no need to add later          |
 | **Multiple auth methods**        | JWT, magic links, OTP codes, 2FA, API keys - ready for web, mobile, and M2M |
-| **Full observability**           | Distributed tracing, metrics, structured logging out of the box            |
-| **SDK generation**               | Auto-generate TypeScript and Python clients from your API                  |
-| **Production-ready**             | Docker, K8s Helm charts, PaaS configs - deploy anywhere                    |
-| **Test everything**              | Unit, E2E, contract, and load tests included                               |
-| **Progressive patterns**         | Four `todos` controller variants show every abstraction level side-by-side |
+| **Full observability**           | Distributed tracing, metrics, structured logging out of the box             |
+| **SDK generation**               | Auto-generate TypeScript and Python clients from your API                   |
+| **Production-ready**             | Docker, K8s Helm charts, PaaS configs - deploy anywhere                     |
+| **Test everything**              | Unit, E2E, contract, and load tests included                                |
+| **Progressive patterns**         | Four `todos` controller variants show every abstraction level side-by-side  |
 
 ## Progressive Controller Patterns
 
@@ -51,7 +51,7 @@ def create_todo(self, request, payload: CreateTodoSchema):
         return 201, todo
     except Exception as exc:
         logger.exception("Failed to create todo")
-        return 500, {"error": "Internal server error", "detail": str(exc)}
+        return 500, {"error": "Error creating todo", "detail": str(exc)}
 
 # Pattern 2 — Basic: minimal, let Django handle errors
 def create_todo(self, request, payload: CreateTodoSchema):
@@ -115,7 +115,7 @@ The `TodoService` (`todos/services/todo_service.py`) centralises all business lo
            │                   │                   │
            ▼                   ▼                   ▼
     ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
-    │ PostgreSQL  │     │    Redis    │     │   Celery    │
+    │ PostgreSQL  │     │   Valkey    │     │   Celery    │
     │  Database   │     │ Cache/Queue │     │   Workers   │
     └─────────────┘     └─────────────┘     └─────────────┘
 ```
@@ -132,9 +132,9 @@ This boilerplate gives you a solid foundation with:
   - Rate limiting and brute force protection
 - **Service Layer Architecture** - Clean separation of business logic with base service classes
 - **Email Service** - Template-based email system with multiple backend support
-- **Caching Layer** - Redis integration with decorators for easy caching
+- **Caching Layer** - Valkey (Redis-compatible) integration with decorators for easy caching
 - **Real-Time Messaging** - [Centrifugo](https://centrifugal.dev/) WebSocket server with JWT auth, channel namespaces, presence, and history
-- **Background Tasks** - Celery integration with Redis broker and Flower monitoring
+- **Background Tasks** - Celery integration with Valkey broker and Flower monitoring
 - **Monitoring Tools** - Performance tracking and health check endpoints
 - **Database Management** - Comprehensive dump/restore commands and SQL init scripts
 - **Data Seeding** - Full-featured seeding system for development data
@@ -300,7 +300,7 @@ uv sync --dev
 cp .env.example .env
 ./scripts/generate_secret_key.sh
 
-# Start PostgreSQL and Redis locally, then:
+# Start PostgreSQL and Valkey locally, then:
 make local-migrate
 make local-run
 ```
@@ -318,7 +318,7 @@ make setup-env           # Create .env from template
 ### Docker Commands
 
 ```bash
-make up                  # Start core services (db, redis, django)
+make up                  # Start core services (db, valkey, django)
 make up-celery           # Start with Celery workers
 make up-realtime         # Start with Centrifugo real-time server
 make up-monitoring       # Start with Flower dashboard
@@ -499,16 +499,16 @@ POST /api/auth/otp/2fa/verify     # Verify 2FA code
 Apply rate limits to endpoints:
 
 ```python
-from api.throttling import rate_limit, auth_rate_limit
+from api.decorators import rate_limit
 
 @api_controller("/items")
 class ItemController:
-    @rate_limit(rate=100, period=60)  # 100 req/min
+    @rate_limit(requests_per_minute=100)
     @http_get("/")
     def list_items(self, request):
         ...
 
-    @auth_rate_limit  # 10 req/min for auth endpoints
+    @rate_limit(requests_per_minute=10)
     @http_post("/sensitive")
     def sensitive_action(self, request):
         ...
@@ -742,38 +742,6 @@ auth_client = AuthenticatedAPIClient()
 auth_client.login("user@example.com", "password")
 response = auth_client.get("/api/auth/me")
 assert_ok(response)
-```
-
-## Authentication
-
-### JWT Authentication
-
-```python
-# Login
-POST /api/auth/login
-{
-    "email": "user@example.com",
-    "password": "password"
-}
-
-# Returns
-{
-    "token": "eyJ...",
-    "refresh": "eyJ...",
-    "user": {...}
-}
-```
-
-### Passwordless (Magic Link)
-
-```python
-# Request magic link
-POST /api/auth/passwordless/login/request
-{"email": "user@example.com"}
-
-# Verify token
-POST /api/auth/passwordless/login/verify
-{"token": "your-magic-link-token"}
 ```
 
 ## Email Service
@@ -1118,12 +1086,12 @@ See [docs/API_KEYS.md](docs/API_KEYS.md) for full documentation.
 
 Default backend is Celery. Alternatives available via `TASK_BACKEND` env var:
 
-| Backend | Install | Worker Command |
-|---------|---------|----------------|
-| **Celery** (default) | Built-in | `make celery-worker` |
-| **Huey** | `uv add huey` | `make worker-huey` |
-| **django-q2** | `uv add django-q2` | `make worker-q` |
-| **django-rq** | `uv add django-rq rq` | `make worker-rq` |
+| Backend              | Install               | Worker Command       |
+| -------------------- | --------------------- | -------------------- |
+| **Celery** (default) | Built-in              | `make celery-worker` |
+| **Huey**             | `uv add huey`         | `make worker-huey`   |
+| **django-q2**        | `uv add django-q2`    | `make worker-q`      |
+| **django-rq**        | `uv add django-rq rq` | `make worker-rq`     |
 
 ```python
 # Backend-agnostic task decorator

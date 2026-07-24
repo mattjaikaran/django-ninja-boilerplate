@@ -54,7 +54,7 @@ core/
 ### Controllers
 
 - `AuthController`: Handles authentication requests like passwordless logins
-- `UserController`: Manages user operations like signup, profile management
+- `UserController`: Manages user CRUD operations (list, get, update, delete)
 - `CentrifugoTokenController`: Issues JWT tokens for Centrifugo real-time connections and subscriptions
 - `OTPController`: OTP/2FA verification endpoints
 
@@ -86,7 +86,7 @@ Comprehensive tests for all components including models and API endpoints.
 
 ### Base Models
 
-- `AbstractBaseModel`: Base model with UUID, created_at, and updated_at fields
+- `AbstractBaseModel`: Base model with UUID, timestamps, soft delete, and metadata fields (alias for `SoftDeleteBaseModel`)
 - Used as the base for all other models in the project
 
 ### Authentication
@@ -97,9 +97,15 @@ Comprehensive tests for all components including models and API endpoints.
 
 ## API Endpoints
 
-### User Management
+### Authentication (AuthController)
 
-- `POST /api/users/signup` - Create new user
+- `POST /api/auth/signup` - Create new account
+- `POST /api/auth/login` - Login with email/password
+- `POST /api/auth/logout` - Logout
+- `GET /api/auth/me` - Get current user profile
+
+### User Management (UserController)
+
 - `POST /api/users/superuser` - Create superuser (admin only)
 - `GET /api/users/` - List all users
 - `GET /api/users/{user_id}` - Get user details
@@ -135,7 +141,7 @@ auth_headers         # Headers with JWT token for authentication
 
 ```bash
 # Run all core tests
-make test core/tests/
+uv run pytest core/tests/
 
 # Run specific test file
 uv run pytest core/tests/test_user.py

@@ -172,5 +172,5 @@ gates["something"] = self._gate_something
 
 - [SwarmForge](https://github.com/unclebob/swarm-forge) — Uncle Bob Martin's tmux-based
   agent orchestration platform with constitution-driven constraints
-- [The Gauntlet](#) — see `CLAUDE.md` for the full gate table and agent rules
+- [The Gauntlet](../CLAUDE.md#the-gauntlet) — see `CLAUDE.md` for the full gate table and agent rules
 - [Architecture Rules](ARCHITECTURE.md) — the layer enforcement philosophy in detail

@@ -62,8 +62,8 @@ make test-load
 # Run quick load test
 make test-load-quick
 
-# Run full load test suite
-make test-load-full
+# Run stress test (200 users, 10 minutes)
+make test-load-stress
 ```
 
 ## Test Scenarios
@@ -194,7 +194,7 @@ Example GitHub Actions workflow:
       --html=load_test_report.html
 
 - name: Upload Load Test Report
-  uses: actions/upload-artifact@v3
+  uses: actions/upload-artifact@v4
   with:
     name: load-test-report
     path: load_test_report.html

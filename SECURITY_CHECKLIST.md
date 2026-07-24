@@ -136,7 +136,7 @@ Rate limiting is configured at two levels in this boilerplate:
 - Login locked after 5 failed attempts for 15 minutes
 
 Before launching:
-- [ ] Confirm Redis is running and cache backend is connected (rate limits degrade gracefully if Redis is down, but won't protect you)
+- [ ] Confirm Valkey/Redis is running and cache backend is connected (rate limits degrade gracefully if the cache is down, but won't protect you)
 - [ ] Add `@rate_limit` to any endpoint that sends email, creates a resource, or calls a paid external API
 - [ ] Consider tightening `THROTTLE_RATES["anon"]` for public-facing APIs
 

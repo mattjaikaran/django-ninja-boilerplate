@@ -12,7 +12,7 @@ graph LR
     Client -->|"WebSocket"| Centrifugo["Centrifugo<br/>:8800"]
 
     Django -->|"publish via HTTP (httpx)"| Centrifugo
-    Centrifugo -->|"PUB/SUB engine"| Redis[("Redis<br/>:6379")]
+    Centrifugo -->|"PUB/SUB engine"| Valkey[("Valkey<br/>:6379")]
 ```
 
 **Why Centrifugo instead of Django Channels:**

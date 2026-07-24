@@ -103,6 +103,7 @@
 ### Testing
 - [ ] Tests pass locally (`make test`)
 - [ ] Linting passes (`make lint`)
+- [ ] Gauntlet passes (`make gauntlet-quick`)
 - [ ] Type checking passes (if applicable)
 
 ### Documentation

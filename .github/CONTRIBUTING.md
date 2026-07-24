@@ -62,8 +62,8 @@ The fastest way to get started is using our CLI tool:
 # One-command setup
 make setup
 
-# Or use the CLI directly
-./manage.py doctor  # Check your environment
+# Check your environment
+make doctor
 ```
 
 ### Manual Setup
@@ -80,7 +80,7 @@ If you prefer manual setup:
 2. **Install dependencies:**
 
    ```bash
-   uv pip install -e ".[dev]"
+   uv sync --extra dev
    ```
 
 3. **Set up environment variables:**
@@ -93,7 +93,7 @@ If you prefer manual setup:
 4. **Start required services:**
 
    ```bash
-   docker-compose up -d postgres redis
+   docker-compose up -d db valkey
    ```
 
 5. **Run migrations:**
@@ -118,10 +118,11 @@ If you prefer manual setup:
 ### Running the Development Server
 
 ```bash
-# Start the Django development server
-make run
-# or
-python manage.py runserver
+# Start with Docker (recommended)
+make up
+
+# Or run locally
+make local-run
 
 # Access the API at http://localhost:8000
 # API docs at http://localhost:8000/api/docs
@@ -289,9 +290,10 @@ Fixes #123
 2. **Run all checks:**
 
    ```bash
-   make lint      # Linting passes
-   make test      # Tests pass
-   make format    # Code is formatted
+   make lint              # Linting passes
+   make test              # Tests pass
+   make format            # Code is formatted
+   make gauntlet-quick    # Full quality gate (recommended)
    ```
 
 3. **Update documentation** if needed
@@ -340,24 +342,24 @@ git push origin --delete feature/your-feature-name
 make test
 
 # Run with coverage
-make test-cov
+make test-coverage
 
 # Run specific test file
-pytest tests/test_users.py
+uv run pytest core/tests/test_user.py
 
 # Run specific test
-pytest tests/test_users.py::test_create_user -v
+uv run pytest core/tests/test_user.py::TestUserModel::test_create_user -v
 
 # Run with print output
-pytest -s
+uv run pytest -s
 ```
 
 ### Writing Tests
 
-1. **Location**: Place tests in the `tests/` directory
+1. **Location**: Place tests in each app's `tests/` directory (e.g., `core/tests/`, `todos/tests/`)
 2. **Naming**: Use `test_` prefix for test files and functions
 3. **Fixtures**: Use pytest fixtures for setup/teardown
-4. **Coverage**: Aim for 80%+ coverage on new code
+4. **Coverage**: Coverage must not decrease (ratchet: currently >=35%, target 80%)
 
 **Example:**
 

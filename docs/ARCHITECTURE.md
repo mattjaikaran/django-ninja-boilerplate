@@ -39,7 +39,7 @@ graph TB
     end
 
     PG[("PostgreSQL<br/>Primary DB")]
-    Redis[("Redis<br/>Cache / Broker")]
+    Redis[("Valkey<br/>Cache / Broker")]
     Celery["Celery Workers"]
 
     Clients --> LB --> API
@@ -54,7 +54,7 @@ graph TB
 |-----------|---------|------------|
 | **API Server** | REST API endpoints | Django Ninja + Gunicorn |
 | **Database** | Persistent data storage | PostgreSQL 17 |
-| **Cache/Broker** | Caching & message queue | Redis 7.2 |
+| **Cache/Broker** | Caching & message queue | Valkey 8 (Redis-compatible) |
 | **Task Queue** | Background job processing | Celery |
 | **Scheduler** | Periodic task scheduling | Celery Beat |
 | **Monitoring** | Task monitoring UI | Flower |
@@ -98,7 +98,7 @@ django-ninja-boilerplate/
 │   ├── controllers/             # API Controllers
 │   │   ├── auth_controller.py   # JWT authentication
 │   │   ├── centrifugo_controller.py # Real-time token endpoints
-│   │   ├── user_controller.py   # User management
+│   │   ├── users_controller.py  # User management
 │   │   └── otp_controller.py    # OTP/Magic link auth
 │   ├── audit/                   # Audit logging system
 │   │   ├── models.py            # AuditLog model
@@ -336,7 +336,7 @@ graph TB
 graph TB
     subgraph Dev["docker-compose.yml (Development)"]
         DB[("PostgreSQL<br/>:5432")]
-        REDIS[("Redis<br/>:6379")]
+        REDIS[("Valkey<br/>:6379")]
         DJANGO["Django API<br/>:8000"]
         CENT["Centrifugo<br/>:8800<br/>(realtime profile)"]
         WORKER["Celery Worker<br/>(celery profile)"]
@@ -357,7 +357,7 @@ graph TB
         CENTPROD["Centrifugo<br/>(WebSocket)"]
         STATIC["Static Files"]
         DBPROD[("PostgreSQL")]
-        REDPROD[("Redis")]
+        REDPROD[("Valkey")]
         CELPROD["Celery Workers"]
 
         NGINX -->|"/api/"| DJPROD
@@ -523,7 +523,7 @@ sequenceDiagram
 sequenceDiagram
     participant C as Client
     participant API as API
-    participant R as Redis
+    participant R as Valkey
     participant E as Email Service
 
     C->>API: POST /auth/otp/request {email}
@@ -549,8 +549,8 @@ graph TB
         DJANGO["Django API<br/>(Producer)"]
     end
 
-    BROKER[("Redis<br/>Broker")]
-    RESULTS[("Redis<br/>Result Store")]
+    BROKER[("Valkey<br/>Broker")]
+    RESULTS[("Valkey<br/>Result Store")]
 
     subgraph Workers
         WORKER["Celery Worker<br/>(Consumer)"]
@@ -620,7 +620,7 @@ graph TB
         HPA["HPA (Autoscaler)<br/>min: 2, max: 10 replicas<br/>CPU: 70%, Memory: 80%"]
 
         PG[("PostgreSQL<br/>StatefulSet<br/>• PVC storage<br/>• Secrets")]
-        REDIS[("Redis<br/>StatefulSet<br/>• PVC storage<br/>• Secrets")]
+        REDIS[("Valkey<br/>StatefulSet<br/>• PVC storage<br/>• Secrets")]
         CELERY["Celery Worker<br/>Deployment<br/>• Replicas: 3<br/>• Resources"]
     end
 

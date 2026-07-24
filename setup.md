@@ -65,10 +65,7 @@ uv sync --dev
 ### 4. Database Setup
 
 ```bash
-# Using make commands (recommended)
-make db-setup
-
-# Or manually:
+# Run migrations and create superuser
 uv run python manage.py migrate
 uv run python manage.py create_superuser
 ```
@@ -86,7 +83,7 @@ uv run python manage.py create_superuser
 make up
 
 # Or locally
-make runserver
+make local-run
 ```
 
 ## Creating New Apps
@@ -94,7 +91,7 @@ make runserver
 Use the extended startapp command that includes Django Ninja structure:
 
 ```bash
-make startapp <app_name>
+make startapp APP=myapp
 ```
 
 This creates an app with the proper folder structure including:
