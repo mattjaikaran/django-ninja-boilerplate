@@ -171,6 +171,7 @@ line-length = 88
 fix = true
 show-fixes = true
 output-format = "grouped"
+extend-exclude = ["*.md"]
 
 [tool.ruff.lint]
 # Enable pycodestyle (`E`) and Pyflakes (`F`) codes by default.
