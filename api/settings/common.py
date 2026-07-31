@@ -97,12 +97,12 @@ INSTALLED_APPS = [
     #####
     "core",  # core app
     "todos",  # todos app
-    "files",  # files app (S3 presigned upload)
-    "webhooks",  # outbound webhooks
-    "organizations",  # multi-tenancy / org membership
-    "notifications",  # in-app + email notifications
-    "billing",  # Stripe billing
-    #####
+    # Optional apps — uncomment to enable:
+    # "files",  # files app (S3 presigned upload)
+    # "webhooks",  # outbound webhooks
+    # "organizations",  # multi-tenancy / org membership
+    # "notifications",  # in-app + email notifications
+    # "billing",  # Stripe billing
     # third party packages
     #####
     "corsheaders",  # django-cors-headers for cross-origin requests

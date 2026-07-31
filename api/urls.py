@@ -8,7 +8,9 @@ from ninja_jwt.controller import NinjaJWTDefaultController
 from api.healthcheck import HealthCheckController
 from api.parsers import ORJSONParser
 from api.renderers import ORJSONRenderer
-from billing.controllers import BillingController, StripeWebhookController
+
+# Optional app imports — uncomment to enable:
+# from billing.controllers import BillingController, StripeWebhookController
 from core.controllers import (
     APIKeyController,
     AuditLogController,
@@ -22,16 +24,18 @@ from core.controllers import (
 )
 from core.observability.controllers import EnhancedHealthController, MetricsController
 from core.sse.views import sse_endpoint
-from files.controllers import FileController
-from notifications.controllers import NotificationController
-from organizations.controllers import OrganizationController
+
+# from files.controllers import FileController
+# from notifications.controllers import NotificationController
+# from organizations.controllers import OrganizationController
 from todos.controllers import (
     TodoController,
     TodoControllerBasic,
     TodoControllerDeclarative,
     TodoControllerPartial,
 )
-from webhooks.controllers import WebhookController
+
+# from webhooks.controllers import WebhookController
 
 # admin site settings
 admin.site.site_header = "Django Ninja Boilerplate Admin"
@@ -82,17 +86,13 @@ api.register_controllers(
     TaskController,  # Task status and progress tracking
     TaskSchedulerController,  # Periodic task management
     DeadLetterQueueController,  # Failed task handling
-    # files app — S3 presigned upload pattern
-    FileController,
-    # webhooks app — outbound webhooks with HMAC signing + delivery tracking
-    WebhookController,
-    # organizations app — multi-tenancy
-    OrganizationController,
-    # notifications app — in-app + email notifications
-    NotificationController,
-    # billing app — Stripe plans, subscriptions, and webhooks
-    BillingController,
-    StripeWebhookController,
+    # Optional app controllers — uncomment to enable:
+    # FileController,  # files app — S3 presigned upload pattern
+    # WebhookController,  # webhooks app — outbound webhooks
+    # OrganizationController,  # organizations app — multi-tenancy
+    # NotificationController,  # notifications app — in-app + email
+    # BillingController,  # billing app — Stripe plans + subscriptions
+    # StripeWebhookController,  # billing app — Stripe webhooks
     # todos app — four controllers demonstrating progressively abstracted patterns
     TodoController,  # Pattern 4: full decorators + service layer (recommended)
     TodoControllerPartial,  # Pattern 3: selective decorators, inline DB ops
@@ -118,14 +118,14 @@ if getattr(settings, "API_VERSIONING_ENABLED", False):
         AuthController,
         UserController,
         OTPController,
-        FileController,
-        WebhookController,
-        OrganizationController,
-        NotificationController,
-        BillingController,
-        StripeWebhookController,
+        # Optional — uncomment to enable:
+        # FileController,
+        # WebhookController,
+        # OrganizationController,
+        # NotificationController,
+        # BillingController,
+        # StripeWebhookController,
     )
-    # api_v2 starts empty — add breaking-change controllers here as the API evolves
 
     urlpatterns += [
         path("api/v1/", api_v1.urls),
