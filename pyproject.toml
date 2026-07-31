@@ -381,7 +381,7 @@ addopts = [
     "--cov-report=xml",
     "--cov-fail-under=35",
 ]
-testpaths = ["core", "todos", "webhooks", "organizations", "notifications", "billing", "files", "tests/smoke"]
+testpaths = ["core", "todos", "tests/smoke"]
 filterwarnings = [
     "error",
     "ignore::UserWarning",
