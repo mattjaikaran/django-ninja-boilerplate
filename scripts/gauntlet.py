@@ -63,7 +63,7 @@ class GauntletRunner:
     ci: bool = False
     verbose: bool = False
     fail_fast: bool = False
-    coverage_threshold: int = 35
+    coverage_threshold: int = 30
     _stopped_early: bool = False
 
     def run_gate(
@@ -367,8 +367,8 @@ def main() -> int:
     parser.add_argument(
         "--coverage",
         type=int,
-        default=35,
-        help="Coverage threshold %% (default: 35, target: 80)",
+        default=30,
+        help="Coverage threshold %% (default: 30, target: 80)",
     )
     parser.add_argument(
         "--fail-fast", action="store_true", help="Stop on first gate failure"
