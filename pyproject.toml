@@ -410,8 +410,13 @@ omit = [
     "*/__pycache__/*",
     "*/static/*",
     "*/media/*",
+    # Optional apps — not in default install
+    "billing/*",
+    "webhooks/*",
+    "files/*",
+    "notifications/*",
+    "organizations/*",
 ]
-
 [tool.coverage.report]
 exclude_lines = [
     "pragma: no cover",
