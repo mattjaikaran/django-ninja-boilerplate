@@ -52,6 +52,31 @@ EXPORT_MANIFEST = [
         "TTSR rule: interrupts on wrong decorator order, redeclared fields",
     ),
     (
+        ".omp/skills/engineering/code-review/SKILL.md",
+        ".omp/skills/engineering/code-review/SKILL.md",
+        "Code review skill: two-axis review (Standards + Spec) with Fowler smell baseline",
+    ),
+    (
+        ".omp/skills/engineering/tdd/SKILL.md",
+        ".omp/skills/engineering/tdd/SKILL.md",
+        "TDD skill: red-green-refactor loop with seam-based testing",
+    ),
+    (
+        ".omp/skills/engineering/implement/SKILL.md",
+        ".omp/skills/engineering/implement/SKILL.md",
+        "Implement skill: grill → TDD → typecheck → test → review → gauntlet",
+    ),
+    (
+        ".omp/skills/engineering/codebase-design/SKILL.md",
+        ".omp/skills/engineering/codebase-design/SKILL.md",
+        "Codebase design skill: deep modules, seams, interfaces, testability",
+    ),
+    (
+        ".omp/skills/productivity/grill-me/SKILL.md",
+        ".omp/skills/productivity/grill-me/SKILL.md",
+        "Grill-me skill: relentless interview to sharpen plans before coding",
+    ),
+    (
         "scripts/check_conventions.py",
         "scripts/check_conventions.py",
         "AST-based convention checker — 12 deterministic checks",
