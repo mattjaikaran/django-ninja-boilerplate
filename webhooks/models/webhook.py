@@ -1,23 +1,14 @@
-from django.conf import settings
 from django.db import models
 
-from core.models.base import TimestampedModel
+from core.models.base import SoftDeleteModel
 
 
-class Webhook(TimestampedModel):
+class Webhook(SoftDeleteModel):
     name = models.CharField(max_length=100)
     url = models.URLField()
     secret = models.CharField(max_length=256, blank=True)
     events = models.JSONField(default=list)
     headers = models.JSONField(default=dict)
-    is_active = models.BooleanField(default=True, db_index=True)
-    created_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        null=True,
-        blank=True,
-        on_delete=models.SET_NULL,
-        related_name="webhooks",
-    )
 
     class Meta:
         ordering = ["-created_at"]
@@ -26,7 +17,7 @@ class Webhook(TimestampedModel):
         return f"{self.name} ({self.url})"
 
 
-class WebhookDelivery(TimestampedModel):
+class WebhookDelivery(SoftDeleteModel):
     webhook = models.ForeignKey(
         Webhook, on_delete=models.CASCADE, related_name="deliveries"
     )

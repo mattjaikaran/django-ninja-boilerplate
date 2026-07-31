@@ -1,31 +1,21 @@
 from django.conf import settings
 from django.db import models
 
-from core.models.base import TimestampedModel
+from core.models.base import SoftDeleteModel
 
 
-class ActiveOrganizationManager(models.Manager):
-    def get_queryset(self):
-        return super().get_queryset().filter(is_active=True)
-
-
-class Organization(TimestampedModel):
+class Organization(SoftDeleteModel):
     name = models.CharField(max_length=150)
     slug = models.SlugField(max_length=150, unique=True)
     description = models.TextField(blank=True, default="")
     logo_url = models.URLField(blank=True, default="")
     website = models.URLField(blank=True, default="")
-    metadata = models.JSONField(default=dict, blank=True)
-    is_active = models.BooleanField(default=True, db_index=True)
     owner = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
         null=True,
         related_name="owned_organizations",
     )
-
-    objects = models.Manager()
-    active_objects = ActiveOrganizationManager()
 
     class Meta:
         ordering = ["-created_at"]
@@ -34,7 +24,7 @@ class Organization(TimestampedModel):
         return self.name
 
 
-class OrganizationMembership(TimestampedModel):
+class OrganizationMembership(SoftDeleteModel):
     ROLE_CHOICES = [
         ("owner", "Owner"),
         ("admin", "Admin"),
@@ -59,7 +49,6 @@ class OrganizationMembership(TimestampedModel):
         blank=True,
         related_name="sent_invitations",
     )
-    is_active = models.BooleanField(default=True)
 
     class Meta:
         unique_together = [("organization", "user")]

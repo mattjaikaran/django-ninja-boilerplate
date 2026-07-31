@@ -126,7 +126,7 @@ class {self.app_name.title().rstrip("s")}Admin(admin.ModelAdmin):
 import pytest
 from django.contrib.auth import get_user_model
 from django.urls import reverse
-from rest_framework.test import APIClient
+from django.test import Client
 
 from {self.app_name}.models import {self.app_name.title().rstrip("s")}
 

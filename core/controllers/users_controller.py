@@ -119,7 +119,7 @@ class UserController:
         Returns:
             Paginated queryset of matching User instances.
         """
-        queryset = User.objects.all()
+        queryset = User.objects.all()  # noqa: admin endpoint lists all users
 
         # Apply filters
         if is_active is not None:

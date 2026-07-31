@@ -4,6 +4,7 @@ from django.http import HttpRequest
 from ninja_extra import api_controller, http_get, http_post
 from ninja_jwt.authentication import JWTAuth
 
+from api.decorators import handle_exceptions
 from billing.schemas import (
     CheckoutSessionResponseSchema,
     CreateCheckoutSessionSchema,
@@ -37,6 +38,7 @@ class BillingController:
     @http_post(
         "/checkout", response={200: CheckoutSessionResponseSchema, 400: dict, 404: dict}
     )
+    @handle_exceptions()
     def create_checkout_session(self, request, payload: CreateCheckoutSessionSchema):
         result = self.service.create_checkout_session(
             user=request.user,
@@ -52,6 +54,7 @@ class BillingController:
     @http_post(
         "/portal", response={200: CustomerPortalResponseSchema, 400: dict, 404: dict}
     )
+    @handle_exceptions()
     def create_customer_portal(self, request, payload: CustomerPortalSchema):
         result = self.service.create_customer_portal(
             user=request.user,
@@ -63,6 +66,7 @@ class BillingController:
 @api_controller("/billing/webhooks", tags=["Billing"])
 class StripeWebhookController:
     @http_post("/stripe", response={200: dict, 400: dict}, auth=None)
+    @handle_exceptions()
     def stripe_webhook(self, request: HttpRequest):
         response = handle_stripe_webhook(request)
         if response.status_code == 200:

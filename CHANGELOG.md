@@ -5,7 +5,33 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.9.0] - 2026-07-31
+
+### Added
+- **Convention Enforcement Gate** (`scripts/check_conventions.py`) — 12th gauntlet gate with 12 deterministic checks for AI anti-patterns: DRF imports, raw Schema usage, ModelSchema, ninja.Router, wrong decorator order, missing @handle_exceptions, unscoped queries, redeclared base model fields, missing __init__.py exports, pip usage, mocked ORM, unregistered controllers
+- **Cross-Stack Convention Checker** (`scripts/check_cross_stack.py`) — 13th gauntlet gate for fullstack monorepos: naming consistency, schema parity, tooling consistency, rules consistency, gauntlet consistency
+- **Four-Layer AI Defense System** spanning both backend and frontend:
+  - Layer 1: System Prompt Injection (`.omp/APPEND_SYSTEM.md`) — non-negotiable guardrails injected into every AI session
+  - Layer 2: Always-Apply Rules (`.omp/rules/`) — full convention references always in context
+  - Layer 3: TTSR Mid-Generation Rules (`.omp/rules/ttsr-*.md`) — interrupts model mid-generation when it writes prohibited patterns
+  - Layer 4: Deterministic Gauntlet Gates — post-generation pass/fail verification
+- **Backend Convention Rules**: `backend-conventions.md`, `django-ninja-anti-patterns.md` (12 wrong/right examples)
+- **Backend TTSR Rules**: `ttsr-framework-identity.md` (DRF/Schema/Router/ModelSchema interrupt), `ttsr-convention-violations.md` (decorator order/redeclared fields interrupt)
+- **Frontend Convention Enforcement** in react-vite-boilerplate: `CLAUDE.md`, `.omp/APPEND_SYSTEM.md`, `.omp/rules/react-conventions.md`, `.omp/rules/react-anti-patterns.md`, `.omp/rules/ttsr-react-anti-patterns.md`, `scripts/check_conventions.ts` (8 TypeScript convention checks), `package.json` gauntlet scripts
+- **Portable Gauntlet Export** (`make export-rules`) — bundles all 16 convention enforcement artifacts for use in any codebase
+- **Adoption Prompt** (`docs/ADOPTION_PROMPT.md`) — copy-paste prompt to install the gauntlet in any codebase via AI
+- **Mattstack Integration Docs** (`docs/MATTSTACK_INTEGRATION.md`) — division of labor between gauntlet gates and mattstack audit
+- **Admin Dashboard Stats** (`core/admin/dashboard.py`) — system health metrics for django-unfold admin
+
+### Fixed
+- **58 convention violations** across the codebase: 35 schemas using raw `ninja.Schema` instead of `CamelCaseSchema`, 7 controllers missing `@handle_exceptions()`, 7 models redeclaring base fields, 5 `__init__.py` files missing exports, DRF import in code generator, pip install in Makefile
+
+### Changed
+- CI: `actions/upload-artifact@v4` → `@v7`
+- Gauntlet expanded from 10 to 12 gates (added CONVENTIONS at #5, CROSS-STACK at #6)
+- Makefile: added `check-conventions`, `check-cross-stack`, `export-rules` targets
+- Pre-commit: added convention enforcement hook
+- Dependabot: labels require repo setup (create `ci`, `dependencies` labels in GitHub)
 
 ## [1.8.0] - 2026-07-24
 

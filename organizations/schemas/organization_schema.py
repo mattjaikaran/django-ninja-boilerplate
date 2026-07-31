@@ -1,7 +1,7 @@
-from ninja import Schema
+from core.schemas.base_schema import CamelCaseSchema
 
 
-class OrganizationSchema(Schema):
+class OrganizationSchema(CamelCaseSchema):
     id: str
     name: str
     slug: str
@@ -31,14 +31,14 @@ class OrganizationSchema(Schema):
         from_attributes = True
 
 
-class CreateOrganizationSchema(Schema):
+class CreateOrganizationSchema(CamelCaseSchema):
     name: str
     slug: str | None = None
     description: str | None = None
     website: str | None = None
 
 
-class UpdateOrganizationSchema(Schema):
+class UpdateOrganizationSchema(CamelCaseSchema):
     name: str | None = None
     slug: str | None = None
     description: str | None = None
@@ -47,7 +47,7 @@ class UpdateOrganizationSchema(Schema):
     metadata: dict | None = None
 
 
-class OrganizationMembershipSchema(Schema):
+class OrganizationMembershipSchema(CamelCaseSchema):
     id: str
     organization_id: str
     user_id: str
@@ -75,10 +75,10 @@ class OrganizationMembershipSchema(Schema):
         from_attributes = True
 
 
-class InviteMemberSchema(Schema):
+class InviteMemberSchema(CamelCaseSchema):
     user_id: str
     role: str = "member"
 
 
-class UpdateMemberRoleSchema(Schema):
+class UpdateMemberRoleSchema(CamelCaseSchema):
     role: str

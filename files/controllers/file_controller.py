@@ -4,6 +4,7 @@ from ninja import File, UploadedFile
 from ninja_extra import api_controller, http_delete, http_get, http_post
 from ninja_jwt.authentication import JWTAuth
 
+from api.decorators import handle_exceptions
 from files.schemas import (
     ConfirmUploadSchema,
     DownloadUrlResponseSchema,
@@ -29,11 +30,13 @@ class FileController:
         return 200, list(files)
 
     @http_post("/presigned-url", response={201: PresignedUrlResponseSchema})
+    @handle_exceptions()
     def generate_presigned_url(self, request, payload: GeneratePresignedUrlSchema):
         result = self.service.generate_presigned_upload_url(request.user, payload)
         return 201, result
 
     @http_post("/{file_id}/confirm", response={200: FileUploadSchema})
+    @handle_exceptions()
     def confirm_upload(self, request, file_id: str, payload: ConfirmUploadSchema):
         file_upload = self.service.confirm_upload(file_id, request.user, payload)
         return 200, file_upload
@@ -44,6 +47,7 @@ class FileController:
         return 200, result
 
     @http_post("/{file_id}/local-upload", response={200: FileUploadSchema})
+    @handle_exceptions()
     def local_upload(
         self,
         request,
@@ -58,6 +62,7 @@ class FileController:
         return 200, file_upload
 
     @http_delete("/{file_id}", response={204: None})
+    @handle_exceptions()
     def delete_file(self, request, file_id: str):
         self.service.delete_file(file_id, request.user)
         return 204, None

@@ -1,11 +1,12 @@
 from datetime import datetime
 from uuid import UUID
 
-from ninja import Schema
 from pydantic import field_validator
 
+from core.schemas.base_schema import CamelCaseSchema
 
-class FileUploadSchema(Schema):
+
+class FileUploadSchema(CamelCaseSchema):
     id: str
     user_id: str
     key: str
@@ -31,7 +32,7 @@ class FileUploadSchema(Schema):
         return str(v)
 
 
-class GeneratePresignedUrlSchema(Schema):
+class GeneratePresignedUrlSchema(CamelCaseSchema):
     filename: str
     content_type: str
     size: int | None = None
@@ -39,7 +40,7 @@ class GeneratePresignedUrlSchema(Schema):
     folder: str = "uploads"
 
 
-class PresignedUrlResponseSchema(Schema):
+class PresignedUrlResponseSchema(CamelCaseSchema):
     upload_url: str
     upload_fields: dict
     file_id: str
@@ -47,10 +48,10 @@ class PresignedUrlResponseSchema(Schema):
     expires_in: int
 
 
-class ConfirmUploadSchema(Schema):
+class ConfirmUploadSchema(CamelCaseSchema):
     size: int | None = None
 
 
-class DownloadUrlResponseSchema(Schema):
+class DownloadUrlResponseSchema(CamelCaseSchema):
     download_url: str
     expires_in: int

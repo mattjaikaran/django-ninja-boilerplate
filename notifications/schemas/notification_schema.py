@@ -1,10 +1,10 @@
 import uuid
 from datetime import datetime
 
-from ninja import Schema
+from core.schemas.base_schema import CamelCaseSchema
 
 
-class NotificationSchema(Schema):
+class NotificationSchema(CamelCaseSchema):
     id: uuid.UUID
     user_id: uuid.UUID
     type: str
@@ -23,7 +23,7 @@ class NotificationSchema(Schema):
         from_attributes = True
 
 
-class CreateNotificationSchema(Schema):
+class CreateNotificationSchema(CamelCaseSchema):
     user_id: str
     type: str
     title: str
@@ -32,6 +32,6 @@ class CreateNotificationSchema(Schema):
     action_url: str = ""
 
 
-class NotificationListSchema(Schema):
+class NotificationListSchema(CamelCaseSchema):
     unread_count: int
     items: list[NotificationSchema]

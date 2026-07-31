@@ -602,7 +602,6 @@ ci-build: ## Build Docker image for CI
 	docker build -t django-ninja-stack:ci .
 
 ci-security: ## Run security audit
-	$(UV) pip install pip-audit
 	$(UV) run pip-audit
 
 # ===========================================
@@ -824,6 +823,10 @@ gauntlet-gate: ## Run a single gauntlet gate (usage: make gauntlet-gate GATE=lin
 
 check-arch: ## Check architecture constraints (layer violations)
 	$(UV) run python scripts/check_architecture.py --all
+check-conventions: ## Check code conventions (no DRF, correct schemas, decorator order, etc.)
+	$(UV) run python scripts/check_conventions.py
+check-cross-stack: ## Check cross-stack conventions (monorepo only)
+	$(UV) run python scripts/check_cross_stack.py
 
 check-file-length: ## Check all Python files against length limits
 	@find . -name "*.py" -not -path "./.venv/*" -not -path "./env/*" -not -path "./.git/*" | xargs python scripts/check_file_length.py
@@ -834,8 +837,16 @@ mutation-test: ## Run mutation testing (are your tests actually catching bugs?)
 mutation-results: ## Show mutation testing results
 	$(UV) run mutmut results
 
+smoke-test: ## Run gauntlet smoke test (validates checker works)
+	$(UV) run python scripts/smoke_test_gauntlet.py
 security-scan: ## Run bandit security scanner
 	$(UV) run bandit -c pyproject.toml -r .
+
+export-rules: ## Export gauntlet rules as portable bundle
+	$(UV) run python scripts/export_rules.py --output $(or $(OUT),gauntlet-export)
+
+export-rules-list: ## List what export-rules would export
+	$(UV) run python scripts/export_rules.py --list
 
 # ===========================================
 # Version and Info

@@ -2,11 +2,12 @@ from datetime import datetime
 from decimal import Decimal
 from uuid import UUID
 
-from ninja import Schema
 from pydantic import field_validator
 
+from core.schemas.base_schema import CamelCaseSchema
 
-class PlanSchema(Schema):
+
+class PlanSchema(CamelCaseSchema):
     id: str
     name: str
     description: str
@@ -39,7 +40,7 @@ class PlanSchema(Schema):
         return v
 
 
-class SubscriptionSchema(Schema):
+class SubscriptionSchema(CamelCaseSchema):
     id: str
     user_id: str
     plan: PlanSchema
@@ -84,20 +85,20 @@ class SubscriptionSchema(Schema):
         return v
 
 
-class CreateCheckoutSessionSchema(Schema):
+class CreateCheckoutSessionSchema(CamelCaseSchema):
     plan_id: str
     success_url: str
     cancel_url: str
 
 
-class CheckoutSessionResponseSchema(Schema):
+class CheckoutSessionResponseSchema(CamelCaseSchema):
     session_id: str
     checkout_url: str
 
 
-class CustomerPortalSchema(Schema):
+class CustomerPortalSchema(CamelCaseSchema):
     return_url: str
 
 
-class CustomerPortalResponseSchema(Schema):
+class CustomerPortalResponseSchema(CamelCaseSchema):
     portal_url: str

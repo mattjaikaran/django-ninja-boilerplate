@@ -136,7 +136,7 @@ ROOT_URLCONF = "api.urls"
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",  # django templates
-        "DIRS": [],  # directories
+        "DIRS": [BASE_DIR / "templates"],
         "APP_DIRS": True,  # app directories
         "OPTIONS": {
             "context_processors": [
@@ -700,3 +700,6 @@ if USE_STRUCTURED_LOGGING:
             },
         },
     }
+
+
+# ── Django Unfold Admin Configuration ──────────────────────────────────

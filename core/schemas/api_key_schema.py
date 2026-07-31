@@ -2,16 +2,16 @@
 
 from datetime import datetime
 
-from ninja import Schema
+from core.schemas.base_schema import CamelCaseSchema
 
 
-class CreateAPIKeyRequest(Schema):
+class CreateAPIKeyRequest(CamelCaseSchema):
     name: str
     scopes: list[str] = []
     expires_in_days: int | None = None
 
 
-class APIKeyResponse(Schema):
+class APIKeyResponse(CamelCaseSchema):
     id: str
     prefix: str
     name: str
@@ -25,7 +25,7 @@ class APIKeyResponse(Schema):
         from_attributes = True
 
 
-class APIKeyCreatedResponse(Schema):
+class APIKeyCreatedResponse(CamelCaseSchema):
     """Returned only at creation time — includes the raw key."""
 
     key: str
@@ -37,11 +37,11 @@ class APIKeyCreatedResponse(Schema):
     created_at: datetime
 
 
-class RevokeAPIKeyRequest(Schema):
+class RevokeAPIKeyRequest(CamelCaseSchema):
     key_id: str
 
 
-class RotateAPIKeyResponse(Schema):
+class RotateAPIKeyResponse(CamelCaseSchema):
     """Returned when rotating — old key revoked, new key issued."""
 
     new_key: str

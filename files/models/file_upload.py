@@ -17,7 +17,6 @@ class FileUpload(TimestampedModel):
     is_confirmed = models.BooleanField(default=False, db_index=True)
     confirmed_at = models.DateTimeField(null=True, blank=True)
     is_public = models.BooleanField(default=False)
-    metadata = models.JSONField(default=dict, blank=True)
     expires_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:

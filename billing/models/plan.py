@@ -1,10 +1,10 @@
 from django.conf import settings
 from django.db import models
 
-from core.models.base import TimestampedModel
+from core.models.base import SoftDeleteModel, TimestampedModel
 
 
-class Plan(TimestampedModel):
+class Plan(SoftDeleteModel):
     INTERVAL_CHOICES = [
         ("month", "Monthly"),
         ("year", "Yearly"),
@@ -24,7 +24,6 @@ class Plan(TimestampedModel):
         max_length=10, choices=INTERVAL_CHOICES, default="month"
     )
     features = models.JSONField(default=list)
-    is_active = models.BooleanField(default=True, db_index=True)
 
     class Meta:
         ordering = ["amount"]
@@ -74,6 +73,7 @@ class Subscription(TimestampedModel):
     canceled_at = models.DateTimeField(null=True, blank=True)
     trial_start = models.DateTimeField(null=True, blank=True)
     trial_end = models.DateTimeField(null=True, blank=True)
+
     metadata = models.JSONField(default=dict, blank=True)
 
     class Meta:

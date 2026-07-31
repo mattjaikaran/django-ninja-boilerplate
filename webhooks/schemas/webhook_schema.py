@@ -1,11 +1,12 @@
 from datetime import datetime
 from uuid import UUID
 
-from ninja import Schema
 from pydantic import field_validator
 
+from core.schemas.base_schema import CamelCaseSchema
 
-class WebhookSchema(Schema):
+
+class WebhookSchema(CamelCaseSchema):
     id: str
     name: str
     url: str
@@ -34,7 +35,7 @@ class WebhookSchema(Schema):
         return v
 
 
-class CreateWebhookSchema(Schema):
+class CreateWebhookSchema(CamelCaseSchema):
     name: str
     url: str
     events: list[str]
@@ -42,7 +43,7 @@ class CreateWebhookSchema(Schema):
     secret: str = ""
 
 
-class UpdateWebhookSchema(Schema):
+class UpdateWebhookSchema(CamelCaseSchema):
     name: str | None = None
     url: str | None = None
     events: list[str] | None = None
@@ -51,7 +52,7 @@ class UpdateWebhookSchema(Schema):
     is_active: bool | None = None
 
 
-class WebhookDeliverySchema(Schema):
+class WebhookDeliverySchema(CamelCaseSchema):
     id: str
     webhook_id: str
     event: str

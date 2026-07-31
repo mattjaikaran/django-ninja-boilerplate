@@ -1,0 +1,68 @@
+{% extends "unfold/layouts/base.html" %}
+
+{% load i18n unfold %}
+
+{% block content %}
+  {# ── Stats Cards ──────────────────────────────────────────────── #}
+  {% if stats_cards %}
+    <div class="grid grid-cols-1 gap-4 mb-8 md:grid-cols-2 lg:grid-cols-4">
+      {% for card in stats_cards %}
+        <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6 shadow-sm">
+          <div class="flex items-center justify-between mb-2">
+            <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400">{{ card.title }}</h3>
+            <span class="material-symbols-outlined text-{{ card.color }}-500 text-2xl">{{ card.icon }}</span>
+          </div>
+          <p class="text-3xl font-bold text-gray-900 dark:text-white">{{ card.value }}</p>
+          <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">{{ card.description }}</p>
+        </div>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  {# ── Quick Links ──────────────────────────────────────────────── #}
+  {% if quick_links %}
+    <div class="flex flex-wrap gap-2 mb-8">
+      {% for link in quick_links %}
+        <a href="{{ link.url }}" class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg text-sm text-gray-700 dark:text-gray-200 transition-colors">
+          <span class="material-symbols-outlined text-base">{{ link.icon }}</span>
+          {{ link.title }}
+        </a>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  {# ── Main Content (app list) ──────────────────────────────────── #}
+  <div class="grid grid-cols-1 gap-8 lg:grid-cols-3">
+    {# App list — left 2/3 #}
+    <div class="lg:col-span-2">
+      {{ block.super }}
+    </div>
+
+    {# Recent Activity — right 1/3 #}
+    <div>
+      <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm">
+        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+          <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Recent Activity</h2>
+        </div>
+        <div class="divide-y divide-gray-200 dark:divide-gray-700">
+          {% if recent_activity %}
+            {% for entry in recent_activity %}
+              <div class="px-6 py-3">
+                <div class="flex items-center justify-between">
+                  <span class="text-sm font-medium text-gray-900 dark:text-white">{{ entry.user }}</span>
+                  <span class="text-xs text-gray-400">{{ entry.time }}</span>
+                </div>
+                <p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+                  <span class="inline-block px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 rounded text-xs font-mono mr-1">{{ entry.action }}</span>
+                  {{ entry.target }}
+                </p>
+              </div>
+            {% endfor %}
+          {% else %}
+            <div class="px-6 py-4 text-sm text-gray-400">No recent activity.</div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+{% endblock %}

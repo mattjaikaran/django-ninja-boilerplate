@@ -163,6 +163,18 @@ repos:
         pass_filenames: true
 
   # ===========================================
+  # Convention enforcement (catches AI anti-patterns)
+  # ===========================================
+  - repo: local
+    hooks:
+      - id: conventions
+        name: Check code conventions
+        entry: python scripts/check_conventions.py
+        language: python
+        types: [python]
+        pass_filenames: false
+
+  # ===========================================
   # Tests (pre-push only — keeps commits fast)
   # ===========================================
   - repo: local

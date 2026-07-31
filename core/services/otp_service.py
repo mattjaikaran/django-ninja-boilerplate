@@ -14,7 +14,6 @@ from datetime import timedelta
 from typing import TYPE_CHECKING
 
 from django.conf import settings
-from django.contrib.auth import get_user_model
 from django.core.mail import send_mail
 from django.utils import timezone
 
@@ -23,7 +22,13 @@ from core.models.otp import OneTimePassword, OTPDeliveryMethod, OTPPurpose, OTPR
 if TYPE_CHECKING:
     from core.models import User
 
-UserModel = get_user_model()
+
+def _get_user_model():
+    from django.contrib.auth import get_user_model
+
+    return get_user_model()
+
+
 logger = logging.getLogger(__name__)
 
 
@@ -459,6 +464,7 @@ class OTPService:
         Returns:
             User or None
         """
+        UserModel = _get_user_model()
         if email:
             try:
                 return UserModel.objects.get(email=email.lower())  # type: ignore[return-value]

@@ -172,7 +172,7 @@ class AuthController:
         user.save(update_fields=["last_login"])
 
         # Generate tokens
-        refresh = RefreshToken.for_user(user)
+        refresh = RefreshToken.for_user(user)  # type: ignore[misc]  # simplejwt stub types for_user as instance method
 
         logger.info("User logged in: %s", user.email)  # type: ignore[attr-defined]
 
@@ -229,7 +229,7 @@ class AuthController:
         user.save(update_fields=["last_login"])
 
         # Generate tokens
-        refresh = RefreshToken.for_user(user)
+        refresh = RefreshToken.for_user(user)  # type: ignore[misc]  # simplejwt stub types for_user as instance method
 
         return 200, {
             "token": str(refresh.access_token),  # type: ignore[attr-defined]
@@ -379,7 +379,7 @@ class AuthController:
         # Update last login
         otp.user.save(update_fields=["last_login"])
 
-        refresh = RefreshToken.for_user(otp.user)
+        refresh = RefreshToken.for_user(otp.user)  # type: ignore[misc]  # simplejwt stub types for_user as instance method
 
         logger.info("Magic link verified for: %s", otp.user.email)
 

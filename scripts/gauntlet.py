@@ -180,15 +180,16 @@ class GauntletRunner:
         gates["lint"] = self._gate_lint
         gates["typecheck"] = self._gate_typecheck
         gates["security"] = self._gate_security
+        gates["conventions"] = self._gate_conventions
         gates["architecture"] = self._gate_architecture
         gates["filelength"] = self._gate_filelength
+        gates["cross-stack"] = self._gate_cross_stack
         gates["test"] = self._gate_test
         gates["deploy-check"] = self._gate_deploy_check
 
         if not self.quick:
             gates["mutation"] = self._gate_mutation
             gates["audit"] = self._gate_audit
-
         return gates
 
     # ── Individual gates ──────────────────────────────────────────────────
@@ -211,6 +212,19 @@ class GauntletRunner:
         return self.run_gate(
             "ARCHITECTURE",
             ["uv", "run", "python", "scripts/check_architecture.py", "--all"],
+        )
+
+    def _gate_conventions(self) -> GateResult:
+        return self.run_gate(
+            "CONVENTIONS",
+            ["uv", "run", "python", "scripts/check_conventions.py"],
+        )
+
+    def _gate_cross_stack(self) -> GateResult:
+        return self.run_gate(
+            "CROSS-STACK",
+            ["uv", "run", "python", "scripts/check_cross_stack.py"],
+            allow_fail=True,  # non-blocking — only applies in monorepos
         )
 
     def _gate_filelength(self) -> GateResult:

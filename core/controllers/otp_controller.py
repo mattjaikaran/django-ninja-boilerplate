@@ -108,7 +108,7 @@ class OTPController:
 
         # Generate tokens for LOGIN purpose
         if payload.purpose == "LOGIN":
-            refresh = RefreshToken.for_user(user)
+            refresh = RefreshToken.for_user(user)  # type: ignore[misc]  # simplejwt stub types for_user as instance method
 
             logger.info("User logged in via OTP: %s", user.email)
 
@@ -142,7 +142,7 @@ class OTPController:
         if not success or not user:
             return 401, {"error": message, "success": False}
 
-        refresh = RefreshToken.for_user(user)
+        refresh = RefreshToken.for_user(user)  # type: ignore[misc]  # simplejwt stub types for_user as instance method
 
         logger.info("User logged in via magic link: %s", user.email)
 
