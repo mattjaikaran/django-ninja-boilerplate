@@ -175,6 +175,17 @@ repos:
         pass_filenames: false
 
   # ===========================================
+  # Dependency gate (pyproject.toml change requires DEPENDENCIES.md entry)
+  # ===========================================
+  - repo: local
+    hooks:
+      - id: dependencies
+        name: Check dependency manifest
+        entry: python scripts/check_dependencies.py
+        language: python
+        pass_filenames: false
+
+  # ===========================================
   # Tests (pre-push only — keeps commits fast)
   # ===========================================
   - repo: local
@@ -194,6 +205,17 @@ repos:
     rev: v4.1.0
     hooks:
       - id: commitizen
+        stages: [commit-msg]
+
+  # ===========================================
+  # Commit message style (subject <=50, no trailing period, body wrapped at 72)
+  # ===========================================
+  - repo: local
+    hooks:
+      - id: commit-msg-tbaggery
+        name: Check commit message style
+        entry: bash scripts/check_commit_msg.sh
+        language: system
         stages: [commit-msg]
 
 # ===========================================
