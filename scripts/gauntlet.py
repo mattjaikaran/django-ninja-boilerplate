@@ -17,6 +17,7 @@ Gates (in order):
   8. MUTATION   — mutmut (test quality)
   9. AUDIT      — pip-audit (dependency vulnerabilities)
  10. DEPLOY     — django check --deploy
+ 11. DEPENDENCIES — pyproject.toml change requires a DEPENDENCIES.md entry
 
 Usage:
     python scripts/gauntlet.py              # full gauntlet
@@ -181,6 +182,7 @@ class GauntletRunner:
         gates["typecheck"] = self._gate_typecheck
         gates["security"] = self._gate_security
         gates["conventions"] = self._gate_conventions
+        gates["dependencies"] = self._gate_dependencies
         gates["architecture"] = self._gate_architecture
         gates["filelength"] = self._gate_filelength
         gates["cross-stack"] = self._gate_cross_stack
@@ -218,6 +220,12 @@ class GauntletRunner:
         return self.run_gate(
             "CONVENTIONS",
             ["uv", "run", "python", "scripts/check_conventions.py"],
+        )
+
+    def _gate_dependencies(self) -> GateResult:
+        return self.run_gate(
+            "DEPENDENCIES",
+            ["uv", "run", "python", "scripts/check_dependencies.py", "--all"],
         )
 
     def _gate_cross_stack(self) -> GateResult:
