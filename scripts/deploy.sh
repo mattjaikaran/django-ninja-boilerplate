@@ -542,6 +542,36 @@ REMOTE
 
     ok "VPS deploy complete."
 }
+# ---------------------------------------------------------------------------
+# Deploy notification
+# ---------------------------------------------------------------------------
+notify_deploy() {
+    local webhook="${DEPLOY_WEBHOOK_URL:-}"
+    [[ -z "${webhook}" ]] && return 0
+
+    local commit
+    commit="$(git -C "${PROJECT_ROOT}" rev-parse HEAD 2>/dev/null || echo "unknown")"
+
+    if [[ "${DRY_RUN}" == true ]]; then
+        info "[dry-run] would POST deploy notification to ${webhook}"
+        return
+    fi
+
+    local payload
+    payload="$(cat <<EOF
+{"event":"deploy_complete","app":"${APP_NAME}","commit":"${commit}","env":"${DEPLOY_ENV:-production}","frontend_url":"${FRONTEND_URL:-}","backend_url":"${BACKEND_URL:-}"}
+EOF
+)"
+
+    info "Notifying deploy webhook..."
+    if curl -fs -X POST "${webhook}" \
+        -H "Content-Type: application/json" \
+        --data "${payload}" >/dev/null 2>&1; then
+        ok "Deploy notification sent."
+    else
+        warn "Deploy notification failed (webhook unreachable)."
+    fi
+}
 
 # ---------------------------------------------------------------------------
 # Main
@@ -560,6 +590,7 @@ case "${PROVIDER}" in
     gcp)     deploy_gcp ;;
     vps)     deploy_vps ;;
 esac
+notify_deploy
 
 echo ""
 ok "Done."
