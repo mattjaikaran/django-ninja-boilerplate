@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.10.0] - 2026-08-12
+
+### Added
+- **Deploy Notification** (`scripts/deploy.sh`) — `notify_deploy` POSTs a `deploy_complete` JSON envelope (`app`, `commit`, `env`, `frontend_url`, `backend_url`) to `DEPLOY_WEBHOOK_URL` after a successful provider deploy. Skips silently when the webhook is unset, respects `--dry-run`, and never blocks a deploy on an unreachable webhook.
+- **Dependency Gate** (`scripts/check_dependencies.py`) — new gauntlet gate and pre-commit hook that fails when `pyproject.toml` changes without a matching `DEPENDENCIES.md` entry, so dependency additions get reviewed instead of silently merged.
+- **Commit Message Style Hook** (`scripts/check_commit_msg.sh`) — commit-msg hook enforcing the tbaggery checks commitizen skips: subject ≤50 chars, no trailing period, body wrapped at 72 chars.
+
+### Changed
+- Pre-commit: registered the `dependencies` gate and `commit-msg-tbaggery` style checks as local hooks.
+- `.env.deploy.example`: documented `DEPLOY_WEBHOOK_URL`, `DEPLOY_ENV`, `FRONTEND_URL`, `BACKEND_URL`.
+- Version strings synced across `pyproject.toml`, `api/settings/common.py`, and `Makefile`.
+
 ## [1.9.0] - 2026-07-31
 
 ### Added
@@ -419,6 +431,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 | Version | Date | Description |
 |---------|------|-------------|
+| 1.10.0 | 2026-08-12 | Deploy notification, dependency gate, commit-msg style checks |
+| 1.9.0 | 2026-07-31 | Convention enforcement, cross-stack checker, four-layer AI defense |
 | 1.8.0 | 2026-07-24 | The Gauntlet, constraint tools, mutation testing, architecture enforcement |
 | 1.7.0 | 2026-07-04 | CLAUDE.md rewrite, version sync, env consolidation, Makefile cleanup |
 | 1.6.0 | 2026-07-04 | Valkey, API keys, orjson, pluggable task queues, ty type checker |
@@ -433,7 +447,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 | 0.7.0 | 2026-01-20 | JWT auth, UV, Docker dev environment |
 | 0.6.0 | 2026-01-15 | Initial release |
 
-[Unreleased]: https://github.com/mattjaikaran/django-ninja-boilerplate/compare/v1.8.0...HEAD
+[Unreleased]: https://github.com/mattjaikaran/django-ninja-boilerplate/compare/v1.10.0...HEAD
+[1.10.0]: https://github.com/mattjaikaran/django-ninja-boilerplate/compare/v1.9.0...v1.10.0
+[1.9.0]: https://github.com/mattjaikaran/django-ninja-boilerplate/compare/v1.8.0...v1.9.0
 [1.8.0]: https://github.com/mattjaikaran/django-ninja-boilerplate/compare/v1.7.0...v1.8.0
 [1.7.0]: https://github.com/mattjaikaran/django-ninja-boilerplate/compare/v1.6.0...v1.7.0
 [1.6.0]: https://github.com/mattjaikaran/django-ninja-boilerplate/compare/v1.5.1...v1.6.0

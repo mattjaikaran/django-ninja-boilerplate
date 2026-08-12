@@ -852,7 +852,7 @@ export-rules-list: ## List what export-rules would export
 # Version and Info
 # ===========================================
 version: ## Show version information
-	@echo "Django Ninja Boilerplate v1.8.0"
+	@echo "Django Ninja Boilerplate v1.10.0"
 	@echo ""
 	@echo "Python: $$(python --version 2>&1)"
 	@echo "UV: $$(uv --version 2>&1)"
