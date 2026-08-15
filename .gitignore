@@ -125,7 +125,9 @@ logs/
 *.log
 
 # Static and media files
-static/
+# Root static/ is the collectstatic output dir; app static dirs (e.g.
+# core/static, atlas/static) must stay tracked so their assets deploy.
+/static/
 media/
 
 # Claude Code
@@ -134,3 +136,6 @@ CLAUDE.md
 # Gauntlet reports
 gauntlet-report.json
 .mutmut-cache/
+
+# Codebase atlas data file (generated)
+atlas-data.json

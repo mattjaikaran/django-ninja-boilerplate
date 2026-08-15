@@ -1,0 +1,36 @@
+{% extends "unfold/layouts/base.html" %}
+{% load static %}
+
+{% block extrastyle %}
+  <link rel="stylesheet" href="{% static 'atlas/atlas.css' %}?v={{ atlas_static_version }}">
+{% endblock %}
+
+{% block extrahead %}
+  <script src="{% static 'atlas/atlas-scene.js' %}?v={{ atlas_static_version }}" defer></script>
+  <script src="{% static 'atlas/atlas.js' %}?v={{ atlas_static_version }}" defer></script>
+  <script src="{% static 'atlas/atlas-ui.js' %}?v={{ atlas_static_version }}" defer></script>
+{% endblock %}
+
+{% block content %}
+  <div class="atlas-page">
+    <div class="atlas-toolbar">
+      <div class="atlas-meta">
+        <span class="atlas-meta-item">
+          <span class="material-symbols-outlined atlas-meta-icon">map</span>
+          {{ subtitle }}
+        </span>
+        <span class="atlas-meta-item atlas-meta-muted">
+          generated {{ atlas_generated_at }}
+        </span>
+      </div>
+      <form method="post" action="{{ atlas_regenerate_url }}" class="atlas-form">
+        {% csrf_token %}
+        <button type="submit" class="atlas-btn">
+          <span class="material-symbols-outlined atlas-meta-icon">refresh</span>
+          Regenerate
+        </button>
+      </form>
+    </div>
+    <div id="atlas-app" class="atlas-app" data-url="{{ atlas_data_url }}"></div>
+  </div>
+{% endblock %}
