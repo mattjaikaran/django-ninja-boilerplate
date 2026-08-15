@@ -112,7 +112,7 @@ def _local_app_configs() -> list[Any]:
     for config in django_apps.get_app_configs():
         try:
             path = Path(config.path).resolve()
-        except Exception:
+        except (AttributeError, OSError):
             continue
         if "site-packages" in path.parts or ".venv" in path.parts:
             continue
