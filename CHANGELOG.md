@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.11.0] - 2026-08-15
 
 ### Added
 - **Codebase Atlas** (`atlas/` app) — interactive isometric architecture map in the Unfold admin at `/admin/atlas/`. Blocks sized by real LOC per app, animated data-flow dots on edges, clickable data packets (request/response samples from the live OpenAPI schema plus masked audit-log bodies), drill-down into app components, and a playable request-flow trace. Generator: `python manage.py atlas` (or `make atlas`). Opt-in config via `ATLAS_ENABLED`, `ATLAS_DATA_PATH`, `ATLAS_CACHE_TTL`, `ATLAS_REAL_SAMPLES`; per-app prose via `atlas.py` modules (see `core/atlas.py`, `todos/atlas.py`) or `ATLAS_METADATA`. Staff-only, CSP-safe (static JS/CSS + same-origin JSON endpoint).
@@ -470,7 +470,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 | 0.7.0 | 2026-01-20 | JWT auth, UV, Docker dev environment |
 | 0.6.0 | 2026-01-15 | Initial release |
 
-[Unreleased]: https://github.com/mattjaikaran/django-ninja-boilerplate/compare/v1.10.0...HEAD
+[Unreleased]: https://github.com/mattjaikaran/django-ninja-boilerplate/compare/v1.11.0...HEAD
+[1.11.0]: https://github.com/mattjaikaran/django-ninja-boilerplate/compare/v1.10.0...v1.11.0
 [1.10.0]: https://github.com/mattjaikaran/django-ninja-boilerplate/compare/v1.9.0...v1.10.0
 [1.9.0]: https://github.com/mattjaikaran/django-ninja-boilerplate/compare/v1.8.0...v1.9.0
 [1.8.0]: https://github.com/mattjaikaran/django-ninja-boilerplate/compare/v1.7.0...v1.8.0
