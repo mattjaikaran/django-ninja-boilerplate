@@ -80,3 +80,32 @@ def test_file_changed_false_for_missing_file_absent_from_head(tmp_path: Path) ->
     _commit_all(tmp_path)
 
     assert file_changed(tmp_path, Path("DEPENDENCIES.md")) is False
+
+
+def test_version_only_change_passes(tmp_path: Path) -> None:
+    _git_init(tmp_path)
+    _write(tmp_path / "pyproject.toml", '[project]\nversion = "1.0.0"\n')
+    _commit_all(tmp_path)
+
+    _write(tmp_path / "pyproject.toml", '[project]\nversion = "1.1.0"\n')
+
+    assert (
+        _check_dependencies.version_only_change(tmp_path, Path("pyproject.toml"))
+        is True
+    )
+
+
+def test_version_only_change_fails_on_dependency_change(tmp_path: Path) -> None:
+    _git_init(tmp_path)
+    _write(tmp_path / "pyproject.toml", '[project]\nversion = "1.0.0"\n')
+    _commit_all(tmp_path)
+
+    _write(
+        tmp_path / "pyproject.toml",
+        '[project]\nversion = "1.1.0"\ndependencies = ["requests"]\n',
+    )
+
+    assert (
+        _check_dependencies.version_only_change(tmp_path, Path("pyproject.toml"))
+        is False
+    )

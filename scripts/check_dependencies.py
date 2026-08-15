@@ -5,8 +5,9 @@ Anti-slop constraint: a dependency-manifest change must ship with an entry in
 DEPENDENCIES.md so new dependencies get reviewed instead of silently merged.
 
 The check compares the working tree against HEAD. It passes when pyproject.toml
-is unchanged, or when DEPENDENCIES.md changed alongside it. It fails when
-pyproject.toml changed but DEPENDENCIES.md did not.
+is unchanged, when DEPENDENCIES.md changed alongside it, or when the only
+pyproject.toml change is the version line (release bumps). It fails when
+pyproject.toml changed for any other reason and DEPENDENCIES.md did not.
 
 Usage:
     python scripts/check_dependencies.py        # check working tree vs HEAD
@@ -18,6 +19,7 @@ Exit: 0 = pass, 1 = pyproject.toml changed but DEPENDENCIES.md did not
 from __future__ import annotations
 
 import argparse
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -52,6 +54,26 @@ def file_changed(repo_root: Path, rel_path: Path) -> bool:
     return on_disk != _read_head(repo_root, rel_path)
 
 
+def version_only_change(repo_root: Path, rel_path: Path) -> bool:
+    """Return True when the file changed only in its ``version = "X.Y.Z"`` line.
+
+    Release bumps touch the version line without adding dependencies, so
+    they must not require a DEPENDENCIES.md entry.
+    """
+    disk_path = repo_root / rel_path
+    if not disk_path.exists():
+        return False
+    head = _read_head(repo_root, rel_path)
+    if head is None:
+        return False
+    disk = disk_path.read_text(encoding="utf-8")
+
+    def strip_version(text: str) -> str:
+        return re.sub(r'^version = "[^"]+"', "version = X", text, flags=re.MULTILINE)
+
+    return strip_version(disk) == strip_version(head)
+
+
 def evaluate(pyproject_changed: bool, dependencies_changed: bool) -> tuple[bool, str]:
     """Apply the dependency-gate rule. Return (passed, message)."""
     if not pyproject_changed:
@@ -73,8 +95,11 @@ def main(argv: list[str] | None = None) -> int:
 
     pyproject_changed = file_changed(PROJECT_ROOT, PYPROJECT_TOML)
     dependencies_changed = file_changed(PROJECT_ROOT, DEPENDENCIES_MD)
-
     passed, message = evaluate(pyproject_changed, dependencies_changed)
+    if not passed and version_only_change(PROJECT_ROOT, PYPROJECT_TOML):
+        passed = True
+        message = "pyproject.toml changed only in the version line"
+
     if passed:
         print(f"  Check passed: {message}")
     else:
