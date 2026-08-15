@@ -37,7 +37,7 @@ MANIFEST
 
 # uv
 .uv/
-uv.lock
+# uv.lock is tracked: it pins reproducible installs for app deploys.
 
 # PyInstaller
 *.manifest

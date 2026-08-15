@@ -98,25 +98,25 @@ def main() -> None:
     )
     if dry_run:
         print(f"  CHANGELOG: [Unreleased] -> [{version}] - {today}")
-        print(f"  CHANGELOG: inserted compare link {new_link}")
-    else:
-        changelog_path.write_text(changelog)
-        run(
-            [
-                "git",
-                "add",
-                "pyproject.toml",
-                "api/settings/common.py",
-                "Makefile",
-                "VERSION",
-                "uv.lock",
-                "CHANGELOG.md",
-            ]
-        )
-        run(["git", "commit", "-m", f"chore(release): Bump version to {version}"])
-        run(["git", "tag", f"v{version}"])
-        run(["git", "push", "origin", "main", "--tags"])
-        print(f"Released v{version}")
+        return
+    changelog_path.write_text(changelog)
+    # uv.lock is tracked (reproducible installs), so bump it too.
+    run(
+        [
+            "git",
+            "add",
+            "pyproject.toml",
+            "api/settings/common.py",
+            "Makefile",
+            "VERSION",
+            "CHANGELOG.md",
+            "uv.lock",
+        ]
+    )
+    run(["git", "commit", "-m", f"chore(release): Bump version to {version}"])
+    run(["git", "tag", f"v{version}"])
+    run(["git", "push", "origin", "main", "--tags"])
+    print(f"Released v{version}")
 
 
 if __name__ == "__main__":
