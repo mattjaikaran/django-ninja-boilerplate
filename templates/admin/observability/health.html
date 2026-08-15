@@ -1,0 +1,61 @@
+{% extends "unfold/layouts/base.html" %}
+{% load static %}
+
+{% block extrastyle %}
+  <link rel="stylesheet" href="{% static 'observability/observability.css' %}">
+{% endblock %}
+
+{% block content %}
+  <div class="flex flex-col gap-6">
+    {# ── Overall status banner ───────────────────────────────────── #}
+    <div class="flex items-center gap-4 p-6 rounded-default border shadow-xs obs-banner obs-banner--{{ overall_status }}">
+      <span class="material-symbols-outlined text-4xl obs-banner-icon obs-banner-icon--{{ overall_status }}">monitor_heart</span>
+      <div class="min-w-0">
+        <h2 class="text-xl font-semibold text-important">Overall: {{ overall_status }}</h2>
+        <p class="text-sm text-base-500 mt-1 dark:text-base-400">
+          Version {{ version|default:"unknown" }} &middot; {{ environment|default:"unknown" }} environment &middot; {{ checks|length }} checks
+        </p>
+      </div>
+      <a href="{% url 'health_admin' %}" class="ml-auto shrink-0 inline-flex items-center gap-2 px-3 py-1 bg-white border border-base-200 hover:bg-base-100 rounded text-sm text-base-700 transition-colors dark:bg-base-900 dark:hover:bg-base-800 dark:border-base-800 dark:text-base-300">
+        <span class="material-symbols-outlined text-base">refresh</span>
+        Re-run checks
+      </a>
+    </div>
+
+    {# ── Per-check cards ─────────────────────────────────────────── #}
+    <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+      {% for check in checks %}
+        <div class="bg-white border border-base-200 p-6 rounded-default shadow-xs dark:bg-base-900 dark:border-base-800">
+          <div class="flex items-center justify-between gap-2 mb-2">
+            <h3 class="font-medium text-important">{{ check.name }}</h3>
+            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium obs-chip obs-chip--{{ check.status }}">
+              <span class="material-symbols-outlined text-sm">
+                {% if check.status == 'healthy' %}check_circle
+                {% elif check.status == 'degraded' %}warning
+                {% elif check.status == 'unhealthy' %}error
+                {% else %}help{% endif %}
+              </span>
+              {{ check.status }}
+            </span>
+          </div>
+          <p class="text-sm text-base-500 dark:text-base-400">{{ check.message }}</p>
+          {% if check.response_time_ms is not None %}
+            <p class="text-xs text-base-400 mt-1">{{ check.response_time_ms }} ms</p>
+          {% endif %}
+          {% if check.details %}
+            <dl class="mt-3 pt-3 border-t border-base-100 space-y-1 dark:border-base-800">
+              {% for key, value in check.details.items %}
+                <div class="flex justify-between gap-2 text-xs">
+                  <dt class="text-base-400 shrink-0">{{ key }}</dt>
+                  <dd class="text-base-600 text-right break-all dark:text-base-300">{{ value }}</dd>
+                </div>
+              {% endfor %}
+            </dl>
+          {% endif %}
+        </div>
+      {% empty %}
+        <p class="text-sm text-base-400">No health checks registered.</p>
+      {% endfor %}
+    </div>
+  </div>
+{% endblock %}

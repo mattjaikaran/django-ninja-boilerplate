@@ -86,6 +86,8 @@ class DetailedHealthChecker:
         self.register_check("database", self._check_database)
         self.register_check("cache", self._check_cache)
         self.register_check("redis", self._check_redis)
+        if getattr(settings, "TASK_BACKEND", "celery") == "celery":
+            self.register_check("celery", check_celery)
 
     def register_check(
         self,

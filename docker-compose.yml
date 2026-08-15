@@ -30,7 +30,7 @@ services:
       # Performance tuning for development
       - POSTGRES_INITDB_ARGS=--encoding=UTF-8
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT:-5432}:5432"
     networks:
       - app-network
     healthcheck:
@@ -52,7 +52,7 @@ services:
   valkey:
     image: valkey/valkey:8-alpine
     ports:
-      - "6379:6379"
+      - "${VALKEY_PORT:-6379}:6379"
     volumes:
       - valkey_data:/data
     command: >
@@ -108,19 +108,25 @@ services:
       - DB_NAME=${DB_NAME:-boilerplate_db}
       - DB_USER=${DB_USER:-postgres}
       - DB_PASSWORD=${DB_PASSWORD:-postgres}
-      - DB_HOST=${DB_HOST:-db}
+      - DB_HOST=db
       - DB_PORT=${DB_PORT:-5432}
-      - VALKEY_URL=${VALKEY_URL:-valkey://valkey:6379/0}
-      - REDIS_URL=${REDIS_URL:-valkey://valkey:6379/0}
+      - VALKEY_URL=valkey://valkey:6379/0
+      - REDIS_URL=valkey://valkey:6379/0
+      # Celery broker/result backend: kombu has no "valkey" transport,
+      # so use the redis scheme against the Valkey server (wire-compatible)
+      - CELERY_BROKER_URL=redis://valkey:6379/0
+      - CELERY_RESULT_BACKEND=redis://valkey:6379/0
+      - FLOWER_URL=${FLOWER_URL:-}
+      - UV_PROJECT_ENVIRONMENT=/opt/venv
       - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
       - ALLOWED_HOSTS=${ALLOWED_HOSTS:-localhost,127.0.0.1,0.0.0.0,django}
       # Centrifugo settings
-      - CENTRIFUGO_URL=${CENTRIFUGO_URL:-http://centrifugo:8000}
+      - CENTRIFUGO_URL=http://centrifugo:8000
       - CENTRIFUGO_API_KEY=${CENTRIFUGO_API_KEY:-}
       - CENTRIFUGO_TOKEN_SECRET=${CENTRIFUGO_TOKEN_SECRET:-}
       # Observability settings
       - OTEL_SERVICE_NAME=${OTEL_SERVICE_NAME:-django-ninja-app}
-      - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT:-http://jaeger:4317}
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4317
       - USE_STRUCTURED_LOGGING=${USE_STRUCTURED_LOGGING:-false}
       # Python optimizations
       - PYTHONDONTWRITEBYTECODE=1
@@ -199,10 +205,13 @@ services:
       - DB_NAME=${DB_NAME:-boilerplate_db}
       - DB_USER=${DB_USER:-postgres}
       - DB_PASSWORD=${DB_PASSWORD:-postgres}
-      - DB_HOST=${DB_HOST:-db}
+      - DB_HOST=db
       - DB_PORT=${DB_PORT:-5432}
-      - VALKEY_URL=${VALKEY_URL:-valkey://valkey:6379/0}
-      - REDIS_URL=${REDIS_URL:-valkey://valkey:6379/0}
+      - VALKEY_URL=valkey://valkey:6379/0
+      - REDIS_URL=valkey://valkey:6379/0
+      - CELERY_BROKER_URL=redis://valkey:6379/0
+      - CELERY_RESULT_BACKEND=redis://valkey:6379/0
+      - UV_PROJECT_ENVIRONMENT=/opt/venv
       - PYTHONDONTWRITEBYTECODE=1
       - PYTHONUNBUFFERED=1
     depends_on:
@@ -240,10 +249,13 @@ services:
       - DB_NAME=${DB_NAME:-boilerplate_db}
       - DB_USER=${DB_USER:-postgres}
       - DB_PASSWORD=${DB_PASSWORD:-postgres}
-      - DB_HOST=${DB_HOST:-db}
+      - DB_HOST=db
       - DB_PORT=${DB_PORT:-5432}
-      - VALKEY_URL=${VALKEY_URL:-valkey://valkey:6379/0}
-      - REDIS_URL=${REDIS_URL:-valkey://valkey:6379/0}
+      - VALKEY_URL=valkey://valkey:6379/0
+      - REDIS_URL=valkey://valkey:6379/0
+      - CELERY_BROKER_URL=redis://valkey:6379/0
+      - CELERY_RESULT_BACKEND=redis://valkey:6379/0
+      - UV_PROJECT_ENVIRONMENT=/opt/venv
       - PYTHONDONTWRITEBYTECODE=1
       - PYTHONUNBUFFERED=1
     depends_on:
@@ -283,9 +295,12 @@ services:
       - DB_NAME=${DB_NAME:-boilerplate_db}
       - DB_USER=${DB_USER:-postgres}
       - DB_PASSWORD=${DB_PASSWORD:-postgres}
-      - DB_HOST=${DB_HOST:-db}
+      - DB_HOST=db
       - DB_PORT=${DB_PORT:-5432}
-      - REDIS_URL=${REDIS_URL:-valkey://valkey:6379/0}
+      - REDIS_URL=valkey://valkey:6379/0
+      - CELERY_BROKER_URL=redis://valkey:6379/0
+      - CELERY_RESULT_BACKEND=redis://valkey:6379/0
+      - UV_PROJECT_ENVIRONMENT=/opt/venv
       - TASK_BACKEND=huey
       - PYTHONDONTWRITEBYTECODE=1
       - PYTHONUNBUFFERED=1
@@ -324,9 +339,12 @@ services:
       - DB_NAME=${DB_NAME:-boilerplate_db}
       - DB_USER=${DB_USER:-postgres}
       - DB_PASSWORD=${DB_PASSWORD:-postgres}
-      - DB_HOST=${DB_HOST:-db}
+      - DB_HOST=db
       - DB_PORT=${DB_PORT:-5432}
-      - REDIS_URL=${REDIS_URL:-valkey://valkey:6379/0}
+      - REDIS_URL=valkey://valkey:6379/0
+      - CELERY_BROKER_URL=redis://valkey:6379/0
+      - CELERY_RESULT_BACKEND=redis://valkey:6379/0
+      - UV_PROJECT_ENVIRONMENT=/opt/venv
       - TASK_BACKEND=django_q
       - PYTHONDONTWRITEBYTECODE=1
       - PYTHONUNBUFFERED=1
@@ -365,9 +383,12 @@ services:
       - DB_NAME=${DB_NAME:-boilerplate_db}
       - DB_USER=${DB_USER:-postgres}
       - DB_PASSWORD=${DB_PASSWORD:-postgres}
-      - DB_HOST=${DB_HOST:-db}
+      - DB_HOST=db
       - DB_PORT=${DB_PORT:-5432}
-      - REDIS_URL=${REDIS_URL:-valkey://valkey:6379/0}
+      - REDIS_URL=valkey://valkey:6379/0
+      - CELERY_BROKER_URL=redis://valkey:6379/0
+      - CELERY_RESULT_BACKEND=redis://valkey:6379/0
+      - UV_PROJECT_ENVIRONMENT=/opt/venv
       - TASK_BACKEND=django_rq
       - PYTHONDONTWRITEBYTECODE=1
       - PYTHONUNBUFFERED=1
@@ -437,14 +458,14 @@ services:
       context: .
       dockerfile: Dockerfile
       target: production
-    command: celery -A api flower --port=5555 --broker=${REDIS_URL:-valkey://valkey:6379/0}
+    command: celery -A api flower --port=5555 --broker=redis://valkey:6379/0
     ports:
       - "5555:5555"
     environment:
       - DJANGO_SETTINGS_MODULE=${DJANGO_SETTINGS_MODULE:-api.settings}
       - SECRET_KEY=${SECRET_KEY:?SECRET_KEY must be set}
-      - REDIS_URL=${REDIS_URL:-valkey://valkey:6379/0}
-      - FLOWER_BASIC_AUTH=${FLOWER_BASIC_AUTH:?FLOWER_BASIC_AUTH must be set (user:password)}
+      - REDIS_URL=redis://valkey:6379/0
+      - FLOWER_BASIC_AUTH=${FLOWER_BASIC_AUTH:-admin:password}
       - PYTHONDONTWRITEBYTECODE=1
       - PYTHONUNBUFFERED=1
     depends_on:

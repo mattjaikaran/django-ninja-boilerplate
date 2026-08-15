@@ -1,19 +1,19 @@
 {% extends "unfold/layouts/base.html" %}
 
-{% load i18n unfold %}
+{% load i18n %}
 
 {% block content %}
   {# ── Stats Cards ──────────────────────────────────────────────── #}
   {% if stats_cards %}
     <div class="grid grid-cols-1 gap-4 mb-8 md:grid-cols-2 lg:grid-cols-4">
       {% for card in stats_cards %}
-        <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6 shadow-sm">
+        <div class="bg-white border border-base-200 p-6 rounded-default shadow-xs dark:bg-base-900 dark:border-base-800">
           <div class="flex items-center justify-between mb-2">
-            <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400">{{ card.title }}</h3>
-            <span class="material-symbols-outlined text-{{ card.color }}-500 text-2xl">{{ card.icon }}</span>
+            <h3 class="text-sm font-medium text-base-500 dark:text-base-400">{{ card.title }}</h3>
+            <span class="material-symbols-outlined text-2xl text-{{ card.color }}-700 dark:text-{{ card.color }}-400">{{ card.icon }}</span>
           </div>
-          <p class="text-3xl font-bold text-gray-900 dark:text-white">{{ card.value }}</p>
-          <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">{{ card.description }}</p>
+          <p class="text-3xl font-bold text-important">{{ card.value }}</p>
+          <p class="text-xs text-base-400 mt-1 dark:text-base-500">{{ card.description }}</p>
         </div>
       {% endfor %}
     </div>
@@ -23,7 +23,7 @@
   {% if quick_links %}
     <div class="flex flex-wrap gap-2 mb-8">
       {% for link in quick_links %}
-        <a href="{{ link.url }}" class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg text-sm text-gray-700 dark:text-gray-200 transition-colors">
+        <a href="{{ link.url }}" class="inline-flex items-center gap-2 px-3 py-1 bg-base-100 hover:bg-base-200 rounded text-sm text-base-700 transition-colors dark:bg-base-800 dark:hover:bg-base-700 dark:text-base-300">
           <span class="material-symbols-outlined text-base">{{ link.icon }}</span>
           {{ link.title }}
         </a>
@@ -31,37 +31,35 @@
     </div>
   {% endif %}
 
-  {# ── Main Content (app list) ──────────────────────────────────── #}
-  <div class="grid grid-cols-1 gap-8 lg:grid-cols-3">
-    {# App list — left 2/3 #}
-    <div class="lg:col-span-2">
-      {{ block.super }}
+  {# ── Main Content: app list + recent activity ─────────────────── #}
+  <div class="flex flex-col gap-8 lg:flex-row lg:gap-8">
+    {# App list — left, grows #}
+    <div class="grow min-w-0">
+      {% include "unfold/helpers/app_list_default.html" with show_changelinks=True %}
     </div>
 
-    {# Recent Activity — right 1/3 #}
-    <div>
-      <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm">
-        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-          <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Recent Activity</h2>
-        </div>
-        <div class="divide-y divide-gray-200 dark:divide-gray-700">
-          {% if recent_activity %}
+    {# Recent Activity — right, fixed width #}
+    <div class="w-full lg:w-96 shrink-0">
+      <div class="bg-base-50 p-3 rounded-default dark:bg-base-800">
+        <h2 class="mb-3 font-semibold text-lg text-important">Recent Activity</h2>
+        {% if recent_activity %}
+          <ul class="actionlist">
             {% for entry in recent_activity %}
-              <div class="px-6 py-3">
-                <div class="flex items-center justify-between">
-                  <span class="text-sm font-medium text-gray-900 dark:text-white">{{ entry.user }}</span>
-                  <span class="text-xs text-gray-400">{{ entry.time }}</span>
+              <li class="bg-white border border-base-100 mb-3 p-3 rounded-default shadow-xs last:mb-0 dark:bg-base-900 dark:border-base-800">
+                <div class="flex items-center justify-between gap-2">
+                  <span class="font-medium text-sm text-important">{{ entry.user }}</span>
+                  <span class="text-xs text-base-400 ml-auto shrink-0">{{ entry.time }}</span>
                 </div>
-                <p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-                  <span class="inline-block px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 rounded text-xs font-mono mr-1">{{ entry.action }}</span>
-                  {{ entry.target }}
-                </p>
-              </div>
+                <div class="mt-2 overflow-hidden text-ellipsis whitespace-nowrap">
+                  <span class="inline-block px-2 py-1 bg-base-100 rounded text-xs mr-1 dark:bg-base-800">{{ entry.action }}</span>
+                  <span class="text-sm text-base-500 dark:text-base-400">{{ entry.target }}</span>
+                </div>
+              </li>
             {% endfor %}
-          {% else %}
-            <div class="px-6 py-4 text-sm text-gray-400">No recent activity.</div>
-          {% endif %}
-        </div>
+          </ul>
+        {% else %}
+          <p class="text-sm text-base-400">No recent activity.</p>
+        {% endif %}
       </div>
     </div>
   </div>

@@ -1,0 +1,110 @@
+{% extends "unfold/layouts/base.html" %}
+{% load static %}
+
+{% block extrastyle %}
+  <link rel="stylesheet" href="{% static 'observability/observability.css' %}">
+{% endblock %}
+
+{% block content %}
+  <div class="flex flex-col gap-6">
+    {# ── Summary cards ───────────────────────────────────────────── #}
+    <div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-5">
+      <div class="bg-white border border-base-200 p-6 rounded-default shadow-xs dark:bg-base-900 dark:border-base-800">
+        <h3 class="text-sm font-medium text-base-500 dark:text-base-400">Requests</h3>
+        <p class="text-3xl font-bold text-important mt-1">{{ summary.requests|default:"0" }}</p>
+      </div>
+      <div class="bg-white border border-base-200 p-6 rounded-default shadow-xs dark:bg-base-900 dark:border-base-800">
+        <h3 class="text-sm font-medium text-base-500 dark:text-base-400">Errors</h3>
+        <p class="text-3xl font-bold text-important mt-1">{{ summary.errors|default:"0" }}</p>
+      </div>
+      <div class="bg-white border border-base-200 p-6 rounded-default shadow-xs dark:bg-base-900 dark:border-base-800">
+        <h3 class="text-sm font-medium text-base-500 dark:text-base-400">DB queries</h3>
+        <p class="text-3xl font-bold text-important mt-1">{{ summary.db_queries|default:"0" }}</p>
+      </div>
+      <div class="bg-white border border-base-200 p-6 rounded-default shadow-xs dark:bg-base-900 dark:border-base-800">
+        <h3 class="text-sm font-medium text-base-500 dark:text-base-400">Cache hits</h3>
+        <p class="text-3xl font-bold text-important mt-1">{{ summary.cache_hits|default:"0" }}</p>
+      </div>
+      <div class="bg-white border border-base-200 p-6 rounded-default shadow-xs dark:bg-base-900 dark:border-base-800">
+        <h3 class="text-sm font-medium text-base-500 dark:text-base-400">Cache misses</h3>
+        <p class="text-3xl font-bold text-important mt-1">{{ summary.cache_misses|default:"0" }}</p>
+      </div>
+    </div>
+
+    <div class="flex items-center justify-between gap-4">
+      <h2 class="font-semibold text-lg text-important">Metrics</h2>
+      <a href="/api/metrics" target="_blank" rel="noopener"
+         class="inline-flex items-center gap-2 px-3 py-1 bg-base-100 hover:bg-base-200 rounded text-sm text-base-700 transition-colors dark:bg-base-800 dark:hover:bg-base-700 dark:text-base-300">
+        <span class="material-symbols-outlined text-base">open_in_new</span>
+        Open raw Prometheus output
+      </a>
+    </div>
+
+    {# ── Counters and gauges ─────────────────────────────────────── #}
+    {% for metric in simple_metrics %}
+      <div class="bg-white border border-base-200 rounded-default shadow-xs dark:bg-base-900 dark:border-base-800">
+        <div class="flex items-center gap-2 px-6 pt-5 pb-3">
+          <h3 class="font-mono text-sm font-semibold text-important">{{ metric.name }}</h3>
+          <span class="px-2 py-0.5 rounded-full text-xs font-medium obs-badge obs-badge--{{ metric.kind }}">{{ metric.kind }}</span>
+        </div>
+        <p class="px-6 pb-3 text-xs text-base-400">{{ metric.description }}</p>
+        {% if metric.samples %}
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="text-left text-xs text-base-400 border-t border-base-100 dark:border-base-800">
+                <th class="px-6 py-2 font-medium">Labels</th>
+                <th class="px-6 py-2 font-medium text-right">Value</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for sample in metric.samples %}
+                <tr class="border-t border-base-100 dark:border-base-800">
+                  <td class="px-6 py-2 font-mono text-xs text-base-500 dark:text-base-400">{{ sample.labels }}</td>
+                  <td class="px-6 py-2 font-mono text-right text-important">{{ sample.value }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        {% else %}
+          <p class="px-6 pb-5 text-xs text-base-400">No samples recorded yet.</p>
+        {% endif %}
+      </div>
+    {% endfor %}
+
+    {# ── Histograms ──────────────────────────────────────────────── #}
+    {% for histogram in histograms %}
+      <div class="bg-white border border-base-200 rounded-default shadow-xs dark:bg-base-900 dark:border-base-800">
+        <div class="px-6 pt-5 pb-3">
+          <h3 class="font-mono text-sm font-semibold text-important">{{ histogram.name }}</h3>
+          <p class="text-xs text-base-400 mt-1">{{ histogram.description }}</p>
+        </div>
+        {% if histogram.rows %}
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="text-left text-xs text-base-400 border-t border-base-100 dark:border-base-800">
+                <th class="px-6 py-2 font-medium">Labels</th>
+                <th class="px-6 py-2 font-medium text-right">Count</th>
+                <th class="px-6 py-2 font-medium text-right">Sum (s)</th>
+                <th class="px-6 py-2 font-medium text-right">Avg (ms)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in histogram.rows %}
+                <tr class="border-t border-base-100 dark:border-base-800">
+                  <td class="px-6 py-2 font-mono text-xs text-base-500 dark:text-base-400">{{ row.labels }}</td>
+                  <td class="px-6 py-2 font-mono text-right text-important">{{ row.count }}</td>
+                  <td class="px-6 py-2 font-mono text-right text-important">{{ row.sum }}</td>
+                  <td class="px-6 py-2 font-mono text-right text-important">
+                    {% if row.avg_ms is not None %}{{ row.avg_ms }}{% else %}&mdash;{% endif %}
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        {% else %}
+          <p class="px-6 pb-5 text-xs text-base-400">No samples recorded yet.</p>
+        {% endif %}
+      </div>
+    {% endfor %}
+  </div>
+{% endblock %}

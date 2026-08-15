@@ -356,6 +356,40 @@ class MetricsRegistry:
 
         return "\n".join(lines) + "\n"
 
+    def snapshot(self) -> dict[str, Any]:
+        """Collect all registered metrics for display.
+
+        Returns one list per metric type; each entry carries the name,
+        description, and raw samples so callers can render them without
+        reaching into the registry internals.
+        """
+        return {
+            "counters": [
+                {
+                    "name": name,
+                    "description": counter.description,
+                    "samples": counter.get_samples(),
+                }
+                for name, counter in self._counters.items()
+            ],
+            "gauges": [
+                {
+                    "name": name,
+                    "description": gauge.description,
+                    "samples": gauge.get_samples(),
+                }
+                for name, gauge in self._gauges.items()
+            ],
+            "histograms": [
+                {
+                    "name": name,
+                    "description": histogram.description,
+                    "samples": histogram.get_samples(),
+                }
+                for name, histogram in self._histograms.items()
+            ],
+        }
+
     def _format_labels(self, labels: dict[str, str]) -> str:
         """Format labels for Prometheus exposition."""
         if not labels:

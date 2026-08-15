@@ -1,3 +1,4 @@
+# file-length-max: 730
 """Django settings for api project - Common settings.
 
 This module contains settings that are common across all environments.
@@ -97,6 +98,7 @@ INSTALLED_APPS = [
     #####
     "core",  # core app
     "todos",  # todos app
+    "atlas",  # codebase atlas (interactive architecture map in admin)
     # Optional apps — uncomment to enable:
     # "files",  # files app (S3 presigned upload)
     # "webhooks",  # outbound webhooks
@@ -335,7 +337,7 @@ REDIS_URL = env("REDIS_URL", default=VALKEY_URL)
 if CACHE_BACKEND_TYPE == "vcache":
     CACHES = {
         "default": {
-            "BACKEND": "django_vcache.VCache",
+            "BACKEND": "django_vcache.backend.ValkeyCache",
             "LOCATION": VALKEY_URL,
             "KEY_PREFIX": "boilerplate",
         }
@@ -379,6 +381,11 @@ CELERY_TIMEZONE = TIME_ZONE
 CELERY_TASK_TRACK_STARTED = True
 CELERY_TASK_TIME_LIMIT = 30 * 60  # 30 minutes
 CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
+
+# Flower (Celery monitoring UI) — set FLOWER_URL to expose the Flower
+# dashboard link in the admin sidebar and dashboard quick links.
+FLOWER_URL = env("FLOWER_URL", default="")
+os.environ.setdefault("FLOWER_URL", FLOWER_URL)
 
 # =============================================================================
 # Pluggable Task Backend
@@ -532,6 +539,21 @@ ADMIN_INDEX_TITLE = env(
 )
 ADMIN_SITE_URL = "/api/docs"
 ADMIN_VIEW_SITE_NAME = "View Docs"
+
+# =============================================================================
+# Codebase Atlas Configuration
+# =============================================================================
+# Interactive isometric architecture map rendered in the admin panel at
+# /admin/atlas/. Set ATLAS_ENABLED=False to disable the page and its URLs.
+# The data file caches a scan of the codebase; use the admin Regenerate
+# button or `python manage.py atlas` to refresh it.
+ATLAS_ENABLED = env.bool("ATLAS_ENABLED", default=True)
+ATLAS_DATA_PATH = env("ATLAS_DATA_PATH", default=str(BASE_DIR / "atlas-data.json"))
+ATLAS_CACHE_TTL = env.int("ATLAS_CACHE_TTL", default=3600)
+# Mine the audit log for masked real request bodies as data packets
+ATLAS_REAL_SAMPLES = env.bool("ATLAS_REAL_SAMPLES", default=True)
+# Optional per-app prose metadata; apps can also ship an atlas.py module
+ATLAS_METADATA: dict = {}
 
 # =============================================================================
 # Audit Logging Configuration
@@ -703,3 +725,4 @@ if USE_STRUCTURED_LOGGING:
 
 
 # ── Django Unfold Admin Configuration ──────────────────────────────────
+from .unfold import UNFOLD  # noqa: F401 (re-exported into settings)

@@ -19,6 +19,12 @@ class AuditLogAdmin(ModelAdmin):
     Supports filtering, searching, and exporting audit data.
     """
 
+    autocomplete_fields = ["user"]
+    search_help_text = (
+        "Search by user email, model, object ID, IP address, request "
+        "path, or request ID."
+    )
+
     list_display = [
         "timestamp",
         "action_badge",

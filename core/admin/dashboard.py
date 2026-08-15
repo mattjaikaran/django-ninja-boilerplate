@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from datetime import timedelta
 
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 
@@ -54,21 +55,21 @@ def dashboard_callback(request, context):
             "value": active_users,
             "description": f"{staff_users} staff members",
             "icon": "person_check",
-            "color": "success",
+            "color": "green",
         },
         {
             "title": "New Users (30d)",
             "value": new_users_month,
             "description": f"{new_users_week} this week",
             "icon": "person_add",
-            "color": "info",
+            "color": "blue",
         },
         {
             "title": "Audit Events (7d)",
             "value": recent_audit_count,
             "description": f"{total_audit_count} total",
             "icon": "history",
-            "color": "warning",
+            "color": "orange",
         },
     ]
 
@@ -79,17 +80,29 @@ def dashboard_callback(request, context):
     context["quick_links"] = [
         {
             "title": "Health Check",
-            "url": "/api/health/detailed",
+            "url": "/admin/observability/health/",
             "icon": "monitor_heart",
         },
-        {"title": "API Metrics", "url": "/api/metrics", "icon": "bar_chart"},
+        {
+            "title": "API Metrics",
+            "url": "/admin/observability/metrics/",
+            "icon": "bar_chart",
+        },
         {"title": "API Docs", "url": "/api/docs", "icon": "description"},
         {
-            "title": "Flower Tasks",
-            "url": "http://localhost:5555",
-            "icon": "local_shipping",
+            "title": "Codebase Atlas",
+            "url": "/admin/atlas/",
+            "icon": "map",
         },
     ]
+    if getattr(settings, "FLOWER_URL", ""):
+        context["quick_links"].append(
+            {
+                "title": "Flower Tasks",
+                "url": settings.FLOWER_URL,
+                "icon": "local_shipping",
+            }
+        )
 
     return context
 

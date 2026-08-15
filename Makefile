@@ -1,6 +1,6 @@
 # Makefile for Django Ninja Boilerplate with UV Package Management
 
-.PHONY: help build up down logs shell migrate createsuperuser test lint format clean install sync doctor quickstart quickstart-minimal quickstart-local quickstart-ci test-contract test-contract-full local-test-contract test-load test-load-quick test-load-moderate test-load-heavy test-load-stress test-load-custom test-all test-ci
+.PHONY: help build up down logs shell migrate createsuperuser test lint format clean install sync doctor quickstart quickstart-minimal quickstart-local quickstart-ci test-contract test-contract-full local-test-contract test-load test-load-quick test-load-moderate test-load-heavy test-load-stress test-load-custom test-all test-ci release
 
 # Variables
 DOCKER_COMPOSE = docker-compose
@@ -21,38 +21,41 @@ help: ## Show this help message
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
 
 # Development commands
-build: ## Build the Docker images
-	$(DOCKER_COMPOSE) build
+ALL_PROFILES = --profile celery --profile monitoring --profile realtime
 
-up: ## Start the development environment
+build: ## Build all Docker images (including profiled services)
+	$(DOCKER_COMPOSE) $(ALL_PROFILES) build
+
+up: ## Start the core stack (db, valkey, django)
 	$(DOCKER_COMPOSE) up -d
 
-up-build: ## Build and start the development environment
+up-build: ## Build all images and start the core stack
+	$(DOCKER_COMPOSE) $(ALL_PROFILES) build
 	$(DOCKER_COMPOSE) up -d --build
 
-up-celery: ## Start with Celery workers (db, redis, django, celery-worker, celery-beat)
+up-celery: ## Start core + Celery workers (celery-worker, celery-beat)
 	$(DOCKER_COMPOSE) --profile celery up -d
 
-up-monitoring: ## Start with monitoring tools (includes Flower)
+up-monitoring: ## Start core + monitoring tools (jaeger, flower)
 	$(DOCKER_COMPOSE) --profile monitoring up -d
 
-up-realtime: ## Start with Centrifugo real-time server
+up-realtime: ## Start core + Centrifugo real-time server
 	$(DOCKER_COMPOSE) --profile realtime up -d
 
-up-full: ## Start all services including Celery, monitoring, and realtime
-	$(DOCKER_COMPOSE) --profile celery --profile monitoring --profile realtime up -d
+up-full: ## Start everything (all services)
+	$(DOCKER_COMPOSE) $(ALL_PROFILES) up -d
 
-down: ## Stop the development environment
-	$(DOCKER_COMPOSE) down
+down: ## Stop all services
+	$(DOCKER_COMPOSE) $(ALL_PROFILES) down
 
-down-full: ## Stop all services including profiled services
-	$(DOCKER_COMPOSE) --profile celery --profile monitoring --profile realtime down
+down-full: ## Alias for `make down` (stop everything)
+	$(DOCKER_COMPOSE) $(ALL_PROFILES) down
 
-down-volumes: ## Stop the development environment and remove volumes
-	$(DOCKER_COMPOSE) down -v
+down-volumes: ## Stop all services and remove volumes
+	$(DOCKER_COMPOSE) $(ALL_PROFILES) down -v
 
 logs: ## Show logs for all services
-	$(DOCKER_COMPOSE) logs -f
+	$(DOCKER_COMPOSE) $(ALL_PROFILES) logs -f
 
 logs-django: ## Show logs for the django service
 	$(DOCKER_COMPOSE) logs -f $(DJANGO_SERVICE)
@@ -432,6 +435,13 @@ startapp: ## Create a new Django app with extended structure (usage: make starta
 generate-feature: ## Generate a feature module (usage: make generate-feature FEATURE=payments PROVIDER=stripe)
 	$(DOCKER_COMPOSE) exec $(DJANGO_SERVICE) $(UV) run python manage.py generate_feature $(FEATURE) $(if $(PROVIDER),--provider $(PROVIDER),) $(if $(PLATFORM),--platform-type $(PLATFORM),)
 
+# Codebase atlas
+atlas: ## Regenerate the codebase atlas data file
+	$(DOCKER_COMPOSE) exec $(DJANGO_SERVICE) $(UV) run python manage.py atlas
+
+local-atlas: ## Regenerate the atlas data file locally (no Docker)
+	$(UV) run python manage.py atlas
+
 # Data generation
 generate-data: ## Generate sample data for development
 	$(DOCKER_COMPOSE) exec $(DJANGO_SERVICE) $(UV) run python manage.py generate_core_data
@@ -442,6 +452,22 @@ generate-todos: ## Generate sample todo data
 # Security commands
 security-check: ## Run security checks
 	$(DOCKER_COMPOSE) exec $(DJANGO_SERVICE) $(UV) run python manage.py check --deploy
+
+# deepsec agent-powered security scan (see docs/DEEPSEC.md)
+deepsec-init: ## Initialize deepsec in this repo (interactive, picks model + budget)
+	npx deepsec init
+
+deepsec-scan: ## Fast pattern scan for vulnerability candidates (no AI)
+	npx deepsec scan
+
+deepsec-review: ## AI review of vulnerability candidates (needs .deepsec initialized)
+	npx deepsec process
+
+deepsec-report: ## Export findings as markdown into ./findings
+	npx deepsec export --format md-dir --out ./findings
+
+deepsec-revalidate: ## Re-check existing findings against git history
+	npx deepsec revalidate
 
 # Export/Import commands
 export-data: ## Export all data to fixtures (usage: make export-data APP=core)
@@ -858,3 +884,6 @@ version: ## Show version information
 	@echo "UV: $$(uv --version 2>&1)"
 	@echo "Docker: $$(docker --version 2>&1)"
 	@echo "Docker Compose: $$(docker compose version 2>&1)"
+
+release: ## Bump version, update changelog, tag, and push (VERSION=1.2.3 optional)
+	$(UV) run python scripts/release.py $(VERSION)

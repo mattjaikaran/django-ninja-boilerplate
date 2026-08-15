@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **Codebase Atlas** (`atlas/` app) — interactive isometric architecture map in the Unfold admin at `/admin/atlas/`. Blocks sized by real LOC per app, animated data-flow dots on edges, clickable data packets (request/response samples from the live OpenAPI schema plus masked audit-log bodies), drill-down into app components, and a playable request-flow trace. Generator: `python manage.py atlas` (or `make atlas`). Opt-in config via `ATLAS_ENABLED`, `ATLAS_DATA_PATH`, `ATLAS_CACHE_TTL`, `ATLAS_REAL_SAMPLES`; per-app prose via `atlas.py` modules (see `core/atlas.py`, `todos/atlas.py`) or `ATLAS_METADATA`. Staff-only, CSP-safe (static JS/CSS + same-origin JSON endpoint).
+- **deepsec security scanning** (`docs/DEEPSEC.md`) — Makefile targets `deepsec-init`, `deepsec-scan`, `deepsec-review`, `deepsec-report`, `deepsec-revalidate` for the agent-powered [deepsec](https://github.com/vercel-labs/deepsec) vulnerability scanner, plus a CI workflow example.
+- **Observability admin pages** — Health Check and Metrics now render as Unfold-styled staff pages at `/admin/observability/health/` and `/admin/observability/metrics/` instead of raw JSON/plain-text endpoints. The `/api/health/detailed` and `/api/metrics` endpoints stay unchanged for dashboards and Prometheus scrapers. The sidebar and dashboard quick links point at the new pages; the Flower (Celery) link appears only when `FLOWER_URL` is configured.
+- **Celery worker health check** — the health page and `/api/health/detailed` now include a `celery` check (registered only when `TASK_BACKEND=celery`) that reports worker availability.
+- **Release automation** (`scripts/release.py`, `make release`) — bumps the version across `pyproject.toml`, `api/settings/common.py`, the Makefile banner, and `VERSION`; retitles the CHANGELOG `[Unreleased]` section and inserts the compare link; syncs `uv.lock`; then commits, tags `vX.Y.Z`, and pushes. Default bumps the patch version; `make release VERSION=1.11.0` sets it explicitly; `--dry-run` previews the changes.
+
+### Fixed
+- `api/settings/common.py`: vcache cache backend path corrected to `django_vcache.backend.ValkeyCache` (the default `vcache` config crashed on any cache access with django-vcache 2.3.0).
+- `docker-compose.yml`: `FLOWER_BASIC_AUTH` no longer uses required-var syntax, so `make up` works without the variable set; it defaults to `admin:password`.
+- `Makefile`: deepsec targets renamed to `deepsec-*` to stop overriding the existing bandit `security-scan` target.
+- `Makefile`: `make up` starts the core stack (db, valkey, django); `make up-full` starts everything. `build`, `down`, and `logs` cover all compose profiles.
+- `docker-compose.yml`: container-to-container addresses (`DB_HOST`, `VALKEY_URL`, `REDIS_URL`, `CENTRIFUGO_URL`, OTEL endpoint, flower broker) are now fixed to compose service names. They were interpolated from `.env`, so a local-dev `DB_HOST=localhost` leaked into the containers and the django service could not reach Postgres.
+- `docker-compose.yml`: Celery broker and result backend now use the `redis://` scheme (`redis://valkey:6379/0`). kombu has no `valkey://` transport, so flower and the celery workers failed with "No such transport: valkey". Host ports for postgres and valkey are configurable via `POSTGRES_PORT` / `VALKEY_PORT` to avoid clashes with local services.
+- `core/admin/user_admin.py`: the user change form crashed with "'date_joined' cannot be specified ... non-editable field" because the custom `User` model marks `date_joined`/`updated_at` as `auto_now` and Django 5.2's base `UserAdmin` no longer declares `readonly_fields`. The admin now declares `readonly_fields` and explicit `fieldsets`/`add_fieldsets` that cover the custom profile, status, and preference fields.
+- `templates/admin/observability/`: the Health and Metrics pages kept light status colors in dark mode because django-unfold's compiled CSS does not ship most `bg-*`/`dark:bg-*` shades. Status tints and kind badges now come from `core/static/observability/observability.css` with explicit `.dark` overrides.
+- `atlas/static/atlas/atlas-scene.js`: the map fit now pads for the top edge labels and caps zoom at 1.3, so the top text stays visible on load instead of being clipped.
+
+### Changed
+- `core/audit/admin.py`: the AuditLog change form now autocompletes the user relation (`autocomplete_fields`) and the changelist shows a search help text.
+
 ## [1.10.0] - 2026-08-12
 
 ### Added

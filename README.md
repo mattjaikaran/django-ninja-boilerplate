@@ -319,11 +319,11 @@ make setup-env           # Create .env from template
 
 ```bash
 make up                  # Start core services (db, valkey, django)
-make up-celery           # Start with Celery workers
-make up-realtime         # Start with Centrifugo real-time server
-make up-monitoring       # Start with Flower dashboard
-make up-full             # Start all services
-make down                # Stop environment
+make up-full             # Start everything (core + celery, monitoring, realtime)
+make up-celery           # Start core + Celery workers
+make up-realtime         # Start core + Centrifugo real-time server
+make up-monitoring       # Start core + Flower dashboard
+make down                # Stop environment (all services)
 make logs                # View logs
 make shell               # Django shell
 make migrate             # Run migrations

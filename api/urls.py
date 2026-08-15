@@ -8,6 +8,7 @@ from ninja_jwt.controller import NinjaJWTDefaultController
 from api.healthcheck import HealthCheckController
 from api.parsers import ORJSONParser
 from api.renderers import ORJSONRenderer
+from atlas.views import atlas_admin_view, atlas_data_view, atlas_regenerate_view
 
 # Optional app imports — uncomment to enable:
 # from billing.controllers import BillingController, StripeWebhookController
@@ -22,6 +23,7 @@ from core.controllers import (
     TaskSchedulerController,
     UserController,
 )
+from core.observability.admin_views import health_admin_view, metrics_admin_view
 from core.observability.controllers import EnhancedHealthController, MetricsController
 from core.sse.views import sse_endpoint
 
@@ -103,6 +105,13 @@ api.register_controllers(
 
 # add the urls to the urlpatterns
 urlpatterns = [
+    # Codebase atlas admin pages (must precede the admin catch-all)
+    path("admin/atlas/data.json", atlas_data_view, name="atlas_data"),
+    path("admin/atlas/regenerate/", atlas_regenerate_view, name="atlas_regenerate"),
+    path("admin/atlas/", atlas_admin_view, name="atlas_admin"),
+    # Observability admin pages (must precede the admin catch-all)
+    path("admin/observability/health/", health_admin_view, name="health_admin"),
+    path("admin/observability/metrics/", metrics_admin_view, name="metrics_admin"),
     path("admin/", admin.site.urls),
     path("api/", api.urls),
     # SSE streaming endpoint (outside Ninja so it can use StreamingHttpResponse)

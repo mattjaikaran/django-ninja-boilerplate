@@ -1,0 +1,138 @@
+/* Observability admin pages — status colors for light and dark mode.
+   django-unfold ships a limited Tailwind utility subset, so the status
+   tints (red/green/amber) live here instead of utility classes.
+   Dark mode is class-based: selectors are prefixed with `.dark`. */
+
+/* ── Health status banner ────────────────────────────────────────── */
+
+.obs-banner--healthy {
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+}
+
+.dark .obs-banner--healthy {
+  background: #052e16;
+  border-color: #166534;
+}
+
+.obs-banner--degraded {
+  background: #fffbeb;
+  border-color: #fde68a;
+}
+
+.dark .obs-banner--degraded {
+  background: #451a03;
+  border-color: #92400e;
+}
+
+.obs-banner--unhealthy {
+  background: #fef2f2;
+  border-color: #fecaca;
+}
+
+.dark .obs-banner--unhealthy {
+  background: #450a0a;
+  border-color: #991b1b;
+}
+
+.obs-banner--unknown {
+  background: var(--color-base-50, #f8fafc);
+  border-color: var(--color-base-200, #e2e8f0);
+}
+
+.dark .obs-banner--unknown {
+  background: var(--color-base-900, #0f172a);
+  border-color: var(--color-base-700, #334155);
+}
+
+.obs-banner-icon--healthy {
+  color: #16a34a;
+}
+
+.dark .obs-banner-icon--healthy {
+  color: #4ade80;
+}
+
+.obs-banner-icon--degraded {
+  color: #d97706;
+}
+
+.dark .obs-banner-icon--degraded {
+  color: #fbbf24;
+}
+
+.obs-banner-icon--unhealthy {
+  color: #dc2626;
+}
+
+.dark .obs-banner-icon--unhealthy {
+  color: #f87171;
+}
+
+.obs-banner-icon--unknown {
+  color: var(--color-base-400, #94a3b8);
+}
+
+/* ── Health status chips ─────────────────────────────────────────── */
+
+.obs-chip--healthy {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.dark .obs-chip--healthy {
+  background: #14532d;
+  color: #86efac;
+}
+
+.obs-chip--degraded {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.dark .obs-chip--degraded {
+  background: #78350f;
+  color: #fcd34d;
+}
+
+.obs-chip--unhealthy {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.dark .obs-chip--unhealthy {
+  background: #7f1d1d;
+  color: #fca5a5;
+}
+
+.obs-chip--unknown {
+  background: var(--color-base-100, #f1f5f9);
+  color: var(--color-base-500, #64748b);
+}
+
+.dark .obs-chip--unknown {
+  background: var(--color-base-800, #1e293b);
+  color: var(--color-base-400, #94a3b8);
+}
+
+/* ── Metric kind badges ──────────────────────────────────────────── */
+
+.obs-badge--counter {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.dark .obs-badge--counter {
+  background: #1e3a8a;
+  color: #93c5fd;
+}
+
+.obs-badge--gauge {
+  background: #f3e8ff;
+  color: #7e22ce;
+}
+
+.dark .obs-badge--gauge {
+  background: #581c87;
+  color: #d8b4fe;
+}
