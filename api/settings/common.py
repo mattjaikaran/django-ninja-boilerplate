@@ -394,6 +394,10 @@ CELERY_RESULT_SERIALIZER = "json"
 CELERY_TIMEZONE = TIME_ZONE
 CELERY_TASK_TRACK_STARTED = True
 CELERY_TASK_TIME_LIMIT = 30 * 60  # 30 minutes
+# django-celery-beat supplies the database scheduler and the admin pages for
+# periodic tasks. It must be installed here or its models do not exist and
+# `celery beat` fails to start.
+INSTALLED_APPS += ["django_celery_beat"]
 CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
 
 # Flower (Celery monitoring UI) — set FLOWER_URL to expose the Flower
