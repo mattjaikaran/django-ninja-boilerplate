@@ -13,12 +13,34 @@ without a matching entry here.
 
 ## Supported Django versions
 
-`Django>=5.2,<7.0`. Both **5.2 LTS** (the default) and **6.0** are supported and
-covered by CI; the whole suite passes on both (SQLite and PostgreSQL).
+`Django>=5.2,<7.0`. **5.2 LTS** (the default) and **6.0** are supported and
+covered by CI; the whole suite passes on both, on SQLite and PostgreSQL.
 
-Django 6 was previously impossible because `django-celery-beat` capped
-`Django<6.0`. Version **2.9.0** raised that cap to `<6.1`, so the project now
-requires `django-celery-beat>=2.9.0` and Django 6 resolves.
+### Django 6.1: measured, not supported
+
+Historic experiment, 2026-09: in a throwaway environment that omitted
+`django-celery-beat` and used a **temporary** build of `api/settings/common.py`
+that registered that app conditionally, the **PostgreSQL** suite passed 147
+tests on Django 6.1.1. That measurement does not describe this tree, and it was
+never a supported configuration: the conditional registration was reverted, so
+the shipped settings require the app in `INSTALLED_APPS` and a 6.1 environment
+without it fails at import. With the package present the install cannot resolve
+at all, because `django-celery-beat` 2.9.0 is the newest release and caps
+`Django<6.1`, while `CELERY_BEAT_SCHEDULER` names its database scheduler.
+Celery is the default task backend, so making the package optional would drop
+periodic tasks from a default install, which is worse than supporting the older
+Django.
+
+**A supported 6.1 install is therefore not possible today, and 6.1 stays out of
+the matrix.** Revisit when `django-celery-beat` ships a release allowing 6.1:
+add `"6.1"` to the matrix in `.github/workflows/ci.yml` and run the suite on
+both PostgreSQL and SQLite.
+
+### Django 6.0
+
+Previously impossible because `django-celery-beat` capped `Django<6.0`. Version
+**2.9.0** raised that cap to `<6.1`, so `django-celery-beat>=2.9.0` is required
+and Django 6.0 resolves.
 
 Several dependencies declare support for 5.2 but not yet for 6.0. They are
 **verified working on 6.0 by the test suite**, so nothing is excluded today:
@@ -28,10 +50,11 @@ Several dependencies declare support for 5.2 but not yet for 6.0. They are
 | `django-import-export` 4.x | 5.2 | Tested passing (5.0.0 adds declared 6.0 support) |
 | `django-storages`, `django-csp`, `django-ninja-jwt` | 5.2 | Tested passing |
 
-If a package ever genuinely breaks on Django 6, move it into an optional extra
-and guard its `INSTALLED_APPS` entry, then omit that extra on Django 6. PEP 508
-markers cannot key on another distribution's version, so per-version extras are
-the only mechanism for a true subset.
+## Supported Python versions
+
+**3.13** in CI. **3.14 is excluded** because `pydantic-core` 2.33.2 publishes no
+cp314 wheels, so the install builds it from source and fails on a runner with no
+Rust toolchain. Add 3.14 back once pydantic-core ships cp314 wheels.
 
 ## Base dependencies
 

@@ -45,9 +45,12 @@ dependencies = [
     "django-ninja>=1.5.3",
     "django-ninja-extra>=0.31.3",
     "django-ninja-jwt>=5.4.3",
-    # Task Queue (Celery)
+    # Task Queue (Celery). Required: Celery is the default TASK_BACKEND and
+    # CELERY_BEAT_SCHEDULER names django-celery-beat's database scheduler, so
+    # making it optional would silently drop periodic tasks from a default
+    # install. 2.9.0 is the newest release and caps Django at <6.1, which is
+    # why Django 6.1 is not a supported configuration (see DEPENDENCIES.md).
     "celery>=5.5.2",
-    # 2.9.0 is the first release that allows Django 6 (cap raised to <6.1).
     "django-celery-beat>=2.9.0",
     "redis>=7.4.0",
     "flower>=2.0.1",
