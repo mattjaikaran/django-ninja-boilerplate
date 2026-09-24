@@ -129,6 +129,12 @@ services:
       dockerfile: Dockerfile
       target: development
     entrypoint: ["/usr/local/bin/docker-entrypoint-dev.sh"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health/"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     command: >
       sh -c "python manage.py migrate &&
              python manage.py collectstatic --noinput &&
@@ -569,6 +575,10 @@ services:
     environment:
       - DJANGO_SETTINGS_MODULE=api.settings.dev
       - PYTHONPATH=/app
+      # Use the image virtualenv. Without this, `uv run` tries to create .venv
+      # inside the bind mount, which the app user cannot write, and the
+      # container exits.
+      - UV_PROJECT_ENVIRONMENT=/opt/venv
       - DATABASE_URL=postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@db:5432/${DB_NAME:-boilerplate_db}
       # Settings read the DB_* variables, not DATABASE_URL, so pin them: .env
       # holds the host values.
@@ -588,6 +598,14 @@ services:
         condition: service_healthy
     networks:
       - app-network
+    healthcheck:
+      # The image healthcheck probes port 8000; this server listens on 8001.
+      # SSE holds the connection open, so probe the port instead of a path.
+      test: ["CMD-SHELL", "nc -z 127.0.0.1 8001"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
 
   # Catches outgoing email in development.
   mailhog:
@@ -715,6 +733,8 @@ services:
       # api/settings/common.py. Without it the reused dev .env leaks
       # "development" into production.
       - ENVIRONMENT=production
+      # JSON logging: .env carries the development value, so pin it here.
+      - USE_STRUCTURED_LOGGING=true
       - DEBUG=0
       - SECRET_KEY=${SECRET_KEY}
       - DB_NAME=${DB_NAME}
@@ -787,6 +807,8 @@ services:
       # api/settings/common.py. Without it the reused dev .env leaks
       # "development" into production.
       - ENVIRONMENT=production
+      # JSON logging: .env carries the development value, so pin it here.
+      - USE_STRUCTURED_LOGGING=true
       - DEBUG=0
       - SECRET_KEY=${SECRET_KEY}
       - DB_NAME=${DB_NAME}
@@ -836,6 +858,8 @@ services:
       # api/settings/common.py. Without it the reused dev .env leaks
       # "development" into production.
       - ENVIRONMENT=production
+      # JSON logging: .env carries the development value, so pin it here.
+      - USE_STRUCTURED_LOGGING=true
       - DEBUG=0
       - SECRET_KEY=${SECRET_KEY}
       - DB_NAME=${DB_NAME}
@@ -881,7 +905,9 @@ services:
       - "8000"
     environment:
       # Must match the secret Django signs with; see the dev service above.
-      - CENTRIFUGO_TOKEN_HMAC_SECRET_KEY=${CENTRIFUGO_TOKEN_SECRET}
+      # Required: an empty hmac key would silently reject every client token
+      # while Django keeps signing with its own default.
+      - CENTRIFUGO_TOKEN_HMAC_SECRET_KEY=${CENTRIFUGO_TOKEN_SECRET:?CENTRIFUGO_TOKEN_SECRET must be set for realtime}
       - CENTRIFUGO_API_KEY=${CENTRIFUGO_API_KEY}
       - CENTRIFUGO_ADMIN=false
       - CENTRIFUGO_REDIS_ADDRESS=redis://valkey-prod:6379/1
@@ -990,6 +1016,8 @@ services:
       # production defaults baked into the image.
       - DJANGO_SETTINGS_MODULE=api.settings.prod
       - ENVIRONMENT=production
+      # JSON logging: .env carries the development value, so pin it here.
+      - USE_STRUCTURED_LOGGING=true
       - USE_TLS=${USE_TLS:-true}
       - DEBUG=0
       - SECRET_KEY=${SECRET_KEY}
