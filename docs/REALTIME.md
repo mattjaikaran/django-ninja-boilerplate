@@ -47,7 +47,7 @@ CENTRIFUGO_TOKEN_SECRET=your-secure-secret     # JWT signing secret
 CENTRIFUGO_TOKEN_TTL=3600                      # Token lifetime in seconds
 ```
 
-> **Important:** `CENTRIFUGO_TOKEN_SECRET` and `CENTRIFUGO_API_KEY` must match between Django settings and `deploy/centrifugo/config.json`. In Docker, they're passed as environment variables automatically.
+> **Important:** `CENTRIFUGO_TOKEN_SECRET` and `CENTRIFUGO_API_KEY` must reach the Centrifugo process with values that match Django's settings. Centrifugo does not expand `${...}` in its config file; it only reads environment variables whose names match its own config keys. Compose therefore sets `CENTRIFUGO_TOKEN_HMAC_SECRET_KEY` (which maps to `token_hmac_secret_key`) and `CENTRIFUGO_API_KEY`. `deploy/centrifugo/config.json` holds development defaults only.
 
 ### 3. Get a Connection Token
 
@@ -271,7 +271,7 @@ CENTRIFUGO_API_KEY=$(openssl rand -hex 32)
 CENTRIFUGO_TOKEN_SECRET=$(openssl rand -hex 32)
 ```
 
-Set these in your production `.env` and ensure `deploy/centrifugo/config.json` uses `${CENTRIFUGO_TOKEN_SECRET}` and `${CENTRIFUGO_API_KEY}` (Centrifugo expands env vars in its config).
+Set these in your production `.env`. Compose passes them to the `centrifugo-prod` service as `CENTRIFUGO_TOKEN_HMAC_SECRET_KEY` and `CENTRIFUGO_API_KEY`, which Centrifugo maps onto `token_hmac_secret_key` and `api_key`. Do not put `${...}` placeholders in `deploy/centrifugo/config.json`: Centrifugo does not expand them.
 
 ### Centrifugo Config: `deploy/centrifugo/config.json`
 
