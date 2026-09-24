@@ -93,6 +93,12 @@ Rust toolchain. Add 3.14 back once pydantic-core ships cp314 wheels.
 |---|---|---|
 | `typesafe-sdk` | `>=0.1.0` | Client for the hosted TypeSafe ("Jev") decision API. |
 
+### `dramatiq`
+
+| Package | Version | Why |
+|---|---|---|
+| `dramatiq[redis]` | `>=1.17.0` | Fifth task backend. The Redis extra lets its worker use the existing Valkey service. The task facade fails loud when the extra is absent. |
+
 The `decisions` app is registered in `INSTALLED_APPS` for every environment,
 but its controller is registered only when `ENABLE_DECISIONS` is true. Neither
 extra is required for the test suite, which runs against `FakeProvider`.

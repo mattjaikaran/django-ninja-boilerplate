@@ -31,7 +31,8 @@ COPY pyproject.toml uv.lock* README.md ./
 # Every task backend ships in the image so TASK_BACKEND can be switched
 # without rebuilding.
 RUN UV_PROJECT_ENVIRONMENT=/opt/venv uv sync --locked --no-dev \
-    --extra huey --extra django-q --extra django-rq --no-install-project
+    --extra huey --extra django-q --extra django-rq --extra dramatiq \
+    --no-install-project
 
 # Install the project itself. --no-deps keeps the locked set intact; the
 # application source is copied into /app in a later layer.
@@ -84,6 +85,7 @@ USER app
 # Collect static files. Importing settings needs these env vars; placeholders
 # are passed inline so they are not baked into the image.
 RUN SECRET_KEY=build-time-placeholder \
+    CENTRIFUGO_TOKEN_SECRET=build-time-placeholder \
     DB_NAME=build DB_USER=build DB_PASSWORD=build DB_HOST=build DB_PORT=5432 \
     python manage.py collectstatic --noinput
 

@@ -53,6 +53,7 @@ print("PROBE:" + json.dumps({
         getattr(settings, "CONTENT_SECURITY_POLICY_REPORT_ONLY", None)
     ),
     "session_cookie_age": getattr(settings, "SESSION_COOKIE_AGE", None),
+    "rq_queues": getattr(settings, "RQ_QUEUES", None),
 }))
 """
 
@@ -142,6 +143,17 @@ class TestDevelopmentSettings:
         # Django defaults SECURE_HSTS_SECONDS to 0, which disables HSTS.
         data = probe("api.settings.dev", ENVIRONMENT="development")
         assert data["hsts"] == 0
+
+    def test_normalizes_every_rq_queue_url(self):
+        data = probe(
+            "api.settings.dev",
+            ENVIRONMENT="development",
+            TASK_BACKEND="django_rq",
+            REDIS_URL="valkey://localhost:6380/0",
+        )
+        assert {queue["URL"] for queue in data["rq_queues"].values()} == {
+            "redis://localhost:6380/0"
+        }
 
     def test_test_module_imports(self):
         assert probe("api.settings.test")["module"] == "api.settings.test"

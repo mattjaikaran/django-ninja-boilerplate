@@ -36,6 +36,7 @@ env = environ.Env(
     CACHE_BACKEND=(str, "vcache"),
     # Task Queue
     TASK_BACKEND=(str, "celery"),
+    HUEY_IMMEDIATE=(bool, False),
     CELERY_BROKER_URL=(str, "valkey://valkey:6379/0"),
     CELERY_RESULT_BACKEND=(str, "valkey://valkey:6379/0"),
     # Superuser defaults
@@ -408,8 +409,9 @@ os.environ.setdefault("FLOWER_URL", FLOWER_URL)
 # =============================================================================
 # Pluggable Task Backend
 # =============================================================================
-# Options: celery (default), huey, django_q, django_rq
+# Options: celery (default), huey, django_q, django_rq, dramatiq
 TASK_BACKEND = env("TASK_BACKEND", default="celery")
+_TASK_REDIS_URL = REDIS_URL.replace("valkey://", "redis://", 1)
 
 # Huey configuration (when TASK_BACKEND=huey)
 if TASK_BACKEND == "huey":
@@ -417,8 +419,8 @@ if TASK_BACKEND == "huey":
     HUEY = {
         "huey_class": "huey.RedisHuey",
         "name": "boilerplate",
-        "url": REDIS_URL,
-        "immediate": DEBUG,
+        "url": _TASK_REDIS_URL,
+        "immediate": env("HUEY_IMMEDIATE", default=False),
         "consumer": {
             "workers": 4,
             "worker_type": "thread",
@@ -438,7 +440,7 @@ if TASK_BACKEND == "django_q":
         "queue_limit": 500,
         "cpu_affinity": 1,
         "label": "Django Q2",
-        "redis": REDIS_URL,
+        "redis": _TASK_REDIS_URL,
     }
 
 # django-rq configuration (when TASK_BACKEND=django_rq)
@@ -446,15 +448,15 @@ if TASK_BACKEND == "django_rq":
     INSTALLED_APPS += ["django_rq"]
     RQ_QUEUES = {
         "default": {
-            "URL": REDIS_URL,
+            "URL": _TASK_REDIS_URL,
             "DEFAULT_TIMEOUT": 360,
         },
         "high": {
-            "URL": REDIS_URL,
+            "URL": _TASK_REDIS_URL,
             "DEFAULT_TIMEOUT": 360,
         },
         "low": {
-            "URL": REDIS_URL,
+            "URL": _TASK_REDIS_URL,
             "DEFAULT_TIMEOUT": 360,
         },
     }

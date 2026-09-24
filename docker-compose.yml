@@ -52,6 +52,7 @@ services:
       - huey
       - django-q
       - django-rq
+      - dramatiq
       - mcp
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -92,6 +93,7 @@ services:
       - huey
       - django-q
       - django-rq
+      - dramatiq
       - realtime
       - monitoring
       - mcp
@@ -151,7 +153,7 @@ services:
       - /app/.pytest_cache
       - /app/.ruff_cache
     ports:
-      - "8000:8000"
+      - "${DJANGO_PORT:-8000}:8000"
     environment:
       - DJANGO_SETTINGS_MODULE=${DJANGO_SETTINGS_MODULE:-api.settings}
       - DEBUG=${DEBUG:-1}
@@ -166,6 +168,7 @@ services:
       # Celery broker/result backend: kombu has no "valkey" transport,
       # so use the redis scheme against the Valkey server (wire-compatible)
       - CELERY_BROKER_URL=redis://valkey:6379/0
+      - TASK_BACKEND=${TASK_BACKEND:-celery}
       - CELERY_RESULT_BACKEND=redis://valkey:6379/0
       - FLOWER_URL=${FLOWER_URL:-}
       - UV_PROJECT_ENVIRONMENT=/opt/venv
@@ -191,6 +194,11 @@ services:
       - app-network
     profiles:
       - dev
+      - celery
+      - huey
+      - django-q
+      - django-rq
+      - dramatiq
     deploy:
       resources:
         limits:
@@ -256,6 +264,8 @@ services:
       dockerfile: Dockerfile
       target: production
     command: celery -A api worker -l info --concurrency=2 --max-tasks-per-child=100
+    healthcheck:
+      disable: true
     volumes:
       - .:/app
       - /app/.venv
@@ -276,6 +286,8 @@ services:
       - PYTHONDONTWRITEBYTECODE=1
       - PYTHONUNBUFFERED=1
     depends_on:
+      django:
+        condition: service_healthy
       db:
         condition: service_healthy
       valkey:
@@ -302,6 +314,8 @@ services:
       dockerfile: Dockerfile
       target: production
     command: celery -A api beat -l info --scheduler django_celery_beat.schedulers:DatabaseScheduler
+    healthcheck:
+      disable: true
     volumes:
       - .:/app
       - /app/.venv
@@ -322,6 +336,8 @@ services:
       - PYTHONDONTWRITEBYTECODE=1
       - PYTHONUNBUFFERED=1
     depends_on:
+      django:
+        condition: service_healthy
       db:
         condition: service_healthy
       valkey:
@@ -350,6 +366,8 @@ services:
       dockerfile: Dockerfile
       target: production
     command: python manage.py run_huey
+    healthcheck:
+      disable: true
     volumes:
       - .:/app
       - /app/.venv
@@ -371,6 +389,8 @@ services:
       - PYTHONDONTWRITEBYTECODE=1
       - PYTHONUNBUFFERED=1
     depends_on:
+      django:
+        condition: service_healthy
       db:
         condition: service_healthy
       valkey:
@@ -396,6 +416,8 @@ services:
       dockerfile: Dockerfile
       target: production
     command: python manage.py qcluster
+    healthcheck:
+      disable: true
     volumes:
       - .:/app
       - /app/.venv
@@ -417,6 +439,8 @@ services:
       - PYTHONDONTWRITEBYTECODE=1
       - PYTHONUNBUFFERED=1
     depends_on:
+      django:
+        condition: service_healthy
       db:
         condition: service_healthy
       valkey:
@@ -442,6 +466,8 @@ services:
       dockerfile: Dockerfile
       target: production
     command: python manage.py rqworker default high low
+    healthcheck:
+      disable: true
     volumes:
       - .:/app
       - /app/.venv
@@ -463,6 +489,8 @@ services:
       - PYTHONDONTWRITEBYTECODE=1
       - PYTHONUNBUFFERED=1
     depends_on:
+      django:
+        condition: service_healthy
       db:
         condition: service_healthy
       valkey:
@@ -471,6 +499,56 @@ services:
       - app-network
     profiles:
       - django-rq
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+        reservations:
+          cpus: "0.25"
+          memory: 128M
+
+  # Dramatiq Worker (profile: dramatiq)
+  dramatiq-worker:
+    <<: *app-env
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    command: dramatiq api.tasks.dramatiq_worker --processes 1 --threads 4
+    healthcheck:
+      disable: true
+    volumes:
+      - .:/app
+      - /app/.venv
+    environment:
+      - DJANGO_SETTINGS_MODULE=${DJANGO_SETTINGS_MODULE:-api.settings}
+      - DEBUG=${DEBUG:-1}
+      - SECRET_KEY=${SECRET_KEY:?SECRET_KEY must be set}
+      - DB_NAME=${DB_NAME:-boilerplate_db}
+      - DB_USER=${DB_USER:-postgres}
+      - DB_PASSWORD=${DB_PASSWORD:-postgres}
+      - DB_HOST=db
+      - DB_PORT=${DB_PORT:-5432}
+      - VALKEY_URL=valkey://valkey:6379/0
+      - REDIS_URL=redis://valkey:6379/0
+      - CELERY_BROKER_URL=redis://valkey:6379/0
+      - CELERY_RESULT_BACKEND=redis://valkey:6379/0
+      - UV_PROJECT_ENVIRONMENT=/opt/venv
+      - TASK_BACKEND=dramatiq
+      - PYTHONDONTWRITEBYTECODE=1
+      - PYTHONUNBUFFERED=1
+    depends_on:
+      django:
+        condition: service_healthy
+      db:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
+    networks:
+      - app-network
+    profiles:
+      - dramatiq
     deploy:
       resources:
         limits:

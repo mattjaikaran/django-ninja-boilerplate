@@ -1,26 +1,30 @@
-"""Huey adapter for the backend-neutral task contract."""
+"""Dramatiq adapter for the backend-neutral task contract."""
 
 from __future__ import annotations
 
 from typing import Any
 
-from huey.contrib.djhuey import task as huey_task
+import dramatiq
+from django.conf import settings
+from dramatiq.brokers.redis import RedisBroker
 
 from api.tasks.contract import TaskHandle, execute_task, register_task, task_name
 
+_broker_url = settings.REDIS_URL.replace("valkey://", "redis://", 1)
+dramatiq.set_broker(RedisBroker(url=_broker_url))
 
-@huey_task(context=True)
+
+@dramatiq.actor(max_retries=0)
 def _execute(
     name: str,
     args: tuple[Any, ...],
     kwargs: dict[str, Any],
     attempt: int,
-    task=None,
-) -> Any:
-    return execute_task(name, args, kwargs, attempt)
+) -> None:
+    execute_task(name, args, kwargs, attempt)
 
 
-def huey_backend_task(
+def dramatiq_task(
     func,
     *,
     name: str | None = None,
@@ -28,10 +32,10 @@ def huey_backend_task(
     max_retries: int = 3,
     **options: Any,
 ) -> TaskHandle:
-    """Wrap a function as a Huey task with the uniform contract."""
+    """Wrap a function as a Dramatiq task with the uniform contract."""
     if options:
         unknown = ", ".join(sorted(options))
-        raise TypeError(f"Unsupported Huey task options: {unknown}")
+        raise TypeError(f"Unsupported Dramatiq task options: {unknown}")
 
     resolved_name = task_name(func, name)
 
@@ -41,10 +45,10 @@ def huey_backend_task(
         countdown: float,
         attempt: int,
     ) -> Any:
-        call_args = (resolved_name, args, kwargs, attempt)
-        if countdown > 0:
-            return _execute.schedule(args=call_args, delay=countdown)
-        return _execute(*call_args)
+        return _execute.send_with_options(
+            args=(resolved_name, args, kwargs, attempt),
+            delay=int(countdown * 1000) if countdown > 0 else None,
+        )
 
     return register_task(
         TaskHandle(
@@ -57,4 +61,4 @@ def huey_backend_task(
     )
 
 
-__all__ = ["huey_backend_task"]
+__all__ = ["dramatiq_task"]

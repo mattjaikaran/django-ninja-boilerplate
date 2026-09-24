@@ -1198,6 +1198,9 @@ django-rq = [
     { name = "django-rq" },
     { name = "rq" },
 ]
+dramatiq = [
+    { name = "dramatiq", extra = ["redis"] },
+]
 graphql = [
     { name = "strawberry-graphql", extra = ["django"] },
 ]
@@ -1263,6 +1266,7 @@ requires-dist = [
     { name = "django-valkey", specifier = ">=0.4.1" },
     { name = "django-vcache", specifier = ">=0.1.0" },
     { name = "dnspython", specifier = ">=2.6.1" },
+    { name = "dramatiq", extras = ["redis"], marker = "extra == 'dramatiq'", specifier = ">=1.17.0" },
     { name = "email-validator", specifier = ">=2.1.1" },
     { name = "factory-boy", marker = "extra == 'dev'", specifier = ">=3.3.3" },
     { name = "faker", marker = "extra == 'dev'", specifier = ">=30.1.0" },
@@ -1325,7 +1329,7 @@ requires-dist = [
     { name = "urllib3", specifier = ">=2.2.2" },
     { name = "uvloop", specifier = ">=0.22.1" },
 ]
-provides-extras = ["dev", "testing", "graphql", "observability", "huey", "django-q", "django-rq", "decisions-laya", "decisions-jev"]
+provides-extras = ["dev", "testing", "graphql", "observability", "huey", "django-q", "django-rq", "decisions-laya", "decisions-jev", "dramatiq"]
 
 [package.metadata.requires-dev]
 dev = [{ name = "pytest-timeout", specifier = ">=2.4.0" }]
@@ -1529,6 +1533,20 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/e0/4d/f332313098c1de1b2d2ff91cf2674415cc7cddab2ca1b01ae29774bd5fdf/docstring_parser-0.18.0.tar.gz", hash = "sha256:292510982205c12b1248696f44959db3cdd1740237a968ea1e2e7a900eeb2015", size = 29341, upload-time = "2026-04-14T04:09:19.867Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/a7/5f/ed01f9a3cdffbd5a008556fc7b2a08ddb1cc6ace7effa7340604b1d16699/docstring_parser-0.18.0-py3-none-any.whl", hash = "sha256:b3fcbed555c47d8479be0796ef7e19c2670d428d72e96da63f3a40122860374b", size = 22484, upload-time = "2026-04-14T04:09:18.638Z" },
+]
+
+[[package]]
+name = "dramatiq"
+version = "2.2.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/14/6d/d056a8ba251c216da054fc5db9ad7931bfb9ab28851e8b86acd770ce8867/dramatiq-2.2.1.tar.gz", hash = "sha256:f9fbbd2feea27b3fa4085446242a24d86f78288b20c78a93f9f0bdbd7d908cd5", size = 109994, upload-time = "2026-09-02T07:55:09.979Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/8c/13/0550ff585ade7b423e2ecaac29c4ab88673a58ae92ef25b6629089a2b92c/dramatiq-2.2.1-py3-none-any.whl", hash = "sha256:4e2466d07d5a1c4910b49944e5b45704c123b82325384e1319f6d08d94559c46", size = 127754, upload-time = "2026-09-02T07:55:08.423Z" },
+]
+
+[package.optional-dependencies]
+redis = [
+    { name = "redis" },
 ]
 
 [[package]]

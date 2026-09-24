@@ -102,7 +102,8 @@ COPY pyproject.toml uv.lock* README.md ./
 # Every task backend is installed so TASK_BACKEND can be switched without a
 # rebuild: celery is in the base dependencies, the rest are extras.
 RUN UV_PROJECT_ENVIRONMENT=/opt/venv uv sync --locked --no-dev \
-    --extra huey --extra django-q --extra django-rq --no-install-project
+    --extra huey --extra django-q --extra django-rq --extra dramatiq \
+    --no-install-project
 
 # Install the project itself. --no-deps keeps the locked set intact; the
 # application source is copied into /app in a later layer.
@@ -141,7 +142,8 @@ COPY --from=builder /root/.local/bin/uv /usr/local/bin/uv
 # Install dev dependencies from the lock (reproducible), then the project.
 COPY pyproject.toml uv.lock* README.md ./
 RUN UV_PROJECT_ENVIRONMENT=/opt/venv uv sync --locked --extra dev \
-    --extra huey --extra django-q --extra django-rq --no-install-project
+    --extra huey --extra django-q --extra django-rq --extra dramatiq \
+    --no-install-project
 RUN uv pip install --no-cache --no-deps -e .
 
 # Create non-root user for security (even in development)
@@ -216,6 +218,7 @@ USER app
 # placeholders are passed inline so they are not baked into the image, and the
 # real values are injected at runtime.
 RUN SECRET_KEY=build-time-placeholder \
+    CENTRIFUGO_TOKEN_SECRET=build-time-placeholder \
     DJANGO_SETTINGS_MODULE=api.settings.prod \
     DB_NAME=build DB_USER=build DB_PASSWORD=build DB_HOST=build DB_PORT=5432 \
     python manage.py collectstatic --noinput
@@ -270,7 +273,8 @@ COPY --from=builder /root/.local/bin/uv /usr/local/bin/uv
 # Install test/dev dependencies from the lock (reproducible), then the project.
 COPY pyproject.toml uv.lock* README.md ./
 RUN UV_PROJECT_ENVIRONMENT=/opt/venv uv sync --locked --extra dev \
-    --extra huey --extra django-q --extra django-rq --no-install-project
+    --extra huey --extra django-q --extra django-rq --extra dramatiq \
+    --no-install-project
 RUN uv pip install --no-cache --no-deps -e .
 
 # Create non-root user (good practice even in CI)

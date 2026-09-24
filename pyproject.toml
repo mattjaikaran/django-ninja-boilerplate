@@ -173,6 +173,9 @@ decisions-jev = [
     # Hosted TypeSafe ("Jev") decision API
     "typesafe-sdk>=0.1.0",
 ]
+dramatiq = [
+    "dramatiq[redis]>=1.17.0",
+]
 
 [project.urls]
 homepage = "https://github.com/mattjaikaran/django-ninja-boilerplate"
