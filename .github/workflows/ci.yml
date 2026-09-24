@@ -45,7 +45,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.13", "3.14"]
+        # 3.14 stays out until pydantic-core publishes cp314 wheels: without
+        # them the install builds it from source and fails on a runner with no
+        # Rust toolchain.
+        python-version: ["3.13"]
         # 6.0 is installable because django-celery-beat 2.9.0 allows Django <6.1.
         django-version: ["5.2", "6.0"]
 
@@ -103,8 +106,10 @@ jobs:
 
       - name: Install dependencies with Django ${{ matrix.django-version }}
         run: |
-          uv pip install --system -e ".[dev]"
-          uv pip install --system "Django~=${{ matrix.django-version }}.0"
+          # Lock-respecting install, then pin the matrix Django version.
+          uv sync --extra dev
+          uv pip install --python .venv/bin/python "Django~=${{ matrix.django-version }}.0"
+          uv run python -c "import django; print('Django', django.get_version())"
 
       - name: Run migrations
         run: |

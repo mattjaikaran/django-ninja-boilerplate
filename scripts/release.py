@@ -51,6 +51,23 @@ def main() -> None:
     if version == current:
         sys.exit(f"error: version '{version}' is already current")
 
+    # The release commit stages only the version files, so anything else left
+    # in the tree would be silently excluded from the tagged commit. Refuse to
+    # release from a dirty tree instead.
+    if not dry_run:
+        status = subprocess.run(
+            ["git", "status", "--porcelain"],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout.strip()
+        if status:
+            sys.exit(
+                "error: the working tree has uncommitted changes; commit or "
+                f"stash them first:\n{status}"
+            )
+
     print(f"Bumping {current} -> {version}" + (" (dry run)" if dry_run else ""))
 
     # Version strings
