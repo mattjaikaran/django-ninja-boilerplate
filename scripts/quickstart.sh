@@ -8,9 +8,9 @@
 #   ./scripts/quickstart.sh --no-docker  # Force local-only setup
 #   ./scripts/quickstart.sh --minimal    # Just API (no Celery, no seeding)
 #   ./scripts/quickstart.sh --ci         # CI environment (no browser, no prompts)
-#   make quickstart                      # Recommended way to run this
+#   just quickstart                      # Recommended way to run this
 #
-# Goal: git clone ... && cd ... && make quickstart -> working API in <2 minutes
+# Goal: git clone ... && cd ... && just quickstart -> working API in <2 minutes
 
 set -e  # Exit on any error
 
@@ -52,7 +52,6 @@ if [ -t 1 ] && [ -z "$NO_COLOR" ]; then
     YELLOW='\033[1;33m'
     BLUE='\033[0;34m'
     CYAN='\033[0;36m'
-    MAGENTA='\033[0;35m'
     BOLD='\033[1m'
     DIM='\033[2m'
     NC='\033[0m' # No Color
@@ -62,7 +61,6 @@ else
     YELLOW=''
     BLUE=''
     CYAN=''
-    MAGENTA=''
     BOLD=''
     DIM=''
     NC=''
@@ -125,8 +123,8 @@ while [[ $# -gt 0 ]]; do
             echo "  ./scripts/quickstart.sh --minimal    # Fast, minimal setup"
             echo "  ./scripts/quickstart.sh --ci         # For CI/CD pipelines"
             echo ""
-            echo "Makefile:"
-            echo "  make quickstart                      # Recommended way to run"
+            echo "justfile:"
+            echo "  just quickstart                      # Recommended way to run"
             exit 0
             ;;
         *)
@@ -250,9 +248,12 @@ get_python_version() {
 }
 
 check_python_version() {
-    local version=$(get_python_version)
-    local major=$(echo "$version" | cut -d'.' -f1)
-    local minor=$(echo "$version" | cut -d'.' -f2)
+    local version
+    version=$(get_python_version)
+    local major
+    major=$(echo "$version" | cut -d'.' -f1)
+    local minor
+    minor=$(echo "$version" | cut -d'.' -f2)
 
     if [ "$major" -ge "$MIN_PYTHON_MAJOR" ] && [ "$minor" -ge "$MIN_PYTHON_MINOR" ]; then
         return 0
@@ -267,9 +268,15 @@ is_docker_running() {
 is_port_available() {
     local port=$1
     if command_exists lsof; then
-        ! lsof -i :$port >/dev/null 2>&1
+        if lsof -i ":$port" >/dev/null 2>&1; then
+            return 1
+        fi
+        return 0
     elif command_exists netstat; then
-        ! netstat -an | grep -q ":$port "
+        if netstat -an | grep -q ":$port "; then
+            return 1
+        fi
+        return 0
     else
         # Can't check, assume available
         return 0
@@ -283,7 +290,7 @@ generate_secret_key() {
         openssl rand -base64 50 | tr -d '\n/+=' | head -c 50
     else
         # Fallback to urandom
-        cat /dev/urandom | LC_ALL=C tr -dc 'a-zA-Z0-9' | fold -w 50 | head -n 1
+        LC_ALL=C tr -dc 'a-zA-Z0-9' < /dev/urandom | fold -w 50 | head -n 1
     fi
 }
 
@@ -303,7 +310,8 @@ open_browser() {
 }
 
 calculate_elapsed_time() {
-    local end_time=$(date +%s)
+    local end_time
+    end_time=$(date +%s)
     local elapsed=$((end_time - SCRIPT_START_TIME))
     local minutes=$((elapsed / 60))
     local seconds=$((elapsed % 60))
@@ -361,29 +369,29 @@ suggest_fix() {
             echo "     kill -9 <PID>"
             echo ""
             echo -e "  ${CYAN}2.${NC} Or stop existing Django containers:"
-            echo "     docker-compose down"
+            echo "     docker compose --profile dev down"
             ;;
         "database")
             echo -e "  ${CYAN}1.${NC} Check Docker logs:"
-            echo "     docker-compose logs db"
+            echo "     docker compose --profile dev logs db"
             echo ""
             echo -e "  ${CYAN}2.${NC} Reset the database volume:"
-            echo "     docker-compose down -v"
-            echo "     make quickstart"
+            echo "     docker compose --profile dev down -v"
+            echo "     just quickstart"
             ;;
         "health_check")
             echo -e "  ${CYAN}1.${NC} Check Django logs:"
-            echo "     docker-compose logs django"
+            echo "     docker compose --profile dev logs django"
             echo ""
             echo -e "  ${CYAN}2.${NC} The API might still be starting. Wait a moment and try:"
             echo "     curl http://localhost:8000/api/health/"
             ;;
         *)
             echo -e "  ${CYAN}1.${NC} Run the doctor script for diagnostics:"
-            echo "     make doctor"
+            echo "     just doctor"
             echo ""
             echo -e "  ${CYAN}2.${NC} Check the logs:"
-            echo "     docker-compose logs"
+            echo "     docker compose --profile dev logs"
             ;;
     esac
     echo ""
@@ -411,7 +419,8 @@ check_prerequisites() {
     # Check Python version
     print_substep "Checking Python..."
     if command_exists python3; then
-        local py_version=$(get_python_version)
+        local py_version
+        py_version=$(get_python_version)
         if check_python_version; then
             print_success "Python $py_version"
         else
@@ -429,7 +438,8 @@ check_prerequisites() {
     print_substep "Checking Docker..."
     if command_exists docker; then
         if is_docker_running; then
-            local docker_version=$(docker --version | cut -d' ' -f3 | tr -d ',')
+            local docker_version
+            docker_version=$(docker --version | cut -d' ' -f3 | tr -d ',')
             print_success "Docker $docker_version (running)"
         else
             print_warning "Docker installed but not running"
@@ -449,7 +459,8 @@ check_prerequisites() {
     # Check UV
     print_substep "Checking UV package manager..."
     if command_exists uv; then
-        local uv_version=$(uv --version 2>&1 | head -1)
+        local uv_version
+        uv_version=$(uv --version 2>&1 | head -1)
         print_success "$uv_version"
     else
         if [ "$USE_DOCKER" = false ] || [ "$can_use_docker" = false ]; then
@@ -522,9 +533,9 @@ auto_detect_setup() {
 
     if [ "$USE_DOCKER" = true ]; then
         print_success "Using Docker Compose for all services"
-        print_info "Services: PostgreSQL, Redis, Django"
+        print_info "Services: PostgreSQL, Valkey, Django"
         if [ "$MINIMAL_MODE" = false ]; then
-            print_info "Optional: Celery workers available via 'make up-celery'"
+            print_info "Optional: Celery workers available via 'just up-celery'"
         fi
     else
         print_success "Using local Python environment"
@@ -547,7 +558,8 @@ setup_env_file() {
         if grep -q "^SECRET_KEY=your-secret-key" .env 2>/dev/null || \
            grep -q "^SECRET_KEY=$" .env 2>/dev/null; then
             print_substep "Generating secure SECRET_KEY..."
-            local new_secret=$(generate_secret_key)
+            local new_secret
+            new_secret=$(generate_secret_key)
 
             if [[ "$OSTYPE" == "darwin"* ]]; then
                 sed -i '' "s|^SECRET_KEY=.*|SECRET_KEY=$new_secret|" .env
@@ -576,8 +588,10 @@ setup_env_file() {
 
         # Generate SECRET_KEY
         print_substep "Generating secure SECRET_KEY..."
-        local new_secret=$(generate_secret_key)
-        local new_jwt_secret=$(generate_secret_key)
+        local new_secret
+        new_secret=$(generate_secret_key)
+        local new_jwt_secret
+        new_jwt_secret=$(generate_secret_key)
 
         if [[ "$OSTYPE" == "darwin"* ]]; then
             sed -i '' "s|^SECRET_KEY=.*|SECRET_KEY=$new_secret|" .env
@@ -611,8 +625,9 @@ DB_PASSWORD=postgres
 DB_HOST=db
 DB_PORT=5432
 
-# Redis Settings
-REDIS_URL=redis://redis:6379/0
+# Valkey Settings (wire-compatible with Redis; compose names it valkey)
+VALKEY_URL=valkey://valkey:6379/0
+REDIS_URL=valkey://valkey:6379/0
 
 # Frontend URL (for CORS)
 FRONTEND_URL=http://localhost:3000
@@ -656,13 +671,15 @@ setup_superuser_env() {
                 sed -i '' "s|^SUPERUSER_FIRST_NAME=.*|SUPERUSER_FIRST_NAME=$DEFAULT_SUPERUSER_FIRST_NAME|" .env
                 sed -i '' "s|^SUPERUSER_LAST_NAME=.*|SUPERUSER_LAST_NAME=$DEFAULT_SUPERUSER_LAST_NAME|" .env
             else
-                echo "" >> .env
-                echo "# Superuser Credentials" >> .env
-                echo "SUPERUSER_EMAIL=$DEFAULT_SUPERUSER_EMAIL" >> .env
-                echo "SUPERUSER_USERNAME=$DEFAULT_SUPERUSER_USERNAME" >> .env
-                echo "SUPERUSER_PASSWORD=$DEFAULT_SUPERUSER_PASSWORD" >> .env
-                echo "SUPERUSER_FIRST_NAME=$DEFAULT_SUPERUSER_FIRST_NAME" >> .env
-                echo "SUPERUSER_LAST_NAME=$DEFAULT_SUPERUSER_LAST_NAME" >> .env
+                {
+                    echo ""
+                    echo "# Superuser Credentials"
+                    echo "SUPERUSER_EMAIL=$DEFAULT_SUPERUSER_EMAIL"
+                    echo "SUPERUSER_USERNAME=$DEFAULT_SUPERUSER_USERNAME"
+                    echo "SUPERUSER_PASSWORD=$DEFAULT_SUPERUSER_PASSWORD"
+                    echo "SUPERUSER_FIRST_NAME=$DEFAULT_SUPERUSER_FIRST_NAME"
+                    echo "SUPERUSER_LAST_NAME=$DEFAULT_SUPERUSER_LAST_NAME"
+                } >> .env
             fi
         else
             # Linux sed
@@ -673,13 +690,15 @@ setup_superuser_env() {
                 sed -i "s|^SUPERUSER_FIRST_NAME=.*|SUPERUSER_FIRST_NAME=$DEFAULT_SUPERUSER_FIRST_NAME|" .env
                 sed -i "s|^SUPERUSER_LAST_NAME=.*|SUPERUSER_LAST_NAME=$DEFAULT_SUPERUSER_LAST_NAME|" .env
             else
-                echo "" >> .env
-                echo "# Superuser Credentials" >> .env
-                echo "SUPERUSER_EMAIL=$DEFAULT_SUPERUSER_EMAIL" >> .env
-                echo "SUPERUSER_USERNAME=$DEFAULT_SUPERUSER_USERNAME" >> .env
-                echo "SUPERUSER_PASSWORD=$DEFAULT_SUPERUSER_PASSWORD" >> .env
-                echo "SUPERUSER_FIRST_NAME=$DEFAULT_SUPERUSER_FIRST_NAME" >> .env
-                echo "SUPERUSER_LAST_NAME=$DEFAULT_SUPERUSER_LAST_NAME" >> .env
+                {
+                    echo ""
+                    echo "# Superuser Credentials"
+                    echo "SUPERUSER_EMAIL=$DEFAULT_SUPERUSER_EMAIL"
+                    echo "SUPERUSER_USERNAME=$DEFAULT_SUPERUSER_USERNAME"
+                    echo "SUPERUSER_PASSWORD=$DEFAULT_SUPERUSER_PASSWORD"
+                    echo "SUPERUSER_FIRST_NAME=$DEFAULT_SUPERUSER_FIRST_NAME"
+                    echo "SUPERUSER_LAST_NAME=$DEFAULT_SUPERUSER_LAST_NAME"
+                } >> .env
             fi
         fi
         print_success "Superuser credentials configured"
@@ -707,19 +726,19 @@ start_docker_services() {
     print_substep "Building Docker images..."
     start_spinner "Building images (this may take a few minutes on first run)..."
 
-    if docker-compose build --quiet 2>/dev/null; then
+    if docker compose --profile dev build --quiet 2>/dev/null; then
         stop_spinner "success" "Docker images built"
     else
         # Try without --quiet for better error visibility
         stop_spinner "warning" "Build had issues, retrying with verbose output..."
-        docker-compose build
+        docker compose --profile dev build
     fi
 
     # Start services
     print_substep "Starting containers..."
     start_spinner "Starting PostgreSQL, Redis, and Django..."
 
-    docker-compose up -d 2>/dev/null
+    docker compose --profile dev up -d 2>/dev/null
 
     stop_spinner "success" "Containers started"
 }
@@ -763,7 +782,7 @@ wait_for_docker_services() {
     print_substep "Waiting for PostgreSQL..."
     local attempt=1
     while [ $attempt -le $max_attempts ]; do
-        if docker-compose exec -T db pg_isready -U postgres >/dev/null 2>&1; then
+        if docker compose --profile dev exec -T db pg_isready -U postgres >/dev/null 2>&1; then
             print_success "PostgreSQL is ready"
             break
         fi
@@ -778,17 +797,17 @@ wait_for_docker_services() {
         ((attempt++))
     done
 
-    # Wait for Redis
-    print_substep "Waiting for Redis..."
+    # Wait for Valkey
+    print_substep "Waiting for Valkey..."
     attempt=1
     while [ $attempt -le $((max_attempts / 2)) ]; do
-        if docker-compose exec -T redis redis-cli ping >/dev/null 2>&1; then
-            print_success "Redis is ready"
+        if docker compose --profile dev exec -T valkey valkey-cli ping >/dev/null 2>&1; then
+            print_success "Valkey is ready"
             break
         fi
 
         if [ $attempt -eq $((max_attempts / 2)) ]; then
-            print_warning "Redis might not be ready, continuing anyway..."
+            print_warning "Valkey might not be ready, continuing anyway..."
             break
         fi
 
@@ -800,7 +819,7 @@ wait_for_docker_services() {
     print_substep "Waiting for Django..."
     attempt=1
     while [ $attempt -le $max_attempts ]; do
-        if docker-compose ps django 2>/dev/null | grep -q "Up"; then
+        if docker compose --profile dev ps django 2>/dev/null | grep -q "Up"; then
             print_success "Django container is running"
             break
         fi
@@ -830,11 +849,11 @@ run_migrations() {
     start_spinner "Migrating database schema..."
 
     if [ "$USE_DOCKER" = true ]; then
-        if docker-compose exec -T django uv run python manage.py migrate --noinput >/dev/null 2>&1; then
+        if docker compose --profile dev exec -T django uv run python manage.py migrate --noinput >/dev/null 2>&1; then
             stop_spinner "success" "Migrations applied successfully"
         else
             stop_spinner "warning" "Migration had warnings, checking status..."
-            docker-compose exec -T django uv run python manage.py migrate --noinput 2>&1 | tail -5
+            docker compose --profile dev exec -T django uv run python manage.py migrate --noinput 2>&1 | tail -5
         fi
     else
         if uv run python manage.py migrate --noinput >/dev/null 2>&1; then
@@ -848,7 +867,7 @@ run_migrations() {
     # Collect static files
     print_substep "Collecting static files..."
     if [ "$USE_DOCKER" = true ]; then
-        docker-compose exec -T django uv run python manage.py collectstatic --noinput >/dev/null 2>&1 || true
+        docker compose --profile dev exec -T django uv run python manage.py collectstatic --noinput >/dev/null 2>&1 || true
     else
         uv run python manage.py collectstatic --noinput >/dev/null 2>&1 || true
     fi
@@ -866,12 +885,12 @@ create_superuser() {
 
     if [ "$USE_DOCKER" = true ]; then
         # Try the custom create_superuser command first
-        if docker-compose exec -T django uv run python manage.py create_superuser 2>/dev/null; then
+        if docker compose --profile dev exec -T django uv run python manage.py create_superuser 2>/dev/null; then
             print_success "Superuser created: $DEFAULT_SUPERUSER_EMAIL"
         else
             # Fallback: create superuser via Django shell
             print_info "Using fallback superuser creation..."
-            docker-compose exec -T django uv run python -c "
+            if docker compose --profile dev exec -T django uv run python -c "
 import os
 import django
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'api.settings')
@@ -889,7 +908,11 @@ if not User.objects.filter(email='$DEFAULT_SUPERUSER_EMAIL').exists():
     print('Superuser created')
 else:
     print('Superuser already exists')
-" 2>/dev/null && print_success "Superuser ready: $DEFAULT_SUPERUSER_EMAIL" || print_warning "Superuser may already exist"
+" 2>/dev/null; then
+                print_success "Superuser ready: $DEFAULT_SUPERUSER_EMAIL"
+            else
+                print_warning "Superuser may already exist"
+            fi
         fi
     else
         # Local setup
@@ -919,13 +942,13 @@ seed_sample_data() {
 
     if [ "$USE_DOCKER" = true ]; then
         # Try seed_data command first
-        if docker-compose exec -T django uv run python manage.py seed_data --superuser-only 2>/dev/null; then
+        if docker compose --profile dev exec -T django uv run python manage.py seed_data --superuser-only 2>/dev/null; then
             # Superuser handled above, just seed other data
-            docker-compose exec -T django uv run python manage.py seed_data --no-superuser --users 10 --todos 20 >/dev/null 2>&1 || true
+            docker compose --profile dev exec -T django uv run python manage.py seed_data --no-superuser --users 10 --todos 20 >/dev/null 2>&1 || true
             stop_spinner "success" "Sample data created"
         else
             # Try generate_core_data as fallback
-            docker-compose exec -T django uv run python manage.py generate_core_data >/dev/null 2>&1 || true
+            docker compose --profile dev exec -T django uv run python manage.py generate_core_data >/dev/null 2>&1 || true
             stop_spinner "success" "Core data generated"
         fi
     else
@@ -979,7 +1002,8 @@ final_health_check() {
 # ===========================================
 
 print_summary() {
-    local elapsed=$(calculate_elapsed_time)
+    local elapsed
+    elapsed=$(calculate_elapsed_time)
 
     echo ""
     echo -e "${GREEN}${BOLD}"
@@ -1008,17 +1032,17 @@ print_summary() {
 
     # Quick commands section
     echo -e "${BOLD}Useful Commands:${NC}"
-    echo -e "  ${CYAN}make up${NC}           Start services"
-    echo -e "  ${CYAN}make down${NC}         Stop services"
-    echo -e "  ${CYAN}make logs${NC}         View logs"
-    echo -e "  ${CYAN}make shell${NC}        Django shell"
-    echo -e "  ${CYAN}make test${NC}         Run tests"
+    echo -e "  ${CYAN}just up${NC}           Start services"
+    echo -e "  ${CYAN}just down${NC}         Stop services"
+    echo -e "  ${CYAN}just logs${NC}         View logs"
+    echo -e "  ${CYAN}just shell${NC}        Django shell"
+    echo -e "  ${CYAN}just test${NC}         Run tests"
     echo ""
 
     if [ "$MINIMAL_MODE" = false ]; then
         echo -e "${BOLD}For Celery background tasks:${NC}"
-        echo -e "  ${CYAN}make up-celery${NC}    Start with Celery workers"
-        echo -e "  ${CYAN}make up-full${NC}      Start all services including Flower"
+        echo -e "  ${CYAN}just up-celery${NC}    Start with Celery workers"
+        echo -e "  ${CYAN}just up-full${NC}      Start all services including Flower"
         echo ""
     fi
 

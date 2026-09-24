@@ -5,11 +5,25 @@
 #   - Django service uses 'development' target for hot reload and debug tools
 #   - Celery services use 'production' target for optimized performance
 #
+# Profiles:
+#   dev        db, valkey, django, celery-worker, celery-beat, mcp, mailhog
+#   test       db, valkey only (run pytest from the host)
+#   prod       db-prod, valkey-prod, django-prod, celery-worker-prod,
+#              celery-beat-prod, nginx
+#   single     db-single, redis, app (single-container PaaS)
+#   celery     adds Celery workers to the dev stack
+#   realtime   Dev Centrifugo real-time server
+#   realtime-prod  Production Centrifugo real-time server
+#   monitoring Flower + Jaeger
+#
+# Production services carry a -prod suffix because Docker Compose allows only
+# one definition per service name, and the dev and production variants differ
+# (build target, command, volume mounts).
+#
 # Usage:
-#   make up           - Start default services (db, valkey, django)
-#   make up-celery    - Start with Celery workers
-#   make up-monitoring - Start with monitoring (Flower)
-#   make up-full      - Start all services
+#   just dev            - Start the dev stack
+#   docker compose --profile prod up -d
+#   docker compose --profile single up -d
 
 services:
   # ===========================================
@@ -18,7 +32,15 @@ services:
 
   # PostgreSQL 17 Database
   db:
-    image: postgres:17-alpine
+    # pgvector build: ships the `vector` extension used by the decisions app.
+    image: pgvector/pgvector:pg17
+    profiles:
+      - dev
+      - test
+      - celery
+      - huey
+      - django-q
+      - django-rq
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
@@ -51,6 +73,15 @@ services:
   # Valkey for caching and sessions
   valkey:
     image: valkey/valkey:8-alpine
+    profiles:
+      - dev
+      - test
+      - celery
+      - huey
+      - django-q
+      - django-rq
+      - realtime
+      - monitoring
     ports:
       - "${VALKEY_PORT:-6379}:6379"
     volumes:
@@ -138,6 +169,8 @@ services:
         condition: service_healthy
     networks:
       - app-network
+    profiles:
+      - dev
     deploy:
       resources:
         limits:
@@ -161,6 +194,9 @@ services:
     environment:
       - CENTRIFUGO_TOKEN_SECRET=${CENTRIFUGO_TOKEN_SECRET:-centrifugo-token-secret}
       - CENTRIFUGO_API_KEY=${CENTRIFUGO_API_KEY:-centrifugo-api-key}
+      # Overrides redis_address from config.json. It must name a host that
+      # resolves in this profile (valkey, not the single-profile redis).
+      - CENTRIFUGO_REDIS_ADDRESS=redis://valkey:6379/1
     depends_on:
       valkey:
         condition: service_healthy
@@ -221,6 +257,7 @@ services:
         condition: service_healthy
     networks:
       - app-network
+    # Celery is opt-in: `just up-celery` adds this profile to the dev stack.
     profiles:
       - celery
     deploy:
@@ -267,6 +304,7 @@ services:
         condition: service_started
     networks:
       - app-network
+    # Celery is opt-in: `just up-celery` adds this profile to the dev stack.
     profiles:
       - celery
     deploy:
@@ -484,6 +522,439 @@ services:
           cpus: "0.1"
           memory: 64M
 
+  # ===========================================
+  # Development-only tooling (profile: dev)
+  # ===========================================
+
+  # Django AI Boost MCP server (SSE). Needs the `dev` extra.
+  mcp:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+    profiles:
+      - dev
+    command: >
+      sh -c "uv run django-ai-boost --settings api.settings.dev --transport sse --port 8001"
+    volumes:
+      - .:/app
+      - /app/.venv
+    ports:
+      - "8001:8001"
+    environment:
+      - DJANGO_SETTINGS_MODULE=api.settings.dev
+      - PYTHONPATH=/app
+      - DATABASE_URL=postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@db:5432/${DB_NAME:-boilerplate_db}
+      - SECRET_KEY=${SECRET_KEY:?SECRET_KEY must be set}
+      - ENABLE_DECISION_MCP=true
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - app-network
+
+  # Catches outgoing email in development.
+  mailhog:
+    image: mailhog/mailhog:v1.0.1
+    profiles:
+      - dev
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+    networks:
+      - app-network
+
+  # ===========================================
+  # Production stack (profile: prod)
+  # Renamed with a -prod suffix so it can coexist with the dev services.
+  # ===========================================
+
+  # PostgreSQL Database (production tuning, no port exposure)
+  db-prod:
+    image: pgvector/pgvector:pg17
+    profiles:
+      - prod
+      - realtime-prod
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=${DB_NAME}
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_INITDB_ARGS=--encoding=UTF-8 --data-checksums
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 2G
+        reservations:
+          cpus: "0.5"
+          memory: 512M
+
+  # Valkey Cache & Message Broker (password-protected)
+  valkey-prod:
+    image: valkey/valkey:8-alpine
+    profiles:
+      - prod
+      - realtime-prod
+    volumes:
+      - valkey_data:/data
+    command: >
+      valkey-server
+      --appendonly yes
+      --requirepass ${REDIS_PASSWORD}
+      --maxmemory 512mb
+      --maxmemory-policy allkeys-lru
+      --tcp-keepalive 300
+      --timeout 0
+    networks:
+      - app-network
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "valkey-cli",
+          "--no-auth-warning",
+          "-a",
+          "${REDIS_PASSWORD}",
+          "ping",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1G
+        reservations:
+          cpus: "0.25"
+          memory: 256M
+
+  # Django Application Server (Gunicorn, production target)
+  django-prod:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    profiles:
+      - prod
+    command: >
+      sh -c "python manage.py migrate --noinput &&
+             python manage.py collectstatic --noinput &&
+             gunicorn api.wsgi:application
+               --bind 0.0.0.0:8000
+               --workers ${GUNICORN_WORKERS:-4}
+               --threads 2
+               --worker-class gthread
+               --worker-tmp-dir /dev/shm
+               --timeout 120
+               --keep-alive 5
+               --max-requests 1000
+               --max-requests-jitter 50
+               --access-logfile -
+               --error-logfile -
+               --capture-output"
+    volumes:
+      - static_volume:/app/staticfiles
+      - media_volume:/app/media
+      - logs_volume:/app/logs
+    expose:
+      - "8000"
+    environment:
+      - DJANGO_SETTINGS_MODULE=api.settings.prod
+      # ENVIRONMENT drives structured logging and the S3 storage branch in
+      # api/settings/common.py. Without it the reused dev .env leaks
+      # "development" into production.
+      - ENVIRONMENT=production
+      - DEBUG=0
+      - SECRET_KEY=${SECRET_KEY}
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_HOST=db-prod
+      - DB_PORT=5432
+      - VALKEY_URL=valkey://:${REDIS_PASSWORD}@valkey-prod:6379/0
+      - REDIS_URL=valkey://:${REDIS_PASSWORD}@valkey-prod:6379/0
+      - FRONTEND_URL=${FRONTEND_URL}
+      - ALLOWED_HOSTS=${ALLOWED_HOSTS}
+      - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS}
+      - CSRF_TRUSTED_ORIGINS=${CSRF_TRUSTED_ORIGINS}
+      - USE_TLS=${USE_TLS:-true}
+      # Centrifugo settings
+      - CENTRIFUGO_URL=${CENTRIFUGO_URL:-http://centrifugo-prod:8000}
+      - CENTRIFUGO_API_KEY=${CENTRIFUGO_API_KEY}
+      - CENTRIFUGO_TOKEN_SECRET=${CENTRIFUGO_TOKEN_SECRET}
+      - EMAIL_HOST=${EMAIL_HOST}
+      - EMAIL_PORT=${EMAIL_PORT}
+      - EMAIL_USE_TLS=${EMAIL_USE_TLS}
+      - EMAIL_HOST_USER=${EMAIL_HOST_USER}
+      - EMAIL_HOST_PASSWORD=${EMAIL_HOST_PASSWORD}
+      - DEFAULT_FROM_EMAIL=${DEFAULT_FROM_EMAIL}
+      # Python production settings
+      - PYTHONDONTWRITEBYTECODE=1
+      - PYTHONUNBUFFERED=1
+      - PYTHONOPTIMIZE=2
+    depends_on:
+      db-prod:
+        condition: service_healthy
+      valkey-prod:
+        condition: service_healthy
+    networks:
+      - app-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "4.0"
+          memory: 2G
+        reservations:
+          cpus: "1.0"
+          memory: 512M
+      replicas: 1
+
+  # Celery Worker (production target)
+  celery-worker-prod:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    profiles:
+      - prod
+    command: >
+      celery -A api worker
+        -l info
+        --concurrency=${CELERY_CONCURRENCY:-4}
+        --max-tasks-per-child=1000
+        -Q default,celery
+    volumes:
+      - logs_volume:/app/logs
+    environment:
+      - DJANGO_SETTINGS_MODULE=api.settings.prod
+      # ENVIRONMENT drives structured logging and the S3 storage branch in
+      # api/settings/common.py. Without it the reused dev .env leaks
+      # "development" into production.
+      - ENVIRONMENT=production
+      - DEBUG=0
+      - SECRET_KEY=${SECRET_KEY}
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_HOST=db-prod
+      - DB_PORT=5432
+      - VALKEY_URL=valkey://:${REDIS_PASSWORD}@valkey-prod:6379/0
+      - REDIS_URL=valkey://:${REDIS_PASSWORD}@valkey-prod:6379/0
+      - PYTHONDONTWRITEBYTECODE=1
+      - PYTHONUNBUFFERED=1
+    depends_on:
+      db-prod:
+        condition: service_healthy
+      valkey-prod:
+        condition: service_healthy
+    networks:
+      - app-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 1G
+        reservations:
+          cpus: "0.5"
+          memory: 256M
+
+  # Celery Beat Scheduler (production target)
+  celery-beat-prod:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    profiles:
+      - prod
+    command: celery -A api beat -l info --scheduler django_celery_beat.schedulers:DatabaseScheduler
+    volumes:
+      - logs_volume:/app/logs
+    environment:
+      - DJANGO_SETTINGS_MODULE=api.settings.prod
+      # ENVIRONMENT drives structured logging and the S3 storage branch in
+      # api/settings/common.py. Without it the reused dev .env leaks
+      # "development" into production.
+      - ENVIRONMENT=production
+      - DEBUG=0
+      - SECRET_KEY=${SECRET_KEY}
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_HOST=db-prod
+      - DB_PORT=5432
+      - VALKEY_URL=valkey://:${REDIS_PASSWORD}@valkey-prod:6379/0
+      - REDIS_URL=valkey://:${REDIS_PASSWORD}@valkey-prod:6379/0
+      - PYTHONDONTWRITEBYTECODE=1
+      - PYTHONUNBUFFERED=1
+    depends_on:
+      db-prod:
+        condition: service_healthy
+      valkey-prod:
+        condition: service_healthy
+      celery-worker-prod:
+        condition: service_started
+    networks:
+      - app-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
+        reservations:
+          cpus: "0.1"
+          memory: 64M
+
+  # Centrifugo Real-Time Server (profile: realtime, production)
+  centrifugo-prod:
+    image: centrifugo/centrifugo:v5
+    profiles:
+      - realtime-prod
+    command: centrifugo -c config.json
+    volumes:
+      - ./deploy/centrifugo/config.json:/centrifugo/config.json:ro
+    expose:
+      - "8000"
+    environment:
+      - CENTRIFUGO_TOKEN_SECRET=${CENTRIFUGO_TOKEN_SECRET}
+      - CENTRIFUGO_API_KEY=${CENTRIFUGO_API_KEY}
+      - CENTRIFUGO_ADMIN=false
+      - CENTRIFUGO_REDIS_ADDRESS=redis://valkey-prod:6379/1
+    depends_on:
+      valkey-prod:
+        condition: service_healthy
+    networks:
+      - app-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+        reservations:
+          cpus: "0.25"
+          memory: 128M
+
+  # Nginx Reverse Proxy
+  nginx:
+    build: ./nginx
+    profiles:
+      - prod
+    ports:
+      - "80:80"
+    volumes:
+      - static_volume:/app/staticfiles:ro
+      - media_volume:/app/media:ro
+    depends_on:
+      - django-prod
+    networks:
+      - app-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 256M
+        reservations:
+          cpus: "0.1"
+          memory: 64M
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/api/health/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # ===========================================
+  # Single-container stack (profile: single)
+  # For PaaS platforms that run one container per service.
+  # ===========================================
+
+  # PostgreSQL Database (single-container stack)
+  db-single:
+    image: pgvector/pgvector:pg17
+    profiles:
+      - single
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=${DB_NAME:-boilerplate_db}
+      - POSTGRES_USER=${DB_USER:-postgres}
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-postgres}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    networks:
+      - app-network
+
+  # Redis (single-container stack)
+  redis:
+    image: redis:7.2-alpine
+    profiles:
+      - single
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    networks:
+      - app-network
+
+  # Django Application (single container)
+  app:
+    build:
+      context: .
+      dockerfile: deploy/docker/Dockerfile.single
+    profiles:
+      - single
+    environment:
+      - DEBUG=0
+      - SECRET_KEY=${SECRET_KEY}
+      - DB_NAME=${DB_NAME:-boilerplate_db}
+      - DB_USER=${DB_USER:-postgres}
+      - DB_PASSWORD=${DB_PASSWORD:-postgres}
+      - DB_HOST=db-single
+      - DB_PORT=5432
+      - REDIS_URL=redis://redis:6379/0
+      - ALLOWED_HOSTS=${ALLOWED_HOSTS:-localhost,127.0.0.1}
+    ports:
+      - "${PORT:-8000}:8000"
+    depends_on:
+      db-single:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - app-network
+    restart: unless-stopped
+
 networks:
   app-network:
     driver: bridge
@@ -498,4 +969,8 @@ volumes:
   static_volume:
     driver: local
   media_volume:
+    driver: local
+  logs_volume:
+    driver: local
+  redis_data:
     driver: local

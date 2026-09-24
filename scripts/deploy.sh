@@ -13,7 +13,7 @@
 # Supported providers: railway, render, fly, aws, gcp, vps
 #
 # Prerequisites:
-#   - Provider CLI installed and authenticated (run: make deploy-setup)
+#   - Provider CLI installed and authenticated (run: just deploy-setup)
 #   - .env.deploy configured (copy from .env.deploy.example)
 
 set -euo pipefail
@@ -114,7 +114,7 @@ BRANCH="${BRANCH:-${DEPLOY_BRANCH:-main}}"
 if [[ -z "${PROVIDER}" ]]; then
     fail "No provider specified. Set DEPLOY_PROVIDER in .env.deploy or use --provider flag.
   Supported: railway, render, fly, aws, gcp, vps
-  Run 'make deploy-setup' to configure."
+  Run 'just deploy-setup' to configure."
 fi
 
 # Normalize provider name
@@ -140,7 +140,7 @@ require_cmd() {
         if [[ "${DRY_RUN}" == true ]]; then
             warn "'$1' is not installed (would fail in real deploy)."
         else
-            fail "'$1' is not installed. Run 'make deploy-setup' to install provider CLIs."
+            fail "'$1' is not installed. Run 'just deploy-setup' to install provider CLIs."
         fi
     fi
 }
@@ -174,6 +174,16 @@ confirm_deploy() {
 # Pre-deploy hooks
 # ---------------------------------------------------------------------------
 pre_deploy() {
+    # Production settings default ALLOWED_HOSTS to [] so Django rejects every
+    # request (400 DisallowedHost). Catch the omission before it reaches prod.
+    if [[ -z "${ALLOWED_HOSTS:-}" ]]; then
+        warn "ALLOWED_HOSTS is not set. Production will reject all requests with 400."
+        warn "Set ALLOWED_HOSTS in .env.deploy (and in the target's .env) before deploying."
+    fi
+    if [[ -z "${CORS_ALLOWED_ORIGINS:-}" || -z "${CSRF_TRUSTED_ORIGINS:-}" ]]; then
+        warn "CORS_ALLOWED_ORIGINS / CSRF_TRUSTED_ORIGINS are not set. Cross-origin browser calls and admin logins may fail."
+    fi
+
     if [[ "${SAFE}" == true ]]; then
         step "Running pre-deploy checks (--safe)..."
         if [[ "${DRY_RUN}" == true ]]; then
@@ -427,8 +437,8 @@ deploy_vps() {
     local user="${DEPLOY_USER:-root}"
     local port="${DEPLOY_PORT:-22}"
     local app_dir="${DEPLOY_APP_DIR:-/opt/app}"
-    local compose_file="${COMPOSE_FILE:-docker-compose.prod.yml}"
-    local profiles="${DEPLOY_PROFILES:-}"
+    local compose_file="${COMPOSE_FILE:-docker-compose.yml}"
+    local profiles="${DEPLOY_PROFILES:-prod}"
 
     local ssh_cmd="ssh -o StrictHostKeyChecking=accept-new -p ${port} ${user}@${host}"
 
@@ -437,7 +447,7 @@ deploy_vps() {
     if [[ "${DRY_RUN}" == true ]]; then
         info "[dry-run] SSH to ${user}@${host}:${port}"
         info "[dry-run] cd ${app_dir} && git pull --rebase origin ${BRANCH}"
-        info "[dry-run] docker compose -f ${compose_file} build && up -d"
+        info "[dry-run] docker compose -f ${compose_file} ${profile_flags} build && up -d"
         info "[dry-run] python manage.py migrate --noinput"
         return
     fi
@@ -468,7 +478,8 @@ set -euo pipefail
 cd ${app_dir}
 git pull --rebase origin ${BRANCH}
 ${dc} up -d --remove-orphans
-${dc} exec -T django python manage.py migrate --noinput 2>/dev/null || true
+${dc} exec -T django-prod python manage.py migrate --noinput || \
+    echo "WARNING: migration failed — run: ${dc} logs django-prod"
 echo "Quick deploy complete."
 REMOTE
         ok "Quick deploy finished."
@@ -506,10 +517,8 @@ REMOTE
     ${ssh_cmd} << REMOTE
 set -euo pipefail
 cd ${app_dir}
-${dc} up -d db redis 2>/dev/null || ${dc} up -d postgres redis 2>/dev/null || true
-sleep 5
-${dc} run --rm --no-deps django python manage.py migrate --noinput 2>/dev/null || \
-    ${dc} run --rm django python manage.py migrate --noinput
+${dc} up -d --wait db-prod valkey-prod
+${dc} run --rm --no-deps django-prod python manage.py migrate --noinput
 ${dc} up -d --remove-orphans
 REMOTE
 
@@ -525,13 +534,14 @@ ${dc} ps
 echo ""
 echo "--- Health Check ---"
 for i in \$(seq 1 12); do
-    if curl -sf http://localhost:8000/api/health/ > /dev/null 2>&1; then
+    # nginx is the only prod service with a host port; django-prod is expose-only.
+    if curl -sf http://localhost/api/health/ > /dev/null 2>&1; then
         echo "API Health: OK"
         break
     fi
     if [ \$i -eq 12 ]; then
         echo "WARNING: Health check did not pass within 60s"
-        echo "Check logs: docker compose -f ${compose_file} logs django"
+        echo "Check logs: docker compose -f ${compose_file} --profile prod logs django-prod"
     fi
     sleep 5
 done

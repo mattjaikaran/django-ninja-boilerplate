@@ -6,7 +6,7 @@
 # Usage:
 #   ./scripts/setup.sh          # Interactive mode
 #   ./scripts/setup.sh --auto   # Fully automated (for CI/CD)
-#   make setup                  # Runs with --auto
+#   just setup                  # Runs with --auto
 
 set -e  # Exit on any error
 
@@ -108,7 +108,7 @@ generate_secret_key() {
         openssl rand -base64 50 | tr -d '\n/+=' | head -c 50
     else
         # Fallback to urandom
-        cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 50 | head -n 1
+        tr -dc 'a-zA-Z0-9' < /dev/urandom | fold -w 50 | head -n 1
     fi
 }
 
@@ -117,8 +117,8 @@ wait_for_service() {
     local max_attempts=${2:-30}
     local attempt=1
 
-    while [ $attempt -le $max_attempts ]; do
-        if docker-compose ps "$service" 2>/dev/null | grep -q "Up"; then
+    while [ "$attempt" -le "$max_attempts" ]; do
+        if docker compose --profile dev ps "$service" 2>/dev/null | grep -q "Up"; then
             return 0
         fi
         sleep 1
@@ -133,8 +133,8 @@ wait_for_healthy() {
     local attempt=1
 
     print_info "Waiting for $service to be healthy..."
-    while [ $attempt -le $max_attempts ]; do
-        if docker-compose ps "$service" 2>/dev/null | grep -q "healthy"; then
+    while [ "$attempt" -le "$max_attempts" ]; do
+        if docker compose --profile dev ps "$service" 2>/dev/null | grep -q "healthy"; then
             return 0
         fi
         printf "."
@@ -251,8 +251,9 @@ DB_PASSWORD=postgres
 DB_HOST=db
 DB_PORT=5432
 
-# Redis
-REDIS_URL=redis://redis:6379/0
+# Valkey (wire-compatible with Redis; the compose service is named valkey)
+VALKEY_URL=valkey://valkey:6379/0
+REDIS_URL=valkey://valkey:6379/0
 
 # Frontend
 FRONTEND_URL=http://localhost:3000
@@ -283,26 +284,26 @@ setup_docker() {
     fi
 
     print_step "Building Docker images..."
-    docker-compose build
+    docker compose --profile dev build
 
     print_step "Starting Docker services..."
-    docker-compose up -d
+    docker compose --profile dev up -d
 
     # Wait for database to be healthy
     if ! wait_for_healthy "db" 60; then
         print_error "Database failed to start"
-        print_info "Check logs with: docker-compose logs db"
+        print_info "Check logs with: docker compose --profile dev logs db"
         exit 1
     fi
     print_success "Database is healthy"
 
-    # Wait for Redis to be healthy
-    if ! wait_for_healthy "redis" 30; then
-        print_error "Redis failed to start"
-        print_info "Check logs with: docker-compose logs redis"
+    # Wait for Valkey to be healthy
+    if ! wait_for_healthy "valkey" 30; then
+        print_error "Valkey failed to start"
+        print_info "Check logs with: docker compose --profile dev logs valkey"
         exit 1
     fi
-    print_success "Redis is healthy"
+    print_success "Valkey is healthy"
 
     # Wait for Django to start
     print_info "Waiting for Django to start..."
@@ -319,12 +320,12 @@ setup_database() {
     print_step "Running database migrations..."
 
     # Run migrations
-    docker-compose exec -T django uv run python manage.py migrate --noinput
+    docker compose --profile dev exec -T django uv run python manage.py migrate --noinput
     print_success "Migrations completed"
 
     # Collect static files
     print_step "Collecting static files..."
-    docker-compose exec -T django uv run python manage.py collectstatic --noinput
+    docker compose --profile dev exec -T django uv run python manage.py collectstatic --noinput
     print_success "Static files collected"
 }
 
@@ -341,7 +342,7 @@ seed_data() {
     print_step "Seeding sample data..."
 
     # Generate core data
-    if docker-compose exec -T django uv run python manage.py generate_core_data 2>/dev/null; then
+    if docker compose --profile dev exec -T django uv run python manage.py generate_core_data 2>/dev/null; then
         print_success "Core data generated"
     else
         print_warning "generate_core_data command not available, skipping"
@@ -350,11 +351,11 @@ seed_data() {
     # Create superuser if in auto mode
     if [ "$AUTO_MODE" = true ]; then
         print_step "Creating superuser..."
-        if docker-compose exec -T django uv run python manage.py create_superuser 2>/dev/null; then
+        if docker compose --profile dev exec -T django uv run python manage.py create_superuser 2>/dev/null; then
             print_success "Superuser created (check .env for credentials)"
         else
             print_warning "create_superuser command not available"
-            print_info "Create manually with: make createsuperuser"
+            print_info "Create manually with: just legacy createsuperuser"
         fi
     else
         # Interactive mode - ask user
@@ -362,7 +363,7 @@ seed_data() {
         read -p "Would you like to create a superuser? (y/N) " -n 1 -r
         echo ""
         if [[ $REPLY =~ ^[Yy]$ ]]; then
-            docker-compose exec django uv run python manage.py createsuperuser
+            docker compose --profile dev exec django uv run python manage.py createsuperuser
         fi
     fi
 }
@@ -388,7 +389,7 @@ verify_setup() {
     done
 
     print_warning "Django API not responding yet (may still be starting)"
-    print_info "Check logs with: make logs-django"
+    print_info "Check logs with: just logs-django"
 }
 
 # ===========================================
@@ -406,23 +407,25 @@ show_summary() {
     echo -e "  ${GREEN}Health Check:${NC}       http://localhost:8000/api/health/"
     echo ""
     echo "Useful commands:"
-    echo -e "  ${CYAN}make up${NC}              Start services"
-    echo -e "  ${CYAN}make down${NC}            Stop services"
-    echo -e "  ${CYAN}make logs${NC}            View logs"
-    echo -e "  ${CYAN}make shell${NC}           Django shell"
-    echo -e "  ${CYAN}make test${NC}            Run tests"
-    echo -e "  ${CYAN}make doctor${NC}          Check environment"
+    echo -e "  ${CYAN}just up${NC}              Start services"
+    echo -e "  ${CYAN}just down${NC}            Stop services"
+    echo -e "  ${CYAN}just logs${NC}            View logs"
+    echo -e "  ${CYAN}just shell${NC}           Django shell"
+    echo -e "  ${CYAN}just test${NC}            Run tests"
+    echo -e "  ${CYAN}just doctor${NC}          Check environment"
     echo ""
     echo "For Celery workers:"
-    echo -e "  ${CYAN}make up-celery${NC}       Start with Celery"
-    echo -e "  ${CYAN}make up-full${NC}         Start all services"
+    echo -e "  ${CYAN}just up-celery${NC}       Start with Celery"
+    echo -e "  ${CYAN}just up-full${NC}         Start all services"
     echo ""
 
     if [ "$AUTO_MODE" = true ]; then
         echo "Superuser credentials (from .env):"
         if [ -f .env ]; then
-            local email=$(grep "^SUPERUSER_EMAIL=" .env | cut -d'=' -f2)
-            local password=$(grep "^SUPERUSER_PASSWORD=" .env | cut -d'=' -f2)
+            local email
+            email=$(grep "^SUPERUSER_EMAIL=" .env | cut -d'=' -f2)
+            local password
+            password=$(grep "^SUPERUSER_PASSWORD=" .env | cut -d'=' -f2)
             if [ -n "$email" ] && [ -n "$password" ]; then
                 echo -e "  Email:    ${YELLOW}$email${NC}"
                 echo -e "  Password: ${YELLOW}$password${NC}"
@@ -452,7 +455,7 @@ setup_pre_commit() {
         fi
     else
         print_warning "uv or git not available, skipping pre-commit hooks"
-        print_info "Install manually with: make pre-commit-install"
+        print_info "Install manually with: just legacy pre-commit-install"
     fi
 }
 

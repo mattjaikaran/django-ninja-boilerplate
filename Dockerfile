@@ -84,7 +84,9 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         build-essential \
         libpq-dev \
-    && curl -LsSf https://astral.sh/uv/install.sh | sh \
+    && curl -LsSf https://astral.sh/uv/install.sh -o /tmp/uv-install.sh \
+    && sh /tmp/uv-install.sh \
+    && rm -f /tmp/uv-install.sh \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
 
@@ -95,11 +97,13 @@ ENV PATH="/root/.local/bin:$PATH"
 # Changes to application code won't invalidate dependency cache
 COPY pyproject.toml uv.lock* README.md ./
 
-# Create virtual environment and install dependencies
-RUN uv venv /opt/venv
+# Install production dependencies from the lock so the image matches uv.lock
+# instead of resolving fresh (a fresh resolve can pick a different Django).
+RUN UV_PROJECT_ENVIRONMENT=/opt/venv uv sync --locked --no-dev --no-install-project
 
-# Install production dependencies only (no dev dependencies)
-RUN uv pip install --no-cache -e .
+# Install the project itself. --no-deps keeps the locked set intact; the
+# application source is copied into /app in a later layer.
+RUN uv pip install --no-cache --no-deps -e .
 
 
 # ===========================================
@@ -131,9 +135,10 @@ COPY --from=builder /opt/venv /opt/venv
 # Copy uv from builder for installing dev dependencies
 COPY --from=builder /root/.local/bin/uv /usr/local/bin/uv
 
-# Copy dependency files and install dev dependencies
+# Install dev dependencies from the lock (reproducible), then the project.
 COPY pyproject.toml uv.lock* README.md ./
-RUN uv pip install --no-cache -e ".[dev]" 2>/dev/null || uv pip install --no-cache -e .
+RUN UV_PROJECT_ENVIRONMENT=/opt/venv uv sync --locked --extra dev --no-install-project
+RUN uv pip install --no-cache --no-deps -e .
 
 # Create non-root user for security (even in development)
 RUN useradd --create-home --shell /bin/bash --uid 1000 app \
@@ -156,7 +161,7 @@ EXPOSE 8000
 # Health check for development
 # More lenient timing for development environment
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
-    CMD curl -f http://localhost:8000/api/health/ || exit 1
+    CMD ["curl", "-f", "http://localhost:8000/api/health/"]
 
 # Default command - Django development server with hot reload
 CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
@@ -174,7 +179,12 @@ FROM base AS production
 
 # Production-specific environment
 # PYTHONOPTIMIZE=2: Remove docstrings and assert statements
-ENV PYTHONOPTIMIZE=2
+# The base stage defaults DJANGO_SETTINGS_MODULE to the bare "api.settings",
+# which the settings selector resolves to dev. Pin production explicitly so the
+# image is correct even without compose-supplied environment.
+ENV PYTHONOPTIMIZE=2 \
+    DJANGO_SETTINGS_MODULE=api.settings.prod \
+    ENVIRONMENT=production
 
 # Copy virtual environment from builder (no dev dependencies)
 COPY --from=builder /opt/venv /opt/venv
@@ -194,15 +204,20 @@ RUN chmod +x /usr/local/bin/docker-entrypoint.sh /usr/local/bin/docker-entrypoin
 # Switch to non-root user
 USER app
 
-# Collect static files at build time
-RUN python manage.py collectstatic --noinput --settings=api.settings 2>/dev/null || true
+# Collect static files at build time. Importing settings needs these env vars;
+# placeholders are passed inline so they are not baked into the image, and the
+# real values are injected at runtime.
+RUN SECRET_KEY=build-time-placeholder \
+    DJANGO_SETTINGS_MODULE=api.settings.prod \
+    DB_NAME=build DB_USER=build DB_PASSWORD=build DB_HOST=build DB_PORT=5432 \
+    python manage.py collectstatic --noinput
 
 # Expose port
 EXPOSE 8000
 
 # Production health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
-    CMD curl -f http://localhost:8000/api/health/ || exit 1
+    CMD ["curl", "-f", "http://localhost:8000/api/health/"]
 
 # Default command - Production Gunicorn with optimized settings
 # Workers = (2 * CPU cores) + 1, adjust based on your needs
@@ -244,9 +259,10 @@ COPY --from=builder /opt/venv /opt/venv
 # Copy uv from builder for installing test dependencies
 COPY --from=builder /root/.local/bin/uv /usr/local/bin/uv
 
-# Copy dependency files and install test/dev dependencies
+# Install test/dev dependencies from the lock (reproducible), then the project.
 COPY pyproject.toml uv.lock* README.md ./
-RUN uv pip install --no-cache -e ".[dev]" 2>/dev/null || uv pip install --no-cache -e .
+RUN UV_PROJECT_ENVIRONMENT=/opt/venv uv sync --locked --extra dev --no-install-project
+RUN uv pip install --no-cache --no-deps -e .
 
 # Create non-root user (good practice even in CI)
 RUN useradd --create-home --shell /bin/bash --uid 1000 app \
