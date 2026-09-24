@@ -23,9 +23,30 @@ help:
 # Development
 # ---------------------------------------------------------------------------
 
-# Start the dev stack (db, valkey, django, mcp, mailhog)
+# Compose profile for the task backend selected in .env. TASK_BACKEND is the
+# single switch: Docker passes it to Django (env_file) and the worker services
+# pin it, so changing it in .env changes both sides consistently.
+backend-profile:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    name=$(grep -E '^TASK_BACKEND=' .env 2>/dev/null | tail -1 | cut -d= -f2 || true)
+    case "${name:-celery}" in
+        celery) echo celery ;;
+        huey) echo huey ;;
+        django_q | django-q) echo django-q ;;
+        django_rq | django-rq) echo django-rq ;;
+        *)
+            echo "Unknown TASK_BACKEND '${name}' in .env" >&2
+            echo "Expected one of: celery, huey, django_q, django_rq" >&2
+            exit 1
+            ;;
+    esac
+
+# Start the dev stack: db, valkey, django and the configured task worker
 dev:
-    {{ dev }} up -d
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{ compose }} --profile dev --profile "$(just backend-profile)" up -d
 
 # Follow logs for the whole dev stack
 dev-logs:
@@ -33,15 +54,21 @@ dev-logs:
 
 # Stop the dev stack
 down:
-    {{ dev }} down
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{ compose }} --profile dev --profile "$(just backend-profile)" down
 
 # Stop the dev stack and remove its volumes
 down-volumes:
-    {{ dev }} down -v
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{ compose }} --profile dev --profile "$(just backend-profile)" down -v
 
 # Restart the dev stack from scratch: down, up, migrate
 reset: down
-    {{ dev }} up -d
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{ compose }} --profile dev --profile "$(just backend-profile)" up -d
     just migrate
 
 # Build every image, including the profiled services
@@ -50,35 +77,51 @@ build:
 
 # Start the dev stack (alias for `dev`)
 up:
-    {{ dev }} up -d
+    just dev
 
 # Build images and start the dev stack
 up-build:
-    {{ dev }} up -d --build
-
-# Start the dev stack with Celery workers
-up-celery:
-    {{ compose }} --profile dev --profile celery up -d
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{ compose }} --profile dev --profile "$(just backend-profile)" up -d --build
 
 # Start the dev stack with monitoring (Flower, Jaeger)
 up-monitoring:
-    {{ compose }} --profile dev --profile monitoring up -d
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{ compose }} --profile dev --profile "$(just backend-profile)" --profile monitoring up -d
 
 # Start the dev stack with Centrifugo
 up-realtime:
-    {{ compose }} --profile dev --profile realtime up -d
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{ compose }} --profile dev --profile "$(just backend-profile)" --profile realtime up -d
+
+# Start the dev stack with Mailhog (catches outgoing email)
+up-mail:
+    {{ compose }} --profile dev --profile mail up -d
+
+# Start the dev stack with the MCP server (needs the `dev` extra)
+up-mcp:
+    {{ compose }} --profile dev --profile mcp up -d
 
 # Start every dev service
 up-full:
-    {{ compose }} --profile dev --profile celery --profile monitoring --profile realtime up -d
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{ compose }} --profile dev --profile "$(just backend-profile)" --profile monitoring --profile realtime --profile mail --profile mcp up -d
 
 # Stop every dev service
 down-full:
-    {{ compose }} --profile dev --profile celery --profile monitoring --profile realtime down
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{ compose }} --profile dev --profile "$(just backend-profile)" --profile monitoring --profile realtime --profile mail --profile mcp down
 
 # Stop every dev service and remove volumes
 down-volumes-full:
-    {{ compose }} --profile dev --profile celery --profile monitoring --profile realtime down -v
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{ compose }} --profile dev --profile "$(just backend-profile)" --profile monitoring --profile realtime --profile mail --profile mcp down -v
 
 # Follow logs for the dev stack
 logs:
@@ -309,7 +352,7 @@ setup: setup-env
     ./scripts/generate_secret_key.sh --update-env
     ./scripts/doctor.sh
     # --wait keeps `just migrate` from racing the container's own migrate.
-    {{ dev }} up -d --build --wait
+    {{ compose }} --profile dev --profile "$(just backend-profile)" up -d --build --wait
     just migrate
     just create-superuser
     just wait-for-api

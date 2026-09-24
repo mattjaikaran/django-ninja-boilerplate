@@ -99,7 +99,10 @@ COPY pyproject.toml uv.lock* README.md ./
 
 # Install production dependencies from the lock so the image matches uv.lock
 # instead of resolving fresh (a fresh resolve can pick a different Django).
-RUN UV_PROJECT_ENVIRONMENT=/opt/venv uv sync --locked --no-dev --no-install-project
+# Every task backend is installed so TASK_BACKEND can be switched without a
+# rebuild: celery is in the base dependencies, the rest are extras.
+RUN UV_PROJECT_ENVIRONMENT=/opt/venv uv sync --locked --no-dev \
+    --extra huey --extra django-q --extra django-rq --no-install-project
 
 # Install the project itself. --no-deps keeps the locked set intact; the
 # application source is copied into /app in a later layer.
@@ -137,7 +140,8 @@ COPY --from=builder /root/.local/bin/uv /usr/local/bin/uv
 
 # Install dev dependencies from the lock (reproducible), then the project.
 COPY pyproject.toml uv.lock* README.md ./
-RUN UV_PROJECT_ENVIRONMENT=/opt/venv uv sync --locked --extra dev --no-install-project
+RUN UV_PROJECT_ENVIRONMENT=/opt/venv uv sync --locked --extra dev \
+    --extra huey --extra django-q --extra django-rq --no-install-project
 RUN uv pip install --no-cache --no-deps -e .
 
 # Create non-root user for security (even in development)
@@ -265,7 +269,8 @@ COPY --from=builder /root/.local/bin/uv /usr/local/bin/uv
 
 # Install test/dev dependencies from the lock (reproducible), then the project.
 COPY pyproject.toml uv.lock* README.md ./
-RUN UV_PROJECT_ENVIRONMENT=/opt/venv uv sync --locked --extra dev --no-install-project
+RUN UV_PROJECT_ENVIRONMENT=/opt/venv uv sync --locked --extra dev \
+    --extra huey --extra django-q --extra django-rq --no-install-project
 RUN uv pip install --no-cache --no-deps -e .
 
 # Create non-root user (good practice even in CI)

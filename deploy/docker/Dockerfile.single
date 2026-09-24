@@ -28,7 +28,10 @@ COPY pyproject.toml uv.lock* README.md ./
 
 # Install production dependencies from the lock so the image matches uv.lock
 # instead of resolving fresh (a fresh resolve can pick a different Django).
-RUN UV_PROJECT_ENVIRONMENT=/opt/venv uv sync --locked --no-dev --no-install-project
+# Every task backend ships in the image so TASK_BACKEND can be switched
+# without rebuilding.
+RUN UV_PROJECT_ENVIRONMENT=/opt/venv uv sync --locked --no-dev \
+    --extra huey --extra django-q --extra django-rq --no-install-project
 
 # Install the project itself. --no-deps keeps the locked set intact; the
 # application source is copied into /app in a later layer.

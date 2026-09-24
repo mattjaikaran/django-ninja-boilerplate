@@ -52,6 +52,7 @@ services:
       - huey
       - django-q
       - django-rq
+      - mcp
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
@@ -93,6 +94,7 @@ services:
       - django-rq
       - realtime
       - monitoring
+      - mcp
     ports:
       - "${VALKEY_PORT:-6380}:6379"
     volumes:
@@ -563,8 +565,9 @@ services:
       context: .
       dockerfile: Dockerfile
       target: development
+    # Optional: `just up-mcp`. Not part of the default stack.
     profiles:
-      - dev
+      - mcp
     command: >
       sh -c "uv run django-ai-boost --settings api.settings.dev --transport sse --port 8001"
     volumes:
@@ -610,8 +613,9 @@ services:
   # Catches outgoing email in development.
   mailhog:
     image: mailhog/mailhog:v1.0.1
+    # Optional: `just up-mail`. Not part of the default stack.
     profiles:
-      - dev
+      - mail
     ports:
       - "1025:1025"
       - "8025:8025"
