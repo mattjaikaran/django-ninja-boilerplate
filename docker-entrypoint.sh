@@ -37,8 +37,10 @@ fi
 echo "Running Django migrations..."
 python manage.py migrate --noinput
 
-# Create superuser if it doesn't exist (using management command to avoid shell injection)
-if [ "$SUPERUSER_EMAIL" ] && [ "$SUPERUSER_PASSWORD" ]; then
+# Create a superuser only when explicitly requested. Template credentials live
+# in .env.example, so creating one unconditionally would provision a known
+# admin account on any deployment that reuses that file.
+if [ "$CREATE_SUPERUSER" = "true" ] && [ "$SUPERUSER_EMAIL" ] && [ "$SUPERUSER_PASSWORD" ]; then
     echo "Creating Django superuser..."
     python manage.py create_superuser 2>/dev/null || \
     echo "Superuser creation skipped (may already exist or missing env vars)"
