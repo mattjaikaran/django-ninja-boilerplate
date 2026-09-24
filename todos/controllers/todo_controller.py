@@ -11,7 +11,8 @@ Route prefix: /todos
 import logging
 
 from ninja_extra import api_controller, http_delete, http_get, http_post, http_put
-from ninja_extra.pagination import paginate
+from ninja_extra.pagination import PageNumberPaginationExtra, paginate
+from ninja_extra.schemas import PaginatedResponseSchema
 from ninja_jwt.authentication import JWTAuth
 
 from api.decorators import log_api_call, validate_request
@@ -38,9 +39,9 @@ class TodoController:
     # List / search
     # ------------------------------------------------------------------
 
-    @paginate
-    @http_get("/", response={200: list[TodoSchema], 500: dict})
+    @http_get("/", response={200: PaginatedResponseSchema[TodoSchema]})
     @log_api_call()
+    @paginate(PageNumberPaginationExtra)
     def list_todos(
         self,
         request,
@@ -60,9 +61,9 @@ class TodoController:
                 prefix with ``-`` for descending order).
 
         Returns:
-            Tuple of (200, queryset) containing filtered todos.
+            QuerySet of matching todos for the authenticated user.
         """
-        return 200, self.service.list_todos(
+        return self.service.list_todos(
             user=request.user,
             search=search,
             completed=completed,
@@ -84,9 +85,9 @@ class TodoController:
         """
         return 200, self.service.get_todo(todo_id, request.user)
 
-    @paginate
-    @http_get("/completed", response={200: list[TodoSchema], 500: dict})
+    @http_get("/completed", response={200: PaginatedResponseSchema[TodoSchema]})
     @log_api_call()
+    @paginate(PageNumberPaginationExtra)
     def list_completed_todos(self, request):
         """List completed todos for the authenticated user.
 
@@ -94,13 +95,13 @@ class TodoController:
             request: The HTTP request object.
 
         Returns:
-            Tuple of (200, queryset) of completed todos.
+            QuerySet of completed todos for the authenticated user.
         """
-        return 200, self.service.list_completed_todos(request.user)
+        return self.service.list_completed_todos(request.user)
 
-    @paginate
-    @http_get("/pending", response={200: list[TodoSchema], 500: dict})
+    @http_get("/pending", response={200: PaginatedResponseSchema[TodoSchema]})
     @log_api_call()
+    @paginate(PageNumberPaginationExtra)
     def list_pending_todos(self, request):
         """List pending (incomplete) todos for the authenticated user.
 
@@ -108,13 +109,13 @@ class TodoController:
             request: The HTTP request object.
 
         Returns:
-            Tuple of (200, queryset) of pending todos.
+            QuerySet of pending todos for the authenticated user.
         """
-        return 200, self.service.list_pending_todos(request.user)
+        return self.service.list_pending_todos(request.user)
 
-    @paginate
-    @http_get("/search", response={200: list[TodoSchema], 500: dict})
+    @http_get("/search", response={200: PaginatedResponseSchema[TodoSchema]})
     @log_api_call()
+    @paginate(PageNumberPaginationExtra)
     def search_todos(
         self,
         request,
@@ -131,9 +132,9 @@ class TodoController:
             completed: Filter by completion status.
 
         Returns:
-            Tuple of (200, queryset) of matching todos.
+            QuerySet of matching todos for the authenticated user.
         """
-        return 200, self.service.search_todos(
+        return self.service.search_todos(
             user=request.user,
             q=q,
             priority=priority,

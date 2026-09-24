@@ -36,8 +36,6 @@ from core.schemas.base_schema import (
     HealthStatus,
     IdResponse,
     MessageResponse,
-    PaginatedResponse,
-    PaginationMeta,
     ServiceHealth,
     SortOrder,
     StatusEnum,
@@ -46,7 +44,6 @@ from core.schemas.base_schema import (
     TimestampSchema,
     ValidationErrorResponse,
     create_error_response,
-    create_paginated_response,
     create_success_response,
 )
 from core.schemas.otp_schema import (
@@ -128,8 +125,6 @@ __all__ = [
     "HealthStatus",
     "IdResponse",
     "MessageResponse",
-    "PaginatedResponse",
-    "PaginationMeta",
     "ServiceHealth",
     "SortOrder",
     "StatusEnum",
@@ -139,6 +134,5 @@ __all__ = [
     "ValidationErrorResponse",
     # Utility functions
     "create_error_response",
-    "create_paginated_response",
     "create_success_response",
 ]

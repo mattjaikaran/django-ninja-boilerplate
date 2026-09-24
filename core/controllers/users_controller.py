@@ -20,7 +20,8 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 from django.shortcuts import get_object_or_404
 from ninja_extra import api_controller, http_delete, http_get, http_post, http_put
-from ninja_extra.pagination import paginate
+from ninja_extra.pagination import PageNumberPaginationExtra, paginate
+from ninja_extra.schemas import PaginatedResponseSchema
 from ninja_jwt.authentication import JWTAuth
 
 from api.decorators import log_api_call
@@ -97,9 +98,9 @@ class UserController:
         user = get_object_or_404(User, id=user_id)
         return 200, UserSchema.from_orm(user)
 
-    @paginate
-    @http_get("/", response=list[UserSchema])
+    @http_get("/", response={200: PaginatedResponseSchema[UserSchema]})
     @log_api_call()
+    @paginate(PageNumberPaginationExtra)
     def list_users(
         self,
         is_active: bool | None = None,
@@ -192,9 +193,9 @@ class UserController:
         user.delete()
         return 204, None
 
-    @paginate
-    @http_get("/staff", response=list[UserSchema])
+    @http_get("/staff", response={200: PaginatedResponseSchema[UserSchema]})
     @log_api_call()
+    @paginate(PageNumberPaginationExtra)
     def list_staff_users(self):
         """List all staff users, ordered by most recently joined.
 
@@ -204,9 +205,9 @@ class UserController:
         """
         return User.objects.filter(is_staff=True).order_by("-date_joined")
 
-    @paginate
-    @http_get("/active", response=list[UserSchema])
+    @http_get("/active", response={200: PaginatedResponseSchema[UserSchema]})
     @log_api_call()
+    @paginate(PageNumberPaginationExtra)
     def list_active_users(self):
         """List all active users, ordered by most recent login.
 

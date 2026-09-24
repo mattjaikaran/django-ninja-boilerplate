@@ -14,7 +14,8 @@ from ninja_extra import (
     http_post,
     http_put,
 )
-from ninja_extra.pagination import paginate
+from ninja_extra.pagination import PageNumberPaginationExtra, paginate
+from ninja_extra.schemas import PaginatedResponseSchema
 from ninja_jwt.authentication import JWTAuth
 
 from api.decorators import log_api_call
@@ -76,9 +77,9 @@ class FeatureFlagAdminController:
         )
         return 201, flag
 
-    @paginate
-    @http_get("/", response=list[FeatureFlagListSchema])
+    @http_get("/", response={200: PaginatedResponseSchema[FeatureFlagListSchema]})
     @log_api_call()
+    @paginate(PageNumberPaginationExtra)
     def list_flags(
         self,
         request,

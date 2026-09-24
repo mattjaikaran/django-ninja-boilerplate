@@ -12,7 +12,8 @@ from django.db.models import Count
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from ninja_extra import api_controller, http_get
-from ninja_extra.pagination import paginate
+from ninja_extra.pagination import PageNumberPaginationExtra, paginate
+from ninja_extra.schemas import PaginatedResponseSchema
 from ninja_jwt.authentication import JWTAuth
 
 from api.decorators import log_api_call
@@ -35,9 +36,9 @@ class AuditLogController:
     Audit logs are read-only to maintain integrity.
     """
 
-    @paginate
-    @http_get("/", response=list[AuditLogListSchema])
+    @http_get("/", response={200: PaginatedResponseSchema[AuditLogListSchema]})
     @log_api_call()
+    @paginate(PageNumberPaginationExtra)
     def list_audit_logs(
         self,
         action: str | None = None,

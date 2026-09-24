@@ -13,7 +13,8 @@ import logging
 from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from ninja_extra import api_controller, http_delete, http_get, http_post, http_put
-from ninja_extra.pagination import paginate
+from ninja_extra.pagination import PageNumberPaginationExtra, paginate
+from ninja_extra.schemas import PaginatedResponseSchema
 from ninja_jwt.authentication import JWTAuth
 
 from api.decorators import log_api_call
@@ -42,8 +43,8 @@ class TodoControllerPartial:
     # Read endpoints — no custom decorators
     # ------------------------------------------------------------------
 
-    @paginate
-    @http_get("/", response={200: list[TodoSchema]})
+    @http_get("/", response={200: PaginatedResponseSchema[TodoSchema]})
+    @paginate(PageNumberPaginationExtra)
     def list_todos(
         self,
         request,
@@ -108,8 +109,8 @@ class TodoControllerPartial:
             Todo.objects.select_related("user"), id=todo_id, user=request.user
         )
 
-    @paginate
-    @http_get("/completed", response={200: list[TodoSchema]})
+    @http_get("/completed", response={200: PaginatedResponseSchema[TodoSchema]})
+    @paginate(PageNumberPaginationExtra)
     def list_completed_todos(self, request):
         """List completed todos for the authenticated user.
 
@@ -123,8 +124,8 @@ class TodoControllerPartial:
             "-updated_at"
         )
 
-    @paginate
-    @http_get("/pending", response={200: list[TodoSchema]})
+    @http_get("/pending", response={200: PaginatedResponseSchema[TodoSchema]})
+    @paginate(PageNumberPaginationExtra)
     def list_pending_todos(self, request):
         """List pending (incomplete) todos for the authenticated user.
 
@@ -138,8 +139,8 @@ class TodoControllerPartial:
             "-created_at"
         )
 
-    @paginate
-    @http_get("/search", response={200: list[TodoSchema]})
+    @http_get("/search", response={200: PaginatedResponseSchema[TodoSchema]})
+    @paginate(PageNumberPaginationExtra)
     def search_todos(
         self,
         request,

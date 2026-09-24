@@ -13,7 +13,8 @@ import logging
 from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from ninja_extra import api_controller, http_delete, http_get, http_post, http_put
-from ninja_extra.pagination import paginate
+from ninja_extra.pagination import PageNumberPaginationExtra, paginate
+from ninja_extra.schemas import PaginatedResponseSchema
 from ninja_jwt.authentication import JWTAuth
 
 from todos.models import Todo
@@ -31,8 +32,8 @@ class TodoControllerBasic:
     before studying the more advanced controller variants.
     """
 
-    @paginate
-    @http_get("/", response={200: list[TodoSchema]})
+    @http_get("/", response={200: PaginatedResponseSchema[TodoSchema]})
+    @paginate(PageNumberPaginationExtra)
     def list_todos(
         self,
         request,
@@ -149,8 +150,8 @@ class TodoControllerBasic:
         todo.delete()
         return 204, None
 
-    @paginate
-    @http_get("/completed", response={200: list[TodoSchema]})
+    @http_get("/completed", response={200: PaginatedResponseSchema[TodoSchema]})
+    @paginate(PageNumberPaginationExtra)
     def list_completed_todos(self, request):
         """List completed todos for the authenticated user.
 
@@ -164,8 +165,8 @@ class TodoControllerBasic:
             "-updated_at"
         )
 
-    @paginate
-    @http_get("/pending", response={200: list[TodoSchema]})
+    @http_get("/pending", response={200: PaginatedResponseSchema[TodoSchema]})
+    @paginate(PageNumberPaginationExtra)
     def list_pending_todos(self, request):
         """List pending (incomplete) todos for the authenticated user.
 
@@ -179,8 +180,8 @@ class TodoControllerBasic:
             "-created_at"
         )
 
-    @paginate
-    @http_get("/search", response={200: list[TodoSchema]})
+    @http_get("/search", response={200: PaginatedResponseSchema[TodoSchema]})
+    @paginate(PageNumberPaginationExtra)
     def search_todos(
         self,
         request,

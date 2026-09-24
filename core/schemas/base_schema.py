@@ -1,7 +1,7 @@
 """Base schema classes for consistent API responses.
 
 This module provides base Pydantic schemas for standardized API responses
-including error handling, pagination, and common response patterns.
+including error handling and common response patterns.
 
 All API schemas should inherit from ``CamelCaseSchema`` for consistent
 camelCase JSON field names.  Input schemas accept **both** camelCase and
@@ -11,16 +11,12 @@ as camelCase.
 
 from datetime import datetime
 from enum import Enum
-from typing import Any, Generic, TypeVar
+from typing import Any
 from uuid import UUID
 
 from ninja import Schema
 from pydantic import ConfigDict, Field
 from pydantic.alias_generators import to_camel
-
-# Type variable for generic responses
-T = TypeVar("T")
-
 
 # =============================================================================
 # CamelCase Base Schema
@@ -106,29 +102,6 @@ class IdResponse(CamelCaseSchema):
     """Response containing just an ID."""
 
     id: str | UUID
-
-
-# =============================================================================
-# Pagination Schemas
-# =============================================================================
-
-
-class PaginationMeta(CamelCaseSchema):
-    """Pagination metadata for list responses."""
-
-    page: int = 1
-    per_page: int = 50
-    total: int = 0
-    total_pages: int = 0
-    has_next: bool = False
-    has_prev: bool = False
-
-
-class PaginatedResponse(CamelCaseSchema, Generic[T]):
-    """Paginated list response wrapper."""
-
-    items: list[T]
-    meta: PaginationMeta
 
 
 # =============================================================================
@@ -267,38 +240,6 @@ class HealthCheckResponse(CamelCaseSchema):
 # =============================================================================
 # Utility Functions
 # =============================================================================
-
-
-def create_paginated_response(
-    items: list,
-    page: int = 1,
-    per_page: int = 50,
-    total: int = 0,
-) -> dict:
-    """Create a paginated response dictionary.
-
-    Args:
-        items: List of items for current page
-        page: Current page number
-        per_page: Items per page
-        total: Total count of items
-
-    Returns:
-        Dictionary with items and pagination metadata
-    """
-    total_pages = (total + per_page - 1) // per_page if per_page > 0 else 0
-
-    return {
-        "items": items,
-        "meta": {
-            "page": page,
-            "per_page": per_page,
-            "total": total,
-            "total_pages": total_pages,
-            "has_next": page < total_pages,
-            "has_prev": page > 1,
-        },
-    }
 
 
 def create_error_response(
