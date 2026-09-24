@@ -44,12 +44,13 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
+      # 3.14 stays out until pydantic-core publishes cp314 wheels: without them
+      # the install builds it from source and fails on a runner with no Rust.
+      # 6.1 is absent because django-celery-beat caps Django at <6.1 and
+      # CELERY_BEAT_SCHEDULER depends on it, so it is not a supported install.
+      # See DEPENDENCIES.md for the measured 6.1 result.
       matrix:
-        # 3.14 stays out until pydantic-core publishes cp314 wheels: without
-        # them the install builds it from source and fails on a runner with no
-        # Rust toolchain.
         python-version: ["3.13"]
-        # 6.0 is installable because django-celery-beat 2.9.0 allows Django <6.1.
         django-version: ["5.2", "6.0"]
 
     services:
@@ -107,16 +108,20 @@ jobs:
       - name: Install dependencies with Django ${{ matrix.django-version }}
         run: |
           # Lock-respecting install, then pin the matrix Django version.
-          uv sync --extra dev
+          uv sync --locked --extra dev
           uv pip install --python .venv/bin/python "Django~=${{ matrix.django-version }}.0"
-          uv run python -c "import django; print('Django', django.get_version())"
+          # --no-sync on every later step too, or uv re-syncs the lock's
+          # Django back over the matrix version.
+          uv run --no-sync python -c "import django; print('Django', django.get_version())"
 
       - name: Run migrations
         run: |
-          python manage.py migrate --noinput
+          # --no-sync: the matrix Django version was pinned into this venv
+          # above, and a plain `uv run` would re-sync it back to the lock.
+          uv run --no-sync python manage.py migrate --noinput
 
       - name: Run tests with coverage
-        run: pytest --timeout=60
+        run: uv run --no-sync pytest --timeout=60
 
       - name: Upload coverage to Codecov
         if: matrix.python-version == '3.13' && matrix.django-version == '5.2'
