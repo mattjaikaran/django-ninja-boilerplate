@@ -15,10 +15,11 @@ from django.core.exceptions import ValidationError
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from ninja_extra import api_controller, http_get, http_post
+from ninja_extra.throttling import DynamicRateThrottle, throttle
 from ninja_jwt.authentication import JWTAuth
 from ninja_jwt.tokens import RefreshToken
 
-from api.decorators import log_api_call, rate_limit
+from api.decorators import log_api_call
 from core.models import OneTimePassword
 from core.schemas import (
     AuthStatusSchema,
@@ -64,7 +65,7 @@ class AuthController:
     """
 
     @http_post("/signup", response={201: UserSchema, 400: dict}, auth=None)
-    @rate_limit(requests_per_minute=10)
+    @throttle(DynamicRateThrottle, scope="anon-auth")
     @log_api_call(include_payload=True)
     def signup(self, request, payload: UserSignupSchema):
         """Create a new user account.
@@ -115,7 +116,7 @@ class AuthController:
         return 201, UserSchema.from_orm(user)
 
     @http_post("/login", response={200: dict, 400: dict, 429: dict}, auth=None)
-    @rate_limit(requests_per_minute=20)
+    @throttle(DynamicRateThrottle, scope="anon-auth")
     @log_api_call(include_payload=True)
     def login(self, request, payload: LoginSchema):
         """Authenticate a user with email and password.
@@ -158,12 +159,10 @@ class AuthController:
                 payload.email.lower(),
                 remaining - 1,
             )
-            validation_error = ValidationError("Invalid credentials")
-            raise validation_error
+            return 400, {"error": "Invalid credentials"}
 
         if not user.is_active:
-            validation_error = ValidationError("Account is disabled")
-            raise validation_error
+            return 400, {"error": "Account is disabled"}
 
         clear_attempts(lockout_key)
 
@@ -182,7 +181,7 @@ class AuthController:
         }
 
     @http_post("/login/username", response={200: dict, 400: dict, 429: dict}, auth=None)
-    @rate_limit(requests_per_minute=20)
+    @throttle(DynamicRateThrottle, scope="anon-auth")
     @log_api_call(include_payload=True)
     def login_username(self, request, payload: UserLoginSchema):
         """Authenticate a user with username and password (legacy).
@@ -214,12 +213,10 @@ class AuthController:
 
         if not user:
             record_failed_attempt(lockout_key)
-            validation_error = ValidationError("Invalid credentials")
-            raise validation_error
+            return 400, {"error": "Invalid credentials"}
 
         if not user.is_active:
-            validation_error = ValidationError("Account is disabled")
-            raise validation_error
+            return 400, {"error": "Account is disabled"}
 
         clear_attempts(lockout_key)
 
@@ -301,7 +298,7 @@ class AuthController:
     # =========================================================================
 
     @http_post("/passwordless/login/request", response={200: dict}, auth=None)
-    @rate_limit(requests_per_minute=5)
+    @throttle(DynamicRateThrottle, scope="anon-email")
     @log_api_call()
     def request_passwordless_login(self, request, payload: PasswordlessLoginRequest):
         """Request passwordless login magic link.
@@ -352,7 +349,7 @@ class AuthController:
         return 200, {"detail": "If registered, you'll receive a magic link"}
 
     @http_post("/passwordless/login/verify", response={200: dict, 404: dict}, auth=None)
-    @rate_limit(requests_per_minute=20)
+    @throttle(DynamicRateThrottle, scope="anon-auth")
     @log_api_call()
     def verify_passwordless_login(self, request, payload: PasswordlessLoginVerify):
         """Verify passwordless login token and return JWT tokens.

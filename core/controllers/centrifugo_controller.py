@@ -8,9 +8,10 @@ Provides JWT tokens that clients use to authenticate with Centrifugo:
 import logging
 
 from ninja_extra import api_controller, http_post
+from ninja_extra.throttling import UserRateThrottle, throttle
 
 from api.centrifugo import generate_connection_token, generate_subscription_token
-from api.decorators import log_api_call, rate_limit
+from api.decorators import log_api_call
 from core.schemas.base_schema import CamelCaseSchema
 
 logger = logging.getLogger(__name__)
@@ -34,7 +35,7 @@ class CentrifugoTokenController:
 
     @http_post("/connection-token", response={200: ConnectionTokenResponse})
     @log_api_call()
-    @rate_limit(requests_per_minute=30)
+    @throttle(UserRateThrottle)
     def get_connection_token(self, request):
         """Generate a connection token for the authenticated user.
 
@@ -49,7 +50,7 @@ class CentrifugoTokenController:
 
     @http_post("/subscription-token", response={200: SubscriptionTokenResponse})
     @log_api_call()
-    @rate_limit(requests_per_minute=60)
+    @throttle(UserRateThrottle)
     def get_subscription_token(self, request, payload: SubscriptionTokenRequest):
         """Generate a subscription token for a specific channel.
 

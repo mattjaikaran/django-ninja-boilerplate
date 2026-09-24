@@ -218,6 +218,14 @@ NINJA_JWT = {
     "SLIDING_TOKEN_REFRESH_LIFETIME": timedelta(days=1),
 }
 
+# Number of trusted reverse proxies in front of the app. Django Ninja reads
+# ``NINJA_NUM_PROXIES`` and Ninja Extra reads ``NINJA_EXTRA["NUM_PROXIES"]``;
+# keep both in sync so throttles derive the real client IP from
+# X-Forwarded-For without trusting the first hop an attacker controls.
+# Default 0 trusts no proxy (spoof-resistant); set 1 in the single-nginx
+# deployment behind a trusted proxy.
+TRUSTED_PROXY_COUNT = env.int("NINJA_NUM_PROXIES", default=0)
+
 # Django Ninja Extra settings
 NINJA_EXTRA = {
     "PAGINATION_CLASS": "ninja_extra.pagination.PageNumberPaginationExtra",  # included pagination
@@ -228,13 +236,20 @@ NINJA_EXTRA = {
         "ninja_extra.throttling.UserRateThrottle",  # authenticated user throttling
     ],
     "THROTTLE_RATES": {
-        "user": "1000/day",  # 1000 requests per day for authenticated users
-        "anon": "100/day",  # 100 requests per day for anonymous users
+        "user": "1000/day",  # authenticated general API
+        "anon": "100/day",  # anonymous general API
+        "anon-auth": "20/min",  # credential auth endpoints (signup/login/verify)
+        "anon-email": "5/min",  # magic-link request (email sending)
+        "decisions": "30/min",  # decision evaluation (expensive)
+        "tasks": "60/min",  # task admin endpoints
     },
-    "NUM_PROXIES": None,  # number of proxies
+    "NUM_PROXIES": TRUSTED_PROXY_COUNT,  # trusted reverse proxies
     "ORDERING_CLASS": "ninja_extra.ordering.Ordering",  # included ordering
     "SEARCHING_CLASS": "ninja_extra.searching.Search",  # included searching
 }
+
+# Base Django Ninja reads the same count from the top-level setting.
+NINJA_NUM_PROXIES = TRUSTED_PROXY_COUNT
 
 # Internationalization
 # https://docs.djangoproject.com/en/5.2/topics/i18n/

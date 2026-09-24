@@ -11,6 +11,7 @@ import logging
 
 from celery import current_app
 from ninja_extra import api_controller, http_delete, http_get, http_post, http_put
+from ninja_extra.throttling import DynamicRateThrottle
 from ninja_jwt.authentication import JWTAuth
 
 from api.decorators import log_api_call
@@ -41,7 +42,12 @@ from core.tasks.schemas import (
 logger = logging.getLogger(__name__)
 
 
-@api_controller("/tasks", tags=["Tasks"], auth=JWTAuth())
+@api_controller(
+    "/tasks",
+    tags=["Tasks"],
+    auth=JWTAuth(),
+    throttle=DynamicRateThrottle(scope="tasks"),
+)
 class TaskController:
     """Controller for task status and monitoring endpoints."""
 
@@ -158,7 +164,13 @@ class TaskController:
         }
 
 
-@api_controller("/tasks/scheduler", tags=["Task Scheduler"], auth=JWTAuth(), permissions=[IsAdminUser])
+@api_controller(
+    "/tasks/scheduler",
+    tags=["Task Scheduler"],
+    auth=JWTAuth(),
+    permissions=[IsAdminUser],
+    throttle=DynamicRateThrottle(scope="tasks"),
+)
 class TaskSchedulerController:
     """Controller for periodic task management endpoints."""
 
@@ -307,7 +319,13 @@ class TaskSchedulerController:
         return 200, PeriodicTaskManager.get_scheduler_stats()
 
 
-@api_controller("/tasks/dlq", tags=["Dead Letter Queue"], auth=JWTAuth(), permissions=[IsAdminUser])
+@api_controller(
+    "/tasks/dlq",
+    tags=["Dead Letter Queue"],
+    auth=JWTAuth(),
+    permissions=[IsAdminUser],
+    throttle=DynamicRateThrottle(scope="tasks"),
+)
 class DeadLetterQueueController:
     """Controller for dead letter queue operations."""
 

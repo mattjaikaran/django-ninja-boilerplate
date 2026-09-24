@@ -10,6 +10,7 @@ import logging
 
 from django.core.exceptions import ImproperlyConfigured
 from ninja_extra import api_controller, http_post
+from ninja_extra.throttling import DynamicRateThrottle
 from ninja_jwt.authentication import JWTAuth
 
 from api.decorators import log_api_call, validate_request
@@ -31,6 +32,7 @@ class DecisionController:
     @http_post(
         "/evaluate",
         response={200: DecisionResponseSchema, 400: dict, 500: dict},
+        throttle=DynamicRateThrottle(scope="decisions"),
     )
     @log_api_call(include_payload=True, include_response=False)
     @validate_request()

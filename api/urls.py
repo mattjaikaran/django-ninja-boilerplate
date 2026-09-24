@@ -1,7 +1,10 @@
+import math
+
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import path
+from ninja.errors import Throttled
 from ninja_extra import NinjaExtraAPI
 from ninja_jwt.controller import NinjaJWTDefaultController
 
@@ -75,11 +78,23 @@ api = NinjaExtraAPI(
 
 
 # Register exception handlers on the shared API instance.
-# Framework-level failures (Django Http404, Ninja request validation, auth, and
-# permissions) keep their native handlers; these only own the domain hierarchy
-# and the last-resort safe 500.
 api.add_exception_handler(BaseAPIException, handle_api_exception)
 api.add_exception_handler(Exception, handle_generic_exception)
+
+
+def handle_throttled(request, exc: Throttled):
+    """Return 429 with real retry metadata for throttled requests."""
+    retry_after = max(1, math.ceil(exc.wait or 1))
+    response = api.create_response(
+        request,
+        {"detail": str(exc), "retry_after": retry_after},
+        status=429,
+    )
+    response["Retry-After"] = str(retry_after)
+    return response
+
+
+api.add_exception_handler(Throttled, handle_throttled)
 
 
 # Register controllers

@@ -6,12 +6,9 @@ on the shared ``NinjaExtraAPI`` instance (see ``api.exceptions``).
 """
 
 import functools
-import hashlib
 import logging
 import time
 from collections.abc import Callable
-
-from django.core.cache import cache
 
 from .utils.validation import ValidationResult, create_error_response
 
@@ -271,92 +268,3 @@ def require_verified(func):
         return func(self, *args, **kwargs)
 
     return wrapper
-
-
-def rate_limit(
-    requests_per_minute: int = 60,
-    key_func: Callable | None = None,
-):
-    """Decorator for per-endpoint rate limiting using the cache backend.
-
-    Uses a sliding window counter stored in Django's cache framework.
-    Adds X-RateLimit-* headers to the request META for the middleware to pick up.
-
-    Args:
-        requests_per_minute: Maximum requests allowed per minute
-        key_func: Custom function to generate the rate limit key.
-                  Receives (request, func_name) and returns a string.
-    """
-    period = 60  # 1 minute window
-
-    def decorator(func):
-        @functools.wraps(func)
-        def wrapper(self, *args, **kwargs):
-            # Find the request object
-            request = None
-            for arg in args:
-                if hasattr(arg, "META"):
-                    request = arg
-                    break
-            if request is None:
-                request = kwargs.get("request")
-
-            if request is None:
-                # No request object found, skip rate limiting
-                return func(self, *args, **kwargs)
-
-            # Generate rate limit key
-            if key_func:
-                identifier = key_func(request, func.__name__)
-            elif (
-                hasattr(request, "user")
-                and request.user
-                and request.user.is_authenticated
-            ):
-                identifier = f"user:{request.user.pk}"
-            else:
-                ip = _get_client_ip(request)
-                identifier = f"ip:{ip}"
-
-            cache_key = f"ratelimit:{func.__name__}:{hashlib.md5(identifier.encode()).hexdigest()}"
-
-            # Sliding window counter
-            current_count = cache.get(cache_key, 0)
-
-            # Set rate limit headers on request META for middleware
-            request.META["X-RateLimit-Limit"] = str(requests_per_minute)
-            request.META["X-RateLimit-Remaining"] = str(
-                max(0, requests_per_minute - current_count - 1)
-            )
-
-            if current_count >= requests_per_minute:
-                logger.warning(
-                    "Rate limit exceeded for %s on %s",
-                    identifier,
-                    func.__name__,
-                )
-                return HTTP_TOO_MANY_REQUESTS, {
-                    "error": "Rate limit exceeded",
-                    "message": f"Too many requests. Limit: {requests_per_minute}/min",
-                }
-
-            # Increment counter
-            try:
-                cache.set(cache_key, current_count + 1, timeout=period)
-            except Exception:
-                # If cache is unavailable, allow the request
-                logger.warning("Rate limit cache unavailable, allowing request")
-
-            return func(self, *args, **kwargs)
-
-        return wrapper
-
-    return decorator
-
-
-def _get_client_ip(request) -> str:
-    """Extract client IP from request, handling proxies."""
-    x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
-    if x_forwarded_for:
-        return x_forwarded_for.split(",")[0].strip()
-    return request.META.get("REMOTE_ADDR", "unknown")
