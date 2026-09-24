@@ -10,6 +10,7 @@ import logging
 
 from django.core.exceptions import ImproperlyConfigured
 from ninja_extra import api_controller, http_post
+from ninja_jwt.authentication import JWTAuth
 
 from api.decorators import log_api_call, validate_request
 from api.exceptions import ValidationError
@@ -19,7 +20,7 @@ from decisions.services import DecisionService
 logger = logging.getLogger(__name__)
 
 
-@api_controller("/decisions", tags=["Decisions"])
+@api_controller("/decisions", tags=["Decisions"], auth=JWTAuth())
 class DecisionController:
     """HTTP adapter for the System One decision engine."""
 

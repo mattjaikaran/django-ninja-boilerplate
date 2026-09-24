@@ -13,6 +13,7 @@ from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from ninja_extra import api_controller, http_get
 from ninja_extra.pagination import paginate
+from ninja_jwt.authentication import JWTAuth
 
 from api.decorators import log_api_call
 from api.permissions import IsAdminUser
@@ -26,7 +27,7 @@ from core.audit.schemas import (
 logger = logging.getLogger(__name__)
 
 
-@api_controller("/audit", tags=["Audit Logs"], permissions=[IsAdminUser])
+@api_controller("/audit", tags=["Audit Logs"], auth=JWTAuth(), permissions=[IsAdminUser])
 class AuditLogController:
     """Controller for managing audit logs.
 

@@ -21,8 +21,10 @@ from django.contrib.auth.password_validation import validate_password
 from django.shortcuts import get_object_or_404
 from ninja_extra import api_controller, http_delete, http_get, http_post, http_put
 from ninja_extra.pagination import paginate
+from ninja_jwt.authentication import JWTAuth
 
 from api.decorators import log_api_call
+from api.permissions import IsAdminUser, IsSuperUser
 from core.schemas import (
     UserSchema,
     UserSignupSchema,
@@ -36,17 +38,16 @@ logger = logging.getLogger(__name__)
 
 # the tag customizes Swagger or else it will be default lowercase
 # ie - users
-@api_controller("/users", tags=["Users"])
+@api_controller("/users", tags=["Users"], auth=JWTAuth(), permissions=[IsAdminUser])
 class UserController:
     """HTTP controller for admin-level user management.
 
-    Provides CRUD operations over the User model. All endpoints are
-    intended for staff/admin use and are not protected by JWT by default —
-    add ``auth=JWTAuth()`` and staff permission checks if needed in
-    production.
+    Provides CRUD operations over the User model. All endpoints require a
+    staff account, except ``create_superuser`` which additionally requires a
+    superuser account.
     """
 
-    @http_post("/superuser", response={201: UserSchema, 400: dict, 500: dict})
+    @http_post("/superuser", response={201: UserSchema, 400: dict, 500: dict}, permissions=[IsSuperUser])
     @log_api_call(include_payload=True)
     def create_superuser(self, request, payload: UserSignupSchema):
         """Create a superuser account.
@@ -71,7 +72,11 @@ class UserController:
             raise ValueError("Superuser must have is_staff=True.")
 
         user = User.objects.create_superuser(  # type: ignore[attr-defined]
-            **payload.model_dump(exclude_unset=True),
+            email=payload.email,
+            password=payload.password,
+            username=payload.username,
+            first_name=payload.first_name,
+            last_name=payload.last_name,
             is_staff=True,
             is_superuser=True,
         )

@@ -11,8 +11,10 @@ import logging
 
 from celery import current_app
 from ninja_extra import api_controller, http_delete, http_get, http_post, http_put
+from ninja_jwt.authentication import JWTAuth
 
 from api.decorators import log_api_call
+from api.permissions import IsAdminUser
 from core.tasks.dlq import DeadLetterQueue
 from core.tasks.progress import TaskProgressTracker
 from core.tasks.scheduler import PeriodicTaskManager
@@ -39,7 +41,7 @@ from core.tasks.schemas import (
 logger = logging.getLogger(__name__)
 
 
-@api_controller("/tasks", tags=["Tasks"])
+@api_controller("/tasks", tags=["Tasks"], auth=JWTAuth())
 class TaskController:
     """Controller for task status and monitoring endpoints."""
 
@@ -156,7 +158,7 @@ class TaskController:
         }
 
 
-@api_controller("/tasks/scheduler", tags=["Task Scheduler"])
+@api_controller("/tasks/scheduler", tags=["Task Scheduler"], auth=JWTAuth(), permissions=[IsAdminUser])
 class TaskSchedulerController:
     """Controller for periodic task management endpoints."""
 
@@ -305,7 +307,7 @@ class TaskSchedulerController:
         return 200, PeriodicTaskManager.get_scheduler_stats()
 
 
-@api_controller("/tasks/dlq", tags=["Dead Letter Queue"])
+@api_controller("/tasks/dlq", tags=["Dead Letter Queue"], auth=JWTAuth(), permissions=[IsAdminUser])
 class DeadLetterQueueController:
     """Controller for dead letter queue operations."""
 

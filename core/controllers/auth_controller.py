@@ -15,6 +15,7 @@ from django.core.exceptions import ValidationError
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from ninja_extra import api_controller, http_get, http_post
+from ninja_jwt.authentication import JWTAuth
 from ninja_jwt.tokens import RefreshToken
 
 from api.decorators import log_api_call, rate_limit
@@ -41,7 +42,7 @@ User = get_user_model()
 logger = logging.getLogger(__name__)
 
 
-@api_controller("/auth", tags=["Auth"])
+@api_controller("/auth", tags=["Auth"], auth=JWTAuth())
 class AuthController:
     """HTTP controller for authentication and session management.
 
@@ -62,7 +63,7 @@ class AuthController:
         GET  /auth/status                      — authentication status check
     """
 
-    @http_post("/signup", response={201: UserSchema, 400: dict})
+    @http_post("/signup", response={201: UserSchema, 400: dict}, auth=None)
     @rate_limit(requests_per_minute=10)
     @log_api_call(include_payload=True)
     def signup(self, request, payload: UserSignupSchema):
@@ -113,7 +114,7 @@ class AuthController:
         logger.info("Created new user: %s", user.email)
         return 201, UserSchema.from_orm(user)
 
-    @http_post("/login", response={200: dict, 400: dict, 429: dict})
+    @http_post("/login", response={200: dict, 400: dict, 429: dict}, auth=None)
     @rate_limit(requests_per_minute=20)
     @log_api_call(include_payload=True)
     def login(self, request, payload: LoginSchema):
@@ -180,7 +181,7 @@ class AuthController:
             "user": UserSchema.from_orm(user).dict(),
         }
 
-    @http_post("/login/username", response={200: dict, 400: dict, 429: dict})
+    @http_post("/login/username", response={200: dict, 400: dict, 429: dict}, auth=None)
     @rate_limit(requests_per_minute=20)
     @log_api_call(include_payload=True)
     def login_username(self, request, payload: UserLoginSchema):
@@ -299,7 +300,7 @@ class AuthController:
     # Passwordless Authentication (Magic Links)
     # =========================================================================
 
-    @http_post("/passwordless/login/request", response={200: dict})
+    @http_post("/passwordless/login/request", response={200: dict}, auth=None)
     @rate_limit(requests_per_minute=5)
     @log_api_call()
     def request_passwordless_login(self, request, payload: PasswordlessLoginRequest):
@@ -350,7 +351,7 @@ class AuthController:
         # Always return success for security (prevent email enumeration)
         return 200, {"detail": "If registered, you'll receive a magic link"}
 
-    @http_post("/passwordless/login/verify", response={200: dict, 404: dict})
+    @http_post("/passwordless/login/verify", response={200: dict, 404: dict}, auth=None)
     @rate_limit(requests_per_minute=20)
     @log_api_call()
     def verify_passwordless_login(self, request, payload: PasswordlessLoginVerify):
