@@ -107,6 +107,8 @@ repos:
           - --ignore-vuln
           - PYSEC-2026-196 # pip transient, not a runtime dep
           - --ignore-vuln
+          - PYSEC-2026-3721 # pip bundled in this hook's venv, not a runtime dep
+          - --ignore-vuln
           - GHSA-6v7p-g79w-8964 # msgpack, fixed in our deps (>=1.2.1)
         stages: [pre-push]
 
@@ -117,7 +119,9 @@ repos:
     rev: v2.13.1-beta
     hooks:
       - id: hadolint-docker
-        args: [--ignore, DL3008, --ignore, DL3013] # Allow unpinned apt/pip versions
+        # Allow unpinned apt/pip versions. Info-level hints (DL3059, DL3066)
+        # stay visible but do not block a commit.
+        args: [--ignore, DL3008, --ignore, DL3013, --failure-threshold, warning]
 
   # ===========================================
   # Shell script linting
