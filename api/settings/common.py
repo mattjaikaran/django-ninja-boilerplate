@@ -381,8 +381,13 @@ SESSION_CACHE_ALIAS = "default"
 # =============================================================================
 # Celery Configuration
 # =============================================================================
-CELERY_BROKER_URL = env("CELERY_BROKER_URL", default=VALKEY_URL)
-CELERY_RESULT_BACKEND = env("CELERY_RESULT_BACKEND", default=VALKEY_URL)
+# kombu has no valkey transport, so the broker needs the redis:// scheme even
+# when the cache URL uses valkey://. Deriving it keeps a bare settings import
+# (no .env, or a deployment that skipped the template) from producing a broker
+# that cannot connect.
+_BROKER_URL_DEFAULT = VALKEY_URL.replace("valkey://", "redis://", 1)
+CELERY_BROKER_URL = env("CELERY_BROKER_URL", default=_BROKER_URL_DEFAULT)
+CELERY_RESULT_BACKEND = env("CELERY_RESULT_BACKEND", default=_BROKER_URL_DEFAULT)
 CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TASK_SERIALIZER = "json"
 CELERY_RESULT_SERIALIZER = "json"
