@@ -6,34 +6,44 @@ Service inventory for `docker-compose.yml`.
 
 | Service | Image / target | Host ports | Notes |
 |---|---|---|---|
-| `db` | `pgvector/pgvector:pg17` | `${POSTGRES_PORT:-5433}` | Mounts `docker/postgres/init` and `docker/postgres/dumps` |
-| `valkey` | `valkey/valkey:8-alpine` | `${VALKEY_PORT:-6380}` | No password in dev |
-| `django` | `Dockerfile` target `development` | 8000 | `runserver`, `.:/app` bind mount for hot reload |
-| `mcp` | `Dockerfile` target `development` | 8001 | django-ai-boost SSE; needs the `dev` extra |
-| `mailhog` | `mailhog/mailhog:v1.0.1` | 1025, 8025 | Catches outgoing mail |
+| `db` | `pgvector/pgvector:pg17` | `${POSTGRES_PORT:-5433}` | Mounts the Postgres init and dump directories |
+| `valkey` | `valkey/valkey:8-alpine` | `${VALKEY_PORT:-6380}` | No password in development |
+| `django` | `Dockerfile` target `development` | `${DJANGO_PORT:-8000}` | `runserver` with a source bind mount |
 
-## celery
+## Task backends
 
-Celery is opt-in. `docker compose --profile dev --profile celery up -d`
-(or `just up-celery`) is the intended command.
+Run `just dev`. It activates `dev` and the profile selected by `TASK_BACKEND`.
 
-| Service | Image / target | Notes |
+| Profile | Service | Command |
 |---|---|---|
-| `db` | `pgvector/pgvector:pg17` | Shared with `dev` |
-| `valkey` | `valkey/valkey:8-alpine` | Shared with `dev` |
-| `celery-worker` | `Dockerfile` target `production` | `celery -A api worker` |
-| `celery-beat` | `Dockerfile` target `production` | Database-backed scheduler |
+| `celery` | `celery-worker`, `celery-beat` | Celery worker and database-backed beat |
+| `huey` | `huey-worker` | `python manage.py run_huey` |
+| `django-q` | `django-q-worker` | `python manage.py qcluster` |
+| `django-rq` | `django-rq-worker` | `python manage.py rqworker default high low` |
+| `dramatiq` | `dramatiq-worker` | `dramatiq api.tasks.dramatiq_worker` |
+
+Each worker uses the production image target and depends on healthy `django`,
+`db`, and `valkey` services. The images install all five backend extras.
+
+## Opt-in development services
+
+| Profile | Service | Host ports | Notes |
+|---|---|---|---|
+| `mcp` | `mcp` | 8001 | django-ai-boost SSE; needs the `dev` extra |
+| `mail` | `mailhog` | 1025, 8025 | Catches outgoing email |
+| `realtime` | `centrifugo` | 8800 | Centrifugo development server |
+| `monitoring` | `flower`, `jaeger` | 5555, 16686 | Worker dashboard and traces |
 
 ## prod
 
 | Service | Notes |
 |---|---|
-| `db-prod` | No host port. Production initdb args with `--data-checksums` |
-| `valkey-prod` | `--requirepass ${REDIS_PASSWORD}` |
-| `django-prod` | Gunicorn, `expose: 8000` only, static/media/logs volumes |
-| `celery-worker-prod` | `-Q default,celery` |
+| `db-prod` | No host port. Uses `--data-checksums` |
+| `valkey-prod` | Requires `${REDIS_PASSWORD}` |
+| `django-prod` | Gunicorn, `expose: 8000`, static/media/logs volumes |
+| `celery-worker-prod` | Consumes `default,celery` queues |
 | `celery-beat-prod` | Database-backed scheduler |
-| `nginx` | 80. Upstream is `django-prod:8000` (`nginx/nginx.conf`) |
+| `nginx` | Port 80 with upstream `django-prod:8000` |
 
 ## single
 
@@ -46,22 +56,20 @@ Celery is opt-in. `docker compose --profile dev --profile celery up -d`
 ## Volumes
 
 `postgres_data`, `valkey_data`, `static_volume`, `media_volume`, `logs_volume`,
-`redis_data`. All are `driver: local`.
+and `redis_data` use the local driver.
 
-The prod, single, and dev stacks share `postgres_data`. Switching stacks against
-the same volume reuses that database; remove the volume if you need a clean one.
+The prod, single, and dev stacks share `postgres_data`. Remove the volume when
+you need an isolated database.
 
-## Adding a service
+## Add a service
 
-1. Add it under a `profiles:` key with the profile(s) it belongs to.
-2. If it depends on `db`, `valkey`, or a `-prod` base, make sure that base
-   service lists your profile.
-3. Validate every profile with `docker compose --profile <p> config -q`.
-4. Document it in this file and in the profile table in `SKILL.md`.
+1. Add the service under a `profiles:` key.
+2. Add its profile to each `db`, `valkey`, or production base dependency.
+3. Validate every affected profile with `docker compose --profile <p> config -q`.
+4. Document the service in this file and in `SKILL.md`.
 
 ## Environment
 
-Compose reads `.env`. Do not set `COMPOSE_PROFILES`: deploys run `--profile prod`
-in a directory that reuses the same `.env`, and some Compose versions merge the
-two profile sets, which would start the dev services in production. The `just`
-recipes always pass the profile explicitly.
+Compose reads `.env`. Do not set `COMPOSE_PROFILES`. Deployments can reuse the
+same `.env`, and some Compose versions merge that value with command profiles.
+The `just` recipes pass profiles explicitly.

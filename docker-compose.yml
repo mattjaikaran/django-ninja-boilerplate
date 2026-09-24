@@ -6,15 +6,22 @@
 #   - Celery services use 'production' target for optimized performance
 #
 # Profiles:
-#   dev        db, valkey, django, celery-worker, celery-beat, mcp, mailhog
+#   dev        db, valkey, django
 #   test       db, valkey only (run pytest from the host)
 #   prod       db-prod, valkey-prod, django-prod, celery-worker-prod,
 #              celery-beat-prod, nginx
 #   single     db-single, redis, app (single-container PaaS)
-#   celery     adds Celery workers to the dev stack
+#   celery     Celery workers for the dev stack
+#   huey       Huey worker for the dev stack
+#   django-q   django-q2 worker for the dev stack
+#   django-rq  django-rq worker for the dev stack
+#   dramatiq   Dramatiq worker for the dev stack
 #   realtime   Dev Centrifugo real-time server
 #   realtime-prod  Production Centrifugo real-time server
 #   monitoring Flower + Jaeger
+#   observability  Jaeger traces only
+#   mail       Mailhog email capture
+#   mcp        Development MCP server
 #
 # Production services carry a -prod suffix because Docker Compose allows only
 # one definition per service name, and the dev and production variants differ
@@ -22,6 +29,8 @@
 #
 # Usage:
 #   just dev            - Start the dev stack
+#   `just dev` activates the task profile selected by TASK_BACKEND.
+#   Mailhog and MCP remain opt-in through `just up-mail` and `just up-mcp`.
 #   docker compose --profile prod up -d
 #   docker compose --profile single up -d
 

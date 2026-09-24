@@ -9,8 +9,8 @@ A production-ready, **opinionated** Django boilerplate built with **Django Ninja
 > **Architecture Note:** This boilerplate uses [Django Ninja Extra](https://eadwincode.github.io/django-ninja-extra/) which extends Django Ninja with class-based API controllers, dependency injection, and permissions. Instead of function-based views, you write clean controller classes with decorators like `@api_controller` and `@http_get`.
 
 [![CI](https://github.com/mattjaikaran/django-ninja-boilerplate/actions/workflows/ci.yml/badge.svg)](https://github.com/mattjaikaran/django-ninja-boilerplate/actions/workflows/ci.yml)
-[![Python 3.13+](https://img.shields.io/badge/python-3.13+-blue.svg)](https://www.python.org/downloads/)
-[![Django 5.2](https://img.shields.io/badge/django-5.2-green.svg)](https://docs.djangoproject.com/)
+[![Python 3.13](https://img.shields.io/badge/python-3.13-blue.svg)](https://www.python.org/downloads/)
+[![Django 5.2 and 6.0](https://img.shields.io/badge/django-5.2%20%7C%206.0-green.svg)](https://docs.djangoproject.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Code style: Ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
 [![OpenAPI](https://img.shields.io/badge/OpenAPI-3.1-6BA539.svg)](https://swagger.io/specification/)
@@ -199,14 +199,14 @@ app_name/
 
 ### Core Stack
 
-- **Python 3.13+** with type hints
-- **[Django 5.2 LTS](https://docs.djangoproject.com/en/5.2/)** - Web framework (6.0 tested and ready)
+- **Python 3.13** with type hints
+- **[Django 5.2 LTS](https://docs.djangoproject.com/en/5.2/)** - Default; Django 6.0 is also tested
 - **[Django Ninja](https://django-ninja.dev/)** - Fast API framework
 - **[Django Ninja Extra](https://eadwincode.github.io/django-ninja-extra/)** - Class-based controllers
 - **[Django Ninja JWT](https://eadwincode.github.io/django-ninja-jwt/)** - JWT authentication
 - **[PostgreSQL](https://www.postgresql.org/)** - Primary database
 - **[Valkey](https://valkey.io/)** - Caching and task broker (Redis-compatible, BSD license)
-- **[Celery](https://docs.celeryproject.org/)** - Background task processing (default; Huey, django-q2, django-rq also supported)
+- **[Celery](https://docs.celeryproject.org/)** - Default task backend; Huey, django-q2, django-rq, and Dramatiq are also supported
 - **[Centrifugo](https://centrifugal.dev/)** - Real-time WebSocket messaging
 - **[Pydantic](https://docs.pydantic.dev/)** - Data validation
 - **[orjson](https://github.com/ijl/orjson)** - High-performance JSON (global renderer)
@@ -319,20 +319,20 @@ just legacy local-run
 ### Setup & Environment
 
 ```bash
-just setup               # One-command project bootstrap
+just setup               # Ask for a task backend, then bootstrap the project
 just doctor              # Validate development environment
-just setup-env           # Create .env from template
+just setup-env           # Create .env from template without starting services
 ```
 
 ### Docker Commands
 
 ```bash
-just up                  # Start the dev stack (db, valkey, django, mcp, mailhog)
-just up-full             # Start every dev service (adds celery, monitoring, realtime)
-just up-celery           # Start the dev stack + Celery workers
-just up-realtime         # Start core + Centrifugo real-time server
-just up-monitoring       # Start core + Flower dashboard
-just down                # Stop environment (all services)
+just dev                 # Start Django, data services, and the selected worker
+just up-full             # Add monitoring, realtime, Mailhog, and MCP
+just up-realtime         # Add Centrifugo
+just up-monitoring       # Add Flower and Jaeger
+just up-mail             # Add Mailhog
+just up-mcp              # Add the MCP server
 just logs                # View logs
 just shell               # Django shell
 just migrate             # Run migrations
@@ -348,7 +348,7 @@ service belongs to at least one, so a bare `docker compose up` starts nothing.
 
 | Profile | Services |
 |---|---|
-| `dev` | db, valkey, django, mcp, mailhog |
+| `dev` | db, valkey, django |
 | `test` | db, valkey |
 | `prod` | db-prod, valkey-prod, django-prod, celery-worker-prod, celery-beat-prod, nginx |
 | `single` | db-single, redis, app |
@@ -356,7 +356,7 @@ service belongs to at least one, so a bare `docker compose up` starts nothing.
 | `realtime` | valkey, centrifugo |
 | `realtime-prod` | db-prod, valkey-prod, centrifugo-prod |
 | `monitoring` | valkey, flower, jaeger |
-| `huey`, `django-q`, `django-rq` | db, valkey, and one worker per backend |
+| `huey`, `django-q`, `django-rq`, `dramatiq` | db, valkey, and one worker per backend |
 | `observability` | jaeger |
 
 Production services carry a `-prod` suffix because Docker Compose allows only
@@ -1166,14 +1166,15 @@ See [docs/API_KEYS.md](docs/API_KEYS.md) for full documentation.
 
 ## Background Tasks (Pluggable Backends)
 
-Default backend is Celery. Alternatives available via `TASK_BACKEND` env var:
+Celery is the default. Set `TASK_BACKEND` in `.env`, or let `just setup` ask:
 
-| Backend              | Install               | Worker Command       |
-| -------------------- | --------------------- | -------------------- |
-| **Celery** (default) | Built-in              | `just legacy celery-worker` |
-| **Huey**             | `uv add huey`         | `just legacy worker-huey`   |
-| **django-q2**        | `uv add django-q2`    | `just legacy worker-q`      |
-| **django-rq**        | `uv add django-rq rq` | `just legacy worker-rq`     |
+| Backend | Install extra | Start |
+|---|---|---|
+| **Celery** (default) | Base dependency | `just dev` |
+| **Huey** | `uv sync --extra huey` | `just dev` |
+| **django-q2** | `uv sync --extra django-q` | `just dev` |
+| **django-rq** | `uv sync --extra django-rq` | `just dev` |
+| **Dramatiq** | `uv sync --extra dramatiq` | `just dev` |
 
 ```python
 # Backend-agnostic task decorator

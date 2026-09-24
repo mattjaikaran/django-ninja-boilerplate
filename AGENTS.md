@@ -117,6 +117,14 @@ wrong here. Do not use them.
 - Do not run `scripts/release.py` without `--dry-run` unless you intend to
   commit, tag, and push.
 
+### Task queues
+
+- Import `shared_task` from `api.tasks`, not from Celery.
+- Keep task definitions backend-neutral. Use `.delay()` and raise `.retry()`
+  from the decorated task handle.
+- Add a new task backend as an optional extra and a Compose profile. The loader
+  must fail loud when the package is absent.
+
 ### Code organization
 
 - Do not introduce an abstraction before there is a second real use case.
