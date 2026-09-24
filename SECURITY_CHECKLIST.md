@@ -20,7 +20,7 @@ Run through this before every production deploy. Each item maps to a real attack
 
 ## Security Headers
 
-Run `make security-check` (calls `manage.py check --deploy`) before each deploy.
+Run `just legacy security-check` (calls `manage.py check --deploy`) before each deploy.
 
 - [ ] `X-Frame-Options: DENY` — prevents clickjacking (`X_FRAME_OPTIONS = "DENY"` ✓ in common.py)
 - [ ] `X-Content-Type-Options: nosniff` — stops MIME sniffing (`SECURE_CONTENT_TYPE_NOSNIFF = True` ✓)
@@ -29,7 +29,7 @@ Run `make security-check` (calls `manage.py check --deploy`) before each deploy.
 - [ ] `Content-Security-Policy` — configured via django-csp ✓
   - Dev: report-only mode, permissive (won't block your local tools)
   - Prod: enforced, no `unsafe-inline` or `unsafe-eval`
-  - Tighten `CSP_SCRIPT_SRC` / `CSP_STYLE_SRC` in `prod.py` as your frontend stabilises
+  - Tighten the `script-src` / `style-src` directives in `CONTENT_SECURITY_POLICY["DIRECTIVES"]` (`prod.py`) as your frontend stabilises
 - [ ] `SESSION_COOKIE_HTTPONLY = True` and `SESSION_COOKIE_SECURE = True` (prod.py ✓)
 - [ ] `CSRF_COOKIE_HTTPONLY = True` (prod.py ✓)
 
@@ -53,7 +53,7 @@ curl -I https://yourdomain.com/api/health/
   you add: no `password`, `token`, or key fields in response schemas.
 - [ ] **Security Misconfiguration** — `DEBUG=False` in prod. `ALLOWED_HOSTS` set. `SECRET_KEY`
   is a real secret, not the default. Run `manage.py check --deploy` to catch common misconfigs.
-- [ ] **Insecure Dependencies** — `pip-audit` runs on pre-push. Also run `make ci-security` in CI.
+- [ ] **Insecure Dependencies** — `pip-audit` runs on pre-push. Also run `just legacy ci-security` in CI.
 
 ---
 
@@ -146,9 +146,9 @@ Before launching:
 
 ```bash
 # Static analysis + security scan
-make lint
-make security-check        # manage.py check --deploy
-make ci-security           # pip-audit for known CVEs
+just lint
+just legacy security-check        # manage.py check --deploy
+just legacy ci-security           # pip-audit for known CVEs
 
 # Verify headers on staging
 curl -I https://staging.yourdomain.com/api/health/

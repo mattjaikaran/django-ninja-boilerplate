@@ -141,7 +141,7 @@ from uuid import UUID
 # 3. Third-party imports
 from django.conf import settings
 from django.db import models
-from ninja import Schema
+from ninja_extra import api_controller, http_get
 from pydantic import Field
 
 # 4. First-party imports (project apps)
@@ -332,10 +332,10 @@ def perform_action(self, request):
 ### Response Schema
 
 ```python
-from ninja import Schema
+from core.schemas.base_schema import CamelCaseSchema
 from datetime import datetime
 
-class ItemSchema(Schema):
+class ItemSchema(CamelCaseSchema):
     """Response schema for Item."""
     id: str
     name: str
@@ -343,18 +343,15 @@ class ItemSchema(Schema):
     status: str
     created_at: datetime
     updated_at: datetime
-
-    class Config:
-        from_attributes = True  # Enable ORM mode
 ```
 
 ### Create Schema
 
 ```python
-from ninja import Schema
+from core.schemas.base_schema import CamelCaseSchema
 from pydantic import Field, field_validator
 
-class CreateItemSchema(Schema):
+class CreateItemSchema(CamelCaseSchema):
     """Schema for creating an Item."""
     name: str = Field(..., min_length=1, max_length=255)
     description: str | None = Field(None, max_length=1000)
@@ -371,7 +368,7 @@ class CreateItemSchema(Schema):
 ### Update Schema (All Optional)
 
 ```python
-class UpdateItemSchema(Schema):
+class UpdateItemSchema(CamelCaseSchema):
     """Schema for updating an Item. All fields optional."""
     name: str | None = Field(None, min_length=1, max_length=255)
     description: str | None = None
@@ -389,14 +386,11 @@ class UpdateItemSchema(Schema):
 ### Nested Schema
 
 ```python
-class UserBasicSchema(Schema):
+class UserBasicSchema(CamelCaseSchema):
     """Minimal user info for embedding."""
     id: str
     email: str
     username: str
-
-    class Config:
-        from_attributes = True
 
 class ItemWithUserSchema(ItemSchema):
     """Item with embedded user info."""

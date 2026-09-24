@@ -25,14 +25,13 @@ class ItemViewSet(viewsets.ModelViewSet):
 
 **CORRECT** — Django Ninja Extra with class-based controllers:
 ```python
-from ninja import Schema
 from ninja_extra import api_controller, http_get, http_post
 
-class ItemSchema(Schema):
+from core.schemas.base_schema import CamelCaseSchema
+
+class ItemSchema(CamelCaseSchema):
     id: str
     name: str
-    class Config:
-        from_attributes = True
 
 @api_controller("/items", tags=["Items"])
 class ItemController:
@@ -274,16 +273,13 @@ class ItemSchema(ModelSchema):
         fields = "__all__"
 ```
 
-**CORRECT** — Explicit Pydantic schema:
+**CORRECT** — Explicit Pydantic schema on `CamelCaseSchema`:
 ```python
-class ItemSchema(Schema):
+class ItemSchema(CamelCaseSchema):
     id: str
     name: str
     status: str
     created_at: datetime
-
-    class Config:
-        from_attributes = True
 ```
 
 ---

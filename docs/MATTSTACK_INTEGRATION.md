@@ -21,7 +21,7 @@ How the four-layer gauntlet defense works alongside `mattstack audit`.
 
 ### Use the Gauntlet for:
 - Every commit (`pre-commit` hooks)
-- Every PR (`make gauntlet-quick` in CI)
+- Every PR (`just gauntlet-quick` in CI)
 - Catching AI anti-patterns (DRF imports, raw Schema, `as any`, `@ts-ignore`)
 - Framework-specific conventions (decorator order, component patterns)
 - Mid-generation interruption (TTSR rules)
@@ -39,14 +39,14 @@ How the four-layer gauntlet defense works alongside `mattstack audit`.
 
 ```bash
 # Per-stack gauntlets
-cd backend && make gauntlet-quick
+cd backend && just gauntlet-quick
 cd frontend && bun run gauntlet:quick
 
 # Cross-stack audit
 mattstack audit --type types,endpoints,dependencies
 
 # Full check
-cd backend && make gauntlet-quick && \
+cd backend && just gauntlet-quick && \
 cd ../frontend && bun run gauntlet:quick && \
 cd .. && mattstack audit
 ```
@@ -61,7 +61,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Backend Gauntlet
-        run: cd backend && make gauntlet-ci
+        run: cd backend && just gauntlet-ci
 
   frontend-gauntlet:
     runs-on: ubuntu-latest

@@ -19,7 +19,7 @@ A production-ready, **opinionated** Django boilerplate built with **Django Ninja
 
 | Feature                          | Benefit                                                                     |
 | -------------------------------- | --------------------------------------------------------------------------- |
-| **One-command setup**            | `make setup` gets you from clone to running in under 2 minutes              |
+| **One-command setup**            | `just setup` gets you from clone to running in under 2 minutes              |
 | **Class-based controllers**      | Clean, organized API code with Django Ninja Extra                           |
 | **Enterprise features built-in** | Audit logging, feature flags, observability - no need to add later          |
 | **Multiple auth methods**        | JWT, magic links, OTP codes, 2FA, API keys - ready for web, mobile, and M2M |
@@ -141,7 +141,7 @@ This boilerplate gives you a solid foundation with:
 - **Rate Limiting** - Flexible throttling for API endpoints
 - **Feature Generators** - CLI tools to quickly scaffold new features like payments, RBAC, teams
 - **Testing Setup** - Factory-based testing with pytest (no mocks needed)
-- **Developer Tools** - Comprehensive Makefile, code formatting, linting with Ruff
+- **Developer Tools** - Comprehensive justfile task runner, code formatting, linting with Ruff
 - **Production Ready** - Docker setup, error handling, logging, S3 storage, and security configurations
 
 ## Project Structure
@@ -171,9 +171,8 @@ project/
 ├── .cursor/                  # Cursor IDE rules
 │   └── rules/
 │       └── backend_guidelines.mdc
-├── docker-compose.yml        # Development Docker setup
-├── docker-compose.prod.yml   # Production Docker setup
-├── Makefile                  # Command automation
+├── docker-compose.yml        # Profiled Docker setup (dev, prod, single, celery)
+├── justfile                  # Task runner (the old Makefile is Makefile.legacy)
 └── pyproject.toml            # Project configuration
 ```
 
@@ -238,17 +237,21 @@ Performance-critical components use Rust under the hood:
 # Clone and setup in one go
 git clone https://github.com/mattjaikaran/django-ninja-boilerplate my-api
 cd my-api
-make setup
+just quickstart
 ```
 
-That's it! The setup command will:
+That's it! The quickstart script will:
 
 - Check your environment (Docker, Python, etc.)
-- Create `.env` with generated `SECRET_KEY`
-- Build Docker images
+- Create `.env` with a generated `SECRET_KEY`
+- Build Docker images and start the stack
 - Run migrations
 - Seed sample data
 - Create a superuser
+
+Prefer the plain Docker path? Run `just setup`. It creates `.env`, checks the
+environment, builds the images, and runs migrations. It does not seed data or
+create a superuser.
 
 Visit http://localhost:8000/api/docs for the API documentation.
 
@@ -276,11 +279,11 @@ cd django-ninja-boilerplate
 cp .env.development .env
 
 # Start the services
-make up
+just up
 
 # Run migrations and create superuser
-make migrate
-make create-superuser
+just migrate
+just create-superuser
 ```
 
 ### Local Development (Without Docker)
@@ -294,15 +297,15 @@ git clone https://github.com/mattjaikaran/django-ninja-boilerplate
 cd django-ninja-boilerplate
 
 # Create virtual environment and install dependencies
-uv sync --dev
+uv sync --extra dev
 
 # Setup environment
 cp .env.example .env
 ./scripts/generate_secret_key.sh
 
 # Start PostgreSQL and Valkey locally, then:
-make local-migrate
-make local-run
+just legacy local-migrate
+just legacy local-run
 ```
 
 ## Available Commands
@@ -310,73 +313,105 @@ make local-run
 ### Setup & Environment
 
 ```bash
-make setup               # One-command project bootstrap
-make doctor              # Validate development environment
-make setup-env           # Create .env from template
+just setup               # One-command project bootstrap
+just doctor              # Validate development environment
+just setup-env           # Create .env from template
 ```
 
 ### Docker Commands
 
 ```bash
-make up                  # Start core services (db, valkey, django)
-make up-full             # Start everything (core + celery, monitoring, realtime)
-make up-celery           # Start core + Celery workers
-make up-realtime         # Start core + Centrifugo real-time server
-make up-monitoring       # Start core + Flower dashboard
-make down                # Stop environment (all services)
-make logs                # View logs
-make shell               # Django shell
-make migrate             # Run migrations
-make test                # Run tests
-make lint                # Run linting
-make format              # Format code
+just up                  # Start the dev stack (db, valkey, django, mcp, mailhog)
+just up-full             # Start every dev service (adds celery, monitoring, realtime)
+just up-celery           # Start the dev stack + Celery workers
+just up-realtime         # Start core + Centrifugo real-time server
+just up-monitoring       # Start core + Flower dashboard
+just down                # Stop environment (all services)
+just logs                # View logs
+just shell               # Django shell
+just migrate             # Run migrations
+just test                # Run tests
+just lint                # Run linting
+just format              # Format code
 ```
+
+#### Compose profiles
+
+One `docker-compose.yml` holds every stack. Always pass a profile — every
+service belongs to at least one, so a bare `docker compose up` starts nothing.
+
+| Profile | Services |
+|---|---|
+| `dev` | db, valkey, django, mcp, mailhog |
+| `test` | db, valkey |
+| `prod` | db-prod, valkey-prod, django-prod, celery-worker-prod, celery-beat-prod, nginx |
+| `single` | db-single, redis, app |
+| `celery` | db, valkey, celery-worker, celery-beat |
+| `realtime` | valkey, centrifugo |
+| `realtime-prod` | db-prod, valkey-prod, centrifugo-prod |
+| `monitoring` | valkey, flower, jaeger |
+| `huey`, `django-q`, `django-rq` | db, valkey, and one worker per backend |
+| `observability` | jaeger |
+
+Production services carry a `-prod` suffix because Docker Compose allows only
+one definition per service name, and the dev and production variants differ in
+build target, command, and volume mounts.
+
+#### Searching
+
+Use `rg`, not `grep`. It respects `.gitignore`.
+
+```bash
+just search "SYSTEMONE_PROVIDER"   # rg --smart-case
+```
+
+See the `rtk-ripgrep` skill for the RTK `exclude_commands` workaround.
 
 ### Celery Commands
 
 ```bash
-make celery-worker       # Start Celery worker
-make celery-beat         # Start Celery beat scheduler
-make celery-flower       # Start Flower monitoring (port 5555)
-make celery-inspect      # Inspect active tasks
-make celery-purge        # Purge all tasks
+just legacy celery-worker       # Start Celery worker
+just legacy celery-beat         # Start Celery beat scheduler
+just legacy celery-flower       # Start Flower monitoring (port 5555)
+just legacy celery-inspect      # Inspect active tasks
+just legacy celery-purge        # Purge all tasks
 ```
 
 ### App Generation
 
 ```bash
-make startapp APP=myapp                              # Create new app
-make generate-feature FEATURE=payments PROVIDER=stripe   # Generate feature
-make generate-data                                   # Generate sample data
+just legacy startapp APP=myapp                              # Create new app
+just legacy generate-feature FEATURE=payments PROVIDER=stripe   # Generate feature
+just legacy generate-data                                   # Generate sample data
 ```
 
 ### Database Management
 
 ```bash
 # Seeding data
-make seed-data               # Load comprehensive seed data
-make seed-data-full          # Load with higher counts
-make seed-data-clear         # Clear and reload all data
+just legacy seed-data               # Load comprehensive seed data
+just legacy seed-data-full          # Load with higher counts
+just legacy seed-data-clear         # Clear and reload all data
 
 # Database dumps
-make db-dump                 # Create a database dump
-make db-dump-data            # Create data-only dump
-make db-dump-compressed      # Create compressed dump (.sql.gz)
-make db-list-dumps           # List available dumps
-make db-restore FILE=docker/postgres/dumps/dump.sql  # Restore from dump
-make db-clean-dumps          # Clean old dumps, keep 5 most recent
+just legacy db-dump                 # Create a database dump
+just legacy db-dump-data            # Create data-only dump
+just legacy db-dump-compressed      # Create compressed dump (.sql.gz)
+just legacy db-list-dumps           # List available dumps
+just legacy db-restore FILE=docker/postgres/dumps/dump.sql  # Restore from dump
+just legacy db-clean-dumps          # Clean old dumps, keep 5 most recent
 ```
 
 ### Local Development
 
 ```bash
-make local-run           # Run server locally
-make local-test          # Run tests locally
-make local-lint          # Lint locally
-make local-celery        # Start Celery locally
+just legacy local-run           # Run server locally
+just legacy local-test          # Run tests locally
+just legacy local-lint          # Lint locally
+just legacy local-celery        # Start Celery locally
 ```
 
-Run `make help` for all available commands.
+Run `just help` for all available commands.
 
 ## Architecture
 
@@ -519,21 +554,62 @@ class ItemController:
 Use Pydantic for request/response validation:
 
 ```python
-from ninja import Schema
 from pydantic import Field
 
-class CreateItemSchema(Schema):
+from core.schemas.base_schema import CamelCaseSchema
+
+class CreateItemSchema(CamelCaseSchema):
     name: str = Field(..., min_length=1)
     description: str | None = None
 
-class ItemSchema(Schema):
+class ItemSchema(CamelCaseSchema):
     id: str
     name: str
-    created_at: datetime
-
-    class Config:
-        from_attributes = True
+    created_at: str
 ```
+
+## Decisions App
+
+`decisions/` integrates a provider-agnostic System One decision engine. It is
+gated by `ENABLE_DECISIONS` (true in dev, off in production by default).
+
+```bash
+curl -s http://localhost:8000/api/decisions/evaluate \
+  -H 'Content-Type: application/json' \
+  -d '{"state": {"ticket_id": "T-1"},
+       "questions": {"refund": {"type": "choice",
+                                "instructions": "Approve the refund?",
+                                "criteria": {"approve": "within window"}}},
+       "provider": "fake"}'
+```
+
+| Provider | Backing | Install |
+|---|---|---|
+| `laya` | Laya, in-process (default) | `uv sync --extra decisions-laya` |
+| `jev` | Hosted TypeSafe | `uv sync --extra decisions-jev` plus `TYPESAFE_API_KEY` |
+| `fake` | Deterministic | none |
+
+Providers fail loud. If Laya is not installed the endpoint returns 500 with the
+exact install command; it never silently falls back to Jev. Laya pulls `torch`
+and `transformers`, so it is opt-in and never installed by default.
+
+Question types are `choice`, `score`, and `noul`. `noul` is Laya's own name for
+a yes/no question, not a typo for `null`.
+
+`confidence` in the response is the **lowest** per-answer confidence, because a
+decision is only as trustworthy as its weakest answer. Set
+`DECISION_ESCALATION_THRESHOLD` to control when a result is flagged.
+
+```bash
+just seed-decisions     # load decisions/data/fixtures into pgvector
+```
+
+`DecisionFixture.embedding` is a native pgvector `vector` column. Postgres needs
+the `vector` extension: the initial migration creates it before the table, and
+`docker/postgres/init/01-init.sql` creates it on first container start. SQLite
+accepts the column type, so `just test` needs no special setup.
+
+See [decisions/README.md](decisions/README.md) and the `decisions-app` skill.
 
 ## Feature Generators
 
@@ -541,16 +617,16 @@ Quickly scaffold complete features:
 
 ```bash
 # Payments with Stripe
-make generate-feature FEATURE=payments PROVIDER=stripe
+just legacy generate-feature FEATURE=payments PROVIDER=stripe
 
 # RBAC (Role-Based Access Control)
-make generate-feature FEATURE=rbac PLATFORM=b2b
+just legacy generate-feature FEATURE=rbac PLATFORM=b2b
 
 # Organization management
-make generate-feature FEATURE=organization
+just legacy generate-feature FEATURE=organization
 
 # Notifications
-make generate-feature FEATURE=notification
+just legacy generate-feature FEATURE=notification
 ```
 
 Available features: `payments`, `rbac`, `organization`, `team`, `subscription`, `notification`, `chat`, `file_storage`, `analytics`, `redis`, `graphql`
@@ -640,9 +716,9 @@ This boilerplate includes comprehensive testing utilities including unit tests, 
 ### Quick Start
 
 ```bash
-make test                    # Run unit tests
-make test-all                # Run all test types
-make test-coverage           # Run with coverage report
+just test                    # Run unit tests
+just test-all                # Alias for `just test`
+just test-coverage           # Run with coverage report
 ```
 
 ### Unit Tests
@@ -671,8 +747,8 @@ def test_create_todo(db, authenticated_client):
 End-to-end tests for complete user journeys:
 
 ```bash
-make test-e2e                # Run E2E tests
-make generate-e2e            # Generate E2E test stubs from YAML
+just legacy test-e2e                # Run E2E tests
+just legacy generate-e2e            # Generate E2E test stubs from YAML
 ```
 
 ### Contract Tests
@@ -684,10 +760,10 @@ API contract tests validate responses against the OpenAPI specification using [S
 uv pip install -e ".[testing]"
 
 # Run contract tests (requires running server)
-make test-contract
+just legacy test-contract
 
 # Run all contract tests including slow schema-based tests
-make test-contract-full
+just legacy test-contract-full
 ```
 
 Contract tests ensure:
@@ -703,19 +779,19 @@ Load testing with [Locust](https://locust.io/) for performance validation:
 
 ```bash
 # Interactive web UI (http://localhost:8089)
-make test-load
+just legacy test-load
 
 # Quick test (10 users, 30 seconds)
-make test-load-quick
+just legacy test-load-quick
 
 # Moderate test (50 users, 2 minutes)
-make test-load-moderate
+just legacy test-load-moderate
 
 # Heavy test (100 users, 5 minutes)
-make test-load-heavy
+just legacy test-load-heavy
 
 # Custom test
-make test-load-custom USERS=50 DURATION=2m
+just legacy test-load-custom USERS=50 DURATION=2m
 ```
 
 See `tests/load/README.md` for detailed load testing documentation.
@@ -1088,10 +1164,10 @@ Default backend is Celery. Alternatives available via `TASK_BACKEND` env var:
 
 | Backend              | Install               | Worker Command       |
 | -------------------- | --------------------- | -------------------- |
-| **Celery** (default) | Built-in              | `make celery-worker` |
-| **Huey**             | `uv add huey`         | `make worker-huey`   |
-| **django-q2**        | `uv add django-q2`    | `make worker-q`      |
-| **django-rq**        | `uv add django-rq rq` | `make worker-rq`     |
+| **Celery** (default) | Built-in              | `just legacy celery-worker` |
+| **Huey**             | `uv add huey`         | `just legacy worker-huey`   |
+| **django-q2**        | `uv add django-q2`    | `just legacy worker-q`      |
+| **django-rq**        | `uv add django-rq rq` | `just legacy worker-rq`     |
 
 ```python
 # Backend-agnostic task decorator
@@ -1123,9 +1199,9 @@ send_welcome_email.delay(user.id)
 Start workers:
 
 ```bash
-make celery-worker    # Start worker
-make celery-beat      # Start scheduler
-make celery-flower    # Monitoring at localhost:5555
+just legacy celery-worker    # Start worker
+just legacy celery-beat      # Start scheduler
+just legacy celery-flower    # Monitoring at localhost:5555
 ```
 
 ## Real-Time Messaging (Centrifugo)
@@ -1136,7 +1212,7 @@ The boilerplate includes [Centrifugo](https://centrifugal.dev/) for real-time We
 
 ```bash
 # Start with Centrifugo (runs on port 8800)
-make up-realtime
+just up-realtime
 
 # Admin UI at http://localhost:8800 (password: admin)
 ```
@@ -1502,8 +1578,8 @@ The `ObservabilityMiddleware` automatically:
 ### Docker Compose (Split Services)
 
 ```bash
-make prod-build
-make prod-up
+just prod-build
+just prod-up
 ```
 
 ### Single Container (PaaS)
@@ -1512,8 +1588,8 @@ For Railway, Render, Fly.io, or any PaaS:
 
 ```bash
 # Build and test locally
-make single-build
-make single-up
+just single-build
+just single-up
 
 # Deploy to Railway
 railway up
@@ -1560,22 +1636,22 @@ Export your API specification and generate client SDKs:
 
 ```bash
 # Export OpenAPI specification
-make openapi
+just legacy openapi
 
 # Generate TypeScript and Python SDK clients
-make sdk
+just legacy sdk
 
 # Export Postman collection
-make postman
+just legacy postman
 
 # Export Insomnia collection
-make insomnia
+just legacy insomnia
 
 # Generate everything (spec, SDKs, collections)
-make openapi-all
+just legacy openapi-all
 
 # Validate OpenAPI specification
-make openapi-validate
+just legacy openapi-validate
 ```
 
 #### SDK Generation
@@ -1599,13 +1675,29 @@ Compare API versions to generate changelogs:
 
 ```bash
 # Generate changelog between two API versions
-make changelog OLD=docs/openapi/openapi-v1.json NEW=docs/openapi/openapi-v2.json
+just legacy changelog OLD=docs/openapi/openapi-v1.json NEW=docs/openapi/openapi-v2.json
 
 # Or use the script directly
 python scripts/openapi/generate_changelog.py old.json new.json -o CHANGELOG.md
 ```
 
 See [docs/openapi/README.md](docs/openapi/README.md) for detailed documentation.
+
+## Skills
+
+`.agents/skills/` holds harness-agnostic Agent Skills. They load on demand. See
+[SKILLS.md](SKILLS.md) for the index.
+
+| Skill | Purpose |
+|---|---|
+| `django-ninja-dev` | Controllers, schemas, services |
+| `decisions-app` | Decision engine, providers, fixtures |
+| `docker-compose-profiles` | The Compose file and its profiles |
+| `rtk-ripgrep` | Searching with ripgrep |
+| `system-design-atlas` | The admin architecture map |
+
+The architecture map lives at `/admin/atlas/` (staff only). Regenerate it with
+`just update-architecture`.
 
 ## Contributing
 

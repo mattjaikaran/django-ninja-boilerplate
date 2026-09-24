@@ -84,9 +84,8 @@ django-ninja-boilerplate/
 │   └── paas/                     # Railway, Render configs
 │
 ├── conftest.py                   # Global pytest fixtures
-├── docker-compose.yml            # Development Docker setup
-├── docker-compose.prod.yml       # Production Docker setup
-├── Makefile                      # Development commands
+├── docker-compose.yml            # One file, 12 profiles (dev, prod, single, …)
+├── justfile                      # Task runner (the old Makefile is Makefile.legacy)
 └── pyproject.toml                # Project configuration
 ```
 
@@ -150,28 +149,25 @@ class MyModel(SoftDeleteModel):
 Request and response validation using Pydantic schemas:
 
 ```python
-from ninja import Schema
+from core.schemas.base_schema import CamelCaseSchema
 from pydantic import Field, EmailStr, field_validator
 from datetime import datetime
 
-# Response schema
-class ItemSchema(Schema):
+# Response schema — inherits camelCase aliases and from_attributes
+class ItemSchema(CamelCaseSchema):
     id: str
     name: str
     description: str | None = None
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        from_attributes = True  # Enable ORM mode
-
 # Create schema
-class CreateItemSchema(Schema):
+class CreateItemSchema(CamelCaseSchema):
     name: str = Field(..., min_length=1, max_length=255)
     description: str | None = None
 
 # Update schema (all fields optional)
-class UpdateItemSchema(Schema):
+class UpdateItemSchema(CamelCaseSchema):
     name: str | None = None
     description: str | None = None
 ```
@@ -218,20 +214,20 @@ def create_item(self, request, payload: CreateItemSchema):
 
 ```bash
 # With Docker (recommended)
-make up                  # Start db, redis, django
-make up-celery          # Start with Celery workers
-make up-realtime        # Start with Centrifugo
-make up-full            # Start all services
+just up                  # Start db, valkey, django, mcp, mailhog
+just up-celery          # Start with Celery workers
+just up-realtime        # Start with Centrifugo
+just up-full            # Start all services
 
 # Without Docker
-make local-run          # Run Django locally
+just legacy local-run          # Run Django locally
 ```
 
 ### Running Tests
 
 ```bash
-make test               # Run all tests
-make test-coverage      # Run with coverage report
+just test               # Run all tests
+just test-coverage      # Run with coverage report
 uv run pytest -k "test_auth"  # Run specific tests
 uv run pytest -v        # Verbose output
 ```
@@ -239,28 +235,28 @@ uv run pytest -v        # Verbose output
 ### Creating Migrations
 
 ```bash
-make makemigrations     # Create new migrations
-make migrate            # Apply migrations
+just makemigrations     # Create new migrations
+just migrate            # Apply migrations
 ```
 
 ### Adding a New App
 
 ```bash
-make startapp APP=myapp  # Create new app with proper structure
+just legacy startapp APP=myapp  # Create new app with proper structure
 ```
 
 ### Generating Features
 
 ```bash
-make generate-feature FEATURE=payments PROVIDER=stripe
-make generate-feature FEATURE=rbac PLATFORM=b2b
+just legacy generate-feature FEATURE=payments PROVIDER=stripe
+just legacy generate-feature FEATURE=rbac PLATFORM=b2b
 ```
 
 ### Linting and Formatting
 
 ```bash
-make lint               # Run ruff linter
-make format             # Format code with ruff
+just lint               # Run ruff linter
+just format             # Format code with ruff
 ```
 
 ## Testing Patterns
@@ -324,14 +320,14 @@ class MyModelFactory(factory.django.DjangoModelFactory):
 ### 1. Docker Compose (Development)
 
 ```bash
-make up                 # Development
-make prod-up           # Production with Nginx
+just up                 # Development
+just prod-up           # Production with Nginx
 ```
 
 ### 2. PaaS (Railway, Render, Fly.io)
 
 ```bash
-make single-build       # Build single container
+just single-build       # Build single container
 railway up              # Deploy to Railway
 ```
 

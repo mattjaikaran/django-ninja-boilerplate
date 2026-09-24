@@ -351,8 +351,8 @@ graph TB
         CENT --> REDIS
     end
 
-    subgraph Prod["docker-compose.prod.yml (Production)"]
-        NGINX["Nginx<br/>:80/443"]
+    subgraph Prod["docker-compose.yml (prod profile) (Production)"]
+        NGINX["Nginx<br/>:80 (TLS at edge)"]
         DJPROD["Django<br/>:8000"]
         CENTPROD["Centrifugo<br/>(WebSocket)"]
         STATIC["Static Files"]

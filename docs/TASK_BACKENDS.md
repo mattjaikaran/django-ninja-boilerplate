@@ -28,12 +28,12 @@ CELERY_RESULT_BACKEND=valkey://valkey:6379/0
 
 ```bash
 # Docker
-make up-celery
+just up-celery
 
 # Local
-make celery-worker
-make celery-beat
-make celery-flower
+just legacy celery-worker
+just legacy celery-beat
+just legacy celery-flower
 ```
 
 ### Huey
@@ -50,10 +50,10 @@ TASK_BACKEND=huey
 
 ```bash
 # Docker
-make up-huey
+just legacy up-huey
 
 # Local
-make worker-huey
+just legacy worker-huey
 ```
 
 **Settings auto-configured when `TASK_BACKEND=huey`:**
@@ -82,10 +82,10 @@ TASK_BACKEND=django_q
 
 ```bash
 # Docker
-make up-django-q
+just legacy up-django-q
 
 # Local
-make worker-q
+just legacy worker-q
 ```
 
 ### django-rq
@@ -102,10 +102,10 @@ TASK_BACKEND=django_rq
 
 ```bash
 # Docker
-make up-django-rq
+just legacy up-django-rq
 
 # Local
-make worker-rq
+just legacy worker-rq
 ```
 
 To enable the built-in dashboard, add to `api/urls.py`:
@@ -140,7 +140,7 @@ Each backend has its own Docker Compose profile:
 
 | Profile | Service | Command |
 |---------|---------|---------|
-| `celery` | `celery-worker`, `celery-beat` | `make up-celery` |
-| `huey` | `huey-worker` | `make up-huey` |
-| `django-q` | `django-q-worker` | `make up-django-q` |
-| `django-rq` | `django-rq-worker` | `make up-django-rq` |
+| `celery` | `celery-worker`, `celery-beat` | `just up-celery` |
+| `huey` | `huey-worker` | `just legacy up-huey` |
+| `django-q` | `django-q-worker` | `just legacy up-django-q` |
+| `django-rq` | `django-rq-worker` | `just legacy up-django-rq` |

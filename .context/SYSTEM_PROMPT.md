@@ -16,7 +16,7 @@ You are building a Django REST API using **Django Ninja Extra** with class-based
 | API Framework | Django Ninja Extra | `ninja_extra` |
 | Routing | Class-based controllers | `ninja_extra.api_controller` |
 | HTTP methods | Decorators | `ninja_extra.http_get`, `http_post`, `http_put`, `http_delete` |
-| Schemas | Pydantic v2 via Ninja | `ninja.Schema` |
+| Schemas | Pydantic v2 | `core.schemas.base_schema.CamelCaseSchema` |
 | Auth | JWT | `ninja_jwt` |
 | ORM | Django 5.2+ | `django.db.models` |
 | Base Models | Custom hierarchy | `core.models.base` |
@@ -596,12 +596,12 @@ from uuid import UUID
 # 3. Third-party (Django, Ninja, Pydantic, Celery)
 from django.conf import settings
 from django.db import models
-from ninja import Schema
 from ninja_extra import api_controller, http_get
 
 # 4. First-party (project apps — absolute imports)
 from api.decorators import handle_exceptions
 from core.models import SoftDeleteModel
+from core.schemas.base_schema import CamelCaseSchema
 from core.services.base_service import CRUDService
 
 # 5. Local (relative imports)
@@ -636,14 +636,14 @@ uv run pytest                 # Run tests
 uv run python manage.py ...   # Django commands
 
 # Development
-make up                       # Start dev server + DB + Redis
-make test                     # Run tests
-make lint                     # Lint with ruff
-make format                   # Format with ruff
-make makemigrations           # Create migrations
-make migrate                  # Apply migrations
-make shell                    # Django shell
-make startapp APP=name        # Scaffold new app
+just up                       # Start dev server + DB + Valkey
+just test                     # Run tests
+just lint                     # Lint with ruff
+just format                   # Format with ruff
+just makemigrations           # Create migrations
+just migrate                  # Apply migrations
+just shell                    # Django shell
+just legacy startapp APP=name        # Scaffold new app
 ```
 
 ## Celery Task Template
@@ -699,7 +699,7 @@ Need real-time features?
   → Use Centrifugo (see api/centrifugo.py and deploy/centrifugo/)
 
 Need caching?
-  → Use Redis via django-redis (see core/cache/)
+  → Use the cache layer; the default backend is django-vcache (`CACHE_BACKEND` in api/settings/common.py)
 
 Need rate limiting?
   → Add @rate_limit() decorator to controller method

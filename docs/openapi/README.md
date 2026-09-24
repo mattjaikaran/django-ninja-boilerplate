@@ -6,13 +6,13 @@ This directory contains OpenAPI-related files and tools for API documentation, S
 
 ```bash
 # Export OpenAPI spec only
-make openapi
+just legacy openapi
 
 # Generate SDK clients (TypeScript + Python)
-make sdk
+just legacy sdk
 
 # Export Postman collection
-make postman
+just legacy postman
 
 # Generate everything
 python manage.py export_openapi --all

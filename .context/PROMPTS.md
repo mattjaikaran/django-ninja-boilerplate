@@ -291,9 +291,9 @@ Create a migration for the new [MODEL_NAME] model:
 
 1. Ensure model is properly defined in [app]/models/[model].py
 2. Export model in [app]/models/__init__.py
-3. Run: make makemigrations
+3. Run: just makemigrations
 4. Review the generated migration file
-5. Run: make migrate
+5. Run: just migrate
 
 If adding to an existing model, describe the changes:
 - Adding field: [field_name] ([field_type])
@@ -614,7 +614,7 @@ CMD ["granian", "api.asgi:application", \
 
 Same CMD replacement as Step 2.
 
-### Step 4: Update docker-compose.prod.yml
+### Step 4: Update docker-compose.yml (prod profile)
 
 Replace the gunicorn command in the web service:
 ```yaml
@@ -673,9 +673,9 @@ In core/observability/logging.py, replace the "gunicorn" logger entry:
 },
 ```
 
-### Step 9: Update Makefile
+### Step 9: Update the task runner
 
-Find any make targets that reference gunicorn and update them to granian.
+Find any just targets that reference gunicorn and update them to granian.
 
 ### Step 10: If switching to ASGI mode (optional, enables async views + WebSocket)
 
@@ -701,11 +701,11 @@ application = get_asgi_application()
 ### Step 11: Test the migration
 
 1. Build and run locally:
-   docker compose build && docker compose up
+   docker compose --profile dev build && docker compose --profile dev up -d
 2. Verify health check: curl http://localhost:8000/api/health/
 3. Verify API: curl http://localhost:8000/api/
-4. Run the test suite: make test
-5. Load test to compare performance: make load-test (if available)
+4. Run the test suite: just test
+5. Load test to compare performance: just legacy test-load-quick
 
 ### Key differences from Gunicorn:
 - No --worker-class flag (Granian handles threading natively in Rust)
@@ -721,31 +721,31 @@ application = get_asgi_application()
 
 ```bash
 # Development
-make setup              # Initial project setup
-make up                 # Start Docker services
-make down               # Stop Docker services
-make logs               # View logs
-make shell              # Django shell
+just setup              # Initial project setup
+just up                 # Start Docker services
+just down               # Stop Docker services
+just logs               # View logs
+just shell              # Django shell
 
 # Database
-make makemigrations     # Create migrations
-make migrate            # Apply migrations
-make seed-data          # Seed sample data
+just makemigrations     # Create migrations
+just migrate            # Apply migrations
+just legacy seed-data          # Seed sample data
 
 # Testing
-make test               # Run all tests
-make test-coverage      # Run with coverage
+just test               # Run all tests
+just test-coverage      # Run with coverage
 
 # Code Quality
-make lint               # Run linter
-make format             # Format code
+just lint               # Run linter
+just format             # Format code
 
 # Celery
-make celery-worker      # Start Celery worker
-make celery-beat        # Start scheduler
-make celery-flower      # Start monitoring
+just legacy celery-worker      # Start Celery worker
+just legacy celery-beat        # Start scheduler
+just legacy celery-flower      # Start monitoring
 
 # New features
-make startapp APP=name  # Create new app
-make generate-feature FEATURE=payments PROVIDER=stripe
+just legacy startapp APP=name  # Create new app
+just legacy generate-feature FEATURE=payments PROVIDER=stripe
 ```

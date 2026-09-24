@@ -5,7 +5,7 @@ description: Two-axis review (Standards + Spec) of changes since a fixed point. 
 
 Two-axis review of the diff between `HEAD` and a fixed point:
 
-- **Standards** — does the code follow this repo's conventions? (rule://backend-conventions, rule://django-ninja-anti-patterns, CLAUDE.md)
+- **Standards** — does the code follow this repo's conventions? (rule://backend-conventions, rule://django-ninja-anti-patterns, AGENTS.md)
 - **Spec** — does the code implement what was asked?
 
 ## Process
@@ -21,7 +21,7 @@ Confirm: `git diff <fixed>...HEAD` is non-empty. Fail here, not in sub-agents.
 This repo's standards are:
 - `rule://backend-conventions` — framework identity, decorator order, naming, layer architecture
 - `rule://django-ninja-anti-patterns` — 12 common AI mistakes with wrong/right examples
-- `CLAUDE.md` — gauntlet gates, architecture rules, definition of done
+- `AGENTS.md` — gauntlet gates, architecture rules, definition of done
 - `scripts/check_conventions.py` — 12 deterministic convention checks (run it!)
 
 Plus the **smell baseline** — Fowler code smells that apply regardless of docs:

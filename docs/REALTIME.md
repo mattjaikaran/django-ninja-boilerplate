@@ -28,10 +28,10 @@ graph LR
 
 ```bash
 # Start all default services + Centrifugo
-make up-realtime
+just up-realtime
 
 # Or start everything (Celery + monitoring + realtime)
-make up-full
+just up-full
 ```
 
 Centrifugo will be available at `http://localhost:8800`. The admin UI is at `http://localhost:8800/` (password: `admin`).
@@ -237,14 +237,14 @@ presence = ChatRealtimeService.get_presence("conv-123")
 
 ### Docker Compose
 
-Centrifugo runs under the `realtime` profile in both `docker-compose.yml` and `docker-compose.prod.yml`:
+Centrifugo runs under the `realtime` profile in development and under `realtime-prod` (service `centrifugo-prod`) in production, both in `docker-compose.yml`:
 
 ```bash
 # Development
 docker compose --profile realtime up -d
 
 # Production
-docker compose -f docker-compose.prod.yml --profile realtime up -d
+docker compose --profile prod --profile realtime-prod up -d
 ```
 
 ### Nginx Proxy

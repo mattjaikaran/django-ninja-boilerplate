@@ -15,8 +15,11 @@ This directory contains structured context files that enable any LLM (Claude, GP
 
 ## Quick Start for LLM Integration
 
-### Claude Code / CLAUDE.md
-The root `CLAUDE.md` already references these patterns. Claude Code automatically reads it.
+### Agents (AGENTS.md)
+The root `AGENTS.md` is the canonical, harness-agnostic guidance: conventions,
+the gauntlet gates, and the definition of done. Agent harnesses that implement
+the Agent Skills specification read it automatically, along with
+`.agents/skills/`. `CLAUDE.md` is gitignored and not part of the repository.
 
 ### Cursor
 The `.cursor/rules/backend_guidelines.mdc` file covers the basics. For deeper context, paste `SYSTEM_PROMPT.md` into your Cursor rules or chat context.

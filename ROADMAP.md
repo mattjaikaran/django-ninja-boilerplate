@@ -1,9 +1,10 @@
 # Django Ninja Boilerplate — Roadmap
 
-> Generated: 2026-07-31 | Current: v1.8.0
+> Generated: 2026-07-31 | Current: v1.11.0
 >
 > This document captures planned enhancements across version milestones.
-> No implementation has begun — this is a planning artifact only.
+> This is a planning artifact: the themes below are not commitments, and
+> individual items may already have shipped (see CHANGELOG.md).
 
 ---
 
@@ -357,7 +358,7 @@ These are the highest-value, lowest-risk additions — all leverage existing inf
 | # | Feature | Priority | Description |
 |---|---------|----------|-------------|
 | 8.1 | **Bounded Context Reference Architecture** | P0 | Documented patterns for splitting the monolith into bounded contexts: auth-service, billing-service, notification-service, etc. Shared kernel, anti-corruption layers. Not generated code — reference architecture + decision framework. |
-| 8.2 | **Service Template Generator** | P0 | `make startapp --service my-service` generates a standalone service with its own Django project, shared auth via JWT, and OpenAPI spec. Ready to deploy independently. |
+| 8.2 | **Service Template Generator** | P0 | `just legacy startapp --service my-service` generates a standalone service with its own Django project, shared auth via JWT, and OpenAPI spec. Ready to deploy independently. |
 | 8.3 | **Shared Schema Package** | P0 | Extract shared Pydantic schemas, event types, and proto definitions into a versioned Python package. Services depend on the shared package, not each other's code. |
 
 ### Event-Driven Architecture

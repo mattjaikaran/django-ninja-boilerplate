@@ -5,6 +5,45 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **Decisions app** (`decisions/`) — provider-agnostic System One decision engine. `POST /api/decisions/evaluate` answers typed questions (`choice`, `score`, `noul`) from a state document using Laya (in-process, default), Jev (hosted TypeSafe), or a deterministic fake. Providers fail loud with install instructions instead of falling back silently. `DecisionService` selects and caches providers, applies `DECISION_ESCALATION_THRESHOLD`, and seeds `DecisionFixture` rows from `decisions/data/fixtures/*.json` via `python manage.py seed_decisions`. Registered only when `ENABLE_DECISIONS` is true. `noul` is Laya's own question-type name, not a typo for `null`.
+- **pgvector fixtures** — `pgvector` is a base dependency and `DecisionFixture.embedding` is a native `vector` column. The initial migration creates the extension on PostgreSQL before the table; `docker/postgres/init/01-init.sql` creates it too. SQLite accepts the column type, so `just test` needs no setup.
+- **Optional extras** — `decisions-laya` (pulls `torch` + `transformers`, opt-in) and `decisions-jev` (`typesafe-sdk`).
+- **Single profiled Compose file** — `docker-compose.prod.yml` and `docker-compose.single.yml` are gone; `docker-compose.yml` carries `dev`, `test`, `prod`, `single`, `celery`, `realtime`, `realtime-prod`, and `monitoring` profiles. Production services take a `-prod` suffix because Compose allows one definition per service name. Adds a dev-profile `mcp` service (django-ai-boost SSE on 8001) and `mailhog`.
+- **justfile** — replaces the Makefile, which is kept as `Makefile.legacy`. Recipes cover dev, test, database, MCP, search, quality, gauntlet, production, and deploy.
+- **Agent Skills** (`.agents/skills/`, `SKILLS.md`) — harness-agnostic skills: `django-ninja-dev`, `decisions-app`, `docker-compose-profiles`, `rtk-ripgrep`, `system-design-atlas`.
+- **`AGENTS.md`** — hand-maintained agent guidance with a "Patterns We Do Not Use" section.
+
+### Fixed
+- `nginx/nginx.conf`: `gzip_proxied` had an invalid `must-revalidate` token, so nginx aborted with `[emerg] invalid value` and the production reverse proxy never started. The `centrifugo` upstream also pointed at the pre-rename service name; it now resolves per request, so nginx starts even when the `realtime-prod` profile is not enabled.
+- `docker-compose.yml` and `nginx/Dockerfile`: the `prod` nginx service published `443:443` and mounted `./nginx/certs`, but `nginx/nginx.conf` listens on port 80 only and that directory does not exist. TLS terminates at an external proxy (`USE_TLS` in `.env.deploy.example`), so the unused port mapping, the certs mount, and `EXPOSE 443` are gone.
+- `scripts/doctor.sh`: `((PASS++))` returns the old value, which is `0` on the first call, and a `0` exit status aborts the script under `set -e`. Every counter used post-increment, so `doctor` never completed. Its connectivity check also probed a `redis` service that does not exist (the compose service is `valkey`).
+- `scripts/deploy.sh`: the VPS path still referenced the pre-rename service names (`django`, `db`, `redis`). Quick deploy silently skipped migrations behind `2>/dev/null || true`, and the full deploy aborted at step 4. The health probe now uses port 80 (nginx), since `django-prod` is `expose:`-only.
+- Shell scripts (`db_setup`, `doctor`, `quickstart`, `setup`, and `run_migrations.sh`) called `docker-compose` with no profile, which starts nothing now that every service belongs to a profile. `setup.sh` and `quickstart.sh` also generated an `.env` pointing at a `redis` host instead of the `valkey` service.
+- `Dockerfile`: removed the silent fallbacks (`2>/dev/null || uv pip install -e .`, `collectstatic … || true`) that could produce a base-only image or skip static collection without reporting it.
+- `decisions`: wired the optional MCP registration into `DecisionsConfig.ready()` (it was never called), and removed the unused fixture schemas.
+- `.env.example`: dropped `COMPOSE_PROFILES`. Some Compose versions merge it with `--profile`, which would start the dev services during a production deploy.
+- `docker-compose.yml`: `celery-worker` and `celery-beat` carried the `dev` profile as well as `celery`, so `just up` and `just up-celery` started the same services. They are celery-only again, which restores the documented split (dev is db, valkey, django, mcp, mailhog).
+- `scripts/setup.sh` and `scripts/quickstart.sh`: readiness checks targeted the `redis` service, which exists only in the `single` profile, so `setup.sh` waited 30 seconds and then aborted on a healthy dev stack. Both now probe `valkey`.
+- `deploy/docker/Dockerfile.single`: the image could not build. It put uv on the wrong `PATH` (`/root/.cargo/bin` instead of `/root/.local/bin`), resolved dependencies fresh instead of from `uv.lock`, targeted Python 3.14 (no `pydantic-core` wheels), and set neither `ENVIRONMENT=production` nor a migration step. It now mirrors the production stage: Python 3.13, `uv sync --locked`, `ENVIRONMENT=production`, and `migrate` before Gunicorn.
+- `deploy/centrifugo/config.json`: the engine address named `redis`, a host that only exists in the `single` profile, so both Centrifugo services failed to start with `error creating engine: malformed connection address`. The address now uses a host that resolves in each profile (`CENTRIFUGO_REDIS_ADDRESS`), and `health: true` enables `/health`, so the container healthcheck passes instead of reporting `unhealthy` forever.
+- Pre-commit: `shellcheck` and `hadolint` failed on the committed tree, so no commit could pass the hooks. Fixed the shellcheck findings across the shell scripts, fixed the Dockerfile warnings, and set hadolint to `--failure-threshold warning` so info-level hints stay non-blocking.
+- `justfile`: `just setup` aborted on a fresh clone because nothing created `.env`; it now depends on `setup-env`. `just legacy` accepted one argument, so every documented `just legacy <target> KEY=value` call was rejected; it is now variadic.
+
+### Security
+- Upgraded dependencies to clear `pip-audit` advisories: Django 5.2.6 to 5.2.17, cryptography 46.0.1 to 50.0.1, pillow 11.3.0 to 12.3.0, urllib3 2.5.0 to 2.8.0, tornado 6.5.4 to 6.5.10, plus idna, anyio, click, orjson, pyasn1, ecdsa, and tablib. The only remaining advisory is `mcp`, pinned by `django-ai-boost`'s `fastmcp<4` requirement and used in the dev extra only.
+- CI (`ci.yml`) and both Compose stacks now use `pgvector/pgvector:pg17`; the decisions migration creates the `vector` extension, which the plain `postgres:17-alpine` image cannot.
+
+### Changed
+- `docker-compose.yml`: the `db` image is now `pgvector/pgvector:pg17`.
+- `scripts/release.py`, `scripts/deploy.sh`, the `cli` monorepo generator, and `.env.deploy.example` follow the new Compose layout and `just` recipes.
+- Docs (`README.md`, `.context/PROJECT.md`, `.context/PROMPTS.md`, `scripts/quickstart.sh`): stale `Makefile` references now name `justfile`; the old runner stays at `Makefile.legacy`.
+- Docs now match the code where they disagreed: the README quick start, command list, and profile table; the deleted `docker-compose.yml (prod profile)` references in `docs/MIGRATION.md` and `docs/REALTIME.md`; the removed `django-csp` settings in `SECURITY_CHECKLIST.md`; the raw `ninja.Schema` examples in `.context/CONVENTIONS.md`, `.context/ANTI_PATTERNS.md`, `.context/PROJECT.md`, and `.context/SYSTEM_PROMPT.md` (the repo's own gate rejects raw `Schema`); the `uv sync --dev` instruction in `setup.md` and `README.md` (`dev` is an extra: `--extra dev`); and `ROADMAP.md`, whose banner still read v1.8.0.
+- `.env.example` documents the compose-only host ports and tuning knobs it omitted: `POSTGRES_PORT`, `VALKEY_PORT`, `PORT`, `GUNICORN_WORKERS`, `CELERY_CONCURRENCY`, `OTEL_SERVICE_NAME`, `USE_STRUCTURED_LOGGING`, and the `TEST_*` integration ports.
+- `scripts/check_conventions.py`: the `ROUTER_USAGE` rule no longer flags dotted third-party attributes such as `laya.Router()`.
+
 ## [1.11.0] - 2026-08-15
 
 ### Added
