@@ -1539,7 +1539,10 @@ logger.info("Processing order", extra={"order_id": "456"})
 
 Health endpoints live on one controller at `/api/health`. Liveness, basic
 health, and readiness are public; detailed, component, system, and metrics
-endpoints require a staff JWT.
+endpoints require a staff JWT. Deployment probes (`/`, `/liveness`,
+`/readiness`) are public for orchestrators; everything that reports internal
+state (`/detailed`, `/component/{name}`, `/system`, `/metrics`) is
+network-private and must not be exposed without authentication.
 
 ```bash
 # Public — liveness (probes nothing) and basic status (no I/O)

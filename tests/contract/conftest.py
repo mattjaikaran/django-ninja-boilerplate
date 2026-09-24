@@ -84,33 +84,59 @@ def auth_headers_for_contract(auth_token_for_contract):
 
 @pytest.fixture(scope="session")
 def public_endpoints():
-    """List of public endpoints that don't require authentication.
+    """Routes reachable without credentials, as ``{"method", "path"}`` specs.
 
-    These endpoints should be accessible without auth tokens.
+    Deployment probes (liveness/readiness/basic health) stay public so
+    orchestrators can reach them with plain GET requests. Auth operations and
+    token issuance are public because they run before a token exists.
     """
     return [
-        "/api/health/",
-        "/api/health/detailed/",
-        "/api/auth/login",
-        "/api/auth/signup",
-        "/api/auth/passwordless/login/request",
-        "/api/auth/otp/request",
+        # Deployment probes — no credentials, no internal detail.
+        {"method": "GET", "path": "/api/health/"},
+        {"method": "GET", "path": "/api/health/liveness"},
+        {"method": "GET", "path": "/api/health/readiness"},
+        # Authentication operations — reachable before a token exists.
+        {"method": "POST", "path": "/api/auth/login"},
+        {"method": "POST", "path": "/api/auth/login/username"},
+        {"method": "POST", "path": "/api/auth/signup"},
+        {"method": "POST", "path": "/api/auth/passwordless/login/request"},
+        {"method": "POST", "path": "/api/auth/passwordless/login/verify"},
+        {"method": "POST", "path": "/api/auth/otp/request"},
+        # JWT issuance/refresh — the endpoints that mint tokens.
+        {"method": "POST", "path": "/api/token/pair"},
+        {"method": "POST", "path": "/api/token/refresh"},
     ]
 
 
 @pytest.fixture(scope="session")
 def protected_endpoints():
-    """List of protected endpoints that require authentication.
+    """Routes that require a JWT, as ``{"method", "path"}`` specs.
 
-    These endpoints need valid JWT tokens to access.
+    These are network-private: observability detail/metrics, auth
+    profile/status/logout, user administration, task internals, audit logs,
+    decisions, API-key management and todo data. Several additionally require
+    a staff account (checked by the controller's permission classes).
     """
     return [
-        "/api/auth/me",
-        "/api/auth/logout",
-        "/api/users/",
-        "/api/todos/",
+        # Network-private observability (staff only).
+        {"method": "GET", "path": "/api/health/detailed"},
+        {"method": "GET", "path": "/api/health/component/database"},
+        {"method": "GET", "path": "/api/health/system"},
+        {"method": "GET", "path": "/api/metrics"},
+        # Authenticated session/profile.
+        {"method": "GET", "path": "/api/auth/me"},
+        {"method": "GET", "path": "/api/auth/status"},
+        {"method": "POST", "path": "/api/auth/logout"},
+        # Administration and data.
+        {"method": "GET", "path": "/api/users/"},
+        {"method": "GET", "path": "/api/tasks/stats"},
+        {"method": "GET", "path": "/api/tasks/scheduler/"},
+        {"method": "GET", "path": "/api/tasks/dlq/"},
+        {"method": "GET", "path": "/api/audit/"},
+        {"method": "POST", "path": "/api/decisions/evaluate"},
+        {"method": "GET", "path": "/api/api-keys/"},
+        {"method": "GET", "path": "/api/todos/"},
     ]
-
 
 @pytest.fixture
 def schema_validation_config():
