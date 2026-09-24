@@ -35,9 +35,10 @@ backend-profile:
         huey) echo huey ;;
         django_q | django-q) echo django-q ;;
         django_rq | django-rq) echo django-rq ;;
+        dramatiq) echo dramatiq ;;
         *)
             echo "Unknown TASK_BACKEND '${name}' in .env" >&2
-            echo "Expected one of: celery, huey, django_q, django_rq" >&2
+            echo "Expected one of: celery, huey, django_q, django_rq, dramatiq" >&2
             exit 1
             ;;
     esac
@@ -347,9 +348,14 @@ security-scan:
 # Setup
 # ---------------------------------------------------------------------------
 
-# One-command bootstrap: .env, secret key, doctor, build, migrate, superuser
-setup: setup-env
+# Configure through the CLI, then build and prepare the selected stack
+setup +args:
+    {{ uv }} run --project cli dnm setup {{ args }}
+
+# Non-interactive setup stages called by `dnm setup`
+setup-services:
     ./scripts/generate_secret_key.sh --update-env
+    ./scripts/generate_realtime_secret.sh
     ./scripts/doctor.sh
     # --wait keeps `just migrate` from racing the container's own migrate.
     {{ compose }} --profile dev --profile "$(just backend-profile)" up -d --build --wait
@@ -361,14 +367,18 @@ setup: setup-env
 wait-for-api:
     #!/usr/bin/env bash
     set -euo pipefail
+    port="$(
+        {{ uv }} run --project cli python -c \
+            'from pathlib import Path; from django_ninja_matt.commands.setup import read_environment_value; print(read_environment_value(Path(".env"), "DJANGO_PORT", "8000"))'
+    )"
     for _ in $(seq 1 60); do
-        if curl -fsS http://localhost:8000/api/health/ >/dev/null 2>&1; then
-            echo "API is up: http://localhost:8000/api/docs"
+        if curl -fsS "http://localhost:${port}/api/health/" >/dev/null 2>&1; then
+            echo "API is up: http://localhost:${port}/api/docs"
             exit 0
         fi
         sleep 1
     done
-    echo "The API did not answer /api/health/ within 60s." >&2
+    echo "The API did not answer /api/health/ on port ${port} within 60s." >&2
     echo "Check the logs with: just logs-django" >&2
     exit 1
 

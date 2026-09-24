@@ -298,19 +298,8 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
-      - name: Install CLI
-        run: |
-          cd cli
-          uv pip install --system -e ".[dev]"
+      - name: Install CLI development dependencies
+        run: uv sync --project cli --extra dev
 
-      - name: Test CLI help
-        run: |
-          django-ninja-matt --help
-
-      - name: Test CLI version
-        run: |
-          django-ninja-matt --version
-
-      - name: Test CLI init (dry run check)
-        run: |
-          django-ninja-matt init --help
+      - name: Run CLI tests
+        run: uv run --project cli pytest -q cli/tests -p no:cacheprovider

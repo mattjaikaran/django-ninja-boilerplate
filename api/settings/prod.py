@@ -3,7 +3,19 @@
 This module contains settings specific to the production environment.
 """
 
+from django.core.exceptions import ImproperlyConfigured
+
 from .common import *
+
+_INSECURE_REALTIME_SECRETS = {
+    "centrifugo-token-secret",
+    "dev-centrifugo-token-secret",
+}
+if CENTRIFUGO_TOKEN_SECRET in _INSECURE_REALTIME_SECRETS:
+    raise ImproperlyConfigured(
+        "Set CENTRIFUGO_TOKEN_SECRET to a unique value in production."
+    )
+
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env("DEBUG", default=False)

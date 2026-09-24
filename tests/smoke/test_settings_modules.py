@@ -30,6 +30,7 @@ BASE_ENV = {
     "DB_PASSWORD": "probe",
     "DB_HOST": "localhost",
     "DB_PORT": "5432",
+    "CENTRIFUGO_TOKEN_SECRET": "settings-probe-realtime-secret",
 }
 
 #: Printed on stdout as ``PROBE:<json>``; stdout also carries app log lines.
@@ -129,6 +130,25 @@ class TestProductionSettings:
             "api.settings.prod", ENVIRONMENT="production", DEBUG="0", USE_TLS="true"
         )
         assert data["ssl_redirect"] is True
+
+    def test_rejects_the_development_realtime_secret(self):
+        env = {
+            **os.environ,
+            **BASE_ENV,
+            "DJANGO_SETTINGS_MODULE": "api.settings.prod",
+            "ENVIRONMENT": "production",
+            "CENTRIFUGO_TOKEN_SECRET": "dev-centrifugo-token-secret",
+        }
+        result = subprocess.run(
+            [sys.executable, "-c", PROBE],
+            capture_output=True,
+            encoding="utf-8",
+            env=env,
+            cwd=PROJECT_ROOT,
+            check=False,
+        )
+        assert result.returncode != 0
+        assert "Set CENTRIFUGO_TOKEN_SECRET" in result.stderr
 
 
 @pytest.mark.smoke

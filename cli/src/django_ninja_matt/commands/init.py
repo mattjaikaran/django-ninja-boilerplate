@@ -204,7 +204,9 @@ def run_init(
 
     try:
         # Interactive prompts if needed
-        if project_type is None:
+        if project_type is None and skip_prompts:
+            project_type = ProjectType.STANDALONE
+        elif project_type is None:
             project_type = prompt_project_type()
 
         if deployment is None and not skip_prompts:

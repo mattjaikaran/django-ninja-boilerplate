@@ -16,7 +16,7 @@ from rich.text import Text
 from django_ninja_matt import __version__
 from django_ninja_matt.commands.doctor import run_doctor
 from django_ninja_matt.commands.init import run_init
-from django_ninja_matt.commands.setup import run_setup
+from django_ninja_matt.commands.setup import TaskBackend, run_setup
 from django_ninja_matt.config import DeploymentTarget, EmailBackend, ProjectType
 from django_ninja_matt.utils.console import (
     print_error,
@@ -255,56 +255,20 @@ def setup(
         typer.Option(
             "--auto",
             "-a",
-            help=(
-                "Run in fully automatic mode — no interactive prompts. "
-                "All steps use their default values. Suitable for CI pipelines."
-            ),
+            help="Use the default task backend without prompting.",
         ),
     ] = False,
-    skip_docker: Annotated[
-        bool,
+    backend: Annotated[
+        TaskBackend | None,
         typer.Option(
-            "--skip-docker",
-            help=(
-                "Skip the 'docker compose build' and 'docker compose up' steps. "
-                "Use this when Docker services are already running."
-            ),
+            "--backend",
+            help="Task backend to configure before the stack starts.",
+            case_sensitive=False,
         ),
-    ] = False,
-    skip_seed: Annotated[
-        bool,
-        typer.Option(
-            "--skip-seed",
-            help=(
-                "Skip loading sample / seed data into the database after migrations. "
-                "Useful for fresh production-like environments."
-            ),
-        ),
-    ] = False,
+    ] = None,
 ) -> None:
-    """Bootstrap the development environment from scratch.
-
-    Delegates to [bold]scripts/setup.sh[/bold] and runs the following steps
-    in order (unless skipped):
-
-    \b
-    1. Build Docker images
-    2. Start Docker services (db, redis, etc.)
-    3. Apply database migrations
-    4. Seed initial / sample data
-
-    Must be run from the project root directory where [bold]scripts/setup.sh[/bold]
-    is located.
-
-    Examples:
-
-        dnm setup
-
-        dnm setup --auto
-
-        dnm setup --skip-docker --skip-seed
-    """
-    run_setup(auto=auto, skip_docker=skip_docker, skip_seed=skip_seed)
+    """Configure and bootstrap the local development environment."""
+    run_setup(auto=auto, backend=backend)
 
 
 # Allow running without subcommand for quick project creation
