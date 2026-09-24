@@ -141,8 +141,26 @@ class DetailedHealthChecker:
         Returns:
             OverallHealthResult with aggregated status.
         """
-        results = [self.run_check(name) for name in self._checks]
+        return self.run_checks(list(self._checks))
 
+    def run_checks(self, names: list[str]) -> OverallHealthResult:
+        """Run only the named checks, in the given order.
+
+        Used by the readiness probe to limit work to the traffic-required
+        dependencies (database and cache) without invoking optional or
+        slow checks (redis, celery, external services).
+
+        Args:
+            names: Names of the checks to run, in order.
+
+        Returns:
+            OverallHealthResult with aggregated status across the named checks.
+        """
+        results = [self.run_check(name) for name in names]
+        return self._aggregate(results)
+
+    def _aggregate(self, results: list[HealthCheckResult]) -> OverallHealthResult:
+        """Aggregate individual check results into an overall status."""
         # Determine overall status
         if any(r.status == HealthStatus.UNHEALTHY for r in results):
             overall_status = HealthStatus.UNHEALTHY
@@ -219,12 +237,18 @@ class DetailedHealthChecker:
             )
 
     def _check_redis(self) -> HealthCheckResult:
-        """Check Redis connectivity directly."""
+        """Check Redis connectivity directly, with bounded timeouts."""
         try:
             import redis  # type: ignore[import-untyped]
 
-            redis_url = getattr(settings, "REDIS_URL", "redis://localhost:6379/0")
-            client = redis.from_url(redis_url)
+            redis_url = _normalize_redis_url(
+                getattr(settings, "REDIS_URL", "redis://localhost:6379/0")
+            )
+            client = redis.from_url(
+                redis_url,
+                socket_connect_timeout=2,
+                socket_timeout=2,
+            )
             info = client.info()
 
             return HealthCheckResult(
@@ -252,12 +276,26 @@ class DetailedHealthChecker:
             )
 
 
+def _normalize_redis_url(url: str) -> str:
+    """Rewrite valkey:// to redis:// so redis-py accepts the URL.
+
+    redis-py rejects any scheme other than redis://, rediss:// and unix://.
+    Valkey is wire-compatible with Redis, so the scheme rewrite is safe and
+    keeps the health probe working on the shipped ``valkey://`` defaults.
+    """
+    if url.startswith("valkeys://"):
+        return "rediss://" + url[len("valkeys://") :]
+    if url.startswith("valkey://"):
+        return "redis://" + url[len("valkey://") :]
+    return url
+
+
 def check_celery() -> HealthCheckResult:
     """Check Celery worker availability."""
     try:
         from api.celery import app
 
-        inspector = app.control.inspect()
+        inspector = app.control.inspect(timeout=2)
         active_workers = inspector.active()
 
         if active_workers:

@@ -48,7 +48,7 @@ class AuditLoggingMiddleware:
         self.exclude_paths = getattr(
             settings,
             "AUDIT_LOG_EXCLUDE_PATHS",
-            ["/api/health/", "/api/docs", "/api/openapi.json"],
+            ["/api/health/", "/api/docs", "/api/openapi.json", "/api/metrics"],
         )
         self.log_body = getattr(settings, "AUDIT_LOG_BODY", False)
         self.max_body_length = getattr(settings, "AUDIT_LOG_MAX_BODY_LENGTH", 1000)
@@ -62,8 +62,10 @@ class AuditLoggingMiddleware:
         Returns:
             The HTTP response object
         """
-        # Generate request ID
-        request_id = str(uuid.uuid4())
+        # Reuse the request ID assigned by ObservabilityMiddleware (which runs
+        # earlier) so the audit log and observability headers agree.
+        request_id = request.META.get("X-Request-ID") or str(uuid.uuid4())
+        request.META["X-Request-ID"] = request_id
         request.audit_request_id = request_id
 
         # Check if we should audit this request

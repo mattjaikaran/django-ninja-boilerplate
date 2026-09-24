@@ -24,7 +24,7 @@ from core.controllers import (
     UserController,
 )
 from core.observability.admin_views import health_admin_view, metrics_admin_view
-from core.observability.controllers import EnhancedHealthController, MetricsController
+from core.observability.controllers import MetricsController
 from core.sse.views import sse_endpoint
 from decisions.controllers import DecisionController
 
@@ -75,9 +75,8 @@ api = NinjaExtraAPI(
 api.register_controllers(
     NinjaJWTDefaultController,  # JWT Auth. If you want to use JWT, you must include this https://github.com/eadwinCode/django-ninja-jwt
     # System controllers
-    HealthCheckController,  # Health Check Controller
-    EnhancedHealthController,  # Enhanced Health Check Controller (detailed status)
-    MetricsController,  # Prometheus Metrics Controller
+    HealthCheckController,  # Health Check Controller (liveness/readiness/detailed/component)
+    MetricsController,  # Prometheus Metrics Controller (staff only)
     # core app
     UserController,  # User Controller
     AuthController,  # Auth Controller (email/password + magic links)

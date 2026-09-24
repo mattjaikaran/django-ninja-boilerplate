@@ -1537,18 +1537,28 @@ logger.info("Processing order", extra={"order_id": "456"})
 
 ### Health Checks
 
-Enhanced health checks with detailed status:
+Health endpoints live on one controller at `/api/health`. Liveness, basic
+health, and readiness are public; detailed, component, system, and metrics
+endpoints require a staff JWT.
 
 ```bash
-# Basic health check
+# Public — liveness (probes nothing) and basic status (no I/O)
 GET /api/health/
+GET /api/health/liveness
 
-# Detailed status (database, cache, redis)
+# Public — readiness: checks only the traffic-required dependencies
+# (database + cache) and returns 503 when either is unavailable
+GET /api/health/readiness
+
+# Staff JWT required — full component status (database, cache, redis, celery)
 GET /api/health/detailed
 
-# Check specific component
+# Staff JWT required — single component
 GET /api/health/component/database
 GET /api/health/component/redis
+
+# Staff JWT required — Prometheus metrics
+GET /api/metrics
 ```
 
 Register custom health checks:

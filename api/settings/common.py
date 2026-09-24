@@ -604,7 +604,7 @@ AUDIT_LOG_EXCLUDE_PATHS = [
     "/api/health/",
     "/api/docs",
     "/api/openapi.json",
-    "/api/metrics/",
+    "/api/metrics",
 ]
 
 # Whether to log request/response bodies (disable for privacy in production)
