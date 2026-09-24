@@ -41,10 +41,12 @@ RUN uv pip install --no-cache --no-deps -e .
 # ===========================================
 FROM python:3.13-slim AS production
 
-# Install runtime dependencies only
+# Install runtime dependencies only. netcat is required by
+# docker-entrypoint.sh, which waits for the database before migrating.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq5 \
     curl \
+    netcat-openbsd \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
 
@@ -89,7 +91,21 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD ["curl", "-f", "http://localhost:8000/api/health/"]
 
-# Run migrations, then start Gunicorn. The single-container stack owns its
-# database, so migrations run at startup; the image is used by PaaS platforms
-# that override CMD, which is why this lives in the image and not in compose.
-CMD ["sh", "-c", "python manage.py migrate --noinput && exec gunicorn api.wsgi:application --bind 0.0.0.0:8000 --workers 2 --threads 4 --worker-class gthread --worker-tmp-dir /dev/shm --access-logfile - --error-logfile - --capture-output --enable-stdio-inheritance"]
+# The entrypoint waits for the database, migrates, creates the superuser when
+# SUPERUSER_* is set, and collects static files. It lives in the image, not in
+# compose, because PaaS platforms start this image directly.
+COPY --chown=app:app docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
+
+# Default command: Gunicorn. PaaS platforms may override it.
+CMD ["gunicorn", "api.wsgi:application", \
+    "--bind", "0.0.0.0:8000", \
+    "--workers", "2", \
+    "--threads", "4", \
+    "--worker-class", "gthread", \
+    "--worker-tmp-dir", "/dev/shm", \
+    "--access-logfile", "-", \
+    "--error-logfile", "-", \
+    "--capture-output", \
+    "--enable-stdio-inheritance"]

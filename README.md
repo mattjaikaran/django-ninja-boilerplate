@@ -237,21 +237,27 @@ Performance-critical components use Rust under the hood:
 # Clone and setup in one go
 git clone https://github.com/mattjaikaran/django-ninja-boilerplate my-api
 cd my-api
-just quickstart
+just setup
 ```
 
-That's it! The quickstart script will:
+That's it! The setup recipe will:
 
-- Check your environment (Docker, Python, etc.)
-- Create `.env` with a generated `SECRET_KEY`
-- Build Docker images and start the stack
+- Create `.env` from the template and write a real `SECRET_KEY` into it
+- Validate your environment (Docker, Python, etc.)
+- Build the Docker images and start the stack
 - Run migrations
-- Seed sample data
-- Create a superuser
+- Create the superuser from the `SUPERUSER_*` values in `.env`
+- Leave you a login at http://localhost:8000/admin/
 
-Prefer the plain Docker path? Run `just setup`. It creates `.env`, checks the
-environment, builds the images, and runs migrations. It does not seed data or
-create a superuser.
+Add demo content when you want it:
+
+```bash
+just seed                    # sample users and todos
+just seed-decisions          # decision fixtures
+```
+
+Prefer a guided, scripted run? `just quickstart` does the same and also seeds
+sample data, opens the docs in your browser, and can run without Docker.
 
 Visit http://localhost:8000/api/docs for the API documentation.
 

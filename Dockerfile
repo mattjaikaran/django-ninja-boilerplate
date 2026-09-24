@@ -148,9 +148,11 @@ RUN useradd --create-home --shell /bin/bash --uid 1000 app \
 # Copy application code (will be overridden by volume mount in docker-compose)
 COPY --chown=app:app . .
 
-# Copy and set permissions for entrypoint scripts
-COPY --chown=app:app docker-entrypoint.sh docker-entrypoint-dev.sh /usr/local/bin/
-RUN chmod +x /usr/local/bin/docker-entrypoint.sh /usr/local/bin/docker-entrypoint-dev.sh
+# Copy and set permissions for the development entrypoint. The shared
+# docker-entrypoint.sh is used by deploy/docker/Dockerfile.single; the
+# production stack runs migrations from its compose command.
+COPY --chown=app:app docker-entrypoint-dev.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint-dev.sh
 
 # Switch to non-root user
 USER app
@@ -197,9 +199,11 @@ RUN useradd --create-home --shell /bin/bash --uid 1000 app \
 # Copy application code
 COPY --chown=app:app . .
 
-# Copy and set permissions for entrypoint scripts
-COPY --chown=app:app docker-entrypoint.sh docker-entrypoint-dev.sh /usr/local/bin/
-RUN chmod +x /usr/local/bin/docker-entrypoint.sh /usr/local/bin/docker-entrypoint-dev.sh
+# Copy and set permissions for the development entrypoint. The shared
+# docker-entrypoint.sh is used by deploy/docker/Dockerfile.single; this stack
+# runs migrations from its compose command.
+COPY --chown=app:app docker-entrypoint-dev.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint-dev.sh
 
 # Switch to non-root user
 USER app

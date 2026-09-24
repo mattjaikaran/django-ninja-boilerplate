@@ -28,6 +28,14 @@ class Command(BaseCommand):
             )
             return
 
+        # Idempotent: `just setup` and the single-image entrypoint both call
+        # this, so a re-run must not report a failure.
+        if User.objects.filter(username=username).exists():
+            self.stdout.write(
+                self.style.WARNING(f"Superuser '{username}' already exists.")
+            )
+            return
+
         try:
             # Create the superuser
             superuser = User.objects.create_superuser(

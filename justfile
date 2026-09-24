@@ -155,8 +155,8 @@ test-decisions:
 test-integration:
     #!/usr/bin/env bash
     set -euo pipefail
-    pg_port="${TEST_POSTGRES_PORT:-5433}"
-    valkey_port="${TEST_VALKEY_PORT:-6380}"
+    pg_port="${TEST_POSTGRES_PORT:-5434}"
+    valkey_port="${TEST_VALKEY_PORT:-6381}"
     trap 'POSTGRES_PORT=$pg_port VALKEY_PORT=$valkey_port {{ compose }} --profile test down' EXIT
     POSTGRES_PORT=$pg_port VALKEY_PORT=$valkey_port {{ compose }} --profile test up -d --wait {{ db_service }} valkey
     DB_HOST=127.0.0.1 DB_PORT=$pg_port CI=1 {{ uv }} run pytest
@@ -203,6 +203,10 @@ db-shell:
 # Load the decisions fixtures
 seed-decisions:
     {{ dev }} exec {{ django_service }} {{ uv }} run python manage.py seed_decisions
+
+# Load development sample data (users, todos)
+seed:
+    {{ dev }} exec {{ django_service }} {{ uv }} run python manage.py seed_data
 
 # Regenerate the codebase atlas data file
 update-architecture:
@@ -300,11 +304,29 @@ security-scan:
 # Setup
 # ---------------------------------------------------------------------------
 
-# One-command bootstrap: create .env, doctor, build, migrate
+# One-command bootstrap: .env, secret key, doctor, build, migrate, superuser
 setup: setup-env
+    ./scripts/generate_secret_key.sh --update-env
     ./scripts/doctor.sh
     {{ dev }} up -d --build
     just migrate
+    just create-superuser
+    just wait-for-api
+
+# Wait until the API answers its health check
+wait-for-api:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    for _ in $(seq 1 60); do
+        if curl -fsS http://localhost:8000/api/health/ >/dev/null 2>&1; then
+            echo "API is up: http://localhost:8000/api/docs"
+            exit 0
+        fi
+        sleep 1
+    done
+    echo "The API did not answer /api/health/ within 60s." >&2
+    echo "Check the logs with: just logs-django" >&2
+    exit 1
 
 # Clone to running API in under two minutes
 quickstart:
