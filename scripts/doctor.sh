@@ -161,20 +161,33 @@ echo ""
 echo "Port Availability"
 echo "-----------------"
 
+# Read the host ports the Docker stack publishes, so the check follows .env
+# instead of assuming the defaults.
+env_value() {
+    if [ -f .env ]; then
+        grep -E "^$1=" .env 2>/dev/null | tail -1 | cut -d= -f2
+    fi
+}
+
+POSTGRES_HOST_PORT=$(env_value POSTGRES_PORT)
+POSTGRES_HOST_PORT=${POSTGRES_HOST_PORT:-5433}
+VALKEY_HOST_PORT=$(env_value VALKEY_PORT)
+VALKEY_HOST_PORT=${VALKEY_HOST_PORT:-6380}
+
 # PostgreSQL port
-print_check "Port 5432 (PostgreSQL)..."
-if port_available 5432; then
-    print_pass "Port 5432 available"
+print_check "Port ${POSTGRES_HOST_PORT} (PostgreSQL)..."
+if port_available "${POSTGRES_HOST_PORT}"; then
+    print_pass "Port ${POSTGRES_HOST_PORT} available"
 else
-    print_warn "Port 5432 in use (may conflict with local PostgreSQL)"
+    print_warn "Port ${POSTGRES_HOST_PORT} in use; set POSTGRES_PORT in .env to a free port"
 fi
 
-# Redis port
-print_check "Port 6379 (Redis)..."
-if port_available 6379; then
-    print_pass "Port 6379 available"
+# Valkey port
+print_check "Port ${VALKEY_HOST_PORT} (Valkey)..."
+if port_available "${VALKEY_HOST_PORT}"; then
+    print_pass "Port ${VALKEY_HOST_PORT} available"
 else
-    print_warn "Port 6379 in use (may conflict with local Redis)"
+    print_warn "Port ${VALKEY_HOST_PORT} in use; set VALKEY_PORT in .env to a free port"
 fi
 
 # Django port

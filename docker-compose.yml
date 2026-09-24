@@ -25,6 +25,17 @@
 #   docker compose --profile prod up -d
 #   docker compose --profile single up -d
 
+# Every application service reads the same .env the developer edits. Compose
+# does not pass .env to services on its own, so without this most settings are
+# silently ignored inside the containers. `required: false` keeps
+# `docker compose config` working before .env exists. A service's own
+# `environment:` entries still win, which is how the compose service names
+# stay pinned for container-to-container traffic.
+x-app-env: &app-env
+  env_file:
+    - path: .env
+      required: false
+
 services:
   # ===========================================
   # Core Services (always started)
@@ -52,7 +63,7 @@ services:
       # Performance tuning for development
       - POSTGRES_INITDB_ARGS=--encoding=UTF-8
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      - "${POSTGRES_PORT:-5433}:5432"
     networks:
       - app-network
     healthcheck:
@@ -83,7 +94,7 @@ services:
       - realtime
       - monitoring
     ports:
-      - "${VALKEY_PORT:-6379}:6379"
+      - "${VALKEY_PORT:-6380}:6379"
     volumes:
       - valkey_data:/data
     command: >
@@ -112,6 +123,7 @@ services:
   # Django Web Application with Hot Reloading
   # Uses 'development' target for dev dependencies, debug tools, and hot reload
   django:
+    <<: *app-env
     build:
       context: .
       dockerfile: Dockerfile
@@ -192,7 +204,11 @@ services:
     ports:
       - "8800:8000"
     environment:
-      - CENTRIFUGO_TOKEN_SECRET=${CENTRIFUGO_TOKEN_SECRET:-centrifugo-token-secret}
+      # Centrifugo does NOT expand ${...} in its config file; it only reads
+      # env vars whose names match its own config keys. So the hmac key must
+      # be set as CENTRIFUGO_TOKEN_HMAC_SECRET_KEY, because Django signs JWTs
+      # with settings.CENTRIFUGO_TOKEN_SECRET and both sides must agree.
+      - CENTRIFUGO_TOKEN_HMAC_SECRET_KEY=${CENTRIFUGO_TOKEN_SECRET:-centrifugo-token-secret}
       - CENTRIFUGO_API_KEY=${CENTRIFUGO_API_KEY:-centrifugo-api-key}
       # Overrides redis_address from config.json. It must name a host that
       # resolves in this profile (valkey, not the single-profile redis).
@@ -226,6 +242,7 @@ services:
 
   # Celery Worker
   celery-worker:
+    <<: *app-env
     build:
       context: .
       dockerfile: Dockerfile
@@ -271,6 +288,7 @@ services:
 
   # Celery Beat Scheduler
   celery-beat:
+    <<: *app-env
     build:
       context: .
       dockerfile: Dockerfile
@@ -318,6 +336,7 @@ services:
 
   # Huey Worker (profile: huey)
   huey-worker:
+    <<: *app-env
     build:
       context: .
       dockerfile: Dockerfile
@@ -335,6 +354,7 @@ services:
       - DB_PASSWORD=${DB_PASSWORD:-postgres}
       - DB_HOST=db
       - DB_PORT=${DB_PORT:-5432}
+      - VALKEY_URL=valkey://valkey:6379/0
       - REDIS_URL=valkey://valkey:6379/0
       - CELERY_BROKER_URL=redis://valkey:6379/0
       - CELERY_RESULT_BACKEND=redis://valkey:6379/0
@@ -362,6 +382,7 @@ services:
 
   # django-q2 Worker (profile: django-q)
   django-q-worker:
+    <<: *app-env
     build:
       context: .
       dockerfile: Dockerfile
@@ -379,6 +400,7 @@ services:
       - DB_PASSWORD=${DB_PASSWORD:-postgres}
       - DB_HOST=db
       - DB_PORT=${DB_PORT:-5432}
+      - VALKEY_URL=valkey://valkey:6379/0
       - REDIS_URL=valkey://valkey:6379/0
       - CELERY_BROKER_URL=redis://valkey:6379/0
       - CELERY_RESULT_BACKEND=redis://valkey:6379/0
@@ -406,6 +428,7 @@ services:
 
   # django-rq Worker (profile: django-rq)
   django-rq-worker:
+    <<: *app-env
     build:
       context: .
       dockerfile: Dockerfile
@@ -423,6 +446,7 @@ services:
       - DB_PASSWORD=${DB_PASSWORD:-postgres}
       - DB_HOST=db
       - DB_PORT=${DB_PORT:-5432}
+      - VALKEY_URL=valkey://valkey:6379/0
       - REDIS_URL=valkey://valkey:6379/0
       - CELERY_BROKER_URL=redis://valkey:6379/0
       - CELERY_RESULT_BACKEND=redis://valkey:6379/0
@@ -528,6 +552,7 @@ services:
 
   # Django AI Boost MCP server (SSE). Needs the `dev` extra.
   mcp:
+    <<: *app-env
     build:
       context: .
       dockerfile: Dockerfile
@@ -545,6 +570,17 @@ services:
       - DJANGO_SETTINGS_MODULE=api.settings.dev
       - PYTHONPATH=/app
       - DATABASE_URL=postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@db:5432/${DB_NAME:-boilerplate_db}
+      # Settings read the DB_* variables, not DATABASE_URL, so pin them: .env
+      # holds the host values.
+      - DB_HOST=db
+      - DB_PORT=${DB_PORT:-5432}
+      - DB_NAME=${DB_NAME:-boilerplate_db}
+      - DB_USER=${DB_USER:-postgres}
+      - DB_PASSWORD=${DB_PASSWORD:-postgres}
+      - VALKEY_URL=valkey://valkey:6379/0
+      - REDIS_URL=valkey://valkey:6379/0
+      - CELERY_BROKER_URL=redis://valkey:6379/0
+      - CELERY_RESULT_BACKEND=redis://valkey:6379/0
       - SECRET_KEY=${SECRET_KEY:?SECRET_KEY must be set}
       - ENABLE_DECISION_MCP=true
     depends_on:
@@ -644,6 +680,7 @@ services:
 
   # Django Application Server (Gunicorn, production target)
   django-prod:
+    <<: *app-env
     build:
       context: .
       dockerfile: Dockerfile
@@ -687,6 +724,9 @@ services:
       - DB_PORT=5432
       - VALKEY_URL=valkey://:${REDIS_PASSWORD}@valkey-prod:6379/0
       - REDIS_URL=valkey://:${REDIS_PASSWORD}@valkey-prod:6379/0
+      # kombu has no valkey transport, so the broker uses the redis:// scheme.
+      - CELERY_BROKER_URL=redis://:${REDIS_PASSWORD}@valkey-prod:6379/0
+      - CELERY_RESULT_BACKEND=redis://:${REDIS_PASSWORD}@valkey-prod:6379/0
       - FRONTEND_URL=${FRONTEND_URL}
       - ALLOWED_HOSTS=${ALLOWED_HOSTS}
       - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS}
@@ -726,6 +766,7 @@ services:
 
   # Celery Worker (production target)
   celery-worker-prod:
+    <<: *app-env
     build:
       context: .
       dockerfile: Dockerfile
@@ -755,6 +796,9 @@ services:
       - DB_PORT=5432
       - VALKEY_URL=valkey://:${REDIS_PASSWORD}@valkey-prod:6379/0
       - REDIS_URL=valkey://:${REDIS_PASSWORD}@valkey-prod:6379/0
+      # kombu has no valkey transport, so the broker uses the redis:// scheme.
+      - CELERY_BROKER_URL=redis://:${REDIS_PASSWORD}@valkey-prod:6379/0
+      - CELERY_RESULT_BACKEND=redis://:${REDIS_PASSWORD}@valkey-prod:6379/0
       - PYTHONDONTWRITEBYTECODE=1
       - PYTHONUNBUFFERED=1
     depends_on:
@@ -776,6 +820,7 @@ services:
 
   # Celery Beat Scheduler (production target)
   celery-beat-prod:
+    <<: *app-env
     build:
       context: .
       dockerfile: Dockerfile
@@ -800,6 +845,9 @@ services:
       - DB_PORT=5432
       - VALKEY_URL=valkey://:${REDIS_PASSWORD}@valkey-prod:6379/0
       - REDIS_URL=valkey://:${REDIS_PASSWORD}@valkey-prod:6379/0
+      # kombu has no valkey transport, so the broker uses the redis:// scheme.
+      - CELERY_BROKER_URL=redis://:${REDIS_PASSWORD}@valkey-prod:6379/0
+      - CELERY_RESULT_BACKEND=redis://:${REDIS_PASSWORD}@valkey-prod:6379/0
       - PYTHONDONTWRITEBYTECODE=1
       - PYTHONUNBUFFERED=1
     depends_on:
@@ -832,7 +880,8 @@ services:
     expose:
       - "8000"
     environment:
-      - CENTRIFUGO_TOKEN_SECRET=${CENTRIFUGO_TOKEN_SECRET}
+      # Must match the secret Django signs with; see the dev service above.
+      - CENTRIFUGO_TOKEN_HMAC_SECRET_KEY=${CENTRIFUGO_TOKEN_SECRET}
       - CENTRIFUGO_API_KEY=${CENTRIFUGO_API_KEY}
       - CENTRIFUGO_ADMIN=false
       - CENTRIFUGO_REDIS_ADDRESS=redis://valkey-prod:6379/1
@@ -929,12 +978,19 @@ services:
 
   # Django Application (single container)
   app:
+    <<: *app-env
     build:
       context: .
       dockerfile: deploy/docker/Dockerfile.single
     profiles:
       - single
     environment:
+      # Pinned: .env carries the development values (api.settings,
+      # ENVIRONMENT=development, DEBUG=1) and would otherwise override the
+      # production defaults baked into the image.
+      - DJANGO_SETTINGS_MODULE=api.settings.prod
+      - ENVIRONMENT=production
+      - USE_TLS=${USE_TLS:-true}
       - DEBUG=0
       - SECRET_KEY=${SECRET_KEY}
       - DB_NAME=${DB_NAME:-boilerplate_db}
@@ -943,6 +999,11 @@ services:
       - DB_HOST=db-single
       - DB_PORT=5432
       - REDIS_URL=redis://redis:6379/0
+      # Settings read VALKEY_URL first, so pin it: the `single` stack has no
+      # `valkey` service, and .env names one.
+      - VALKEY_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
       - ALLOWED_HOSTS=${ALLOWED_HOSTS:-localhost,127.0.0.1}
     ports:
       - "${PORT:-8000}:8000"

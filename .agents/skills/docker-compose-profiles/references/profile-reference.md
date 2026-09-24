@@ -6,8 +6,8 @@ Service inventory for `docker-compose.yml`.
 
 | Service | Image / target | Host ports | Notes |
 |---|---|---|---|
-| `db` | `pgvector/pgvector:pg17` | `${POSTGRES_PORT:-5432}` | Mounts `docker/postgres/init` and `docker/postgres/dumps` |
-| `valkey` | `valkey/valkey:8-alpine` | `${VALKEY_PORT:-6379}` | No password in dev |
+| `db` | `pgvector/pgvector:pg17` | `${POSTGRES_PORT:-5433}` | Mounts `docker/postgres/init` and `docker/postgres/dumps` |
+| `valkey` | `valkey/valkey:8-alpine` | `${VALKEY_PORT:-6380}` | No password in dev |
 | `django` | `Dockerfile` target `development` | 8000 | `runserver`, `.:/app` bind mount for hot reload |
 | `mcp` | `Dockerfile` target `development` | 8001 | django-ai-boost SSE; needs the `dev` extra |
 | `mailhog` | `mailhog/mailhog:v1.0.1` | 1025, 8025 | Catches outgoing mail |
