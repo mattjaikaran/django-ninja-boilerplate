@@ -17,7 +17,7 @@ from django.utils import timezone
 from ninja_extra import api_controller, http_get, http_post
 from ninja_jwt.tokens import RefreshToken
 
-from api.decorators import handle_exceptions, log_api_call, rate_limit
+from api.decorators import log_api_call, rate_limit
 from core.models import OneTimePassword
 from core.schemas import (
     AuthStatusSchema,
@@ -63,7 +63,6 @@ class AuthController:
     """
 
     @http_post("/signup", response={201: UserSchema, 400: dict})
-    @handle_exceptions()
     @rate_limit(requests_per_minute=10)
     @log_api_call(include_payload=True)
     def signup(self, request, payload: UserSignupSchema):
@@ -115,7 +114,6 @@ class AuthController:
         return 201, UserSchema.from_orm(user)
 
     @http_post("/login", response={200: dict, 400: dict, 429: dict})
-    @handle_exceptions()
     @rate_limit(requests_per_minute=20)
     @log_api_call(include_payload=True)
     def login(self, request, payload: LoginSchema):
@@ -183,7 +181,6 @@ class AuthController:
         }
 
     @http_post("/login/username", response={200: dict, 400: dict, 429: dict})
-    @handle_exceptions()
     @rate_limit(requests_per_minute=20)
     @log_api_call(include_payload=True)
     def login_username(self, request, payload: UserLoginSchema):
@@ -238,7 +235,6 @@ class AuthController:
         }
 
     @http_post("/logout", response={200: MessageResponse})
-    @handle_exceptions()
     @log_api_call()
     def logout(self, request):
         """Log out the current user.
@@ -258,7 +254,6 @@ class AuthController:
         return 200, {"message": "Successfully logged out", "success": True}
 
     @http_get("/me", response={200: UserSchema, 401: dict})
-    @handle_exceptions()
     @log_api_call()
     def get_current_user(self, request):
         """Retrieve the currently authenticated user's profile.
@@ -275,7 +270,6 @@ class AuthController:
         return 200, UserSchema.from_orm(request.user)
 
     @http_get("/status", response={200: AuthStatusSchema})
-    @handle_exceptions()
     def get_auth_status(self, request):
         """Check whether the current request is authenticated.
 
@@ -306,7 +300,6 @@ class AuthController:
     # =========================================================================
 
     @http_post("/passwordless/login/request", response={200: dict})
-    @handle_exceptions()
     @rate_limit(requests_per_minute=5)
     @log_api_call()
     def request_passwordless_login(self, request, payload: PasswordlessLoginRequest):
@@ -358,7 +351,6 @@ class AuthController:
         return 200, {"detail": "If registered, you'll receive a magic link"}
 
     @http_post("/passwordless/login/verify", response={200: dict, 404: dict})
-    @handle_exceptions()
     @rate_limit(requests_per_minute=20)
     @log_api_call()
     def verify_passwordless_login(self, request, payload: PasswordlessLoginVerify):

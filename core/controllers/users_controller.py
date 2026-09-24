@@ -9,8 +9,8 @@ Routes:
     GET  /users/staff          — list staff users (paginated)
     GET  /users/active         — list active users (paginated)
 
-All endpoints are decorated with ``handle_exceptions`` and ``log_api_call``
-for consistent error handling and audit logging.
+All endpoints are decorated with ``log_api_call`` for audit logging; errors are
+handled by the exception handlers registered on the shared API instance.
 """
 
 import logging
@@ -22,7 +22,7 @@ from django.shortcuts import get_object_or_404
 from ninja_extra import api_controller, http_delete, http_get, http_post, http_put
 from ninja_extra.pagination import paginate
 
-from api.decorators import handle_exceptions, log_api_call
+from api.decorators import log_api_call
 from core.schemas import (
     UserSchema,
     UserSignupSchema,
@@ -47,7 +47,6 @@ class UserController:
     """
 
     @http_post("/superuser", response={201: UserSchema, 400: dict, 500: dict})
-    @handle_exceptions()
     @log_api_call(include_payload=True)
     def create_superuser(self, request, payload: UserSignupSchema):
         """Create a superuser account.
@@ -79,7 +78,6 @@ class UserController:
         return 201, UserSchema.from_orm(user)
 
     @http_get("/{user_id}", response={200: UserSchema, 404: dict})
-    @handle_exceptions()
     @log_api_call()
     def get_user(self, user_id: UUID):
         """Retrieve a single user by UUID.
@@ -96,7 +94,6 @@ class UserController:
 
     @paginate
     @http_get("/", response=list[UserSchema])
-    @handle_exceptions()
     @log_api_call()
     def list_users(
         self,
@@ -149,7 +146,6 @@ class UserController:
         return queryset
 
     @http_put("/{user_id}", response={200: UserSchema, 400: dict, 404: dict})
-    @handle_exceptions()
     @log_api_call(include_payload=True)
     def update_user(self, user_id: UUID, payload: UserUpdateSchema):
         """Update an existing user's profile fields.
@@ -172,7 +168,6 @@ class UserController:
         return 200, UserSchema.from_orm(user)
 
     @http_delete("/{user_id}", response={204: None})
-    @handle_exceptions()
     @log_api_call()
     def delete_user(self, user_id: UUID):
         """Permanently delete a user.
@@ -194,7 +189,6 @@ class UserController:
 
     @paginate
     @http_get("/staff", response=list[UserSchema])
-    @handle_exceptions()
     @log_api_call()
     def list_staff_users(self):
         """List all staff users, ordered by most recently joined.
@@ -207,7 +201,6 @@ class UserController:
 
     @paginate
     @http_get("/active", response=list[UserSchema])
-    @handle_exceptions()
     @log_api_call()
     def list_active_users(self):
         """List all active users, ordered by most recent login.

@@ -179,7 +179,7 @@ def _build_api_structure(
             "code": "DC",
             "name": "Decorators",
             "h": height_for_child(_file_loc(api_root / "decorators.py")),
-            "what": "handle_exceptions, log_api_call, validate_request",
+            "what": "log_api_call, validate_request",
             "loc": _file_loc(api_root / "decorators.py"),
         },
         {

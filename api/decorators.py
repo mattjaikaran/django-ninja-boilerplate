@@ -1,7 +1,8 @@
 """Decorator system for the django-ninja-boilerplate API.
 
-This module provides decorators for error handling, logging, validation,
-authentication, and rate limiting.
+This module provides decorators for logging, validation, authentication,
+and rate limiting. Exception handling is delegated to the handlers registered
+on the shared ``NinjaExtraAPI`` instance (see ``api.exceptions``).
 """
 
 import functools
@@ -11,8 +12,6 @@ import time
 from collections.abc import Callable
 
 from django.core.cache import cache
-from django.core.exceptions import PermissionDenied
-from django.http import Http404
 
 from .utils.validation import ValidationResult, create_error_response
 
@@ -53,79 +52,7 @@ TUPLE_RESPONSE_LENGTH = 2
 HTTP_BAD_REQUEST = 400
 HTTP_UNAUTHORIZED = 401
 HTTP_FORBIDDEN = 403
-HTTP_NOT_FOUND = 404
 HTTP_TOO_MANY_REQUESTS = 429
-HTTP_INTERNAL_SERVER_ERROR = 500
-
-
-def handle_exceptions(
-    return_500_on_error: bool = True,
-    log_errors: bool = True,
-    custom_error_handler: Callable | None = None,
-):
-    """Decorator to handle exceptions in controller methods.
-
-    Args:
-        return_500_on_error: Whether to return 500 status on unhandled errors
-        log_errors: Whether to log errors
-        custom_error_handler: Custom function to handle specific errors
-    """
-
-    def decorator(func):
-        @functools.wraps(func)
-        def wrapper(self, *args, **kwargs):
-            try:
-                return func(self, *args, **kwargs)
-
-            except Http404 as e:
-                return HTTP_NOT_FOUND, {
-                    "error": "Not found",
-                    "message": str(e) or "The requested resource was not found",
-                }
-
-            except PermissionDenied as e:
-                return HTTP_FORBIDDEN, {
-                    "error": "Permission denied",
-                    "message": str(e)
-                    or "You do not have permission to perform this action",
-                }
-
-            except Exception as e:
-                if log_errors:
-                    logger.exception(
-                        "Unhandled exception in %s",
-                        func.__name__,
-                        extra={
-                            "method": func.__name__,
-                            "call_args": args,
-                            "call_kwargs": {
-                                k: v for k, v in kwargs.items() if k != "payload"
-                            },  # Exclude sensitive data
-                        },
-                    )
-
-                # Try custom error handler first
-                if custom_error_handler:
-                    try:
-                        return custom_error_handler(e, func.__name__)
-                    except Exception:
-                        logger.exception("Custom error handler failed")
-
-                # Default error handling
-                if return_500_on_error:
-                    return HTTP_INTERNAL_SERVER_ERROR, {
-                        "error": "Internal server error",
-                        "message": "An unexpected error occurred",
-                        "details": (
-                            str(e) if logger.isEnabledFor(logging.DEBUG) else None
-                        ),
-                    }
-                # Re-raise the exception
-                raise
-
-        return wrapper
-
-    return decorator
 
 
 def log_api_call(

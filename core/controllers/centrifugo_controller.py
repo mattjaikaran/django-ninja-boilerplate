@@ -10,7 +10,7 @@ import logging
 from ninja_extra import api_controller, http_post
 
 from api.centrifugo import generate_connection_token, generate_subscription_token
-from api.decorators import handle_exceptions, log_api_call, rate_limit
+from api.decorators import log_api_call, rate_limit
 from core.schemas.base_schema import CamelCaseSchema
 
 logger = logging.getLogger(__name__)
@@ -33,7 +33,6 @@ class CentrifugoTokenController:
     """Token endpoints for Centrifugo real-time connections."""
 
     @http_post("/connection-token", response={200: ConnectionTokenResponse})
-    @handle_exceptions()
     @log_api_call()
     @rate_limit(requests_per_minute=30)
     def get_connection_token(self, request):
@@ -49,7 +48,6 @@ class CentrifugoTokenController:
         return 200, {"token": token}
 
     @http_post("/subscription-token", response={200: SubscriptionTokenResponse})
-    @handle_exceptions()
     @log_api_call()
     @rate_limit(requests_per_minute=60)
     def get_subscription_token(self, request, payload: SubscriptionTokenRequest):

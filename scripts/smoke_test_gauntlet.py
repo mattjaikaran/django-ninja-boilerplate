@@ -76,26 +76,14 @@ def list_items(request):
         "DECORATOR_ORDER",
         "controllers/bad_order.py",
         """from ninja_extra import api_controller, http_get
+from ninja_extra.pagination import paginate
 
 @api_controller("/items", tags=["Items"])
 class BadController:
-    @handle_exceptions()
+    @paginate
     @http_get("/")
     def list_items(self, request):
         return []
-""",
-        1,
-    ),
-    (
-        "MISSING_DECORATOR",
-        "controllers/bad_missing.py",
-        """from ninja_extra import api_controller, http_post
-
-@api_controller("/items", tags=["Items"])
-class BadController:
-    @http_post("/")
-    def create_item(self, request):
-        return 201, {}
 """,
         1,
     ),

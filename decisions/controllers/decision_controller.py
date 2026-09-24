@@ -11,7 +11,7 @@ import logging
 from django.core.exceptions import ImproperlyConfigured
 from ninja_extra import api_controller, http_post
 
-from api.decorators import handle_exceptions, log_api_call, validate_request
+from api.decorators import log_api_call, validate_request
 from api.exceptions import ValidationError
 from decisions.schemas import DecisionRequestSchema, DecisionResponseSchema
 from decisions.services import DecisionService
@@ -32,7 +32,6 @@ class DecisionController:
         response={200: DecisionResponseSchema, 400: dict, 500: dict},
     )
     @log_api_call(include_payload=True, include_response=False)
-    @handle_exceptions(return_500_on_error=True, log_errors=True)
     @validate_request()
     def evaluate(self, request, payload: DecisionRequestSchema):
         """Answer the supplied questions from the supplied state.

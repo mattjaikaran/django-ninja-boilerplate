@@ -1,7 +1,12 @@
 """Custom exceptions for the django-ninja-boilerplate API.
 
-This module contains all custom exceptions used throughout the application
-to provide better error handling and more descriptive error messages.
+This module contains the single structured API exception hierarchy and the
+exception handlers registered on the shared :class:`NinjaExtraAPI` instance.
+
+Every handler below returns safe JSON. Framework-level failures (Django
+``Http404``, Ninja request validation, authentication, and permissions) are
+left to the framework's own handlers; this module only owns the domain
+``BaseAPIException`` hierarchy and the last-resort 500 handler.
 """
 
 import logging
@@ -9,7 +14,6 @@ from enum import StrEnum
 from typing import Any
 
 from django.http import JsonResponse
-from ninja.errors import HttpError
 
 logger = logging.getLogger(__name__)
 
@@ -154,32 +158,18 @@ class TodoError(BaseAPIException):
 
 
 def handle_api_exception(request, exception: BaseAPIException) -> JsonResponse:
-    """Handle custom API exceptions and return JSON response."""
+    """Handle domain API exceptions and return JSON response."""
     return JsonResponse(exception.to_dict(), status=exception.status_code)
 
 
-def handle_validation_error(request, exception: ValidationError) -> JsonResponse:
-    """Handle validation exceptions with field-specific errors."""
-    response_data = exception.to_dict()
-
-    # Add field errors if available
-    if hasattr(exception, "field_errors"):
-        response_data["field_errors"] = exception.field_errors
-
-    return JsonResponse(response_data, status=exception.status_code)
-
-
-def handle_ninja_http_error(request, exception: HttpError) -> JsonResponse:
-    """Handle Django Ninja HTTP errors."""
-    return JsonResponse(
-        {"error": True, "message": str(exception), "code": "http_error"},
-        status=exception.status_code,
-    )
-
-
 def handle_generic_exception(request, exception: Exception) -> JsonResponse:
-    """Handle generic exceptions in production."""
-    logger.error("Unhandled exception occurred", exc_info=exception)
+    """Handle unexpected exceptions with safe JSON 500 and request-id logging."""
+    request_id = request.META.get("X-Request-ID", "unknown")
+    logger.error(
+        "Unhandled exception [request_id=%s]",
+        request_id,
+        exc_info=exception,
+    )
 
     return JsonResponse(
         {

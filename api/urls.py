@@ -5,6 +5,11 @@ from django.urls import path
 from ninja_extra import NinjaExtraAPI
 from ninja_jwt.controller import NinjaJWTDefaultController
 
+from api.exceptions import (
+    BaseAPIException,
+    handle_api_exception,
+    handle_generic_exception,
+)
 from api.healthcheck import HealthCheckController
 from api.parsers import ORJSONParser
 from api.renderers import ORJSONRenderer
@@ -67,6 +72,14 @@ api = NinjaExtraAPI(
     parser=ORJSONParser(),
     # docs=Redoc(),  # this line is to use ReDoc instead of Swagger
 )
+
+
+# Register exception handlers on the shared API instance.
+# Framework-level failures (Django Http404, Ninja request validation, auth, and
+# permissions) keep their native handlers; these only own the domain hierarchy
+# and the last-resort safe 500.
+api.add_exception_handler(BaseAPIException, handle_api_exception)
+api.add_exception_handler(Exception, handle_generic_exception)
 
 
 # Register controllers

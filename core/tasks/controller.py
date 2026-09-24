@@ -12,7 +12,7 @@ import logging
 from celery import current_app
 from ninja_extra import api_controller, http_delete, http_get, http_post, http_put
 
-from api.decorators import handle_exceptions, log_api_call
+from api.decorators import log_api_call
 from core.tasks.dlq import DeadLetterQueue
 from core.tasks.progress import TaskProgressTracker
 from core.tasks.scheduler import PeriodicTaskManager
@@ -48,7 +48,6 @@ class TaskController:
     # =========================================================================
 
     @http_get("/{task_id}/status", response={200: TaskStatusSchema, 404: dict})
-    @handle_exceptions()
     @log_api_call()
     def get_task_status(self, task_id: str):
         """Get the status of a specific task.
@@ -62,7 +61,6 @@ class TaskController:
         return 200, status
 
     @http_get("/{task_id}/progress", response={200: dict, 404: dict})
-    @handle_exceptions()
     @log_api_call()
     def get_task_progress(self, task_id: str):
         """Get the progress of a specific task.
@@ -75,7 +73,6 @@ class TaskController:
         return 200, progress
 
     @http_post("/{task_id}/revoke", response={200: TaskActionResponseSchema})
-    @handle_exceptions()
     @log_api_call()
     def revoke_task(self, task_id: str, terminate: bool = False):
         """Revoke (cancel) a running task.
@@ -108,14 +105,12 @@ class TaskController:
             }
 
     @http_get("/active", response={200: list[dict]})
-    @handle_exceptions()
     @log_api_call()
     def list_active_tasks(self):
         """List all currently active (running) tasks."""
         return 200, TaskProgressTracker.get_active_tasks()
 
     @http_get("/recent", response={200: list[dict]})
-    @handle_exceptions()
     @log_api_call()
     def list_recent_tasks(
         self,
@@ -137,14 +132,12 @@ class TaskController:
         )
 
     @http_get("/stats", response={200: TaskStatsSchema})
-    @handle_exceptions()
     @log_api_call()
     def get_task_stats(self):
         """Get task execution statistics."""
         return 200, TaskProgressTracker.get_task_stats()
 
     @http_post("/cleanup", response={200: CleanupResponseSchema})
-    @handle_exceptions()
     @log_api_call()
     def cleanup_old_tasks(self, days: int = 30):
         """Clean up old task results.
@@ -172,7 +165,6 @@ class TaskSchedulerController:
     # =========================================================================
 
     @http_get("/", response={200: list[PeriodicTaskSchema]})
-    @handle_exceptions()
     @log_api_call()
     def list_periodic_tasks(self, enabled_only: bool = False):
         """List all periodic tasks.
@@ -184,7 +176,6 @@ class TaskSchedulerController:
         return 200, tasks
 
     @http_get("/{task_id}", response={200: PeriodicTaskSchema, 404: dict})
-    @handle_exceptions()
     @log_api_call()
     def get_periodic_task(self, task_id: int):
         """Get a specific periodic task by ID."""
@@ -194,7 +185,6 @@ class TaskSchedulerController:
         return 200, task
 
     @http_post("/interval", response={201: PeriodicTaskSchema, 400: dict})
-    @handle_exceptions()
     @log_api_call(include_payload=True)
     def create_interval_task(self, data: CreateIntervalTaskSchema):
         """Create a new interval-based periodic task.
@@ -221,7 +211,6 @@ class TaskSchedulerController:
         return 201, task
 
     @http_post("/crontab", response={201: PeriodicTaskSchema, 400: dict})
-    @handle_exceptions()
     @log_api_call(include_payload=True)
     def create_crontab_task(self, data: CreateCrontabTaskSchema):
         """Create a new crontab-based periodic task.
@@ -251,7 +240,6 @@ class TaskSchedulerController:
         return 201, task
 
     @http_put("/{task_id}", response={200: PeriodicTaskSchema, 404: dict})
-    @handle_exceptions()
     @log_api_call(include_payload=True)
     def update_periodic_task(self, task_id: int, data: UpdatePeriodicTaskSchema):
         """Update an existing periodic task."""
@@ -269,7 +257,6 @@ class TaskSchedulerController:
         return 200, task
 
     @http_delete("/{task_id}", response={200: dict, 404: dict})
-    @handle_exceptions()
     @log_api_call()
     def delete_periodic_task(self, task_id: int):
         """Delete a periodic task."""
@@ -281,7 +268,6 @@ class TaskSchedulerController:
         return 200, {"success": True, "message": "Periodic task deleted"}
 
     @http_post("/{task_id}/toggle", response={200: PeriodicTaskSchema, 404: dict})
-    @handle_exceptions()
     @log_api_call()
     def toggle_periodic_task(self, task_id: int, enabled: bool | None = None):
         """Toggle a periodic task's enabled status.
@@ -298,7 +284,6 @@ class TaskSchedulerController:
         return 200, task
 
     @http_post("/{task_id}/run", response={200: TaskActionResponseSchema, 404: dict})
-    @handle_exceptions()
     @log_api_call()
     def run_periodic_task_now(self, task_id: int):
         """Manually trigger a periodic task to run immediately."""
@@ -314,7 +299,6 @@ class TaskSchedulerController:
         }
 
     @http_get("/stats", response={200: SchedulerStatsSchema})
-    @handle_exceptions()
     @log_api_call()
     def get_scheduler_stats(self):
         """Get scheduler statistics."""
@@ -330,7 +314,6 @@ class DeadLetterQueueController:
     # =========================================================================
 
     @http_get("/", response={200: DLQListSchema})
-    @handle_exceptions()
     @log_api_call()
     def list_dlq_entries(
         self,
@@ -374,7 +357,6 @@ class DeadLetterQueueController:
         }
 
     @http_get("/{entry_id}", response={200: DLQEntrySchema, 404: dict})
-    @handle_exceptions()
     @log_api_call()
     def get_dlq_entry(self, entry_id: str):
         """Get a specific DLQ entry."""
@@ -386,7 +368,6 @@ class DeadLetterQueueController:
         return 200, entry
 
     @http_post("/{entry_id}/retry", response={200: DLQRetryResponseSchema})
-    @handle_exceptions()
     @log_api_call()
     def retry_dlq_entry(self, entry_id: str):
         """Retry a failed task from the DLQ."""
@@ -405,7 +386,6 @@ class DeadLetterQueueController:
         }
 
     @http_post("/retry-all", response={200: DLQBulkRetryResponseSchema})
-    @handle_exceptions()
     @log_api_call()
     def retry_all_pending(self, data: DLQBulkRetrySchema):
         """Retry all pending DLQ entries that can be retried."""
@@ -417,7 +397,6 @@ class DeadLetterQueueController:
         return 200, results
 
     @http_post("/{entry_id}/resolve", response={200: DLQEntrySchema, 404: dict})
-    @handle_exceptions()
     @log_api_call()
     def resolve_dlq_entry(self, entry_id: str, data: DLQResolveSchema):
         """Mark a DLQ entry as resolved."""
@@ -429,7 +408,6 @@ class DeadLetterQueueController:
         return 200, entry
 
     @http_post("/resolve-bulk", response={200: dict})
-    @handle_exceptions()
     @log_api_call()
     def bulk_resolve_entries(self, data: DLQBulkResolveSchema):
         """Resolve multiple DLQ entries."""
@@ -440,7 +418,6 @@ class DeadLetterQueueController:
         return 200, results
 
     @http_delete("/{entry_id}", response={200: dict, 404: dict})
-    @handle_exceptions()
     @log_api_call()
     def delete_dlq_entry(self, entry_id: str):
         """Permanently delete a DLQ entry."""
@@ -452,14 +429,12 @@ class DeadLetterQueueController:
         return 200, {"success": True, "message": "DLQ entry deleted"}
 
     @http_get("/stats", response={200: DLQStatsSchema})
-    @handle_exceptions()
     @log_api_call()
     def get_dlq_stats(self):
         """Get DLQ statistics."""
         return 200, DeadLetterQueue.get_stats()
 
     @http_post("/cleanup", response={200: CleanupResponseSchema})
-    @handle_exceptions()
     @log_api_call()
     def cleanup_dlq(self, days: int = 30):
         """Clean up old resolved DLQ entries.

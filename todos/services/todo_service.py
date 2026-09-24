@@ -31,8 +31,8 @@ class TodoService:
     """Service class encapsulating all Todo business logic.
 
     Handles CRUD operations, filtering, search, and ordering.
-    All methods raise Http404 when a resource is not found so controllers
-    can rely on ``handle_exceptions`` to map that to a 404 response.
+    All methods raise Http404 when a resource is not found so the framework
+    maps it to a 404 response.
     """
 
     # ------------------------------------------------------------------

@@ -8,7 +8,7 @@ from uuid import UUID
 
 from django.shortcuts import get_object_or_404
 
-from api.decorators import handle_exceptions, log_api_call
+from api.decorators import log_api_call
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +41,6 @@ class SoftDeleteMixin:
             raise NotImplementedError(msg)
         return instance.model
 
-    @handle_exceptions()
     @log_api_call()
     def soft_delete(self, request, pk: UUID):
         """Soft delete a record by setting is_active=False."""
@@ -54,7 +53,6 @@ class SoftDeleteMixin:
         logger.info("Soft deleted %s %s", model.__name__, pk)
         return 200, {"message": f"{model.__name__} soft deleted", "id": str(pk)}
 
-    @handle_exceptions()
     @log_api_call()
     def restore(self, request, pk: UUID):
         """Restore a soft-deleted record."""

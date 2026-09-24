@@ -14,7 +14,7 @@ from django.contrib.auth import get_user_model
 from ninja_extra import api_controller, http_post
 from ninja_jwt.tokens import RefreshToken
 
-from api.decorators import handle_exceptions, log_api_call
+from api.decorators import log_api_call
 from api.utils.http import get_client_ip, get_user_agent
 from core.schemas import MessageResponse, UserSchema
 from core.schemas.otp_schema import (
@@ -44,7 +44,6 @@ class OTPController:
     """
 
     @http_post("/request", response={200: OTPResponseSchema, 400: dict, 429: dict})
-    @handle_exceptions()
     @log_api_call(include_payload=True)
     def request_otp(self, request, payload: OTPRequestSchema):
         """Request a 6-digit OTP code.
@@ -86,7 +85,6 @@ class OTPController:
         )
 
     @http_post("/verify", response={200: OTPVerifyResponseSchema, 400: dict, 401: dict})
-    @handle_exceptions()
     @log_api_call(include_payload=True)
     def verify_otp(self, request, payload: OTPVerifySchema):
         """Verify a 6-digit OTP code.
@@ -129,7 +127,6 @@ class OTPController:
     @http_post(
         "/verify-token", response={200: OTPVerifyResponseSchema, 400: dict, 401: dict}
     )
-    @handle_exceptions()
     @log_api_call(include_payload=True)
     def verify_token(self, request, payload: OTPTokenVerifySchema):
         """Verify a magic link token.
@@ -155,7 +152,6 @@ class OTPController:
         )
 
     @http_post("/resend", response={200: OTPResponseSchema, 400: dict, 429: dict})
-    @handle_exceptions()
     @log_api_call(include_payload=True)
     def resend_otp(self, request, payload: ResendOTPSchema):
         """Resend an OTP code.
@@ -183,7 +179,6 @@ class OTPController:
         )
 
     @http_post("/password-reset/request", response={200: MessageResponse, 400: dict})
-    @handle_exceptions()
     @log_api_call(include_payload=True)
     def request_password_reset(self, request, payload: OTPRequestSchema):
         """Request password reset via OTP.
@@ -209,7 +204,6 @@ class OTPController:
     @http_post(
         "/password-reset/confirm", response={200: MessageResponse, 400: dict, 401: dict}
     )
-    @handle_exceptions()
     @log_api_call(include_payload=True)
     def confirm_password_reset(self, request, payload: PasswordResetWithOTPSchema):
         """Confirm password reset with OTP code.
@@ -231,7 +225,6 @@ class OTPController:
         )
 
     @http_post("/email/verify", response={200: MessageResponse, 400: dict, 401: dict})
-    @handle_exceptions()
     @log_api_call(include_payload=True)
     def verify_email(self, request, payload: SignupWithOTPSchema):
         """Verify email address with OTP code.
@@ -255,7 +248,6 @@ class OTPController:
         "/2fa/request",
         response={200: OTPResponseSchema, 400: dict, 401: dict, 429: dict},
     )
-    @handle_exceptions()
     @log_api_call()
     def request_two_factor(self, request, payload: TwoFactorSetupSchema):
         """Request a two-factor authentication code.
@@ -285,7 +277,6 @@ class OTPController:
         )
 
     @http_post("/2fa/verify", response={200: MessageResponse, 400: dict, 401: dict})
-    @handle_exceptions()
     @log_api_call(include_payload=True)
     def verify_two_factor(self, request, payload: TwoFactorVerifySchema):
         """Verify a two-factor authentication code.

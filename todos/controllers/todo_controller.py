@@ -14,7 +14,7 @@ from ninja_extra import api_controller, http_delete, http_get, http_post, http_p
 from ninja_extra.pagination import paginate
 from ninja_jwt.authentication import JWTAuth
 
-from api.decorators import handle_exceptions, log_api_call, validate_request
+from api.decorators import log_api_call, validate_request
 from todos.schemas import CreateTodoSchema, TodoSchema, UpdateTodoSchema
 from todos.services import TodoService
 
@@ -40,7 +40,6 @@ class TodoController:
 
     @paginate
     @http_get("/", response={200: list[TodoSchema], 500: dict})
-    @handle_exceptions()
     @log_api_call()
     def list_todos(
         self,
@@ -72,7 +71,6 @@ class TodoController:
         )
 
     @http_get("/{todo_id}", response={200: TodoSchema, 404: dict, 500: dict})
-    @handle_exceptions()
     @log_api_call()
     def get_todo(self, request, todo_id: str):
         """Retrieve a single todo by ID.
@@ -88,7 +86,6 @@ class TodoController:
 
     @paginate
     @http_get("/completed", response={200: list[TodoSchema], 500: dict})
-    @handle_exceptions()
     @log_api_call()
     def list_completed_todos(self, request):
         """List completed todos for the authenticated user.
@@ -103,7 +100,6 @@ class TodoController:
 
     @paginate
     @http_get("/pending", response={200: list[TodoSchema], 500: dict})
-    @handle_exceptions()
     @log_api_call()
     def list_pending_todos(self, request):
         """List pending (incomplete) todos for the authenticated user.
@@ -118,7 +114,6 @@ class TodoController:
 
     @paginate
     @http_get("/search", response={200: list[TodoSchema], 500: dict})
-    @handle_exceptions()
     @log_api_call()
     def search_todos(
         self,
@@ -151,7 +146,6 @@ class TodoController:
 
     @http_post("/", response={201: TodoSchema, 400: dict, 500: dict})
     @log_api_call(include_payload=True, include_response=False)
-    @handle_exceptions(return_500_on_error=True, log_errors=True)
     @validate_request()
     def create_todo(self, request, payload: CreateTodoSchema):
         """Create a new todo for the authenticated user.
@@ -167,7 +161,6 @@ class TodoController:
 
     @http_put("/{todo_id}", response={200: TodoSchema, 404: dict, 500: dict})
     @log_api_call(include_payload=True)
-    @handle_exceptions()
     def update_todo(self, request, todo_id: str, payload: UpdateTodoSchema):
         """Apply partial updates to an existing todo.
 
@@ -182,7 +175,6 @@ class TodoController:
         return 200, self.service.update_todo(todo_id, payload, request.user)
 
     @http_delete("/{todo_id}", response={204: None, 404: dict, 500: dict})
-    @handle_exceptions()
     @log_api_call()
     def delete_todo(self, request, todo_id: str):
         """Delete a todo owned by the authenticated user.
