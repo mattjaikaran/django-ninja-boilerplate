@@ -8,16 +8,21 @@
 
 ---
 
-| Version | Theme | Scope |
-|---------|-------|-------|
-| **1.9.0** | Admin & Operational Foundation | Unfold dashboards, DLQ UI, import/export, scheduled jobs UI |
-| **1.10.0** | Observability Deepening | Operational dashboards, request log browser, alerting, rate limit visibility |
-| **1.11.0** | API Maturity Patterns | Batch operations, long-running ops, full-text search, event bus foundation |
-| **2.0.0** | Platform Scale | ETL framework, production SDKs, Django 6.0+, Postgres 19, multi-DB, multi-tenancy, GDPR |
-| **2.1.0** | AI & Intelligent Features | LLM integration patterns, streaming AI, RAG pipelines, AI-powered admin, content moderation |
-| **2.2.0** | Multi-Protocol & Advanced Auth | gRPC endpoints, GraphQL subscriptions, OAuth2/SAML SSO, API mock server |
-| **2.3.0** | Infrastructure & Operations | i18n, distributed locking, IaC modules, K8s operator, data catalog, scheduled reports |
-| **3.0.0** | Multi-Service Architecture | Service decomposition, event sourcing/CQRS, saga patterns, service mesh, contract testing |
+| Version | Theme | Scope | Status |
+|---------|-------|-------|--------|
+| **1.9.0** | Admin & Operational Foundation | Unfold dashboards, DLQ UI, import/export, scheduled jobs UI | Released with other scope; items still open |
+| **1.10.0** | Observability Deepening | Operational dashboards, request log browser, alerting, rate limit visibility | Released with other scope; items still open |
+| **1.11.0** | API Maturity Patterns | Batch operations, long-running ops, full-text search, event bus foundation | Released with other scope; items still open |
+| **2.0.0** | Platform Scale | ETL framework, production SDKs, Django 6.0+, Postgres 19, multi-DB, multi-tenancy, GDPR | Planned |
+| **2.1.0** | AI & Intelligent Features | LLM integration patterns, streaming AI, RAG pipelines, AI-powered admin, content moderation | Planned |
+| **2.2.0** | Multi-Protocol & Advanced Auth | gRPC endpoints, GraphQL subscriptions, OAuth2/SAML SSO, API mock server | Planned |
+| **2.3.0** | Infrastructure & Operations | i18n, distributed locking, IaC modules, K8s operator, data catalog, scheduled reports | Planned |
+| **3.0.0** | Multi-Service Architecture | Service decomposition, event sourcing/CQRS, saga patterns, service mesh, contract testing | Planned |
+
+> Versions 1.9.0 to 1.11.0 are proposal labels. Those releases shipped other
+> work (see `CHANGELOG.md`), and the items in those sections are still
+> unshipped candidates. The numbers are kept so existing cross-references stay
+> valid.
 
 ---
 
@@ -173,7 +178,7 @@ These are the highest-value, lowest-risk additions — all leverage existing inf
 
 | # | Feature | Priority | Description |
 |---|---------|----------|-------------|
-| 4.20 | **Django 6.0 Compatibility** | P0 | Full test suite pass on Django 6.0. Currently blocked by `django-celery-beat<6.0`. Resolve dependency ceiling, update any deprecated APIs. |
+| 4.20 | **Django 6.0 Compatibility** | P0 | **Done.** `django-celery-beat` 2.9.0 raised its cap to `<6.1`, the suite passes on Django 6.0, and CI tests both 5.2 and 6.0. |
 | 4.21 | **PostgreSQL 19 Support** | P0 | Test suite + Docker Compose configs for Postgres 19. Leverage new JSON/SQL features where applicable. |
 | 4.22 | **MySQL 8.4 / MariaDB Support** | P1 | Optional database backends. `TimestampedModel` compatibility (no native UUID type in MySQL). Docs for switching. |
 | 4.23 | **SQLite Production Notes** | P2 | Document SQLite + Litestream pattern for single-server deployments. |

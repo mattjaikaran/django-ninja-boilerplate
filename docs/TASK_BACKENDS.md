@@ -22,8 +22,10 @@ No changes needed — Celery is configured out of the box.
 
 ```env
 TASK_BACKEND=celery
-CELERY_BROKER_URL=valkey://valkey:6379/0
-CELERY_RESULT_BACKEND=valkey://valkey:6379/0
+# kombu has no valkey transport: use the redis:// scheme against Valkey
+# (wire-compatible). Compose pins this per service.
+CELERY_BROKER_URL=redis://valkey:6379/0
+CELERY_RESULT_BACKEND=redis://valkey:6379/0
 ```
 
 ```bash

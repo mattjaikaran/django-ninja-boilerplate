@@ -57,8 +57,9 @@ accept it. Do not delegate the top-level plan.
 - macOS, Apple Silicon. Docker via OrbStack.
 - Local Postgres 17 with pgvector, and `.env` points `DB_HOST=localhost`.
 - `just` is the task runner. The old Makefile is `Makefile.legacy`.
-- Ports: django 8000, mcp 8001, mailhog 8025, postgres 5432, valkey 6379,
-  centrifugo 8800, flower 5555.
+- Ports: django 8000, mcp 8001, mailhog 8025, centrifugo 8800, flower 5555.
+  The Docker stack publishes Postgres on 5433 and Valkey on 6380, offset from
+  the local 5432/6379, so it can run beside local services.
 
 ## 08 Patterns We Do Not Use
 
