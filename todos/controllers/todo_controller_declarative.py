@@ -109,13 +109,6 @@ class TodoControllerDeclarative:
                 "error": "Not found",
                 "message": f"Todo with id '{todo_id}' does not exist",
             }
-        except Exception as exc:
-            logger.exception("Failed to fetch todo %s", todo_id)
-            return 500, {
-                "error": "Internal server error",
-                "message": "Could not retrieve todo",
-                "detail": str(exc),
-            }
 
     @http_post("/", response={201: TodoSchema, 400: dict, 500: dict})
     def create_todo(self, request, payload: CreateTodoSchema):
@@ -129,33 +122,24 @@ class TodoControllerDeclarative:
             Tuple of (201, todo) on success, (400, error) on bad input,
             or (500, error) on unexpected failure.
         """
-        try:
-            if not payload.title or not payload.title.strip():
-                return 400, {
-                    "error": "Validation error",
-                    "message": "Title is required and cannot be blank",
-                }
-
-            todo_data = payload.model_dump()
-            todo_data["user"] = request.user
-            todo = Todo.objects.create(**todo_data)
-
-            logger.info(
-                "Created todo '%s' (id=%s) for user %s",
-                todo.title,
-                todo.id,
-                request.user.id,
-            )
-
-            return 201, todo
-
-        except Exception as exc:
-            logger.exception("Failed to create todo for user %s", request.user.id)
-            return 500, {
-                "error": "Internal server error",
-                "message": "Could not create todo",
-                "detail": str(exc),
+        if not payload.title or not payload.title.strip():
+            return 400, {
+                "error": "Validation error",
+                "message": "Title is required and cannot be blank",
             }
+
+        todo_data = payload.model_dump()
+        todo_data["user"] = request.user
+        todo = Todo.objects.create(**todo_data)
+
+        logger.info(
+            "Created todo '%s' (id=%s) for user %s",
+            todo.title,
+            todo.id,
+            request.user.id,
+        )
+
+        return 201, todo
 
     @http_put("/{todo_id}", response={200: TodoSchema, 404: dict, 500: dict})
     def update_todo(self, request, todo_id: str, payload: UpdateTodoSchema):
@@ -178,27 +162,18 @@ class TodoControllerDeclarative:
                 "message": f"Todo with id '{todo_id}' does not exist",
             }
 
-        try:
-            for attr, value in payload.model_dump(exclude_unset=True).items():
-                setattr(todo, attr, value)
-            todo.save()
+        for attr, value in payload.model_dump(exclude_unset=True).items():
+            setattr(todo, attr, value)
+        todo.save()
 
-            logger.info(
-                "Updated todo '%s' (id=%s) for user %s",
-                todo.title,
-                todo.id,
-                request.user.id,
-            )
+        logger.info(
+            "Updated todo '%s' (id=%s) for user %s",
+            todo.title,
+            todo.id,
+            request.user.id,
+        )
 
-            return 200, todo
-
-        except Exception as exc:
-            logger.exception("Failed to update todo %s", todo_id)
-            return 500, {
-                "error": "Internal server error",
-                "message": "Could not update todo",
-                "detail": str(exc),
-            }
+        return 200, todo
 
     @http_delete("/{todo_id}", response={204: None, 404: dict, 500: dict})
     def delete_todo(self, request, todo_id: str):
@@ -220,17 +195,9 @@ class TodoControllerDeclarative:
                 "message": f"Todo with id '{todo_id}' does not exist",
             }
 
-        try:
-            todo.delete()
-            logger.info("Deleted todo %s for user %s", todo_id, request.user.id)
-            return 204, None
-        except Exception as exc:
-            logger.exception("Failed to delete todo %s", todo_id)
-            return 500, {
-                "error": "Internal server error",
-                "message": "Could not delete todo",
-                "detail": str(exc),
-            }
+        todo.delete()
+        logger.info("Deleted todo %s for user %s", todo_id, request.user.id)
+        return 204, None
 
     @http_get("/completed", response={200: PaginatedResponseSchema[TodoSchema]})
     @paginate(PageNumberPaginationExtra)

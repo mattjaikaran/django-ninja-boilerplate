@@ -6,13 +6,15 @@ exception handlers registered on the shared :class:`NinjaExtraAPI` instance.
 Every handler below returns safe JSON. Framework-level failures (Django
 ``Http404``, Ninja request validation, authentication, and permissions) are
 left to the framework's own handlers; this module only owns the domain
-``BaseAPIException`` hierarchy and the last-resort 500 handler.
+``BaseAPIException`` hierarchy, Django ``ValidationError``, and the
+last-resort 500 handler.
 """
 
 import logging
 from enum import StrEnum
 from typing import Any
 
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.http import JsonResponse
 
 logger = logging.getLogger(__name__)
@@ -160,6 +162,20 @@ class TodoError(BaseAPIException):
 def handle_api_exception(request, exception: BaseAPIException) -> JsonResponse:
     """Handle domain API exceptions and return JSON response."""
     return JsonResponse(exception.to_dict(), status=exception.status_code)
+
+
+def handle_django_validation_error(
+    request, exception: DjangoValidationError
+) -> JsonResponse:
+    """Handle Django model/form validation errors as 400."""
+    return JsonResponse(
+        {
+            "error": True,
+            "message": str(exception),
+            "code": "validation_error",
+        },
+        status=400,
+    )
 
 
 def handle_generic_exception(request, exception: Exception) -> JsonResponse:

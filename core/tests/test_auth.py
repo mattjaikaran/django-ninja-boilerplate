@@ -24,6 +24,29 @@ class TestAuthAPI:
         """Create a test user using factory."""
         return UserFactory()
 
+    def test_signup_duplicate_email_returns_400(self, api_client, user):
+        payload = {
+            "username": "newuser",
+            "email": user.email,
+            "password": "Str0ngP@ssword!",
+        }
+        response = api_client.post(
+            "/api/auth/signup",
+            json.dumps(payload),
+            content_type="application/json",
+        )
+        assert response.status_code == 400
+        assert response.json()["code"] == "validation_error"
+
+    def test_login_invalid_credentials_returns_400(self, api_client, user):
+        payload = {"email": user.email, "password": "wrong-password"}
+        response = api_client.post(
+            "/api/auth/login",
+            json.dumps(payload),
+            content_type="application/json",
+        )
+        assert response.status_code == 400
+
     def test_passwordless_login_request(self, api_client, user):
         data = {"email": user.email}
         response = api_client.post(

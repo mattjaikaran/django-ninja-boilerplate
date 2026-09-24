@@ -159,10 +159,10 @@ class AuthController:
                 payload.email.lower(),
                 remaining - 1,
             )
-            return 400, {"error": "Invalid credentials"}
+            raise ValidationError("Invalid credentials")
 
         if not user.is_active:
-            return 400, {"error": "Account is disabled"}
+            raise ValidationError("Account is disabled")
 
         clear_attempts(lockout_key)
 
@@ -213,10 +213,10 @@ class AuthController:
 
         if not user:
             record_failed_attempt(lockout_key)
-            return 400, {"error": "Invalid credentials"}
+            raise ValidationError("Invalid credentials")
 
         if not user.is_active:
-            return 400, {"error": "Account is disabled"}
+            raise ValidationError("Account is disabled")
 
         clear_attempts(lockout_key)
 

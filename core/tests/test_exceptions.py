@@ -1,5 +1,6 @@
 """Exception handling tests — prove domain exceptions map to their declared
-statuses and unexpected errors return safe JSON 500 (no exception leakage).
+statuses, Django ValidationError maps to 400, and unexpected errors return safe
+JSON 500 (no exception leakage).
 
 These are isolated handler tests: they import the handlers from
 ``api.exceptions`` directly and exercise them with a plain HttpRequest, so they
@@ -9,6 +10,7 @@ do not depend on the full application import graph.
 import json
 
 import pytest
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.http import HttpRequest
 
 from api.exceptions import (
@@ -21,6 +23,7 @@ from api.exceptions import (
     RateLimitError,
     ValidationError,
     handle_api_exception,
+    handle_django_validation_error,
     handle_generic_exception,
 )
 
@@ -61,6 +64,18 @@ class TestDomainExceptionMapping:
         assert body["error"] is True
         assert body["message"] == "boom"
         assert body["code"] == exc_cls.default_code
+
+
+class TestDjangoValidationError:
+    def test_returns_400(self):
+        response = handle_django_validation_error(
+            make_request(), DjangoValidationError("A user with this email already exists.")
+        )
+        assert response.status_code == 400
+        body = _body(response)
+        assert body["error"] is True
+        assert body["code"] == "validation_error"
+        assert "email" in body["message"]
 
 
 class TestSafe500:

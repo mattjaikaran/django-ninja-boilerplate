@@ -3,6 +3,7 @@ import math
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.urls import path
 from ninja.errors import Throttled
 from ninja_extra import NinjaExtraAPI
@@ -11,6 +12,7 @@ from ninja_jwt.controller import NinjaJWTDefaultController
 from api.exceptions import (
     BaseAPIException,
     handle_api_exception,
+    handle_django_validation_error,
     handle_generic_exception,
 )
 from api.healthcheck import HealthCheckController
@@ -79,6 +81,7 @@ api = NinjaExtraAPI(
 
 # Register exception handlers on the shared API instance.
 api.add_exception_handler(BaseAPIException, handle_api_exception)
+api.add_exception_handler(DjangoValidationError, handle_django_validation_error)
 api.add_exception_handler(Exception, handle_generic_exception)
 
 
