@@ -1,0 +1,29 @@
+{
+  "kind": "api_payload",
+  "fixtures": [
+    {
+      "name": "webhook_retry_storm",
+      "description": "Webhook endpoint reports a burst of retries.",
+      "payload": {
+        "endpoint": "https://example.test/hooks/orders",
+        "events_last_minute": 4200,
+        "failure_rate": 0.38,
+        "p99_latency_ms": 5400,
+        "region": "us-east-1"
+      },
+      "embedding": null
+    },
+    {
+      "name": "steady_traffic",
+      "description": "Healthy endpoint with normal traffic.",
+      "payload": {
+        "endpoint": "https://example.test/hooks/orders",
+        "events_last_minute": 180,
+        "failure_rate": 0.004,
+        "p99_latency_ms": 210,
+        "region": "us-east-1"
+      },
+      "embedding": null
+    }
+  ]
+}

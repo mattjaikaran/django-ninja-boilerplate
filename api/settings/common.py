@@ -1,4 +1,3 @@
-# file-length-max: 730
 """Django settings for api project - Common settings.
 
 This module contains settings that are common across all environments.
@@ -8,6 +7,7 @@ Environment-specific settings should be defined in dev.py or prod.py.
 import os
 from datetime import timedelta
 from pathlib import Path
+from typing import Any
 
 import environ
 
@@ -99,6 +99,7 @@ INSTALLED_APPS = [
     "core",  # core app
     "todos",  # todos app
     "atlas",  # codebase atlas (interactive architecture map in admin)
+    "decisions",  # decisions app (System One decision engine)
     # Optional apps — uncomment to enable:
     # "files",  # files app (S3 presigned upload)
     # "webhooks",  # outbound webhooks
@@ -243,13 +244,21 @@ USE_TZ = True  # use tz
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
-STATIC_URL = "static/"
-STATIC_ROOT = "static/"
+STATIC_URL = "/static/"
+# Absolute so `collectstatic` writes where the compose static volume is mounted
+# (/app/staticfiles); the nginx image serves that same path.
+STATIC_ROOT = BASE_DIR / "staticfiles"
 
 # Media files configuration
 if ENVIRONMENT == "production" and env("AWS_STORAGE_BUCKET_NAME", default=""):
-    # S3 Storage for production
-    DEFAULT_FILE_STORAGE = "storages.backends.s3boto3.S3Boto3Storage"
+    # S3 Storage for production.
+    # DEFAULT_FILE_STORAGE was removed in Django 5.1; use the STORAGES mapping.
+    STORAGES = {
+        "default": {"BACKEND": "storages.backends.s3boto3.S3Boto3Storage"},
+        "staticfiles": {
+            "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"
+        },
+    }
     AWS_ACCESS_KEY_ID = env("AWS_ACCESS_KEY_ID")
     AWS_SECRET_ACCESS_KEY = env("AWS_SECRET_ACCESS_KEY")
     AWS_STORAGE_BUCKET_NAME = env("AWS_STORAGE_BUCKET_NAME")
@@ -470,7 +479,8 @@ X_FRAME_OPTIONS = "DENY"
 # Development: permissive to allow hot-reload tools, local docs, etc.
 # Production overrides in prod.py should lock this down.
 # =============================================================================
-_csp_directives = {
+# Public so prod.py can build the enforced policy from the same directives.
+CSP_DIRECTIVES = {
     "default-src": ("'self'",),
     "script-src": ("'self'", "'unsafe-inline'", "'unsafe-eval'"),
     "style-src": ("'self'", "'unsafe-inline'"),
@@ -482,10 +492,15 @@ _csp_directives = {
     "form-action": ("'self'",),
 }
 
+# Both names are always defined so api.settings.prod can replace their contents
+# without redefining a star-imported name. django-csp emits the enforced policy
+# and the report-only policy as separate headers.
+CONTENT_SECURITY_POLICY: dict[str, Any] = {}
+CONTENT_SECURITY_POLICY_REPORT_ONLY: dict[str, Any] = {}
 if ENVIRONMENT == "development":
-    CONTENT_SECURITY_POLICY_REPORT_ONLY = {"DIRECTIVES": _csp_directives}
+    CONTENT_SECURITY_POLICY_REPORT_ONLY["DIRECTIVES"] = CSP_DIRECTIVES
 else:
-    CONTENT_SECURITY_POLICY = {"DIRECTIVES": _csp_directives}
+    CONTENT_SECURITY_POLICY["DIRECTIVES"] = CSP_DIRECTIVES
 
 # Production security settings (enabled when not in DEBUG mode)
 # Note: These should be configured in prod.py for production environment
@@ -554,6 +569,15 @@ ATLAS_CACHE_TTL = env.int("ATLAS_CACHE_TTL", default=3600)
 ATLAS_REAL_SAMPLES = env.bool("ATLAS_REAL_SAMPLES", default=True)
 # Optional per-app prose metadata; apps can also ship an atlas.py module
 ATLAS_METADATA: dict = {}
+
+# ── Decisions app (System One decision engine) ─────────────────────────────
+# Provider: laya (default, in-process), jev (hosted TypeSafe), fake (tests).
+SYSTEMONE_PROVIDER = env("SYSTEMONE_PROVIDER", default="laya")
+TYPESAFE_API_KEY = env("TYPESAFE_API_KEY", default="")
+ENABLE_DECISIONS = env.bool("ENABLE_DECISIONS", default=False)
+ENABLE_DECISION_MCP = env.bool("ENABLE_DECISION_MCP", default=False)
+# Results below this aggregate confidence are flagged for escalation.
+DECISION_ESCALATION_THRESHOLD = env.float("DECISION_ESCALATION_THRESHOLD", default=0.5)
 
 # =============================================================================
 # Audit Logging Configuration

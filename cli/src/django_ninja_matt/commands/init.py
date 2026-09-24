@@ -251,7 +251,7 @@ def run_init(
         console.print()
         console.print("[bold]Next steps:[/bold]")
         console.print(f"  cd {name}")
-        console.print("  make setup")
+        console.print("  just setup")
         console.print()
 
     except KeyboardInterrupt:

@@ -23,7 +23,10 @@ classifiers = [
 ]
 
 dependencies = [
-    # Core Django (5.2 LTS default; 6.0 tested, blocked by django-celery-beat<6.0 cap)
+    # Core Django. 5.2 LTS is the default; 6.0 is installable because
+    # django-celery-beat 2.9.0 raised its cap to <6.1. Packages without Django 6
+    # support are optional extras (see DEPENDENCIES.md), so they can be omitted
+    # on Django 6 instead of pinning the whole project to 5.2.
     "Django>=5.2,<7.0",
     "django-environ>=0.13.0",
     "psycopg2-binary>=2.9.10",
@@ -44,7 +47,8 @@ dependencies = [
     "django-ninja-jwt>=5.4.3",
     # Task Queue (Celery)
     "celery>=5.5.2",
-    "django-celery-beat>=2.7.0",
+    # 2.9.0 is the first release that allows Django 6 (cap raised to <6.1).
+    "django-celery-beat>=2.9.0",
     "redis>=7.4.0",
     "flower>=2.0.1",
     # Authentication & Security
@@ -94,6 +98,7 @@ dependencies = [
     "resend>=2.23.0",
     "stripe>=15.1.0",
     "msgpack>=1.2.1",
+    "pgvector>=0.5.0",
 ]
 
 [project.optional-dependencies]
@@ -118,6 +123,8 @@ dev = [
     "bandit[toml]>=1.8.0",
     # Gauntlet: commit message linting
     "commitizen>=4.1.0",
+    # MCP server for the dev-profile `mcp` compose service
+    "django-ai-boost>=0.9.0",
 ]
 testing = [
     # Load testing
@@ -154,6 +161,14 @@ django-q = [
 django-rq = [
     "django-rq>=2.10.0",
     "rq>=1.16.0",
+]
+decisions-laya = [
+    # In-process System 1 decision engine. Opt-in: pulls torch + transformers.
+    "laya>=0.3.11",
+]
+decisions-jev = [
+    # Hosted TypeSafe ("Jev") decision API
+    "typesafe-sdk>=0.1.0",
 ]
 
 [project.urls]
@@ -360,7 +375,9 @@ exclude = [
 "cli/*" = 800
 "tests/*" = 600
 "*/management/commands/*.py" = 800
-"api/settings/common.py" = 710
+# Settings modules hold only flat assignments and grow with the app; the
+# per-class/per-function limits that motivate max-lines do not apply here.
+"api/settings/*" = 1000
 "api/decorators.py" = 500
 "*/services/*.py" = 700
 "*/tasks/*.py" = 600
@@ -381,7 +398,7 @@ addopts = [
     "--cov-report=xml",
     "--cov-fail-under=30",
 ]
-testpaths = ["core", "todos", "tests/smoke"]
+testpaths = ["core", "todos", "decisions", "tests/smoke"]
 filterwarnings = [
     "error",
     "ignore::UserWarning",
@@ -454,6 +471,7 @@ module = [
     "organizations.models.organization",
     "files.models.file_upload",
     "billing.models.plan",
+    "decisions.models.decision_fixture",
 ]
 disable_error_code = ["var-annotated"]
 

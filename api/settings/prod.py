@@ -36,8 +36,12 @@ SECURE_HSTS_PRELOAD = True
 SECURE_HSTS_SECONDS = 31536000  # 1 year
 SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
 
-# SSL settings
-USE_TLS = env("USE_TLS", default=True)
+# SSL settings.
+# Defaults to False because the bundled nginx serves plain HTTP on port 80 and
+# forwards X-Forwarded-Proto: http. Set USE_TLS=true only when a TLS-terminating
+# proxy sits in front; otherwise SECURE_SSL_REDIRECT redirects every request to
+# an https:// port that nothing listens on.
+USE_TLS = env("USE_TLS", default=False)
 if USE_TLS:
     SECURE_SSL_REDIRECT = True
     SESSION_COOKIE_SECURE = True
@@ -125,6 +129,12 @@ else:
         }
     )
 
+# =============================================================================
+# Decisions app — off unless explicitly enabled in the environment
+# =============================================================================
+ENABLE_DECISIONS = env.bool("ENABLE_DECISIONS", default=False)
+ENABLE_DECISION_MCP = False
+
 # Database connection pooling for production
 DATABASES["default"].update(
     {
@@ -134,13 +144,19 @@ DATABASES["default"].update(
 )
 
 # =============================================================================
-# Content-Security-Policy — production: enforce, no unsafe-inline/eval
-# Uses django-csp 4.x CONTENT_SECURITY_POLICY dict format
+# Content-Security-Policy — production: enforce, no unsafe-inline/eval.
+# django-csp 4.x reads CONTENT_SECURITY_POLICY (enforced) and
+# CONTENT_SECURITY_POLICY_REPORT_ONLY separately. Build the enforced policy
+# here from the shared directives instead of mutating common.py's object, so
+# this module imports whatever ENVIRONMENT is set.
 # =============================================================================
-CONTENT_SECURITY_POLICY["DIRECTIVES"]["script-src"] = ["'self'"]  # type: ignore[assignment,index]
-CONTENT_SECURITY_POLICY["DIRECTIVES"]["style-src"] = ["'self'"]  # type: ignore[assignment,index]
-CONTENT_SECURITY_POLICY["DIRECTIVES"]["upgrade-insecure-requests"] = True  # type: ignore[assignment,index]
-CONTENT_SECURITY_POLICY["REPORT_ONLY"] = False  # type: ignore[assignment,index]
+CONTENT_SECURITY_POLICY["DIRECTIVES"] = {
+    **CSP_DIRECTIVES,
+    "script-src": ("'self'",),
+    "style-src": ("'self'",),
+    "upgrade-insecure-requests": True,
+}
+CONTENT_SECURITY_POLICY_REPORT_ONLY.clear()
 
 # Session security for production
 SESSION_COOKIE_AGE = 3600  # 1 hour

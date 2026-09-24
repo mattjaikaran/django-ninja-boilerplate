@@ -76,3 +76,10 @@ LOGGING["loggers"].update(  # type: ignore[attr-defined]
 
 # Enable template debug mode for better error reporting
 TEMPLATES[0]["OPTIONS"]["debug"] = True  # type: ignore[index]
+
+# =============================================================================
+# Development-only feature flags
+# =============================================================================
+# Decisions app (System One decision engine)
+ENABLE_DECISIONS = True
+ENABLE_DECISION_MCP = True
