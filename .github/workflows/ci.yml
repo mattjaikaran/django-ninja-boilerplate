@@ -29,15 +29,15 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
+      # Lock-respecting install so CI matches the committed uv.lock.
       - name: Install dependencies
-        run: |
-          uv pip install --system -e ".[dev]"
+        run: uv sync --extra dev
 
       - name: Run Ruff linter
-        run: ruff check .
+        run: uv run ruff check .
 
       - name: Run Ruff formatter check
-        run: ruff format --check .
+        run: uv run ruff format --check .
 
   test:
     name: Test (Python ${{ matrix.python-version }}, Django ${{ matrix.django-version }})
@@ -46,11 +46,14 @@ jobs:
       fail-fast: false
       matrix:
         python-version: ["3.13", "3.14"]
-        django-version: ["5.2"]
+        # 6.0 is installable because django-celery-beat 2.9.0 allows Django <6.1.
+        django-version: ["5.2", "6.0"]
 
     services:
       postgres:
-        image: postgres:17-alpine
+        # pgvector build: the decisions migration creates the `vector`
+        # extension, which the plain alpine image does not ship.
+        image: pgvector/pgvector:pg17
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
@@ -177,14 +180,14 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install dependencies
-        run: |
-          uv pip install --system -e ".[dev]"
+        run: uv sync --extra dev
 
       - name: Run bandit security scan
-        run: bandit -c pyproject.toml -r .
+        run: uv run bandit -c pyproject.toml -r .
 
+      # Non-blocking: reports advisories without failing the build.
       - name: Run pip-audit
-        run: pip-audit || true
+        run: uv run pip-audit || true
 
   gauntlet:
     name: Gauntlet (Quality Gate)
@@ -193,7 +196,9 @@ jobs:
 
     services:
       postgres:
-        image: postgres:17-alpine
+        # pgvector build: the decisions migration creates the `vector`
+        # extension, which the plain alpine image does not ship.
+        image: pgvector/pgvector:pg17
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres

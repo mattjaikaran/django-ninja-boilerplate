@@ -60,10 +60,10 @@ The fastest way to get started is using our CLI tool:
 
 ```bash
 # One-command setup
-make setup
+just setup
 
 # Check your environment
-make doctor
+just doctor
 ```
 
 ### Manual Setup
@@ -93,8 +93,11 @@ If you prefer manual setup:
 4. **Start required services:**
 
    ```bash
-   docker-compose up -d db valkey
+   docker compose --profile test up -d db valkey
    ```
+
+   (The `test` profile publishes just Postgres and Valkey. Use `just dev` for
+   the full development stack.)
 
 5. **Run migrations:**
 
@@ -111,18 +114,18 @@ If you prefer manual setup:
 7. **Verify setup:**
 
    ```bash
-   make test
-   make lint
+   just test
+   just lint
    ```
 
 ### Running the Development Server
 
 ```bash
 # Start with Docker (recommended)
-make up
+just up
 
 # Or run locally
-make local-run
+just legacy local-run
 
 # Access the API at http://localhost:8000
 # API docs at http://localhost:8000/api/docs
@@ -147,8 +150,8 @@ ruff check --fix .
 ruff format .
 
 # Or use Make commands
-make lint      # Check linting
-make format    # Auto-format code
+just lint      # Check linting
+just format    # Auto-format code
 ```
 
 ### Pre-commit Hooks
@@ -290,10 +293,10 @@ Fixes #123
 2. **Run all checks:**
 
    ```bash
-   make lint              # Linting passes
-   make test              # Tests pass
-   make format            # Code is formatted
-   make gauntlet-quick    # Full quality gate (recommended)
+   just lint              # Linting passes
+   just test              # Tests pass
+   just format            # Code is formatted
+   just gauntlet-quick    # Full quality gate (recommended)
    ```
 
 3. **Update documentation** if needed
@@ -339,10 +342,10 @@ git push origin --delete feature/your-feature-name
 
 ```bash
 # Run all tests
-make test
+just test
 
 # Run with coverage
-make test-coverage
+just test-coverage
 
 # Run specific test file
 uv run pytest core/tests/test_user.py

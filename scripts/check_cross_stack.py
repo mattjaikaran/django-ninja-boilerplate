@@ -265,11 +265,14 @@ class CrossStackChecker:
 
         # Check backend has gauntlet
         be_gauntlet = self.backend_root / "scripts" / "gauntlet.py"
-        be_makefile = self.backend_root / "Makefile"
-
         has_be_gauntlet = be_gauntlet.exists()
-        if not has_be_gauntlet and be_makefile.exists():
-            has_be_gauntlet = "gauntlet" in be_makefile.read_text()
+        if not has_be_gauntlet:
+            # Fall back to the task runner: the justfile, or the legacy Makefile.
+            for name in ("justfile", "Makefile", "Makefile.legacy"):
+                runner = self.backend_root / name
+                if runner.exists() and "gauntlet" in runner.read_text():
+                    has_be_gauntlet = True
+                    break
 
         # Check frontend has gauntlet
         fe_package = self.frontend_root / "package.json"
@@ -282,7 +285,8 @@ class CrossStackChecker:
                 "GAUNTLET_CONSISTENCY",
                 str(self.backend_root),
                 0,
-                "Backend missing gauntlet — add gauntlet.py + Makefile targets",
+                "Backend missing gauntlet — add gauntlet.py plus a justfile "
+                "gauntlet recipe",
             )
 
         if not has_fe_gauntlet:

@@ -6,7 +6,7 @@ Usage:
     python scripts/release.py 1.11.0    # explicit version
 
 The script bumps the version in pyproject.toml, api/settings/common.py
-(APP_VERSION default), the Makefile banner, and the VERSION file; retitles
+(APP_VERSION default), the justfile banner, and the VERSION file; retitles
 the CHANGELOG [Unreleased] section to the new version and inserts the new
 compare link; syncs uv.lock; then commits, tags vX.Y.Z, and pushes.
 
@@ -59,19 +59,19 @@ def main() -> None:
     common = common_path.read_text().replace(
         f'default="{current}"', f'default="{version}"'
     )
-    makefile_path = ROOT / "Makefile"
-    makefile = makefile_path.read_text().replace(f"v{current}", f"v{version}")
+    justfile_path = ROOT / "justfile"
+    justfile = justfile_path.read_text().replace(f"v{current}", f"v{version}")
     version_file = ROOT / "VERSION"
 
     if dry_run:
         print(f"  pyproject.toml: {current} -> {version}")
         print(f"  api/settings/common.py: APP_VERSION default={version}")
-        print(f"  Makefile banner: v{version}")
+        print(f"  justfile banner: v{version}")
         print(f"  VERSION file: {version}")
     else:
         pyproject_path.write_text(pyproject)
         common_path.write_text(common)
-        makefile_path.write_text(makefile)
+        justfile_path.write_text(justfile)
         version_file.write_text(version + "\n")
         run(["uv", "lock"])
 
@@ -107,7 +107,7 @@ def main() -> None:
             "add",
             "pyproject.toml",
             "api/settings/common.py",
-            "Makefile",
+            "justfile",
             "VERSION",
             "CHANGELOG.md",
             "uv.lock",

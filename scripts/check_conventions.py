@@ -271,7 +271,12 @@ class ConventionChecker:
         for fpath in self.collect_files():
             text = fpath.read_text()
             for i, line in enumerate(text.splitlines(), 1):
-                if re.search(r"(from ninja import.*Router|Router\s*\()", line):
+                # The lookbehind excludes dotted access such as ``laya.Router()``
+                # and identifiers such as ``_StubRouter()``; those are not
+                # Django Ninja routers.
+                if re.search(
+                    r"(from ninja import.*Router|(?<![\w.])Router\s*\()", line
+                ):
                     if line.strip().startswith("#"):
                         continue
                     yield Violation(
@@ -495,8 +500,8 @@ class ConventionChecker:
                         "pip install found — use uv add instead",
                     )
 
-        # Also check shell scripts and Makefile
-        for pattern in ["*.sh", "Makefile"]:
+        # Also check shell scripts and the task runners
+        for pattern in ["*.sh", "Makefile", "Makefile.legacy", "justfile"]:
             for fpath in PROJECT_ROOT.glob(pattern):
                 if any(part in EXCLUDE_DIRS for part in fpath.parts):
                     continue
