@@ -308,7 +308,8 @@ security-scan:
 setup: setup-env
     ./scripts/generate_secret_key.sh --update-env
     ./scripts/doctor.sh
-    {{ dev }} up -d --build
+    # --wait keeps `just migrate` from racing the container's own migrate.
+    {{ dev }} up -d --build --wait
     just migrate
     just create-superuser
     just wait-for-api

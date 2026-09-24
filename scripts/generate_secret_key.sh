@@ -95,6 +95,19 @@ main() {
         esac
     done
 
+    # Never rotate a key that is already set: a new value invalidates existing
+    # sessions and JWTs, and would overwrite one pasted from a secret store.
+    if [ "$update_file" = true ] && [ -f .env ]; then
+        existing_key=$(grep -E '^SECRET_KEY=' .env 2>/dev/null | tail -1 | cut -d= -f2- | tr -d "'")
+        case "$existing_key" in
+            "" | your-secret-key-here-change-in-production) ;;
+            *)
+                print_info "SECRET_KEY is already set in .env; leaving it unchanged."
+                exit 0
+                ;;
+        esac
+    fi
+
     print_info "Generating Django SECRET_KEY..."
 
     # Try to generate secret key with Python first
