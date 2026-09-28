@@ -97,6 +97,12 @@ wrong here. Do not use them.
   Scope to `request.user`.
 - Do not put more than one controller in a file.
 - Do not register a new controller without adding it to `api/urls.py`.
+- Register exception handlers once on the shared API in `api/urls.py`. Do not
+  import a per-endpoint `handle_exceptions` decorator; it does not exist.
+- Require `JWTAuth` on private controllers and declare public operations with
+  `auth=None`. Give staff-only operations `IsAdminUser`.
+- Put static URL paths before dynamic `/{id}` paths in each controller so
+  dynamic paths do not shadow static operations.
 
 ### Decisions app
 

@@ -56,7 +56,6 @@ Controllers do THREE things:
 ```python
 # CORRECT — controller delegates to service
 @http_post("/", response={201: ItemSchema})
-@handle_exceptions()
 def create(self, request, payload: CreateItemSchema):
     item = self.service.create_for_user(request.user, payload.model_dump())
     return 201, item
@@ -303,6 +302,24 @@ class {Name}Service(CRUDService[{Name}]):
 
 ## Controller Rules
 
+### Authentication
+
+Declare JWT auth on the controller with `auth=JWTAuth()`. This protects every
+operation on the controller. For public operations on an otherwise protected
+controller (for example, signup and login), pass `auth=None` to the individual
+`@http_*` decorator:
+
+```python
+@api_controller("/auth", tags=["Auth"], auth=JWTAuth())
+class AuthController:
+    @http_post("/signup", response={201: UserSchema, 400: dict}, auth=None)
+    def signup(self, request, payload: UserSignupSchema):
+        ...
+```
+
+Give staff-only operations `IsAdminUser` from `api.permissions` via the
+`permissions=[IsAdminUser]` argument on the controller.
+
 ### Controller Template
 
 ```python
@@ -310,8 +327,9 @@ import logging
 
 from django.shortcuts import get_object_or_404
 from ninja_extra import api_controller, http_delete, http_get, http_post, http_put
+from ninja_jwt.authentication import JWTAuth
 
-from api.decorators import handle_exceptions, log_api_call
+from api.decorators import log_api_call
 
 from {app}.models import {Name}
 from {app}.schemas import {Name}Schema, Create{Name}Schema, Update{Name}Schema
@@ -320,14 +338,13 @@ from {app}.services import {Name}Service
 logger = logging.getLogger(__name__)
 
 
-@api_controller("/{name_plural}", tags=["{Name Plural}"])
+@api_controller("/{name_plural}", tags=["{Name Plural}"], auth=JWTAuth())
 class {Name}Controller:
 
     def __init__(self):
         self.service = {Name}Service()
 
     @http_get("/", response={200: list[{Name}Schema]})
-    @handle_exceptions()
     @log_api_call()
     def list_{name_plural}(
         self,
@@ -340,21 +357,18 @@ class {Name}Controller:
         )
 
     @http_get("/{{name}_id}", response={200: {Name}Schema, 404: dict})
-    @handle_exceptions()
     @log_api_call()
     def get_{name}(self, request, {name}_id: str):
         {name} = get_object_or_404({Name}, id={name}_id, user=request.user)
         return 200, {name}
 
     @http_post("/", response={201: {Name}Schema, 400: dict})
-    @handle_exceptions()
     @log_api_call(include_payload=True)
     def create_{name}(self, request, payload: Create{Name}Schema):
         {name} = self.service.create_for_user(request.user, payload.model_dump())
         return 201, {name}
 
     @http_put("/{{name}_id}", response={200: {Name}Schema, 404: dict})
-    @handle_exceptions()
     @log_api_call(include_payload=True)
     def update_{name}(self, request, {name}_id: str, payload: Update{Name}Schema):
         {name} = self.service.update_for_user(
@@ -363,7 +377,6 @@ class {Name}Controller:
         return 200, {name}
 
     @http_delete("/{{name}_id}", response={204: None, 404: dict})
-    @handle_exceptions()
     @log_api_call()
     def delete_{name}(self, request, {name}_id: str):
         {name} = get_object_or_404({Name}, id={name}_id, user=request.user)
@@ -398,12 +411,15 @@ Always apply decorators in this order (outermost first):
 
 ```python
 @http_get("/")           # 1. HTTP method + route (MUST be first)
-@handle_exceptions()      # 2. Error handling
-@log_api_call()           # 3. Logging (optional)
-@rate_limit(requests_per_minute=30)  # 4. Rate limiting (optional)
+@log_api_call()           # 2. Logging (optional)
+@paginate                 # 3. Pagination (list endpoints, innermost)
 def my_endpoint(self, request):
     ...
 ```
+
+Exception handling is NOT a decorator. Register the handlers once on the
+shared `NinjaExtraAPI` instance in `api/urls.py` and raise structured
+exceptions from `api.exceptions`.
 
 ## Exception Hierarchy
 
@@ -599,7 +615,7 @@ from django.db import models
 from ninja_extra import api_controller, http_get
 
 # 4. First-party (project apps — absolute imports)
-from api.decorators import handle_exceptions
+from api.decorators import log_api_call
 from core.models import SoftDeleteModel
 from core.schemas.base_schema import CamelCaseSchema
 from core.services.base_service import CRUDService
@@ -678,7 +694,7 @@ def {task_name}({args}) -> dict:
 7. **NEVER import from `rest_framework`** — this is Django Ninja, not DRF
 8. **NEVER use `router` from vanilla `django-ninja`** — use `api_controller` from `ninja_extra`
 9. **NEVER create loose utility functions for one-time use** — inline them
-10. **NEVER skip `@handle_exceptions()` on controller methods**
+10. **NEVER import a per-endpoint `@handle_exceptions` decorator** — exception handling is centralized in `api/urls.py`
 
 ## Quick Decision Tree
 
@@ -702,5 +718,5 @@ Need caching?
   → Use the cache layer; the default backend is django-vcache (`CACHE_BACKEND` in api/settings/common.py)
 
 Need rate limiting?
-  → Add @rate_limit() decorator to controller method
+  → Add @throttle() decorator from ninja_extra.throttling to the controller method
 ```

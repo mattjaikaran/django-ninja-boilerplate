@@ -73,14 +73,13 @@ class ItemController:
 
     @http_post("/", response={201: ItemSchema, 400: dict, 500: dict})
     @log_api_call(include_payload=True, include_response=False)
-    @handle_exceptions(return_500_on_error=True, log_errors=True)
-    @validate_request()
     def create_item(self, request, payload: CreateItemSchema):
         return 201, self.service.create(payload, request.user)
 ```
 
-Decorator order: the `@http_*` decorator is outermost. `@handle_exceptions()`
-must appear on every write endpoint. The convention checker enforces both.
+The `@http_*` decorator is outermost. Register exception handlers on the
+shared API instance in `api/urls.py`, not on each operation. This repository
+does not define `@handle_exceptions()` or `@validate_request()`.
 
 Controllers are HTTP adapters. They validate, call a service, and return. Put
 business logic in the service.
@@ -91,8 +90,8 @@ Services hold business logic and own the queryset. Scope every query to the
 user: `Model.objects.filter(user=user)`. Never call `Model.objects.all()` in a
 controller that returns user data.
 
-Raise `Http404` (or `get_object_or_404`) for missing rows so the controller's
-`@handle_exceptions()` maps it to a 404.
+Raise `Http404` (or use `get_object_or_404`) for missing rows. The shared API
+exception handler maps it to a 404.
 
 ## Models
 

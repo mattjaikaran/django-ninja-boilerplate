@@ -163,7 +163,7 @@ from ninja_extra import api_controller, http_get, http_post
 from django.db.models import *
 
 # GOOD: Group related imports
-from api.decorators import handle_exceptions, log_api_call, validate_request
+from api.decorators import log_api_call
 
 # GOOD: Alias for clarity when needed
 from django.contrib.auth import get_user_model
@@ -200,20 +200,25 @@ if not user.is_active:
 
 ### Controller Error Handling
 
+Exception handling is centralized. Register the handlers once on the shared
+`NinjaExtraAPI` instance in `api/urls.py`; controllers raise the structured
+exceptions from `api.exceptions` and the registered handlers map them to the
+correct HTTP status. Do NOT import a per-endpoint `@handle_exceptions`
+decorator; it does not exist.
+
 ```python
-@api_controller("/items", tags=["Items"])
+@api_controller("/items", tags=["Items"], auth=JWTAuth())
 class ItemController:
     @http_get("/{item_id}", response={200: ItemSchema, 404: dict})
-    @handle_exceptions()  # Always use this decorator
     def get_item(self, request, item_id: str):
         item = get_object_or_404(Item, id=item_id, user=request.user)
         return 200, item
 
-    @http_post("/", response={201: ItemSchema, 400: dict, 500: dict})
-    @handle_exceptions(return_500_on_error=True, log_errors=True)
+    @http_post("/", response={201: ItemSchema, 400: dict})
     @log_api_call(include_payload=True)
     def create_item(self, request, payload: CreateItemSchema):
-        # Validation errors are automatically handled by Pydantic
+        # Pydantic validation errors are handled by the framework, and the
+        # shared handlers in api/urls.py map domain exceptions to status codes.
         item = Item.objects.create(user=request.user, **payload.model_dump())
         return 201, item
 ```
@@ -485,19 +490,19 @@ import logging
 from django.shortcuts import get_object_or_404
 from ninja_extra import api_controller, http_delete, http_get, http_post, http_put
 from ninja_extra.pagination import paginate
+from ninja_jwt.authentication import JWTAuth
 
-from api.decorators import handle_exceptions, log_api_call
+from api.decorators import log_api_call
 
 logger = logging.getLogger(__name__)
 
-@api_controller("/items", tags=["Items"])
+@api_controller("/items", tags=["Items"], auth=JWTAuth())
 class ItemController:
     """Controller for Item CRUD operations."""
 
-    @paginate
     @http_get("/", response={200: list[ItemSchema]})
-    @handle_exceptions()
     @log_api_call()
+    @paginate
     def list_items(
         self,
         request,
@@ -515,14 +520,12 @@ class ItemController:
         return 200, queryset
 
     @http_get("/{item_id}", response={200: ItemSchema, 404: dict})
-    @handle_exceptions()
     @log_api_call()
     def get_item(self, request, item_id: str):
         """Get a single item by ID."""
         return 200, get_object_or_404(Item, id=item_id, user=request.user)
 
     @http_post("/", response={201: ItemSchema, 400: dict})
-    @handle_exceptions()
     @log_api_call(include_payload=True)
     def create_item(self, request, payload: CreateItemSchema):
         """Create a new item."""
@@ -534,7 +537,6 @@ class ItemController:
         return 201, item
 
     @http_put("/{item_id}", response={200: ItemSchema, 404: dict})
-    @handle_exceptions()
     @log_api_call(include_payload=True)
     def update_item(self, request, item_id: str, payload: UpdateItemSchema):
         """Update an existing item."""
@@ -547,7 +549,6 @@ class ItemController:
         return 200, item
 
     @http_delete("/{item_id}", response={204: None, 404: dict})
-    @handle_exceptions()
     @log_api_call()
     def delete_item(self, request, item_id: str):
         """Delete an item."""

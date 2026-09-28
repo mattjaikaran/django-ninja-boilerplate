@@ -31,7 +31,7 @@ django-ninja-boilerplate/
 │   ├── settings/                 # Split settings (common.py, dev.py, prod.py)
 │   ├── celery.py                 # Celery configuration
 │   ├── centrifugo.py             # Centrifugo JWT tokens + HTTP client
-│   ├── decorators.py             # API decorators (@handle_exceptions, @log_api_call)
+│   ├── decorators.py             # API decorators (@log_api_call, @require_authentication)
 │   ├── exceptions.py             # Custom exception classes
 │   ├── healthcheck.py            # Health check controller
 │   ├── middleware.py             # Custom middleware
@@ -97,19 +97,18 @@ Controllers use Django Ninja Extra's `@api_controller` decorator with class-base
 
 ```python
 from ninja_extra import api_controller, http_get, http_post, http_put, http_delete
-from api.decorators import handle_exceptions, log_api_call
+from ninja_jwt.authentication import JWTAuth
+from api.decorators import log_api_call
 
-@api_controller("/items", tags=["Items"])
+@api_controller("/items", tags=["Items"], auth=JWTAuth())
 class ItemController:
     @http_get("/", response={200: list[ItemSchema]})
-    @handle_exceptions()
     @log_api_call()
     def list_items(self, request):
         """List all items for the authenticated user."""
         return 200, Item.objects.filter(user=request.user)
 
     @http_post("/", response={201: ItemSchema, 400: dict})
-    @handle_exceptions()
     @log_api_call(include_payload=True)
     def create_item(self, request, payload: CreateItemSchema):
         """Create a new item."""
@@ -195,15 +194,15 @@ class MyModelService(CRUDService[MyModel]):
 
 ### 5. Decorators
 
-Use provided decorators for consistent error handling:
+Exception handling is centralized. Register the handlers once on the shared
+`NinjaExtraAPI` in `api/urls.py`; do NOT use a per-endpoint decorator.
+`@log_api_call` is the primary endpoint decorator:
 
 ```python
-from api.decorators import handle_exceptions, log_api_call, validate_request
+from api.decorators import log_api_call
 
 @http_post("/")
-@handle_exceptions(return_500_on_error=True, log_errors=True)
 @log_api_call(include_payload=True, include_response=False)
-@validate_request()  # Optional custom validators
 def create_item(self, request, payload: CreateItemSchema):
     ...
 ```

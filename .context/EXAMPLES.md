@@ -125,7 +125,9 @@ import logging
 from django.shortcuts import get_object_or_404
 from ninja_extra import api_controller, http_delete, http_get, http_post, http_put
 
-from api.decorators import handle_exceptions, log_api_call
+from ninja_jwt.authentication import JWTAuth
+
+from api.decorators import log_api_call
 from notes.models import Note
 from notes.schemas import CreateNoteSchema, NoteSchema, UpdateNoteSchema
 from notes.services import NoteService
@@ -133,14 +135,13 @@ from notes.services import NoteService
 logger = logging.getLogger(__name__)
 
 
-@api_controller("/notes", tags=["Notes"])
+@api_controller("/notes", tags=["Notes"], auth=JWTAuth())
 class NoteController:
 
     def __init__(self):
         self.service = NoteService()
 
     @http_get("/", response={200: list[NoteSchema]})
-    @handle_exceptions()
     @log_api_call()
     def list_notes(
         self,
@@ -154,21 +155,18 @@ class NoteController:
         return 200, notes
 
     @http_get("/{note_id}", response={200: NoteSchema, 404: dict})
-    @handle_exceptions()
     @log_api_call()
     def get_note(self, request, note_id: str):
         note = get_object_or_404(Note, id=note_id, user=request.user)
         return 200, note
 
     @http_post("/", response={201: NoteSchema, 400: dict})
-    @handle_exceptions()
     @log_api_call(include_payload=True)
     def create_note(self, request, payload: CreateNoteSchema):
         note = self.service.create_for_user(request.user, payload.model_dump())
         return 201, note
 
     @http_put("/{note_id}", response={200: NoteSchema, 404: dict})
-    @handle_exceptions()
     @log_api_call(include_payload=True)
     def update_note(self, request, note_id: str, payload: UpdateNoteSchema):
         note = get_object_or_404(Note, id=note_id, user=request.user)
@@ -178,14 +176,12 @@ class NoteController:
         return 200, note
 
     @http_post("/{note_id}/toggle-pin", response={200: NoteSchema, 404: dict})
-    @handle_exceptions()
     @log_api_call()
     def toggle_pin(self, request, note_id: str):
         note = self.service.toggle_pin(request.user, note_id)
         return 200, note
 
     @http_delete("/{note_id}", response={204: None, 404: dict})
-    @handle_exceptions()
     @log_api_call()
     def delete_note(self, request, note_id: str):
         note = get_object_or_404(Note, id=note_id, user=request.user)
@@ -624,7 +620,9 @@ import logging
 from django.shortcuts import get_object_or_404
 from ninja_extra import api_controller, http_delete, http_get, http_post, http_put
 
-from api.decorators import handle_exceptions, log_api_call
+from ninja_jwt.authentication import JWTAuth
+
+from api.decorators import log_api_call
 from projects.models import Project
 from projects.schemas import (
     CreateProjectSchema,
@@ -639,14 +637,13 @@ from projects.services import ProjectService
 logger = logging.getLogger(__name__)
 
 
-@api_controller("/projects", tags=["Projects"])
+@api_controller("/projects", tags=["Projects"], auth=JWTAuth())
 class ProjectController:
 
     def __init__(self):
         self.service = ProjectService()
 
     @http_get("/", response={200: list[ProjectSchema]})
-    @handle_exceptions()
     @log_api_call()
     def list_projects(
         self,
@@ -659,21 +656,18 @@ class ProjectController:
         )
 
     @http_get("/{project_id}", response={200: ProjectDetailSchema, 404: dict})
-    @handle_exceptions()
     @log_api_call()
     def get_project(self, request, project_id: str):
         project = get_object_or_404(Project, id=project_id, user=request.user)
         return 200, project
 
     @http_post("/", response={201: ProjectSchema, 400: dict})
-    @handle_exceptions()
     @log_api_call(include_payload=True)
     def create_project(self, request, payload: CreateProjectSchema):
         project = self.service.create_for_user(request.user, payload.model_dump())
         return 201, project
 
     @http_put("/{project_id}", response={200: ProjectSchema, 404: dict})
-    @handle_exceptions()
     @log_api_call(include_payload=True)
     def update_project(self, request, project_id: str, payload: UpdateProjectSchema):
         project = get_object_or_404(Project, id=project_id, user=request.user)
@@ -683,7 +677,6 @@ class ProjectController:
         return 200, project
 
     @http_delete("/{project_id}", response={204: None, 404: dict})
-    @handle_exceptions()
     @log_api_call()
     def delete_project(self, request, project_id: str):
         project = get_object_or_404(Project, id=project_id, user=request.user)
@@ -693,14 +686,12 @@ class ProjectController:
     # --- Nested Task Endpoints ---
 
     @http_get("/{project_id}/tasks", response={200: list[TaskSchema], 404: dict})
-    @handle_exceptions()
     @log_api_call()
     def list_tasks(self, request, project_id: str):
         project = get_object_or_404(Project, id=project_id, user=request.user)
         return 200, project.tasks.filter(is_active=True)
 
     @http_post("/{project_id}/tasks", response={201: TaskSchema, 400: dict, 404: dict})
-    @handle_exceptions()
     @log_api_call(include_payload=True)
     def create_task(self, request, project_id: str, payload: CreateTaskSchema):
         task = self.service.add_task(request.user, project_id, payload.model_dump())
@@ -710,7 +701,6 @@ class ProjectController:
         "/{project_id}/tasks/{task_id}/complete",
         response={200: TaskSchema, 404: dict},
     )
-    @handle_exceptions()
     @log_api_call()
     def complete_task(self, request, project_id: str, task_id: str):
         task = self.service.complete_task(request.user, project_id, task_id)
@@ -815,20 +805,19 @@ app.conf.beat_schedule = {
 
 ```python
 from ninja_extra import api_controller, http_get, http_post
-from ninja_extra.pagination import paginate
+from ninja_extra.pagination import PageNumberPaginationExtra, paginate
+from ninja_extra.throttling import DynamicRateThrottle, throttle
+from ninja_jwt.authentication import JWTAuth
 
-from api.decorators import handle_exceptions, log_api_call
-from api.throttling import rate_limit
+from api.decorators import log_api_call
 
 
-@api_controller("/search", tags=["Search"])
+@api_controller("/search", tags=["Search"], auth=JWTAuth())
 class SearchController:
 
-    @paginate
     @http_get("/", response={200: list[SearchResultSchema]})
-    @handle_exceptions()
     @log_api_call()
-    @rate_limit(requests_per_minute=30)
+    @paginate(PageNumberPaginationExtra)
     def search(self, request, q: str, category: str | None = None):
         qs = SearchIndex.objects.filter(content__icontains=q)
         if category:
@@ -836,8 +825,8 @@ class SearchController:
         return qs
 
     @http_post("/reindex", response={200: dict})
-    @handle_exceptions()
-    @rate_limit(requests_per_minute=1)
+    @log_api_call()
+    @throttle(DynamicRateThrottle, scope="tasks")
     def reindex(self, request):
         from search.tasks import reindex_all
         reindex_all.delay()

@@ -119,13 +119,12 @@ class OrderController:
 
 **CORRECT** — Controller delegates to service:
 ```python
-@api_controller("/orders", tags=["Orders"])
+@api_controller("/orders", tags=["Orders"], auth=JWTAuth())
 class OrderController:
     def __init__(self):
         self.service = OrderService()
 
     @http_post("/", response={201: OrderSchema})
-    @handle_exceptions()
     def create_order(self, request, payload: CreateOrderSchema):
         order = self.service.create_order(request.user, payload.model_dump())
         return 201, order
@@ -178,20 +177,30 @@ def test_create_item(authenticated_client):
 
 ---
 
-## 7. Missing `@handle_exceptions()` Decorator
+## 7. Importing a Per-Endpoint `@handle_exceptions` Decorator
 
-**WRONG** — Unhandled exceptions return raw 500:
+**WRONG** — Importing a decorator that does not exist:
 ```python
-@http_get("/{item_id}", response={200: ItemSchema})
-def get_item(self, request, item_id: str):
-    return 200, get_object_or_404(Item, id=item_id)
+from api.decorators import handle_exceptions  # DOES NOT EXIST
+
+@http_post("/", response={201: ItemSchema})
+@handle_exceptions()
+def create_item(self, request, payload: CreateItemSchema):
+    ...
 ```
 
-**CORRECT** — Always wrap with error handling:
+**CORRECT** — Exception handling is centralized. Register the handlers once on
+the shared API in `api/urls.py` and raise structured exceptions from
+`api.exceptions`:
+
 ```python
+# api/urls.py — register once, not per endpoint
+api.add_exception_handler(BaseAPIException, handle_api_exception)
+api.add_exception_handler(DjangoValidationError, handle_django_validation_error)
+api.add_exception_handler(Exception, handle_generic_exception)
+
+# Controller — no per-endpoint decorator needed
 @http_get("/{item_id}", response={200: ItemSchema, 404: dict})
-@handle_exceptions()
-@log_api_call()
 def get_item(self, request, item_id: str):
     return 200, get_object_or_404(Item, id=item_id, user=request.user)
 ```
@@ -200,9 +209,9 @@ def get_item(self, request, item_id: str):
 
 ## 8. Wrong Decorator Order
 
-**WRONG** — `@handle_exceptions` before `@http_get`:
+**WRONG** — `@log_api_call` before `@http_get`:
 ```python
-@handle_exceptions()       # WRONG: must be after @http_get
+@log_api_call()            # WRONG: must be inside @http_get
 @http_get("/")
 def list_items(self, request):
     ...
@@ -210,9 +219,9 @@ def list_items(self, request):
 
 **CORRECT** — HTTP method decorator is always first (outermost):
 ```python
-@http_get("/")             # 1st: HTTP method
-@handle_exceptions()       # 2nd: error handling
-@log_api_call()            # 3rd: logging
+@http_get("/")             # 1st: HTTP method (outermost)
+@log_api_call()            # 2nd: logging
+@paginate                  # 3rd: pagination (list endpoints, innermost)
 def list_items(self, request):
     ...
 ```
@@ -340,14 +349,14 @@ def create_item(self, request, payload):
         return 400, {"error": "Something went wrong"}  # NO DETAILS, NO LOGGING
 ```
 
-**CORRECT** — Use structured exceptions, let `@handle_exceptions` do its job:
+**CORRECT** — Use structured exceptions, let the centralized handlers do their job:
 ```python
 @http_post("/", response={201: ItemSchema, 400: dict})
-@handle_exceptions()
 def create_item(self, request, payload: CreateItemSchema):
     item = self.service.create_for_user(request.user, payload.model_dump())
     return 201, item
-# If service raises ValidationError/NotFoundError, @handle_exceptions maps it to the right HTTP status
+# If the service raises ValidationError/NotFoundError, the handlers registered
+# in api/urls.py map it to the right HTTP status. Do not catch it yourself.
 ```
 
 ---
@@ -435,17 +444,20 @@ self.service.partial_update(note_id, data, user=request.user)
 
 ---
 
-## 18. Wrong Rate Limit Signature
+## 18. Wrong Rate Limiting Decorator
 
-**WRONG**:
+**WRONG** — A `@rate_limit` decorator does not exist in this repo:
 ```python
-@rate_limit(rate=10, period=60)  # These params don't exist
+@rate_limit(requests_per_minute=30)  # DOES NOT EXIST
 ```
 
-**CORRECT**:
+**CORRECT** — Use `@throttle` from `ninja_extra.throttling`:
 ```python
-@rate_limit(requests_per_minute=30)  # Actual parameter name
-@rate_limit(requests_per_minute=30, key_func=custom_key)  # With custom key
+from ninja_extra.throttling import DynamicRateThrottle, throttle
+
+@throttle(DynamicRateThrottle, scope="anon-auth")
+def signup(self, request, payload: UserSignupSchema):
+    ...
 ```
 
 ---
@@ -460,13 +472,13 @@ Before submitting code, verify:
 - [ ] Business logic in services, not controllers
 - [ ] Using `uv`, never `pip`
 - [ ] Tests hit real DB, no mocking
-- [ ] `@handle_exceptions()` on every controller method
-- [ ] Decorator order: `@http_*` → `@handle_exceptions` → `@log_api_call`
+- [ ] Exception handlers registered once in `api/urls.py` (no per-endpoint `@handle_exceptions`)
+- [ ] Decorator order: `@http_*` → `@log_api_call` → `@paginate`
 - [ ] Queries scoped to `request.user`
 - [ ] All `__init__.py` files export properly
 - [ ] Controller imported AND registered in `api.register_controllers()` in `api/urls.py`
 - [ ] Schemas inherit from `CamelCaseSchema`, not raw `Schema`
 - [ ] No redundant `class Config: from_attributes = True` (CamelCaseSchema includes it)
 - [ ] `service.update(id, data)` — pass ID, not instance
-- [ ] `@rate_limit(requests_per_minute=N)` — correct parameter name
+- [ ] `@throttle(DynamicRateThrottle, scope=...)` — from `ninja_extra.throttling`
 - [ ] Return `(status_code, data)` tuples, not `JsonResponse`

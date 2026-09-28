@@ -20,29 +20,28 @@ class TodoController:
         self.service = TodoService()
 
     @http_get("/{todo_id}", response={200: TodoSchema, 404: dict, 500: dict})
-    @handle_exceptions()
     @log_api_call()
     def get_todo(self, request, todo_id: str):
         return 200, self.service.get_todo(todo_id, request.user)
 
     @http_post("/", response={201: TodoSchema, 400: dict, 500: dict})
     @log_api_call(include_payload=True, include_response=False)
-    @handle_exceptions(return_500_on_error=True, log_errors=True)
-    @validate_request()
     def create_todo(self, request, payload: CreateTodoSchema):
         return 201, self.service.create_todo(payload, request.user)
 ```
 
-## Decorator rules the checker enforces
+## Decorator rules
 
 - The `@http_*` decorator is outermost.
-- `@handle_exceptions()` is present on every POST, PUT, PATCH, and DELETE.
-- `@validate_request()` is innermost when used.
-- `@log_api_call()` sits between them.
+- `@paginate(...)` sits directly inside `@http_*` on list endpoints.
+- `@log_api_call()` sits inside `@http_*` (or `@paginate`) on endpoints that
+  need request/response logging.
 
-Both `@log_api_call` then `@handle_exceptions` and the reverse pass, because the
-checker only requires `@http_*` before `@handle_exceptions`. Match the `todos`
-controller exactly to stay consistent.
+There is no per-endpoint exception decorator. Domain exceptions are mapped to
+HTTP responses by the handlers registered on the shared API instance in
+`api/urls.py` (see `api/exceptions`). Just let exceptions propagate: raising
+`NotFoundError`, `ValidationError`, etc. from a service returns the matching
+status code automatically.
 
 ## Pagination
 
@@ -53,5 +52,5 @@ on list endpoints. See `TodoController.list_todos`.
 
 When a controller calls something that can fail on configuration (a provider, a
 client, a feature flag), catch the specific exception and return a clear status
-with the real message. Do not let `@handle_exceptions()` swallow the detail into
-a generic 500. See `decisions/controllers/decision_controller.py`.
+with the real message. Do not let the generic 500 handler in `api/exceptions.py`
+swallow the detail. See `decisions/controllers/decision_controller.py`.

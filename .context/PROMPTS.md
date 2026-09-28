@@ -22,9 +22,9 @@ Add a new API endpoint for [RESOURCE_NAME] with the following:
    - UpdateSchema with optional fields
 
 3. Create controller in `[app_name]/controllers/[resource]_controller.py`:
-   - Use @api_controller decorator
+   - Use @api_controller decorator with `auth=JWTAuth()`
    - Add CRUD endpoints (list, get, create, update, delete)
-   - Use @handle_exceptions and @log_api_call decorators
+   - Apply @log_api_call decorator for logging
    - Filter by user for list/get operations
 
 4. Register controller in `api/urls.py`
@@ -150,17 +150,24 @@ The endpoint should:
 
 Example pattern:
 ```python
-@http_get("/", response={200: list[ItemSchema], 401: dict})
-@handle_exceptions()
-@log_api_call()
-def list_items(self, request):
-    if not request.user or not request.user.is_authenticated:
-        return 401, {"error": "Not authenticated"}
-    return 200, Item.objects.filter(user=request.user)
+from ninja_extra import api_controller, http_get
+from ninja_jwt.authentication import JWTAuth
+
+from api.decorators import log_api_call
+
+
+@api_controller("/items", tags=["Items"], auth=JWTAuth())
+class ItemController:
+    @http_get("/", response={200: list[ItemSchema]})
+    @log_api_call()
+    def list_items(self, request):
+        return 200, Item.objects.filter(user=request.user)
 ```
 
-Note: Django Ninja JWT handles authentication automatically when the endpoint
-is registered with the API that has JWT controller.
+Note: Django Ninja JWT handles authentication automatically when the
+controller is declared with `auth=JWTAuth()`. Unauthenticated requests get a
+401 before the endpoint body runs. For public endpoints on an otherwise
+protected controller, pass `auth=None` to the `@http_*` decorator.
 ```
 
 ### Add Permission Check
@@ -175,7 +182,6 @@ Add permission checking to [ENDPOINT_NAME]:
 from api.exceptions import APIPermissionError
 
 @http_post("/admin-action", response={200: dict, 403: dict})
-@handle_exceptions()
 def admin_action(self, request, payload: ActionSchema):
     if not request.user.is_staff:
         raise APIPermissionError("Admin access required")
@@ -189,11 +195,10 @@ def admin_action(self, request, payload: ActionSchema):
 Add rate limiting to [ENDPOINT_NAME]:
 
 ```python
-from api.throttling import rate_limit
+from ninja_extra.throttling import DynamicRateThrottle, throttle
 
 @http_post("/sensitive-action")
-@rate_limit(rate=10, period=60)  # 10 requests per minute
-@handle_exceptions()
+@throttle(DynamicRateThrottle, scope="anon-auth")  # 20 requests per minute
 def sensitive_action(self, request, payload: ActionSchema):
     ...
 ```
