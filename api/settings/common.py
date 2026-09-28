@@ -94,6 +94,7 @@ INSTALLED_APPS = [
     #####
     "ninja_extra",  # django-ninja-extra
     "ninja_jwt",  # django-ninja-jwt
+    "ninja_jwt.token_blacklist",  # JWT refresh-token blacklist (revocation + rotation)
     #####
     # user created apps
     #####
@@ -197,14 +198,24 @@ AUTH_PASSWORD_VALIDATORS = [
 AUTH_USER_MODEL = "core.User"
 
 # Django Ninja JWT settings
+# The JWT signing key is deliberately separate from SECRET_KEY so rotating the
+# Django secret never invalidates outstanding access/refresh tokens, and so
+# production can require a distinct value. Production (api.settings.prod) must
+# reject an unset or SECRET_KEY-equal value; development and tests fall back to
+# SECRET_KEY for zero-config setup.
+NINJA_JWT_SIGNING_KEY = env("NINJA_JWT_SIGNING_KEY", default=SECRET_KEY)
+
+# Access tokens are short-lived (60 minutes) and intentionally left valid until
+# expiry after logout: revoking only the refresh token stops the refresh flow
+# without a per-request blacklist lookup on every access-token use.
 NINJA_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=60),
-    "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
-    "ROTATE_REFRESH_TOKENS": False,
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
+    "ROTATE_REFRESH_TOKENS": True,
     "BLACKLIST_AFTER_ROTATION": True,
     "UPDATE_LAST_LOGIN": False,
     "ALGORITHM": "HS256",
-    "SIGNING_KEY": SECRET_KEY,
+    "SIGNING_KEY": NINJA_JWT_SIGNING_KEY,
     "VERIFYING_KEY": None,
     "AUTH_HEADER_TYPES": ("Bearer",),
     "USER_ID_FIELD": "id",
@@ -642,13 +653,6 @@ AUDIT_EXCLUDED_MODELS = [
 # Specific models to track (None = track all except excluded)
 # AUDIT_TRACKED_MODELS = ["User", "Todo", "MyModel"]
 AUDIT_TRACKED_MODELS = None
-
-# =============================================================================
-# API Versioning
-# =============================================================================
-# When True, mounts versioned API instances at /api/v1/, /api/v2/, etc.
-# When False (default), only the unversioned /api/ mount is active.
-API_VERSIONING_ENABLED = env.bool("API_VERSIONING_ENABLED", default=False)
 
 # =============================================================================
 # API Key Authentication

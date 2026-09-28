@@ -85,6 +85,7 @@ USER app
 # Collect static files. Importing settings needs these env vars; placeholders
 # are passed inline so they are not baked into the image.
 RUN SECRET_KEY=build-time-placeholder \
+    NINJA_JWT_SIGNING_KEY=build-time-jwt-placeholder \
     CENTRIFUGO_TOKEN_SECRET=build-time-placeholder \
     DB_NAME=build DB_USER=build DB_PASSWORD=build DB_HOST=build DB_PORT=5432 \
     python manage.py collectstatic --noinput

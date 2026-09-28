@@ -101,7 +101,7 @@ Comprehensive tests for all components including models and API endpoints.
 
 - `POST /api/auth/signup` - Create new account
 - `POST /api/auth/login` - Login with email/password
-- `POST /api/auth/logout` - Logout
+- `POST /api/auth/logout` - Logout (blacklists the refresh token; access stays valid until expiry)
 - `GET /api/auth/me` - Get current user profile
 
 ### User Management (UserController)
@@ -212,13 +212,21 @@ class YourModel(AbstractBaseModel):
 
 ### JWT Settings
 
-JWT settings can be configured in `settings.py`:
+JWT settings are configured in `api/settings/common.py`. The signing key is
+deliberately separate from Django's `SECRET_KEY` so rotating the Django secret
+does not invalidate outstanding tokens, and production requires a distinct
+value:
 
 ```python
+NINJA_JWT_SIGNING_KEY = env("NINJA_JWT_SIGNING_KEY", default=SECRET_KEY)
+
 NINJA_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=5),
-    "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=60),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
+    "ROTATE_REFRESH_TOKENS": True,
+    "BLACKLIST_AFTER_ROTATION": True,
     "ALGORITHM": "HS256",
+    "SIGNING_KEY": NINJA_JWT_SIGNING_KEY,
     # ... other settings
 }
 ```

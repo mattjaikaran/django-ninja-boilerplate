@@ -480,7 +480,7 @@ The boilerplate provides multiple authentication methods:
 ```bash
 POST /api/auth/signup      # Create account
 POST /api/auth/login       # Login with email/password
-POST /api/auth/logout      # Logout
+POST /api/auth/logout      # Logout (blacklists the refresh token; access stays valid until expiry)
 GET  /api/auth/me          # Get current user
 ```
 

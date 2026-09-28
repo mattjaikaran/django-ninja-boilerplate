@@ -17,6 +17,7 @@ from django.utils import timezone
 from ninja_extra import api_controller, http_get, http_post
 from ninja_extra.throttling import DynamicRateThrottle, throttle
 from ninja_jwt.authentication import JWTAuth
+from ninja_jwt.exceptions import TokenError
 from ninja_jwt.tokens import RefreshToken
 
 from api.decorators import log_api_call
@@ -27,6 +28,7 @@ from core.schemas import (
     MessageResponse,
     PasswordlessLoginRequest,
     PasswordlessLoginVerify,
+    RefreshTokenSchema,
     UserLoginSchema,
     UserSchema,
     UserSignupSchema,
@@ -59,7 +61,7 @@ class AuthController:
         POST /auth/passwordless/login/verify   — verify a magic link token
 
     Protected endpoints (JWT required):
-        POST /auth/logout                      — client-side token discard
+        POST /auth/logout                      — blacklist the refresh token
         GET  /auth/me                          — current user profile
         GET  /auth/status                      — authentication status check
     """
@@ -113,7 +115,7 @@ class AuthController:
         )
 
         logger.info("Created new user: %s", user.email)
-        return 201, UserSchema.from_orm(user)
+        return 201, UserSchema.model_validate(user)
 
     @http_post("/login", response={200: dict, 400: dict, 429: dict}, auth=None)
     @throttle(DynamicRateThrottle, scope="anon-auth")
@@ -144,12 +146,8 @@ class AuthController:
                 "error": "Account temporarily locked due to too many failed attempts. Try again in 15 minutes."
             }
 
-        # Try to authenticate with email
-        try:
-            user_obj = User.objects.get(email=payload.email.lower())
-            user = authenticate(username=user_obj.username, password=payload.password)  # type: ignore[attr-defined]
-        except User.DoesNotExist:
-            user = None
+        # USERNAME_FIELD is email, so Django's username credential must be the email.
+        user = authenticate(username=payload.email.lower(), password=payload.password)
 
         if not user:
             remaining = remaining_attempts(lockout_key)
@@ -177,7 +175,7 @@ class AuthController:
         return 200, {
             "token": str(refresh.access_token),  # type: ignore[attr-defined]
             "refresh": str(refresh),
-            "user": UserSchema.from_orm(user).dict(),
+            "user": UserSchema.model_validate(user).model_dump(),
         }
 
     @http_post("/login/username", response={200: dict, 400: dict, 429: dict}, auth=None)
@@ -209,7 +207,12 @@ class AuthController:
                 "error": "Account temporarily locked due to too many failed attempts. Try again in 15 minutes."
             }
 
-        user = authenticate(username=payload.username, password=payload.password)
+        user_obj = User.objects.filter(username=payload.username).first()
+        user = (
+            authenticate(username=user_obj.email, password=payload.password)
+            if user_obj
+            else None
+        )
 
         if not user:
             record_failed_attempt(lockout_key)
@@ -229,26 +232,38 @@ class AuthController:
         return 200, {
             "token": str(refresh.access_token),  # type: ignore[attr-defined]
             "refresh": str(refresh),
-            "user": UserSchema.from_orm(user).dict(),
+            "user": UserSchema.model_validate(user).model_dump(),
         }
 
-    @http_post("/logout", response={200: MessageResponse})
+    @http_post("/logout", response={200: MessageResponse, 400: dict, 401: dict})
     @log_api_call()
-    def logout(self, request):
-        """Log out the current user.
+    def logout(self, request, payload: RefreshTokenSchema):
+        """Log out the current user by blacklisting their refresh token.
 
-        For stateless JWT authentication the server cannot invalidate tokens
-        directly. The client is responsible for discarding its stored tokens.
-        This endpoint can be extended to blacklist the refresh token if a
-        token-blacklist backend (e.g. django-ninja-jwt's built-in blacklist) is
-        configured.
+        The client sends its refresh token; blacklisting it revokes the
+        ability to mint new access tokens. The access token is intentionally
+        left valid until its own expiry, so no per-request blacklist lookup is
+        needed on access-token use.
+
+        Logout is idempotent: an invalid, expired, or already-blacklisted
+        refresh token still returns success because that token is already
+        unusable.
 
         Args:
-            request: The HTTP request object.
+            request: The HTTP request object (JWT-authenticated).
+            payload: Validated refresh token to revoke.
 
         Returns:
             Tuple of (200, MessageResponse) confirming the logout.
         """
+        try:
+            token = RefreshToken(payload.refresh)
+            if str(token["user_id"]) != str(request.user.id):
+                return 400, {"error": "Refresh token belongs to another user"}
+            token.blacklist()
+        except TokenError:
+            # Idempotent logout: an unusable refresh token is already revoked.
+            logger.info("Logout received an unusable refresh token; ignoring")
         return 200, {"message": "Successfully logged out", "success": True}
 
     @http_get("/me", response={200: UserSchema, 401: dict})
@@ -265,7 +280,7 @@ class AuthController:
         """
         if not request.user or not request.user.is_authenticated:
             return 401, {"error": "Not authenticated"}
-        return 200, UserSchema.from_orm(request.user)
+        return 200, UserSchema.model_validate(request.user)
 
     @http_get("/status", response={200: AuthStatusSchema})
     def get_auth_status(self, request):
@@ -376,5 +391,5 @@ class AuthController:
         return 200, {
             "access": str(refresh.access_token),  # type: ignore[attr-defined]
             "refresh": str(refresh),
-            "user": UserSchema.from_orm(otp.user).dict(),
+            "user": UserSchema.model_validate(otp.user).model_dump(),
         }

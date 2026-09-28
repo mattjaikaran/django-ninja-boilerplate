@@ -197,3 +197,28 @@ def periodic_health_check() -> dict[str, str | bool]:
         logger.warning("Health check failed: %s", results)
 
     return results
+
+
+@shared_task(name="core.flush_expired_tokens")
+def flush_expired_tokens() -> dict[str, int]:
+    """Delete expired JWT tokens from the blacklist outstanding-token list.
+
+    Mirrors ``ninja_jwt``'s ``flushexpiredtokens`` command. Celery beat runs
+    the task daily; other backends can invoke the portable management command.
+
+    Returns:
+        dict: Number of expired outstanding tokens deleted.
+    """
+    from ninja_jwt.token_blacklist.models import OutstandingToken
+    from ninja_jwt.utils import aware_utcnow
+
+    try:
+        _, deleted_by_model = OutstandingToken.objects.filter(
+            expires_at__lte=aware_utcnow()
+        ).delete()
+        deleted = deleted_by_model.get(OutstandingToken._meta.label, 0)
+        logger.info("Flushed %d expired JWT tokens", deleted)
+        return {"deleted": deleted}
+    except Exception as e:
+        logger.exception("JWT token flush failed: %s", e)
+        raise

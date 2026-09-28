@@ -595,10 +595,10 @@ setup_env_file() {
 
         if [[ "$OSTYPE" == "darwin"* ]]; then
             sed -i '' "s|^SECRET_KEY=.*|SECRET_KEY=$new_secret|" .env
-            sed -i '' "s|^JWT_SECRET_KEY=.*|JWT_SECRET_KEY=$new_jwt_secret|" .env 2>/dev/null || true
+            sed -i '' "s|^NINJA_JWT_SIGNING_KEY=.*|NINJA_JWT_SIGNING_KEY=$new_jwt_secret|" .env 2>/dev/null || true
         else
             sed -i "s|^SECRET_KEY=.*|SECRET_KEY=$new_secret|" .env
-            sed -i "s|^JWT_SECRET_KEY=.*|JWT_SECRET_KEY=$new_jwt_secret|" .env 2>/dev/null || true
+            sed -i "s|^NINJA_JWT_SIGNING_KEY=.*|NINJA_JWT_SIGNING_KEY=$new_jwt_secret|" .env 2>/dev/null || true
         fi
         print_success "Secrets generated"
     fi
@@ -641,10 +641,7 @@ SUPERUSER_FIRST_NAME=Admin
 SUPERUSER_LAST_NAME=User
 
 # JWT Settings
-JWT_SECRET_KEY=your-jwt-secret-key-here
-JWT_ALGORITHM=HS256
-JWT_ACCESS_TOKEN_LIFETIME=5
-JWT_REFRESH_TOKEN_LIFETIME=1
+NINJA_JWT_SIGNING_KEY=your-jwt-signing-key-here-change-in-production
 ENVEOF
 }
 

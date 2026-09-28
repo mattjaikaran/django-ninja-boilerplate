@@ -16,9 +16,30 @@ if CENTRIFUGO_TOKEN_SECRET in _INSECURE_REALTIME_SECRETS:
         "Set CENTRIFUGO_TOKEN_SECRET to a unique value in production."
     )
 
+# A production deploy must supply its own secrets explicitly. common.py reads
+# SECRET_KEY with an empty-string default, so an unset key silently forges
+# every signature; reject it before anything else runs.
+if not SECRET_KEY:
+    raise ImproperlyConfigured(
+        "Set SECRET_KEY to a unique, non-empty value in production."
+    )
+
+# JWT refresh rotation signs tokens with a key separate from SECRET_KEY
+# (common.py defines NINJA_JWT_SIGNING_KEY with a SECRET_KEY fallback for
+# dev/test). Production must set it explicitly and distinct from SECRET_KEY,
+# otherwise rotating the Django secret would also invalidate every issued token.
+_jwt_signing_key = env("NINJA_JWT_SIGNING_KEY", default=None)
+if not _jwt_signing_key or _jwt_signing_key == SECRET_KEY:
+    raise ImproperlyConfigured(
+        "Set NINJA_JWT_SIGNING_KEY to a unique value distinct from SECRET_KEY "
+        "in production."
+    )
+
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = env("DEBUG", default=False)
+# Forced off regardless of the DEBUG env var: a development .env (DEBUG=1) must
+# never leak into a production settings load.
+DEBUG = False
 
 # Production allowed hosts
 ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=[])
@@ -40,25 +61,36 @@ CORS_ALLOW_HEADERS = [
     "x-requested-with",
 ]
 
-# Security settings for production
-SECURE_BROWSER_XSS_FILTER = True
-SECURE_CONTENT_TYPE_NOSNIFF = True
-SECURE_HSTS_INCLUDE_SUBDOMAINS = True
-SECURE_HSTS_PRELOAD = True
-SECURE_HSTS_SECONDS = 31536000  # 1 year
-SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
-
 # SSL settings.
 # Defaults to False because the bundled nginx serves plain HTTP on port 80 and
 # forwards X-Forwarded-Proto: http. Set USE_TLS=true only when a TLS-terminating
 # proxy sits in front; otherwise SECURE_SSL_REDIRECT redirects every request to
 # an https:// port that nothing listens on.
-USE_TLS = env("USE_TLS", default=False)
+USE_TLS = env.bool("USE_TLS", default=False)
+
+# Security settings for production. Every setting that presumes the site is
+# served over HTTPS is gated on USE_TLS so a plain-HTTP deployment (the bundled
+# nginx convention) never emits headers or redirects that point at a scheme the
+# deployment does not serve. HSTS is ignored by browsers over HTTP and
+# SECURE_HSTS_PRELOAD is dangerous: a preloaded domain that does not serve TLS
+# becomes unreachable.
+SECURE_BROWSER_XSS_FILTER = True
+SECURE_CONTENT_TYPE_NOSNIFF = True
+SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
+
 if USE_TLS:
     SECURE_SSL_REDIRECT = True
-    SESSION_COOKIE_SECURE = True
-    CSRF_COOKIE_SECURE = True
+    SECURE_HSTS_SECONDS = 31536000  # 1 year
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+else:
+    # Plain-HTTP deployment: keep HSTS, SSL redirect, and secure cookies off so
+    # requests reach the port-80 listener unchanged.
+    SECURE_SSL_REDIRECT = False
+    SECURE_HSTS_SECONDS = 0
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = False
+    SECURE_HSTS_PRELOAD = False
 
 # Email backend for production
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
@@ -162,12 +194,16 @@ DATABASES["default"].update(
 # here from the shared directives instead of mutating common.py's object, so
 # this module imports whatever ENVIRONMENT is set.
 # =============================================================================
-CONTENT_SECURITY_POLICY["DIRECTIVES"] = {
+_CSP_DIRECTIVES: dict[str, tuple[str, ...] | bool] = {
     **CSP_DIRECTIVES,
     "script-src": ("'self'",),
     "style-src": ("'self'",),
-    "upgrade-insecure-requests": True,
 }
+if USE_TLS:
+    # Only over HTTPS: over plain HTTP this would upgrade every subresource to
+    # a scheme the deployment does not serve.
+    _CSP_DIRECTIVES["upgrade-insecure-requests"] = True
+CONTENT_SECURITY_POLICY["DIRECTIVES"] = _CSP_DIRECTIVES
 CONTENT_SECURITY_POLICY_REPORT_ONLY.clear()
 
 # Session security for production

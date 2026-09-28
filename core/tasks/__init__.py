@@ -5,6 +5,7 @@ from core.tasks.dlq import DeadLetterQueue
 from core.tasks.jobs import (
     cleanup_expired_otps,
     cleanup_inactive_users,
+    flush_expired_tokens,
     periodic_health_check,
     send_otp_email,
 )
@@ -18,6 +19,7 @@ __all__ = [
     "TaskProgressTracker",
     "cleanup_expired_otps",
     "cleanup_inactive_users",
+    "flush_expired_tokens",
     "periodic_health_check",
     "send_otp_email",
 ]

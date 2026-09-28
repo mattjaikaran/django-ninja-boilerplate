@@ -828,6 +828,7 @@ services:
       - USE_STRUCTURED_LOGGING=true
       - DEBUG=0
       - SECRET_KEY=${SECRET_KEY}
+      - NINJA_JWT_SIGNING_KEY=${NINJA_JWT_SIGNING_KEY:?NINJA_JWT_SIGNING_KEY must be set and distinct from SECRET_KEY}
       - DB_NAME=${DB_NAME}
       - DB_USER=${DB_USER}
       - DB_PASSWORD=${DB_PASSWORD}
@@ -842,7 +843,9 @@ services:
       - ALLOWED_HOSTS=${ALLOWED_HOSTS}
       - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS}
       - CSRF_TRUSTED_ORIGINS=${CSRF_TRUSTED_ORIGINS}
-      - USE_TLS=${USE_TLS:-true}
+      # Bundled nginx listens on HTTP port 80 and sets X-Forwarded-Proto=http.
+      # Enable TLS only when Django receives the original scheme from a trusted proxy.
+      - USE_TLS=${USE_TLS:-false}
       # Centrifugo settings
       - CENTRIFUGO_URL=${CENTRIFUGO_URL:-http://centrifugo-prod:8000}
       - CENTRIFUGO_API_KEY=${CENTRIFUGO_API_KEY}
@@ -902,6 +905,7 @@ services:
       - USE_STRUCTURED_LOGGING=true
       - DEBUG=0
       - SECRET_KEY=${SECRET_KEY}
+      - NINJA_JWT_SIGNING_KEY=${NINJA_JWT_SIGNING_KEY:?NINJA_JWT_SIGNING_KEY must be set and distinct from SECRET_KEY}
       - DB_NAME=${DB_NAME}
       - DB_USER=${DB_USER}
       - DB_PASSWORD=${DB_PASSWORD}
@@ -953,6 +957,7 @@ services:
       - USE_STRUCTURED_LOGGING=true
       - DEBUG=0
       - SECRET_KEY=${SECRET_KEY}
+      - NINJA_JWT_SIGNING_KEY=${NINJA_JWT_SIGNING_KEY:?NINJA_JWT_SIGNING_KEY must be set and distinct from SECRET_KEY}
       - DB_NAME=${DB_NAME}
       - DB_USER=${DB_USER}
       - DB_PASSWORD=${DB_PASSWORD}
@@ -1109,9 +1114,10 @@ services:
       - ENVIRONMENT=production
       # JSON logging: .env carries the development value, so pin it here.
       - USE_STRUCTURED_LOGGING=true
-      - USE_TLS=${USE_TLS:-true}
+      - USE_TLS=${USE_TLS:-false}
       - DEBUG=0
       - SECRET_KEY=${SECRET_KEY}
+      - NINJA_JWT_SIGNING_KEY=${NINJA_JWT_SIGNING_KEY:?NINJA_JWT_SIGNING_KEY must be set and distinct from SECRET_KEY}
       - DB_NAME=${DB_NAME:-boilerplate_db}
       - DB_USER=${DB_USER:-postgres}
       - DB_PASSWORD=${DB_PASSWORD:-postgres}

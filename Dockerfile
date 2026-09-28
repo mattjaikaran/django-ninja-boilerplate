@@ -218,6 +218,7 @@ USER app
 # placeholders are passed inline so they are not baked into the image, and the
 # real values are injected at runtime.
 RUN SECRET_KEY=build-time-placeholder \
+    NINJA_JWT_SIGNING_KEY=build-time-jwt-placeholder \
     CENTRIFUGO_TOKEN_SECRET=build-time-placeholder \
     DJANGO_SETTINGS_MODULE=api.settings.prod \
     DB_NAME=build DB_USER=build DB_PASSWORD=build DB_HOST=build DB_PORT=5432 \
