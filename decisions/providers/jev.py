@@ -82,10 +82,10 @@ class JevProvider(DecisionProvider):
         if not self._api_key:
             raise ImproperlyConfigured(MISSING_KEY_HINT)
         try:
-            from typesafe_sdk import Client  # type: ignore[import-not-found]
+            from typesafe_sdk import TypeSafeClient  # type: ignore[import-not-found]
         except ImportError as exc:
             raise ImproperlyConfigured(INSTALL_HINT) from exc
-        self._client = Client(api_key=self._api_key)
+        self._client = TypeSafeClient(api_key=self._api_key)
         return self._client
 
     def predict(
@@ -107,5 +107,5 @@ class JevProvider(DecisionProvider):
         Raises:
             ImproperlyConfigured: If the API key or package is missing.
         """
-        raw = self._get_client().decide(state=state, questions=questions)
+        raw = self._get_client().system_one(state=state, questions=questions)
         return result_from_raw(raw, self.name)

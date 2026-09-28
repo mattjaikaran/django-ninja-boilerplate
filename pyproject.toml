@@ -171,7 +171,7 @@ decisions-laya = [
 ]
 decisions-jev = [
     # Hosted TypeSafe ("Jev") decision API
-    "typesafe-sdk>=0.1.0",
+    "typesafe-sdk>=0.6.0",
 ]
 dramatiq = [
     "dramatiq[redis]>=1.17.0",

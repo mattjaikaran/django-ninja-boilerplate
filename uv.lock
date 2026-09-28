@@ -1324,7 +1324,7 @@ requires-dist = [
     { name = "strawberry-graphql", extras = ["django"], marker = "extra == 'graphql'", specifier = ">=0.220.0" },
     { name = "stripe", specifier = ">=15.1.0" },
     { name = "ty", marker = "extra == 'dev'", specifier = ">=0.0.1a1" },
-    { name = "typesafe-sdk", marker = "extra == 'decisions-jev'", specifier = ">=0.1.0" },
+    { name = "typesafe-sdk", marker = "extra == 'decisions-jev'", specifier = ">=0.6.0" },
     { name = "typing-extensions", specifier = ">=4.8.0" },
     { name = "urllib3", specifier = ">=2.2.2" },
     { name = "uvloop", specifier = ">=0.22.1" },

@@ -96,7 +96,7 @@ Rust toolchain. Add 3.14 back once pydantic-core ships cp314 wheels.
 
 | Package | Version | Why |
 |---|---|---|
-| `typesafe-sdk` | `>=0.1.0` | Client for the hosted TypeSafe ("Jev") decision API. |
+| `typesafe-sdk` | `>=0.6.0` | Hosted TypeSafe ("Jev") decision client. The provider uses `TypeSafeClient.system_one` and typed answer objects from this SDK version. |
 
 ### `dramatiq`
 

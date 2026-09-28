@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **CLI-driven setup**: `just setup` runs the in-repo `dnm` CLI, asks for the task backend, updates `.env`, and then builds the selected stack.
 
 ### Fixed
+- `decisions/providers/jev.py`: use the current TypeSafe SDK `TypeSafeClient.system_one` API. Decode typed SDK answers, including `noul` probability and its uncertainty, before applying the escalation policy.
 - `nginx/nginx.conf`: `gzip_proxied` had an invalid `must-revalidate` token, so nginx aborted with `[emerg] invalid value` and the production reverse proxy never started. The `centrifugo` upstream also pointed at the pre-rename service name; it now resolves per request, so nginx starts even when the `realtime-prod` profile is not enabled.
 - `docker-compose.yml` and `nginx/Dockerfile`: the `prod` nginx service published `443:443` and mounted `./nginx/certs`, but `nginx/nginx.conf` listens on port 80 only and that directory does not exist. TLS terminates at an external proxy (`USE_TLS` in `.env.deploy.example`), so the unused port mapping, the certs mount, and `EXPOSE 443` are gone.
 - `scripts/doctor.sh`: `((PASS++))` returns the old value, which is `0` on the first call, and a `0` exit status aborts the script under `set -e`. Every counter used post-increment, so `doctor` never completed. Its connectivity check also probed a `redis` service that does not exist (the compose service is `valkey`).

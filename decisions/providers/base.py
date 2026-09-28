@@ -91,16 +91,19 @@ def _reader(raw: Any):
 
 
 def _split_answer(entry: Any) -> tuple[Any, float]:
-    """Split one raw answer entry into its value and its confidence.
+    """Split a mapping or typed SDK answer into its value and confidence.
 
-    Args:
-        entry: A typed answer entry such as ``{"choice": "billing",
-            "confidence": 0.94}``, or a bare value.
-
-    Returns:
-        Tuple of (value, confidence). A bare value has confidence ``0.0``.
+    Noul is a probability of yes, not a confidence score. For SDK answers
+    without a confidence field, use the probability of the selected side.
     """
     if not isinstance(entry, Mapping):
+        for key in ANSWER_VALUE_KEYS:
+            if hasattr(entry, key):
+                value = getattr(entry, key)
+                confidence = getattr(entry, "confidence", None)
+                if confidence is None and key == "noul":
+                    confidence = max(float(value), 1.0 - float(value))
+                return value, float(confidence) if confidence is not None else 0.0
         return entry, 0.0
     confidence = float(entry.get("confidence", 0.0) or 0.0)
     for key in ANSWER_VALUE_KEYS:
