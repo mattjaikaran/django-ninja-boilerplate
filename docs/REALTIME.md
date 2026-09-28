@@ -78,20 +78,27 @@ centrifuge.connect();
 
 Channels use namespaces defined in `deploy/centrifugo/config.json`. All channels require subscription tokens (private by default).
 
+Django issues a subscription token only when `subscription_allowed()` in
+`api/centrifugo.py` allows the channel. By default, a user may subscribe only
+to their own `notifications:<user_id>` channel; any other channel returns 403.
+When you add a feature that uses the `chat` or `organization` namespace, add
+its membership check to `subscription_allowed()`.
+
 ```javascript
 // Get subscription token from Django
+const channel = `notifications:${userId}`;
 const subResponse = await fetch('/api/realtime/subscription-token', {
   method: 'POST',
   headers: {
     'Authorization': `Bearer ${accessToken}`,
     'Content-Type': 'application/json',
   },
-  body: JSON.stringify({ channel: 'chat:conversation-uuid' }),
+  body: JSON.stringify({ channel }),
 });
 const { token: subToken } = await subResponse.json();
 
 // Subscribe to the channel
-const sub = centrifuge.newSubscription('chat:conversation-uuid', {
+const sub = centrifuge.newSubscription(channel, {
   token: subToken,
 });
 
@@ -131,8 +138,8 @@ centrifugo_client.broadcast(
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `POST` | `/api/realtime/connection-token` | Get a Centrifugo connection JWT (requires auth) |
-| `POST` | `/api/realtime/subscription-token` | Get a channel subscription JWT (requires auth) |
+| `POST` | `/api/realtime/connection-token` | Get a Centrifugo connection JWT (requires JWT; 401 without it) |
+| `POST` | `/api/realtime/subscription-token` | Get a channel subscription JWT (requires JWT; 403 for a channel the user may not read) |
 
 ### Connection Token Response
 
@@ -146,7 +153,7 @@ centrifugo_client.broadcast(
 
 ```json
 // Request
-{ "channel": "chat:conversation-uuid" }
+{ "channel": "notifications:<your user id>" }
 
 // Response
 { "token": "eyJhbGciOiJIUzI1NiIs..." }
@@ -163,6 +170,11 @@ Configured in `deploy/centrifugo/config.json`:
 | `organization` | `organization:<org_id>` | Yes | 50 msgs / 10 min | Org-wide announcements |
 
 All namespaces have `allow_subscribe_for_client: false` — clients must obtain subscription tokens from Django.
+
+In production, set `CENTRIFUGO_ALLOWED_ORIGINS` (space separated) to the
+browser origins of your frontend. The config file lists only the development
+origins, so `centrifugo-prod` otherwise rejects browser WebSockets with 403.
+It defaults to `http://localhost`, which matches the bundled nginx locally.
 
 ## Django Integration
 

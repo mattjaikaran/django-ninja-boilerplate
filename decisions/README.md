@@ -22,7 +22,7 @@ decisions/
 ├── controllers/decision_controller.py # POST /decisions/evaluate
 ├── data/fixtures/*.json               # Seed examples
 ├── management/commands/seed_decisions.py
-├── mcp.py                             # Optional MCP tool wrappers
+├── mcp.py                             # evaluate_decision MCP tool + registration
 ├── models/decision_fixture.py         # Stored example payloads
 ├── providers/                         # base, fake, laya, clm, jev, registry
 ├── schemas/decision_schema.py         # Question, request, response, fixture
@@ -174,14 +174,25 @@ The `clm-encoder` service downloads Qwen3-8B on first start. `clm-api`
 downloads the CLM projection head. Both caches use named volumes. The encoder
 port stays internal; the CLM API binds host port 8700 on loopback only.
 
-Set `CLM_API_KEY` for access control. Compose passes the same value to
-`clm-api` and to every Django service that can call CLM: `django`, `mcp`,
-`django-prod`, and `app`. Set `HF_TOKEN` privately if Hugging Face rate
+Set `CLM_API_KEY` for access control. Compose passes the same value and the
+CLM address to `clm-api` and to every Django service that can call CLM:
+`django`, `mcp`, every task worker, `django-prod`, the production Celery
+services, and `app`. Set `HF_TOKEN` privately if Hugging Face rate
 limits anonymous downloads. Compose pins Django's `CLM_BASE_URL` to the
 internal service; to connect to an external GPU host, set `CLM_CONTAINER_URL`.
 For host-side Django, set `CLM_BASE_URL=http://127.0.0.1:8700`. Without a GPU,
 do not start the profile: select Laya instead. CLM never falls back to Laya
-when its service is unavailable.
+when its service is unavailable. An unreachable service or a rejected
+`CLM_API_KEY` returns a 500 `provider_unavailable` response that names the
+address or the setting to fix.
+
+## MCP tool
+
+`just up-mcp` starts the django-ai-boost SSE server on
+`http://127.0.0.1:8001/sse` (loopback only). The `mcp` service sets
+`ENABLE_DECISION_MCP=true`, so `DecisionsConfig.ready()` adds
+`evaluate_decision(state, questions)` to the server's tool list. The tool uses
+the configured provider; a call that passes `provider` fails validation.
 
 For hosted Jev, install `uv sync --extra decisions-jev` and set
 `TYPESAFE_API_KEY` privately. Neither open-source provider needs that key.

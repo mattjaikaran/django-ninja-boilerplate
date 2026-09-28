@@ -39,9 +39,6 @@ CORS_ALLOW_HEADERS = [
     "x-requested-with",
 ]
 
-# Email backend for development (console)
-EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
-
 # Django Debug Toolbar — uncomment INSTALLED_APPS and MIDDLEWARE entries
 # in common.py to activate. These settings are ready when you do.
 INTERNAL_IPS = [
@@ -71,6 +68,13 @@ LOGGING["loggers"].update(  # type: ignore[attr-defined]
             "level": "DEBUG",
             "propagate": False,
         },
+        # At DEBUG, runserver's StatReloader logs one line for every file it
+        # watches, including each torch module that Laya imports.
+        "django.utils.autoreload": {
+            "handlers": ["console"],
+            "level": "INFO",
+            "propagate": False,
+        },
     }
 )
 
@@ -80,6 +84,7 @@ TEMPLATES[0]["OPTIONS"]["debug"] = True  # type: ignore[index]
 # =============================================================================
 # Development-only feature flags
 # =============================================================================
-# Decisions app (System One decision engine)
+# Decisions app (System One decision engine). ENABLE_DECISION_MCP stays under
+# .env control: the `mcp` Compose service sets it, and the worker images do
+# not install django-ai-boost, so forcing it on made every worker warn.
 ENABLE_DECISIONS = True
-ENABLE_DECISION_MCP = True

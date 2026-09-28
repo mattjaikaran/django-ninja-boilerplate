@@ -83,6 +83,24 @@ class TestClmProvider:
             provider.predict({}, {"q": {"type": "noul", "instructions": "?"}})
         assert error.value.response.status_code == 503
 
+    @pytest.mark.parametrize("status", [401, 403])
+    def test_rejected_key_names_the_shared_setting(self, status):
+        client = httpx.Client(
+            transport=httpx.MockTransport(lambda _request: httpx.Response(status))
+        )
+        provider = ClmProvider(client=client, base_url="http://clm-api:8700")
+        with pytest.raises(ImproperlyConfigured, match="CLM_API_KEY"):
+            provider.predict({}, {"q": {"type": "noul", "instructions": "?"}})
+
+    def test_unreachable_service_names_the_address(self):
+        def refuse(request):
+            raise httpx.ConnectError("refused", request=request)
+
+        client = httpx.Client(transport=httpx.MockTransport(refuse))
+        provider = ClmProvider(client=client, base_url="http://clm-api:8700")
+        with pytest.raises(ImproperlyConfigured, match="unreachable at http://clm-api"):
+            provider.predict({}, {"q": {"type": "noul", "instructions": "?"}})
+
     def test_missing_endpoint_fails_with_setup_instructions(self):
         provider = ClmProvider(base_url="")
         assert provider.is_available() is False

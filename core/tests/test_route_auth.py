@@ -60,6 +60,8 @@ class TestAnonymousRouteContract:
             ("get", "/api/audit/", None),
             ("post", "/api/decisions/evaluate", {}),
             ("get", "/api/api-keys/", None),
+            ("post", "/api/realtime/connection-token", {}),
+            ("post", "/api/realtime/subscription-token", {"channel": "chat:x"}),
         ],
     )
     def test_protected_routes_reject_anonymous(self, client, method, path, body):
@@ -233,6 +235,40 @@ class TestOpenAPISecurity:
     def test_public_operations_have_no_security(self, schema, method, path):
         op = self._operation(schema, path, method)
         assert not op.get("security"), f"{method.upper()} {path} should be public"
+
+    #: Every operation that may run without a token. A new route that is
+    #: missing from this set and has no security fails the test below.
+    PUBLIC_OPERATIONS = frozenset(
+        {
+            ("post", "/api/auth/login"),
+            ("post", "/api/auth/login/username"),
+            ("post", "/api/auth/otp/email/verify"),
+            ("post", "/api/auth/otp/password-reset/confirm"),
+            ("post", "/api/auth/otp/password-reset/request"),
+            ("post", "/api/auth/otp/request"),
+            ("post", "/api/auth/otp/resend"),
+            ("post", "/api/auth/otp/verify"),
+            ("post", "/api/auth/otp/verify-token"),
+            ("post", "/api/auth/passwordless/login/request"),
+            ("post", "/api/auth/passwordless/login/verify"),
+            ("post", "/api/auth/signup"),
+            ("get", "/api/health/"),
+            ("get", "/api/health/liveness"),
+            ("get", "/api/health/readiness"),
+            ("post", "/api/token/pair"),
+            ("post", "/api/token/refresh"),
+            ("post", "/api/token/verify"),
+        }
+    )
+
+    def test_only_allowlisted_operations_are_public(self, schema):
+        unprotected = {
+            (method, path)
+            for path, ops in schema["paths"].items()
+            for method, op in ops.items()
+            if not op.get("security")
+        }
+        assert unprotected - self.PUBLIC_OPERATIONS == set()
 
     def test_bearer_scheme_is_declared(self, schema):
         schemes = schema.get("components", {}).get("securitySchemes", {})

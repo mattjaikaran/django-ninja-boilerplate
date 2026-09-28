@@ -32,6 +32,7 @@ COPY pyproject.toml uv.lock* README.md ./
 # without rebuilding.
 RUN UV_PROJECT_ENVIRONMENT=/opt/venv uv sync --locked --no-dev \
     --extra huey --extra django-q --extra django-rq --extra dramatiq \
+    --extra observability \
     --no-install-project
 
 # Install the project itself. --no-deps keeps the locked set intact; the

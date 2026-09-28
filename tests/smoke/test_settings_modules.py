@@ -233,6 +233,16 @@ class TestProductionSettings:
         assert result.returncode != 0
         assert "NINJA_JWT_SIGNING_KEY" in result.stderr
 
+    def test_rejects_empty_jwt_signing_key(self):
+        """Compose passes an unset key as an empty string; prod must refuse it."""
+        result = _run_probe(
+            "api.settings.prod",
+            ENVIRONMENT="production",
+            NINJA_JWT_SIGNING_KEY="",
+        )
+        assert result.returncode != 0
+        assert "NINJA_JWT_SIGNING_KEY" in result.stderr
+
     def test_rejects_jwt_signing_key_equal_to_secret_key(self):
         result = _run_probe(
             "api.settings.prod",

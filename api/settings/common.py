@@ -117,6 +117,8 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",  # security middleware
+    # Serves collected static files when no nginx sits in front (single, PaaS).
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "csp.middleware.CSPMiddleware",  # Content-Security-Policy headers
     "django.middleware.gzip.GZipMiddleware",  # Performance: Response compression
     "django.contrib.sessions.middleware.SessionMiddleware",  # session middleware
@@ -669,7 +671,9 @@ API_KEY_PREFIX = env("API_KEY_PREFIX", default="bnp")
 # Application version (used in metrics and health checks)
 VERSION = env("APP_VERSION", default="1.11.0")
 
-# OpenTelemetry Configuration
+# OpenTelemetry Configuration. OTEL_ENABLED starts tracing in CoreConfig.ready()
+# and needs the `observability` extra, which the Docker images install.
+OTEL_ENABLED = env.bool("OTEL_ENABLED", default=False)
 OTEL_SERVICE_NAME = env("OTEL_SERVICE_NAME", default="django-ninja-app")
 OTEL_EXPORTER_OTLP_ENDPOINT = env(
     "OTEL_EXPORTER_OTLP_ENDPOINT", default="http://localhost:4317"

@@ -46,11 +46,22 @@ class ClmProvider(DecisionProvider):
         if self._client is None:
             self._client = httpx.Client(timeout=120.0)
         headers = {"Authorization": f"Bearer {self._api_key}"} if self._api_key else {}
-        response = self._client.post(
-            f"{self._base_url}/v1/systemone",
-            json={"state": state, "questions": questions},
-            headers=headers,
-        )
+        try:
+            response = self._client.post(
+                f"{self._base_url}/v1/systemone",
+                json={"state": state, "questions": questions},
+                headers=headers,
+            )
+        except httpx.ConnectError as exc:
+            raise ImproperlyConfigured(
+                f"CLM is unreachable at {self._base_url}. Start the decisions-clm "
+                "profile on a GPU host or fix CLM_BASE_URL / CLM_CONTAINER_URL."
+            ) from exc
+        if response.status_code in (401, 403):
+            raise ImproperlyConfigured(
+                f"CLM rejected the request with {response.status_code}. Set the "
+                "same CLM_API_KEY for Django and the clm-api service."
+            )
         response.raise_for_status()
         raw = response.json()
         if not isinstance(raw, dict) or not isinstance(raw.get("answers"), dict):

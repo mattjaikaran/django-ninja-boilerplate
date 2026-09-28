@@ -1,8 +1,10 @@
-"""Tests for the optional MCP tool wrappers."""
+"""Tests for the decisions MCP tool and its registration."""
+
+import inspect
 
 import pytest
 
-from decisions.mcp import EVALUATE_TOOL_NAME, evaluate_decision, get_tools, register
+from decisions.mcp import evaluate_decision, register
 from decisions.services import DecisionService
 
 
@@ -39,35 +41,33 @@ class TestEvaluateDecisionTool:
         with pytest.raises(ValidationError):
             evaluate_decision(state={}, questions={})
 
-
-@pytest.mark.unit
-class TestGetTools:
-    """Tool definitions carry a name, schema, and callable handler."""
-
-    def test_shape(self):
-        tools = get_tools()
-        assert len(tools) == 1
-        tool = tools[0]
-        assert tool["name"] == EVALUATE_TOOL_NAME
-        assert tool["handler"] is evaluate_decision
-        assert tool["input_schema"]["required"] == ["state", "questions"]
-        assert "provider" not in tool["input_schema"]["properties"]
+    def test_signature_has_no_provider_override(self):
+        assert list(inspect.signature(evaluate_decision).parameters) == [
+            "state",
+            "questions",
+        ]
 
 
 @pytest.mark.unit
 class TestRegister:
     """Registration is gated by the setting and the optional package."""
 
-    def test_disabled_by_setting(self, settings):
+    def test_disabled_by_setting(self, settings, monkeypatch):
+        tools: list = []
+        monkeypatch.setattr("decisions.mcp._boost_tools", lambda: tools)
         settings.ENABLE_DECISION_MCP = False
         assert register() is False
+        assert tools == []
 
     def test_enabled_but_package_missing(self, settings, monkeypatch):
         settings.ENABLE_DECISION_MCP = True
-        monkeypatch.setattr("decisions.mcp._boost_installed", lambda: False)
+        monkeypatch.setattr("decisions.mcp._boost_tools", lambda: None)
         assert register() is False
 
-    def test_enabled_with_package(self, settings, monkeypatch):
+    def test_enabled_adds_the_tool_once(self, settings, monkeypatch):
+        tools: list = ["existing"]
+        monkeypatch.setattr("decisions.mcp._boost_tools", lambda: tools)
         settings.ENABLE_DECISION_MCP = True
-        monkeypatch.setattr("decisions.mcp._boost_installed", lambda: True)
         assert register() is True
+        assert register() is True
+        assert tools == ["existing", evaluate_decision]

@@ -1,16 +1,18 @@
-"""Optional MCP tool definitions for the decisions app.
+"""MCP tool for the decisions app.
 
-The tools wrap :meth:`DecisionService.decide` so an MCP client can ask the
-decision engine questions. MCP support is off unless ``ENABLE_DECISION_MCP``
-is true, and it needs the ``django-ai-boost`` extra.
+``evaluate_decision`` wraps :meth:`DecisionService.decide` so an MCP client
+can ask the decision engine questions. MCP support is off unless
+``ENABLE_DECISION_MCP`` is true, and it needs the ``django-ai-boost`` package
+from the ``dev`` extra.
 
-The handlers are plain functions with no MCP dependency, so they are
-importable and testable even when MCP support is not installed.
+django-ai-boost calls ``django.setup()`` before it registers its tool list,
+so :func:`register`, which runs from ``DecisionsConfig.ready()``, appends
+this tool to that list in time for the server to expose it.
 """
 
 from __future__ import annotations
 
-import importlib.util
+import importlib
 import logging
 from typing import Any
 
@@ -20,17 +22,17 @@ from decisions.services import DecisionService
 
 logger = logging.getLogger(__name__)
 
-
-def _boost_installed() -> bool:
-    """Return ``True`` when the ``django_ai_boost`` package is importable."""
-    try:
-        return importlib.util.find_spec("django_ai_boost") is not None
-    except (ImportError, ValueError):
-        return False
-
-
 #: Name of the MCP tool that evaluates a decision.
 EVALUATE_TOOL_NAME = "evaluate_decision"
+
+
+def _boost_tools() -> list[Any] | None:
+    """Return django-ai-boost's registered tool list, or ``None`` if absent."""
+    try:
+        server = importlib.import_module("django_ai_boost.server_fastmcp")
+    except ImportError:
+        return None
+    return server.TOOLS
 
 
 def evaluate_decision(
@@ -59,46 +61,22 @@ def evaluate_decision(
     }
 
 
-def get_tools() -> list[dict[str, Any]]:
-    """Return the MCP tool definitions for this app.
-
-    Returns:
-        A list of tool definitions, each with ``name``, ``description``,
-        ``input_schema``, and ``handler`` keys.
-    """
-    return [
-        {
-            "name": EVALUATE_TOOL_NAME,
-            "description": (
-                "Answer a set of questions using the System One decision engine."
-            ),
-            "input_schema": {
-                "type": "object",
-                "properties": {
-                    "state": {"type": "object"},
-                    "questions": {"type": "object"},
-                },
-                "required": ["state", "questions"],
-                "additionalProperties": False,
-            },
-            "handler": evaluate_decision,
-        }
-    ]
-
-
 def register() -> bool:
-    """Register the decision tools with the MCP server, when enabled.
+    """Add ``evaluate_decision`` to the django-ai-boost server, when enabled.
 
     Returns:
-        ``True`` when the tools were registered, otherwise ``False``.
+        ``True`` when the tool is registered, otherwise ``False``.
     """
     if not getattr(settings, "ENABLE_DECISION_MCP", False):
         return False
-    if not _boost_installed():
+    tools = _boost_tools()
+    if tools is None:
         logger.warning(
             "ENABLE_DECISION_MCP is true but django-ai-boost is not installed. "
             "Install it with `uv sync --extra dev`."
         )
         return False
-    logger.info("Decision MCP tools are available: %s", EVALUATE_TOOL_NAME)
+    if evaluate_decision not in tools:
+        tools.append(evaluate_decision)
+    logger.info("Decision MCP tool registered: %s", EVALUATE_TOOL_NAME)
     return True

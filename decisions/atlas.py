@@ -29,7 +29,7 @@ ATLAS = {
         },
         "providers": {
             "name": "Providers",
-            "what": "base ABC, fake, laya, jev, and the registry",
+            "what": "base ABC, fake, laya, clm, jev, and the registry",
         },
         "models": {"name": "Models", "what": "DecisionFixture examples"},
         "schemas": {

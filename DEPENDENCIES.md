@@ -10,6 +10,9 @@ without a matching entry here.
   provides pagination, and this module no longer exists. No package changed.
 - Added `atlas` to the Hatch wheel package list. It is an installed app, so a
   built wheel without it failed `django.setup()`. No package changed.
+- The Docker images (`Dockerfile`, `deploy/docker/Dockerfile.single`) now
+  install the existing `observability` extra, so `OTEL_ENABLED=true` works
+  without a rebuild. No new package; the extra was already locked.
 
 ## Policy
 
@@ -71,6 +74,7 @@ Rust toolchain. Add 3.14 back once pydantic-core ships cp314 wheels.
 | `pgvector` | `>=0.5.0` | Native `vector` column for `DecisionFixture.embedding`. Small, pure Python; the initial migration creates the Postgres extension. SQLite accepts the column type, so the test suite needs no special setup. |
 | `laya` | `>=0.3.11` | Open-source default System One engine. Includes PyTorch and Transformers; the first prediction downloads a checkpoint from Hugging Face. A standard `uv sync` must support the default provider. |
 | `torch` | `>=2.1` | Required by Laya. uv installs the official CPU wheel on Linux to keep Django images free of CUDA libraries; macOS retains its native PyPI wheel and MPS support. |
+| `whitenoise` | `>=6.9` | Serves `/static/` from Gunicorn in the `single` and PaaS image, which has no nginx. Without it the admin and `/api/docs` assets returned 404 there. The `prod` profile's nginx still serves static files first. |
 
 ## Known constraints
 

@@ -286,6 +286,11 @@ services:
       - .:/app
       - /app/.venv
     environment:
+      # The dev stack's trace collector (`just up-monitoring`).
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4317
+      # Tasks run the same Django code and may call the CLM decision provider.
+      - CLM_BASE_URL=${CLM_CONTAINER_URL:-http://clm-api:8700}
+      - CLM_API_KEY=${CLM_API_KEY:-}
       - DJANGO_SETTINGS_MODULE=${DJANGO_SETTINGS_MODULE:-api.settings}
       - DEBUG=${DEBUG:-1}
       - SECRET_KEY=${SECRET_KEY:?SECRET_KEY must be set}
@@ -336,6 +341,11 @@ services:
       - .:/app
       - /app/.venv
     environment:
+      # The dev stack's trace collector (`just up-monitoring`).
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4317
+      # Tasks run the same Django code and may call the CLM decision provider.
+      - CLM_BASE_URL=${CLM_CONTAINER_URL:-http://clm-api:8700}
+      - CLM_API_KEY=${CLM_API_KEY:-}
       - DJANGO_SETTINGS_MODULE=${DJANGO_SETTINGS_MODULE:-api.settings}
       - DEBUG=${DEBUG:-1}
       - SECRET_KEY=${SECRET_KEY:?SECRET_KEY must be set}
@@ -388,6 +398,11 @@ services:
       - .:/app
       - /app/.venv
     environment:
+      # The dev stack's trace collector (`just up-monitoring`).
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4317
+      # Tasks run the same Django code and may call the CLM decision provider.
+      - CLM_BASE_URL=${CLM_CONTAINER_URL:-http://clm-api:8700}
+      - CLM_API_KEY=${CLM_API_KEY:-}
       - DJANGO_SETTINGS_MODULE=${DJANGO_SETTINGS_MODULE:-api.settings}
       - DEBUG=${DEBUG:-1}
       - SECRET_KEY=${SECRET_KEY:?SECRET_KEY must be set}
@@ -438,6 +453,11 @@ services:
       - .:/app
       - /app/.venv
     environment:
+      # The dev stack's trace collector (`just up-monitoring`).
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4317
+      # Tasks run the same Django code and may call the CLM decision provider.
+      - CLM_BASE_URL=${CLM_CONTAINER_URL:-http://clm-api:8700}
+      - CLM_API_KEY=${CLM_API_KEY:-}
       - DJANGO_SETTINGS_MODULE=${DJANGO_SETTINGS_MODULE:-api.settings}
       - DEBUG=${DEBUG:-1}
       - SECRET_KEY=${SECRET_KEY:?SECRET_KEY must be set}
@@ -488,6 +508,11 @@ services:
       - .:/app
       - /app/.venv
     environment:
+      # The dev stack's trace collector (`just up-monitoring`).
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4317
+      # Tasks run the same Django code and may call the CLM decision provider.
+      - CLM_BASE_URL=${CLM_CONTAINER_URL:-http://clm-api:8700}
+      - CLM_API_KEY=${CLM_API_KEY:-}
       - DJANGO_SETTINGS_MODULE=${DJANGO_SETTINGS_MODULE:-api.settings}
       - DEBUG=${DEBUG:-1}
       - SECRET_KEY=${SECRET_KEY:?SECRET_KEY must be set}
@@ -538,6 +563,11 @@ services:
       - .:/app
       - /app/.venv
     environment:
+      # The dev stack's trace collector (`just up-monitoring`).
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4317
+      # Tasks run the same Django code and may call the CLM decision provider.
+      - CLM_BASE_URL=${CLM_CONTAINER_URL:-http://clm-api:8700}
+      - CLM_API_KEY=${CLM_API_KEY:-}
       - DJANGO_SETTINGS_MODULE=${DJANGO_SETTINGS_MODULE:-api.settings}
       - DEBUG=${DEBUG:-1}
       - SECRET_KEY=${SECRET_KEY:?SECRET_KEY must be set}
@@ -623,6 +653,13 @@ services:
       dockerfile: Dockerfile
       target: production
     command: celery -A api flower --port=5555 --broker=redis://valkey:6379/0
+    # The image healthcheck probes Django on 8000; Flower listens on 5555.
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z 127.0.0.1 5555"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
     ports:
       - "5555:5555"
     environment:
@@ -663,12 +700,13 @@ services:
     profiles:
       - mcp
     command: >
-      sh -c "uv run django-ai-boost --settings api.settings.dev --transport sse --port 8001"
+      sh -c "uv run django-ai-boost --settings api.settings.dev --transport sse --host 0.0.0.0 --port 8001"
     volumes:
       - .:/app
       - /app/.venv
     ports:
-      - "8001:8001"
+      # Loopback only: the MCP tools read the database and settings.
+      - "127.0.0.1:8001:8001"
     environment:
       - DJANGO_SETTINGS_MODULE=api.settings.dev
       - PYTHONPATH=/app
@@ -690,6 +728,8 @@ services:
       - CELERY_RESULT_BACKEND=redis://valkey:6379/0
       - SECRET_KEY=${SECRET_KEY:?SECRET_KEY must be set}
       - ENABLE_DECISION_MCP=true
+      # The dev stack's trace collector (`just up-monitoring`).
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4317
       # The MCP evaluate_decision tool calls the configured decision provider.
       - CLM_BASE_URL=${CLM_CONTAINER_URL:-http://clm-api:8700}
       - CLM_API_KEY=${CLM_API_KEY:-}
@@ -806,22 +846,24 @@ services:
       target: production
     profiles:
       - prod
+    # Keep every line at one indent: in a folded scalar, deeper lines keep
+    # their newlines, and `sh -c` then runs each gunicorn flag as a command.
     command: >
       sh -c "python manage.py migrate --noinput &&
-             python manage.py collectstatic --noinput &&
-             gunicorn api.wsgi:application
-               --bind 0.0.0.0:8000
-               --workers ${GUNICORN_WORKERS:-4}
-               --threads 2
-               --worker-class gthread
-               --worker-tmp-dir /dev/shm
-               --timeout 120
-               --keep-alive 5
-               --max-requests 1000
-               --max-requests-jitter 50
-               --access-logfile -
-               --error-logfile -
-               --capture-output"
+      python manage.py collectstatic --noinput &&
+      gunicorn api.wsgi:application
+      --bind 0.0.0.0:8000
+      --workers ${GUNICORN_WORKERS:-4}
+      --threads 2
+      --worker-class gthread
+      --worker-tmp-dir /dev/shm
+      --timeout 120
+      --keep-alive 5
+      --max-requests 1000
+      --max-requests-jitter 50
+      --access-logfile -
+      --error-logfile -
+      --capture-output"
     volumes:
       - static_volume:/app/staticfiles
       - media_volume:/app/media
@@ -865,12 +907,6 @@ services:
       - CENTRIFUGO_URL=${CENTRIFUGO_URL:-http://centrifugo-prod:8000}
       - CENTRIFUGO_API_KEY=${CENTRIFUGO_API_KEY}
       - CENTRIFUGO_TOKEN_SECRET=${CENTRIFUGO_TOKEN_SECRET}
-      - EMAIL_HOST=${EMAIL_HOST}
-      - EMAIL_PORT=${EMAIL_PORT}
-      - EMAIL_USE_TLS=${EMAIL_USE_TLS}
-      - EMAIL_HOST_USER=${EMAIL_HOST_USER}
-      - EMAIL_HOST_PASSWORD=${EMAIL_HOST_PASSWORD}
-      - DEFAULT_FROM_EMAIL=${DEFAULT_FROM_EMAIL}
       # Python production settings
       - PYTHONDONTWRITEBYTECODE=1
       - PYTHONUNBUFFERED=1
@@ -908,9 +944,23 @@ services:
         --concurrency=${CELERY_CONCURRENCY:-4}
         --max-tasks-per-child=1000
         -Q default,celery
+    # The image healthcheck probes Django on 8000, which a worker never serves.
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "celery -A api inspect ping -d celery@$$HOSTNAME --timeout 10",
+        ]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+      start_period: 30s
     volumes:
       - logs_volume:/app/logs
     environment:
+      # Tasks run the same Django code and may call the CLM decision provider.
+      - CLM_BASE_URL=${CLM_CONTAINER_URL:-http://clm-api:8700}
+      - CLM_API_KEY=${CLM_API_KEY:-}
       - DJANGO_SETTINGS_MODULE=api.settings.prod
       # ENVIRONMENT drives structured logging and the S3 storage branch in
       # api/settings/common.py. Without it the reused dev .env leaks
@@ -960,9 +1010,15 @@ services:
     profiles:
       - prod
     command: celery -A api beat -l info --scheduler django_celery_beat.schedulers:DatabaseScheduler
+    # Beat serves no port; the image healthcheck would probe Django on 8000.
+    healthcheck:
+      disable: true
     volumes:
       - logs_volume:/app/logs
     environment:
+      # Tasks run the same Django code and may call the CLM decision provider.
+      - CLM_BASE_URL=${CLM_CONTAINER_URL:-http://clm-api:8700}
+      - CLM_API_KEY=${CLM_API_KEY:-}
       - DJANGO_SETTINGS_MODULE=api.settings.prod
       # ENVIRONMENT drives structured logging and the S3 storage branch in
       # api/settings/common.py. Without it the reused dev .env leaks
@@ -1021,7 +1077,11 @@ services:
       - CENTRIFUGO_TOKEN_HMAC_SECRET_KEY=${CENTRIFUGO_TOKEN_SECRET:?CENTRIFUGO_TOKEN_SECRET must be set for realtime}
       - CENTRIFUGO_API_KEY=${CENTRIFUGO_API_KEY}
       - CENTRIFUGO_ADMIN=false
-      - CENTRIFUGO_REDIS_ADDRESS=redis://valkey-prod:6379/1
+      # Browser origins allowed to open a WebSocket, space separated. The
+      # config file lists only the dev origins, so without this Centrifugo
+      # rejects every production browser connection with 403.
+      - CENTRIFUGO_ALLOWED_ORIGINS=${CENTRIFUGO_ALLOWED_ORIGINS:-http://localhost}
+      - CENTRIFUGO_REDIS_ADDRESS=redis://:${REDIS_PASSWORD}@valkey-prod:6379/1
     depends_on:
       valkey-prod:
         condition: service_healthy
@@ -1183,11 +1243,13 @@ services:
       - clm_hf_cache:/root/.cache/huggingface
     expose:
       - "8090"
+    # The vLLM image ships `python3` only; a `python` probe never passes, and
+    # clm-api waits on this service being healthy.
     healthcheck:
       test:
         [
           "CMD",
-          "python",
+          "python3",
           "-c",
           "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8090/health', timeout=5)",
         ]
@@ -1225,7 +1287,7 @@ services:
       test:
         [
           "CMD",
-          "python",
+          "python3",
           "-c",
           "import json,urllib.request; assert json.load(urllib.request.urlopen('http://127.0.0.1:8700/health', timeout=5))['embedder']",
         ]

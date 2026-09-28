@@ -472,14 +472,14 @@ deploy_vps() {
 
     # Quick mode
     if [[ "${QUICK}" == true ]]; then
-        info "Quick deploy — pulling code and restarting..."
+        info "Quick deploy: pulling code, rebuilding images, and restarting..."
         ${ssh_cmd} << REMOTE
 set -euo pipefail
 cd ${app_dir}
 git pull --rebase origin ${BRANCH}
-${dc} up -d --remove-orphans
-${dc} exec -T django-prod python manage.py migrate --noinput || \
-    echo "WARNING: migration failed — run: ${dc} logs django-prod"
+# Production images copy the source at build time, so rebuild before up.
+${dc} up -d --build --remove-orphans
+${dc} exec -T django-prod python manage.py migrate --noinput
 echo "Quick deploy complete."
 REMOTE
         ok "Quick deploy finished."

@@ -100,9 +100,11 @@ COPY pyproject.toml uv.lock* README.md ./
 # Install production dependencies from the lock so the image matches uv.lock
 # instead of resolving fresh (a fresh resolve can pick a different Django).
 # Every task backend is installed so TASK_BACKEND can be switched without a
-# rebuild: celery is in the base dependencies, the rest are extras.
+# rebuild: celery is in the base dependencies, the rest are extras. The
+# observability extra lets OTEL_ENABLED=true export traces without a rebuild.
 RUN UV_PROJECT_ENVIRONMENT=/opt/venv uv sync --locked --no-dev \
     --extra huey --extra django-q --extra django-rq --extra dramatiq \
+    --extra observability \
     --no-install-project
 
 # Install the project itself. --no-deps keeps the locked set intact; the
@@ -143,6 +145,7 @@ COPY --from=builder /root/.local/bin/uv /usr/local/bin/uv
 COPY pyproject.toml uv.lock* README.md ./
 RUN UV_PROJECT_ENVIRONMENT=/opt/venv uv sync --locked --extra dev \
     --extra huey --extra django-q --extra django-rq --extra dramatiq \
+    --extra observability \
     --no-install-project
 RUN uv pip install --no-cache --no-deps -e .
 
@@ -275,6 +278,7 @@ COPY --from=builder /root/.local/bin/uv /usr/local/bin/uv
 COPY pyproject.toml uv.lock* README.md ./
 RUN UV_PROJECT_ENVIRONMENT=/opt/venv uv sync --locked --extra dev \
     --extra huey --extra django-q --extra django-rq --extra dramatiq \
+    --extra observability \
     --no-install-project
 RUN uv pip install --no-cache --no-deps -e .
 

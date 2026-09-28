@@ -327,12 +327,12 @@ just setup-env           # Create .env from template without starting services
 ### Docker Commands
 
 ```bash
-just dev                 # Start Django, data services, and the selected worker
+just dev                 # Build changed images; start Django, data services, and the selected worker
 just up-full             # Add monitoring, realtime, Mailhog, and MCP
-just up-realtime         # Add Centrifugo
-just up-monitoring       # Add Flower and Jaeger
-just up-mail             # Add Mailhog
-just up-mcp              # Add the MCP server
+just up-realtime         # Add Centrifugo (ws://localhost:8800)
+just up-monitoring       # Add Flower (:5555) and Jaeger (:16686); set OTEL_ENABLED=true for traces
+just up-mail             # Add Mailhog (:8025); point EMAIL_* at mailhog first (see .env.example)
+just up-mcp              # Add the MCP server (SSE on 127.0.0.1:8001/sse, includes evaluate_decision)
 just logs                # View logs
 just shell               # Django shell
 just migrate             # Run migrations
@@ -1457,22 +1457,24 @@ The boilerplate includes a comprehensive observability stack for production moni
 ### Quick Setup
 
 ```bash
-# Install observability dependencies
-uv sync --extra observability
+# 1. In .env, turn tracing on. The Docker images already include the
+#    `observability` extra; for host-side Django run `uv sync --extra observability`.
+OTEL_ENABLED=true
 
-# Start with Jaeger (tracing backend)
-docker compose --profile observability up -d
+# 2. Start the dev stack with Jaeger and Flower
+just up-monitoring
 
-# Access Jaeger UI at http://localhost:16686
-# Access Prometheus metrics at http://localhost:8000/api/metrics
+# Jaeger UI:  http://localhost:16686  (service: django-ninja-app)
+# Metrics:    http://localhost:8000/api/metrics (requires auth)
 ```
 
 ### Environment Variables
 
 ```bash
 # OpenTelemetry Configuration
+OTEL_ENABLED=true                     # Start tracing in CoreConfig.ready()
 OTEL_SERVICE_NAME=my-api              # Service name in traces
-OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4317  # OTLP endpoint
+OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4317  # Compose pins this for dev services
 
 # Logging
 USE_STRUCTURED_LOGGING=true           # Enable JSON logging (default in production)
@@ -1481,7 +1483,10 @@ SLOW_REQUEST_THRESHOLD_MS=1000        # Log slow requests above this threshold
 
 ### Tracing
 
-Traces are automatically collected for HTTP requests. Add custom spans:
+With `OTEL_ENABLED=true`, Django, requests, psycopg2, Redis, and Celery calls
+are traced automatically. If the OpenTelemetry packages are missing, startup
+fails with `ImproperlyConfigured` instead of running without traces. Add custom
+spans:
 
 ```python
 from core.observability import trace_span, trace_function

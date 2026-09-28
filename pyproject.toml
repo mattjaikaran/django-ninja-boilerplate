@@ -107,6 +107,7 @@ dependencies = [
     "laya>=0.3.11",
     # Linux CPU wheel avoids multi-gigabyte CUDA libraries in the Django image.
     "torch>=2.1",
+    "whitenoise>=6.9",
 ]
 
 [project.optional-dependencies]

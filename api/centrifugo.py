@@ -89,6 +89,17 @@ def generate_subscription_token(
     )
 
 
+def subscription_allowed(user_id: str, channel: str) -> bool:
+    """Return whether *user_id* may receive a subscription token for *channel*.
+
+    Deny by default: a token for any channel would let one user read another
+    user's private stream. The boilerplate allows only the user's own
+    ``notifications:<user id>`` channel. When you add a feature that uses the
+    ``chat`` or ``organization`` namespace, add its membership check here.
+    """
+    return channel == f"notifications:{user_id}"
+
+
 class CentrifugoClient:
     """HTTP client for Centrifugo server API.
 

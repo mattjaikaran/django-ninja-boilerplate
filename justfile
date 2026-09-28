@@ -113,13 +113,18 @@ up-realtime:
     set -euo pipefail
     {{ compose }} --profile dev --profile "$(just backend-profile)" --profile "$(just decision-profile)" --profile realtime up -d --build
 
-# Start the dev stack with Mailhog (catches outgoing email)
+# Start the dev stack with Mailhog. Point EMAIL_* at mailhog in .env first;
+# see the Email Settings block in .env.example.
 up-mail:
-    {{ compose }} --profile dev --profile mail up -d --build
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{ compose }} --profile dev --profile "$(just backend-profile)" --profile "$(just decision-profile)" --profile mail up -d --build
 
 # Start the dev stack with the MCP server (needs the `dev` extra)
 up-mcp:
-    {{ compose }} --profile dev --profile mcp up -d --build
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{ compose }} --profile dev --profile "$(just backend-profile)" --profile "$(just decision-profile)" --profile mcp up -d --build
 
 # Start every dev service
 up-full:
