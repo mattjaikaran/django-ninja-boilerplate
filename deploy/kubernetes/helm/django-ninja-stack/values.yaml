@@ -10,7 +10,7 @@ fullnameOverride: ""
 image:
   repository: your-registry/django-ninja-stack
   pullPolicy: IfNotPresent
-  tag: ""  # Defaults to chart appVersion
+  tag: "" # Defaults to chart appVersion
 
 imagePullSecrets: []
 
@@ -104,7 +104,9 @@ celeryWorker:
 
   # Celery-specific settings
   concurrency: 2
-  queues: "default"
+  # Every queue in api/celery.py task_queues. "default" alone left the routed
+  # cleanup (bulk) and email tasks unconsumed.
+  queues: "default,emails,bulk"
 
 # ===========================================
 # Celery Beat (optional)
@@ -170,7 +172,7 @@ postgresql:
 
   auth:
     username: django
-    password: ""  # Set via --set or secrets
+    password: "" # Set via --set or secrets
     database: django_db
 
   primary:

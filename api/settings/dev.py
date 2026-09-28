@@ -84,7 +84,9 @@ TEMPLATES[0]["OPTIONS"]["debug"] = True  # type: ignore[index]
 # =============================================================================
 # Development-only feature flags
 # =============================================================================
-# Decisions app (System One decision engine). ENABLE_DECISION_MCP stays under
-# .env control: the `mcp` Compose service sets it, and the worker images do
-# not install django-ai-boost, so forcing it on made every worker warn.
-ENABLE_DECISIONS = True
+# Decisions app (System One decision engine). Both flags follow .env, with
+# dev defaults. The `mcp` Compose service sets ENABLE_DECISION_MCP=true; the
+# worker images do not install django-ai-boost, so forcing it on made every
+# worker warn.
+ENABLE_DECISIONS = env.bool("ENABLE_DECISIONS", default=True)
+ENABLE_DECISION_MCP = env.bool("ENABLE_DECISION_MCP", default=False)

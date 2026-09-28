@@ -938,12 +938,14 @@ services:
       target: production
     profiles:
       - prod
+    # No -Q: the worker consumes every queue in app.conf.task_queues
+    # (default, emails, bulk), like the dev worker. `-Q default,celery` left
+    # the routed cleanup and email tasks queued forever.
     command: >
       celery -A api worker
         -l info
         --concurrency=${CELERY_CONCURRENCY:-4}
         --max-tasks-per-child=1000
-        -Q default,celery
     # The image healthcheck probes Django on 8000, which a worker never serves.
     healthcheck:
       test:

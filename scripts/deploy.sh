@@ -78,7 +78,7 @@ while [[ $# -gt 0 ]]; do
             echo ""
             echo "Options:"
             echo "  --provider, -p  Provider (railway|render|fly|aws|gcp|vps)"
-            echo "  --quick, -q     Quick deploy (VPS: skip rebuild, just restart)"
+            echo "  --quick, -q     Quick deploy (VPS: pull, incremental build, migrate, restart; no rollback marker or health check)"
             echo "  --dry-run, -n   Show what would happen without executing"
             echo "  --safe, -s      Run lint + tests before deploying"
             echo "  --yes, -y       Skip confirmation prompt"
@@ -444,22 +444,7 @@ deploy_vps() {
 
     step "Deploying to VPS: ${user}@${host:-\$DEPLOY_HOST}:${app_dir}"
 
-    if [[ "${DRY_RUN}" == true ]]; then
-        info "[dry-run] SSH to ${user}@${host}:${port}"
-        info "[dry-run] cd ${app_dir} && git pull --rebase origin ${BRANCH}"
-        info "[dry-run] docker compose -f ${compose_file} ${profile_flags} build && up -d"
-        info "[dry-run] python manage.py migrate --noinput"
-        return
-    fi
-
-    if [[ -z "${host}" ]]; then
-        fail "DEPLOY_HOST must be set for VPS deploys. Configure in .env.deploy"
-    fi
-
-    # Verify SSH connectivity
-    ${ssh_cmd} "echo 'SSH OK'" 2>/dev/null || fail "Cannot SSH into ${host}"
-
-    # Build profile flags
+    # Build profile flags first so the dry run prints the real command.
     local profile_flags=""
     if [[ -n "${profiles}" ]]; then
         IFS=',' read -ra PROFS <<< "${profiles}"
@@ -470,16 +455,39 @@ deploy_vps() {
 
     local dc="docker compose -f ${compose_file} ${profile_flags}"
 
-    # Quick mode
+    if [[ "${DRY_RUN}" == true ]]; then
+        local mode="full"
+        [[ "${QUICK}" == true ]] && mode="quick"
+        info "[dry-run] ${mode} deploy over SSH to ${user}@${host}:${port}"
+        info "[dry-run] cd ${app_dir} && git pull --rebase origin ${BRANCH}"
+        info "[dry-run] ${dc} build"
+        info "[dry-run] ${dc} up -d --wait db-prod valkey-prod"
+        info "[dry-run] ${dc} run --rm --no-deps django-prod python manage.py migrate --noinput"
+        info "[dry-run] ${dc} up -d --remove-orphans"
+        return
+    fi
+
+    if [[ -z "${host}" ]]; then
+        fail "DEPLOY_HOST must be set for VPS deploys. Configure in .env.deploy"
+    fi
+
+    # Verify SSH connectivity
+    ${ssh_cmd} "echo 'SSH OK'" 2>/dev/null || fail "Cannot SSH into ${host}"
+
+    # Quick mode: the same build, migrate, and restart steps as a full deploy,
+    # without the rollback marker and health check. Production images copy the
+    # source at build time, so a restart without a build would ship old code.
+    # Migrate with the new image before its containers replace the old ones.
     if [[ "${QUICK}" == true ]]; then
-        info "Quick deploy: pulling code, rebuilding images, and restarting..."
+        info "Quick deploy: pull, incremental build, migrate, restart..."
         ${ssh_cmd} << REMOTE
 set -euo pipefail
 cd ${app_dir}
 git pull --rebase origin ${BRANCH}
-# Production images copy the source at build time, so rebuild before up.
-${dc} up -d --build --remove-orphans
-${dc} exec -T django-prod python manage.py migrate --noinput
+${dc} build
+${dc} up -d --wait db-prod valkey-prod
+${dc} run --rm --no-deps django-prod python manage.py migrate --noinput
+${dc} up -d --remove-orphans
 echo "Quick deploy complete."
 REMOTE
         ok "Quick deploy finished."

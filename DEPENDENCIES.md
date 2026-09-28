@@ -13,6 +13,10 @@ without a matching entry here.
 - The Docker images (`Dockerfile`, `deploy/docker/Dockerfile.single`) now
   install the existing `observability` extra, so `OTEL_ENABLED=true` works
   without a rebuild. No new package; the extra was already locked.
+- `decisions/mcp.py` appends `evaluate_decision` to
+  `django_ai_boost.server_fastmcp.TOOLS`. django-ai-boost has no public
+  extension hook, so an upgrade that renames that list breaks the tool;
+  `decisions/tests/test_mcp.py` and a live `list_tools` call catch it.
 
 ## Policy
 

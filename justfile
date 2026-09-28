@@ -33,8 +33,9 @@ backend-profile:
     case "${name:-celery}" in
         celery) echo celery ;;
         huey) echo huey ;;
-        django_q | django-q) echo django-q ;;
-        django_rq | django-rq) echo django-rq ;;
+        # The loader (api/tasks/loader.py) accepts only the underscore names.
+        django_q) echo django-q ;;
+        django_rq) echo django-rq ;;
         dramatiq) echo dramatiq ;;
         *)
             echo "Unknown TASK_BACKEND '${name}' in .env" >&2

@@ -1465,7 +1465,7 @@ OTEL_ENABLED=true
 just up-monitoring
 
 # Jaeger UI:  http://localhost:16686  (service: django-ninja-app)
-# Metrics:    http://localhost:8000/api/metrics (requires auth)
+# Metrics:    http://localhost:8000/api/metrics (staff JWT only)
 ```
 
 ### Environment Variables
@@ -1504,7 +1504,9 @@ def send_notification(user_id, message):
 
 ### Metrics
 
-Prometheus metrics are exposed at `/api/metrics`:
+Prometheus-format metrics are exposed at `/api/metrics`. The endpoint requires
+a staff user's JWT, and access tokens expire after 60 minutes, so a Prometheus
+scraper cannot use it as shipped. Add a scrape credential before you rely on it.
 
 ```python
 from core.observability.metrics import (
