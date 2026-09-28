@@ -13,6 +13,7 @@ from decisions.providers.base import (
     aggregate_confidence,
     result_from_raw,
 )
+from decisions.providers.clm import ClmProvider
 from decisions.providers.fake import FakeProvider
 from decisions.providers.jev import JevProvider
 from decisions.providers.laya import LayaProvider
@@ -20,6 +21,7 @@ from decisions.providers.laya import LayaProvider
 #: Maps a provider name to its class. The key is the name used in settings
 #: (``SYSTEMONE_PROVIDER``) and in the ``provider`` request field.
 PROVIDER_REGISTRY: dict[str, type[DecisionProvider]] = {
+    ClmProvider.name: ClmProvider,
     FakeProvider.name: FakeProvider,
     LayaProvider.name: LayaProvider,
     JevProvider.name: JevProvider,
@@ -38,6 +40,7 @@ def available_providers() -> list[str]:
 __all__ = [
     "ANSWER_VALUE_KEYS",
     "PROVIDER_REGISTRY",
+    "ClmProvider",
     "DecisionProvider",
     "DecisionResult",
     "FakeProvider",

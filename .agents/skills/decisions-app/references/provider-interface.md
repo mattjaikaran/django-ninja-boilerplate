@@ -15,10 +15,10 @@ class DecisionProvider(ABC):
     def is_available(self) -> bool: ...
 ```
 
-- `is_available()` reports whether dependencies and configuration are present.
-  It must not raise.
-- `predict()` may raise `ImproperlyConfigured` (fail loud) but must never fall
-  back to another provider.
+- `is_available()` reports whether required configuration is present without
+  making a decision request. It does not guarantee a remote service is healthy.
+- `predict()` fails loud on missing dependencies or remote errors. It never
+  switches to another provider.
 
 ## The result
 
@@ -36,7 +36,8 @@ class DecisionResult:
 
 ## Normalising a vendor response
 
-Laya (and the Jev-compatible API) returns this shape:
+Laya returns mappings, while Jev returns typed SDK answer objects and CLM
+returns the same typed answers over HTTP:
 
 ```python
 {
@@ -51,23 +52,18 @@ Laya (and the Jev-compatible API) returns this shape:
 
 Call `result_from_raw(raw, self.name)` once and let the helpers do the rest:
 
-- `_split_answer` pulls the value from the first key in `ANSWER_VALUE_KEYS`
-  (`choice`, `score`, `noul`, `value`) and reads `confidence` beside it.
+- `_split_answer` reads `choice`, `score`, `noul`, or `value` from either
+  a mapping or a typed answer object. A `noul` probability without separate
+  confidence uses `max(p, 1-p)` for selected-side confidence.
 - `aggregate_confidence` reduces the per-answer values with `min`, because a
   decision is only as trustworthy as its weakest answer.
 
-Worked examples: `decisions/providers/laya.py`, `decisions/providers/jev.py`,
-and the deterministic `decisions/providers/fake.py`.
+Worked examples: `decisions/providers/laya.py`, `decisions/providers/clm.py`,
+`decisions/providers/jev.py`, and `decisions/providers/fake.py`.
 
 ## Testability
 
-Both real providers accept an injected engine or client in `__init__`:
-
-```python
-LayaProvider(router=stub_engine)
-JevProvider(client=stub_client, api_key="key")
-```
-
-Inject a stub and assert the mapping. Then separately assert the fail-loud path
-by monkeypatching the module's `_laya_installed` / `_sdk_installed` helper. That
-covers the whole provider without installing torch.
+Every provider accepts an injected engine or client in `__init__`. For CLM,
+inject an `httpx.Client` with `MockTransport`; do not call an external model
+from unit tests. Run a real Laya prediction separately after installing the
+base dependencies to verify that the default checkpoint loads.

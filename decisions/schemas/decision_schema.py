@@ -21,7 +21,7 @@ class QuestionSchema(CamelCaseSchema):
 
     Attributes:
         type: Question kind. ``choice`` picks a label, ``score`` returns a
-            number, ``noul`` returns a boolean.
+            number, ``noul`` returns a yes probability (or a fake boolean).
         instructions: Human-readable instruction for the question.
         criteria: Allowed labels for a ``choice`` question, or a mapping of
             label to description. ``score`` questions may use a list of
@@ -44,7 +44,7 @@ class DecisionRequestSchema(CamelCaseSchema):
 
     state: dict[str, Any]
     questions: dict[str, QuestionSchema]
-    provider: Literal["laya", "jev", "fake"] | None = None
+    provider: Literal["laya", "clm", "jev", "fake"] | None = None
 
 
 class DecisionResponseSchema(CamelCaseSchema):

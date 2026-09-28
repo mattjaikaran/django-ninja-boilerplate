@@ -37,6 +37,7 @@ One file: `docker-compose.yml`. There is no separate prod or single file.
 | `mail` | mailhog | Development email capture |
 | `mcp` | db, valkey, mcp | Development MCP service |
 | `observability` | jaeger | Traces only |
+| `decisions-clm` | clm-encoder, clm-api | Optional NVIDIA GPU Qwen3-8B + CLM decision service |
 
 Always pass a profile. Every service belongs to at least one, so a bare
 `docker compose up` starts nothing.
@@ -46,9 +47,10 @@ just dev
 docker compose --profile prod up -d
 ```
 
-`just dev` reads `TASK_BACKEND` from `.env` and activates exactly one task
-profile. Celery is the default. Mailhog and MCP are opt-in through `just up-mail`
-and `just up-mcp`.
+`just dev` reads `TASK_BACKEND` and `SYSTEMONE_PROVIDER` from `.env`. It starts
+one task backend and adds `decisions-clm` only when CLM is selected. Celery and
+Laya are the defaults. Start CLM only on a Linux NVIDIA host; Laya needs no GPU.
+Mailhog and MCP stay opt-in through `just up-mail` and `just up-mcp`.
 
 ## Why the `-prod` suffix
 

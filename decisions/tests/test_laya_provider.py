@@ -1,9 +1,7 @@
 """Tests for the Laya provider.
 
-The ``laya`` package is an optional extra and is not installed in the test
-environment. These tests cover the fail-loud behaviour, the package loading
-path, and the mapping from Laya's real response shape to a
-:class:`DecisionResult`.
+Tests simulate a missing dependency and check package loading without
+downloading a model or making a network request.
 """
 
 import sys
@@ -66,7 +64,7 @@ class TestLayaFailLoud:
         with pytest.raises(ImproperlyConfigured) as exc_info:
             LayaProvider().predict({}, {})
         assert INSTALL_HINT in str(exc_info.value)
-        assert "uv sync --extra decisions-laya" in str(exc_info.value)
+        assert "uv sync --locked" in str(exc_info.value)
 
     def test_error_is_not_swallowed_into_a_fallback(self, monkeypatch):
         monkeypatch.setattr("decisions.providers.laya._laya_installed", lambda: False)

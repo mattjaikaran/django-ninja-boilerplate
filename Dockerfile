@@ -186,11 +186,11 @@ CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
 FROM base AS production
 
 # Production-specific environment
-# PYTHONOPTIMIZE=2: Remove docstrings and assert statements
+# Keep docstrings: Transformers builds model docs at import time.
 # The base stage defaults DJANGO_SETTINGS_MODULE to the bare "api.settings",
 # which the settings selector resolves to dev. Pin production explicitly so the
 # image is correct even without compose-supplied environment.
-ENV PYTHONOPTIMIZE=2 \
+ENV PYTHONOPTIMIZE=1 \
     DJANGO_SETTINGS_MODULE=api.settings.prod \
     ENVIRONMENT=production
 

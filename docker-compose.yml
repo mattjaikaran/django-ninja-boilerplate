@@ -22,6 +22,7 @@
 #   observability  Jaeger traces only
 #   mail       Mailhog email capture
 #   mcp        Development MCP server
+#   decisions-clm  Optional GPU-backed Qwen3-8B encoder and CLM API
 #
 # Production services carry a -prod suffix because Docker Compose allows only
 # one definition per service name, and the dev and production variants differ
@@ -178,6 +179,8 @@ services:
       # so use the redis scheme against the Valkey server (wire-compatible)
       - CELERY_BROKER_URL=redis://valkey:6379/0
       - TASK_BACKEND=${TASK_BACKEND:-celery}
+      # The host uses localhost; containers use the CLM service on the shared network.
+      - CLM_BASE_URL=${CLM_CONTAINER_URL:-http://clm-api:8700}
       - CELERY_RESULT_BACKEND=redis://valkey:6379/0
       - FLOWER_URL=${FLOWER_URL:-}
       - UV_PROJECT_ENVIRONMENT=/opt/venv
@@ -846,6 +849,7 @@ services:
       # Bundled nginx listens on HTTP port 80 and sets X-Forwarded-Proto=http.
       # Enable TLS only when Django receives the original scheme from a trusted proxy.
       - USE_TLS=${USE_TLS:-false}
+      - CLM_BASE_URL=${CLM_CONTAINER_URL:-http://clm-api:8700}
       # Centrifugo settings
       - CENTRIFUGO_URL=${CENTRIFUGO_URL:-http://centrifugo-prod:8000}
       - CENTRIFUGO_API_KEY=${CENTRIFUGO_API_KEY}
@@ -859,7 +863,7 @@ services:
       # Python production settings
       - PYTHONDONTWRITEBYTECODE=1
       - PYTHONUNBUFFERED=1
-      - PYTHONOPTIMIZE=2
+      - PYTHONOPTIMIZE=1
     depends_on:
       db-prod:
         condition: service_healthy
@@ -872,7 +876,7 @@ services:
       resources:
         limits:
           cpus: "4.0"
-          memory: 2G
+          memory: ${DJANGO_MEMORY_LIMIT:-2G}
         reservations:
           cpus: "1.0"
           memory: 512M
@@ -1115,6 +1119,7 @@ services:
       # JSON logging: .env carries the development value, so pin it here.
       - USE_STRUCTURED_LOGGING=true
       - USE_TLS=${USE_TLS:-false}
+      - CLM_BASE_URL=${CLM_CONTAINER_URL:-http://clm-api:8700}
       - DEBUG=0
       - SECRET_KEY=${SECRET_KEY}
       - NINJA_JWT_SIGNING_KEY=${NINJA_JWT_SIGNING_KEY:?NINJA_JWT_SIGNING_KEY must be set and distinct from SECRET_KEY}
@@ -1141,6 +1146,84 @@ services:
       - app-network
     restart: unless-stopped
 
+  # Optional GPU-backed open-source System One engine. Start this profile only
+  # on a Linux host with the NVIDIA Container Toolkit and enough GPU memory
+  # for Qwen3-8B. vLLM downloads its weights into the persistent cache.
+  clm-encoder:
+    image: vllm/vllm-openai:v0.11.2
+    platform: linux/amd64
+    profiles:
+      - decisions-clm
+    command:
+      - Qwen/Qwen3-8B
+      - --served-model-name
+      - qwen3-8b
+      - --runner
+      - pooling
+      - --max-model-len
+      - "2048"
+      - --port
+      - "8090"
+    environment:
+      - HF_HOME=/root/.cache/huggingface
+      - HF_TOKEN=${HF_TOKEN:-}
+    volumes:
+      - clm_hf_cache:/root/.cache/huggingface
+    expose:
+      - "8090"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8090/health', timeout=5)",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 20
+      start_period: 10m
+    networks:
+      - app-network
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+  clm-api:
+    build:
+      context: .
+      dockerfile: deploy/docker/Dockerfile.clm
+    platform: linux/amd64
+    profiles:
+      - decisions-clm
+    environment:
+      - CLM_API_KEY=${CLM_API_KEY:-}
+    volumes:
+      - clm_head_cache:/root/.cache/clm
+    ports:
+      - "127.0.0.1:${CLM_PORT:-8700}:8700"
+    depends_on:
+      clm-encoder:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import json,urllib.request; assert json.load(urllib.request.urlopen('http://127.0.0.1:8700/health', timeout=5))['embedder']",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 5m
+    networks:
+      - app-network
+
 networks:
   app-network:
     driver: bridge
@@ -1159,4 +1242,8 @@ volumes:
   logs_volume:
     driver: local
   redis_data:
+    driver: local
+  clm_hf_cache:
+    driver: local
+  clm_head_cache:
     driver: local

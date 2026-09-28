@@ -2,9 +2,9 @@
 name: decisions-app
 description: >
   Use when working with the decisions app: the System One decision engine, its
-  providers (laya, jev, fake), DecisionService, DecisionFixture, or the
+  providers (laya, clm, jev, fake), DecisionService, DecisionFixture, or the
   POST /api/decisions/evaluate endpoint. Use when the user mentions "decision",
-  "decisions", "laya", "jev", "typesafe", "provider", "System One",
+  "decisions", "laya", "clm", "jev", "typesafe", "provider", "System One",
   "DecisionFixture", or "evaluate".
 ---
 
@@ -24,13 +24,13 @@ engine. It answers a set of typed questions from a piece of state.
 
 | Provider | Backing | Dependency |
 |---|---|---|
-| `laya` | Laya, in-process (default) | extra `decisions-laya` (pulls torch + transformers) |
+| `laya` | Open-source, in-process (default) | Base install; downloads its checkpoint on first prediction |
+| `clm` | Open-source CLM + Qwen3-8B | `decisions-clm` Compose profile on an NVIDIA GPU host, or remote `CLM_BASE_URL` |
 | `jev` | Hosted TypeSafe API | extra `decisions-jev` + `TYPESAFE_API_KEY` |
 | `fake` | Deterministic | none |
 
-Providers never fall back to one another. When a provider cannot run it raises
-`ImproperlyConfigured` with the exact install command. That is deliberate: a
-silent fallback would hide a broken model load.
+Providers never silently fall back. A missing dependency or configuration
+fails with a setup hint. A failed CLM HTTP request raises an error.
 
 ## Question types
 
@@ -45,6 +45,7 @@ rejects other spellings. Do not rename it.
 
 ```bash
 curl -s http://localhost:8000/api/decisions/evaluate \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
   -H 'Content-Type: application/json' \
   -d '{"state": {"ticket_id": "T-1"},
        "questions": {"refund": {"type": "choice",
@@ -69,6 +70,8 @@ curl -s http://localhost:8000/api/decisions/evaluate \
 
 - `confidence` is the **lowest** per-answer confidence. Laya reports confidence
   per answer and routing metadata; `result_from_raw` normalises both.
+  CLM and Jev `noul` answers carry a yes probability. When no separate
+  confidence exists, use `max(p, 1-p)` for selected-side confidence.
 - `DECISION_ESCALATION_THRESHOLD` decides when a result is flagged. An empty
   question set is never escalated.
 

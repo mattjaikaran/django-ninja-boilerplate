@@ -105,7 +105,11 @@ def _split_answer(entry: Any) -> tuple[Any, float]:
                     confidence = max(float(value), 1.0 - float(value))
                 return value, float(confidence) if confidence is not None else 0.0
         return entry, 0.0
-    confidence = float(entry.get("confidence", 0.0) or 0.0)
+    confidence = entry.get("confidence")
+    if confidence is None and "noul" in entry:
+        probability = float(entry["noul"])
+        confidence = max(probability, 1.0 - probability)
+    confidence = float(confidence) if confidence is not None else 0.0
     for key in ANSWER_VALUE_KEYS:
         if key in entry:
             return entry[key], confidence

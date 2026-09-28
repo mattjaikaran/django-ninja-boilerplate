@@ -2,9 +2,11 @@
 
 import json
 
+import httpx
 import pytest
 
 from core.tests.factories import UserFactory
+from decisions.providers.clm import ClmProvider
 from decisions.services import DecisionService
 
 
@@ -105,4 +107,37 @@ class TestEvaluateEndpoint:
             },
         )
         assert response.status_code == 500
-        assert "uv sync --extra decisions-laya" in response.json()["message"]
+        assert "uv sync --locked" in response.json()["message"]
+
+    def test_configured_clm_provider_can_be_overridden(
+        self, authenticated_client, settings
+    ):
+        settings.SYSTEMONE_PROVIDER = "clm"
+        client = httpx.Client(
+            transport=httpx.MockTransport(
+                lambda _request: httpx.Response(
+                    200,
+                    json={
+                        "model": "clm-latest",
+                        "answers": {"risk": {"type": "noul", "noul": 0.02}},
+                    },
+                )
+            )
+        )
+        DecisionService._providers["clm"] = ClmProvider(
+            client=client, base_url="http://clm-api:8700"
+        )
+        payload = {
+            "state": {"ticket": "T-1"},
+            "questions": {"risk": {"type": "noul", "instructions": "Is there risk?"}},
+        }
+        response = _post(authenticated_client, payload)
+        assert response.status_code == 200
+        assert response.json()["provider"] == "clm"
+        assert response.json()["answers"] == {"risk": 0.02}
+        assert response.json()["answerConfidence"] == {"risk": 0.98}
+        assert response.json()["escalationRecommended"] is False
+
+        response = _post(authenticated_client, {**payload, "provider": "fake"})
+        assert response.status_code == 200
+        assert response.json()["provider"] == "fake"

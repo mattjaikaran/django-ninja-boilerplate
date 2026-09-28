@@ -358,6 +358,7 @@ service belongs to at least one, so a bare `docker compose up` starts nothing.
 | `monitoring` | valkey, flower, jaeger |
 | `huey`, `django-q`, `django-rq`, `dramatiq` | db, valkey, and one worker per backend |
 | `observability` | jaeger |
+| `decisions-clm` | clm-encoder (GPU), clm-api (loopback port 8700) |
 
 Production services carry a `-prod` suffix because Docker Compose allows only
 one definition per service name, and the dev and production variants differ in
@@ -581,6 +582,7 @@ gated by `ENABLE_DECISIONS` (true in dev, off in production by default).
 
 ```bash
 curl -s http://localhost:8000/api/decisions/evaluate \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
   -H 'Content-Type: application/json' \
   -d '{"state": {"ticket_id": "T-1"},
        "questions": {"refund": {"type": "choice",
@@ -589,15 +591,21 @@ curl -s http://localhost:8000/api/decisions/evaluate \
        "provider": "fake"}'
 ```
 
-| Provider | Backing | Install |
+| Provider | Backing | Setup |
 |---|---|---|
-| `laya` | Laya, in-process (default) | `uv sync --extra decisions-laya` |
+| `laya` | Open-source local model (default) | `uv sync`; downloads a checkpoint on first decision |
+| `clm` | Open-source CLM with Qwen3-8B | NVIDIA host: set `SYSTEMONE_PROVIDER=clm`, then run `just dev` |
 | `jev` | Hosted TypeSafe | `uv sync --extra decisions-jev` plus `TYPESAFE_API_KEY` |
-| `fake` | Deterministic | none |
+| `fake` | Deterministic tests | none |
 
-Providers fail loud. If Laya is not installed the endpoint returns 500 with the
-exact install command; it never silently falls back to Jev. Laya pulls `torch`
-and `transformers`, so it is opt-in and never installed by default.
+Set `SYSTEMONE_PROVIDER=laya|clm|jev` before starting Django, or use the
+authenticated endpoint's `provider` field for a single request. The configured
+provider never silently falls back. CLM needs a Linux NVIDIA host with the
+NVIDIA Container Toolkit; its Compose profile downloads Qwen3-8B and the CLM
+projection head into persistent volumes. Set `CLM_CONTAINER_URL` for an
+external CLM service, or use `CLM_BASE_URL` when Django runs on the host.
+`CLM_API_KEY` optionally protects the CLM API. The Compose profile binds its
+host port to loopback only. See `decisions/README.md` for setup and limits.
 
 Question types are `choice`, `score`, and `noul`. `noul` is Laya's own name for
 a yes/no question, not a typo for `null`.

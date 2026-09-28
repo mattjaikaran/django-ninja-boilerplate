@@ -3,10 +3,9 @@
 Laya is the default provider. It runs in-process: the router is created once
 and reused across requests, and it keeps checkpoints resident.
 
-Laya ships with heavy dependencies (``torch``, ``transformers``), so it is an
-optional extra. When the package is missing this provider **fails loud** with
-an :class:`~django.core.exceptions.ImproperlyConfigured` error that explains
-how to install it. It never silently falls back to another provider.
+Laya is installed with the application so the default provider can run after
+a standard dependency sync. The model checkpoint downloads on first use.
+If the package is unavailable, fail loud instead of switching providers.
 
 Laya's engine class is imported as ``LayaEngine`` so the convention checker's
 third-party-router rule does not mistake it for a function-based view.
@@ -24,11 +23,10 @@ from decisions.providers.base import DecisionProvider, DecisionResult, result_fr
 
 logger = logging.getLogger(__name__)
 
-#: Message shown when the optional Laya extra is not installed.
+#: Message shown when the required open-source default is unavailable.
 INSTALL_HINT = (
-    "The 'laya' package is not installed, so the Laya provider cannot run. "
-    "Install the decisions-laya extra with `uv sync --extra decisions-laya`, "
-    "or set SYSTEMONE_PROVIDER to a provider that is available."
+    "The 'laya' package is missing from this installation. Restore the "
+    "locked application dependencies with `uv sync --locked`."
 )
 
 
@@ -73,6 +71,8 @@ class LayaProvider(DecisionProvider):
         """
         if self._router is not None:
             return self._router
+        if not _laya_installed():
+            raise ImproperlyConfigured(INSTALL_HINT)
         try:
             from laya import Router as LayaEngine  # type: ignore[import-not-found]
         except ImportError as exc:

@@ -608,8 +608,10 @@ ATLAS_REAL_SAMPLES = env.bool("ATLAS_REAL_SAMPLES", default=True)
 ATLAS_METADATA: dict = {}
 
 # ── Decisions app (System One decision engine) ─────────────────────────────
-# Provider: laya (default, in-process), jev (hosted TypeSafe), fake (tests).
+# Provider: laya (open-source default), clm (open-source GPU), jev (hosted), fake (tests).
 SYSTEMONE_PROVIDER = env("SYSTEMONE_PROVIDER", default="laya")
+CLM_BASE_URL = env("CLM_BASE_URL", default="http://127.0.0.1:8700")
+CLM_API_KEY = env("CLM_API_KEY", default="")
 TYPESAFE_API_KEY = env("TYPESAFE_API_KEY", default="")
 ENABLE_DECISIONS = env.bool("ENABLE_DECISIONS", default=False)
 ENABLE_DECISION_MCP = env.bool("ENABLE_DECISION_MCP", default=False)

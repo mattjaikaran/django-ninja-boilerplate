@@ -43,11 +43,26 @@ backend-profile:
             ;;
     esac
 
+# Start CLM only when it is the configured provider. Reuse the already active
+# dev profile for providers that need no extra service.
+decision-profile:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    name=$(grep -E '^SYSTEMONE_PROVIDER=' .env 2>/dev/null | tail -1 | cut -d= -f2 || true)
+    case "${name:-laya}" in
+        clm) echo decisions-clm ;;
+        laya | jev | fake) echo dev ;;
+        *)
+            echo "Unknown SYSTEMONE_PROVIDER '${name}' in .env" >&2
+            exit 1
+            ;;
+    esac
+
 # Start the dev stack: db, valkey, django and the configured task worker
 dev:
     #!/usr/bin/env bash
     set -euo pipefail
-    {{ compose }} --profile dev --profile "$(just backend-profile)" up -d
+    {{ compose }} --profile dev --profile "$(just backend-profile)" --profile "$(just decision-profile)" up -d
 
 # Follow logs for the whole dev stack
 dev-logs:
@@ -57,22 +72,22 @@ dev-logs:
 down:
     #!/usr/bin/env bash
     set -euo pipefail
-    {{ compose }} --profile dev --profile "$(just backend-profile)" down
+    {{ compose }} --profile dev --profile "$(just backend-profile)" --profile "$(just decision-profile)" down
 
 # Stop the dev stack and remove its volumes
 down-volumes:
     #!/usr/bin/env bash
     set -euo pipefail
-    {{ compose }} --profile dev --profile "$(just backend-profile)" down -v
+    {{ compose }} --profile dev --profile "$(just backend-profile)" --profile "$(just decision-profile)" down -v
 
 # Restart the dev stack from scratch: down, up, migrate
 reset: down
     #!/usr/bin/env bash
     set -euo pipefail
-    {{ compose }} --profile dev --profile "$(just backend-profile)" up -d
+    {{ compose }} --profile dev --profile "$(just backend-profile)" --profile "$(just decision-profile)" up -d
     just migrate
 
-# Build every image, including the profiled services
+# Build the application images. Build CLM separately only on an NVIDIA host.
 build:
     {{ compose }} --profile dev --profile prod --profile single build
 
@@ -84,19 +99,19 @@ up:
 up-build:
     #!/usr/bin/env bash
     set -euo pipefail
-    {{ compose }} --profile dev --profile "$(just backend-profile)" up -d --build
+    {{ compose }} --profile dev --profile "$(just backend-profile)" --profile "$(just decision-profile)" up -d --build
 
 # Start the dev stack with monitoring (Flower, Jaeger)
 up-monitoring:
     #!/usr/bin/env bash
     set -euo pipefail
-    {{ compose }} --profile dev --profile "$(just backend-profile)" --profile monitoring up -d
+    {{ compose }} --profile dev --profile "$(just backend-profile)" --profile "$(just decision-profile)" --profile monitoring up -d
 
 # Start the dev stack with Centrifugo
 up-realtime:
     #!/usr/bin/env bash
     set -euo pipefail
-    {{ compose }} --profile dev --profile "$(just backend-profile)" --profile realtime up -d
+    {{ compose }} --profile dev --profile "$(just backend-profile)" --profile "$(just decision-profile)" --profile realtime up -d
 
 # Start the dev stack with Mailhog (catches outgoing email)
 up-mail:
@@ -110,19 +125,19 @@ up-mcp:
 up-full:
     #!/usr/bin/env bash
     set -euo pipefail
-    {{ compose }} --profile dev --profile "$(just backend-profile)" --profile monitoring --profile realtime --profile mail --profile mcp up -d
+    {{ compose }} --profile dev --profile "$(just backend-profile)" --profile "$(just decision-profile)" --profile monitoring --profile realtime --profile mail --profile mcp up -d
 
 # Stop every dev service
 down-full:
     #!/usr/bin/env bash
     set -euo pipefail
-    {{ compose }} --profile dev --profile "$(just backend-profile)" --profile monitoring --profile realtime --profile mail --profile mcp down
+    {{ compose }} --profile dev --profile "$(just backend-profile)" --profile "$(just decision-profile)" --profile monitoring --profile realtime --profile mail --profile mcp down
 
 # Stop every dev service and remove volumes
 down-volumes-full:
     #!/usr/bin/env bash
     set -euo pipefail
-    {{ compose }} --profile dev --profile "$(just backend-profile)" --profile monitoring --profile realtime --profile mail --profile mcp down -v
+    {{ compose }} --profile dev --profile "$(just backend-profile)" --profile "$(just decision-profile)" --profile monitoring --profile realtime --profile mail --profile mcp down -v
 
 # Follow logs for the dev stack
 logs:
@@ -358,7 +373,7 @@ setup-services:
     ./scripts/generate_realtime_secret.sh
     ./scripts/doctor.sh
     # --wait keeps `just migrate` from racing the container's own migrate.
-    {{ compose }} --profile dev --profile "$(just backend-profile)" up -d --build --wait
+    {{ compose }} --profile dev --profile "$(just backend-profile)" --profile "$(just decision-profile)" up -d --build --wait
     just migrate
     just create-superuser
     just wait-for-api

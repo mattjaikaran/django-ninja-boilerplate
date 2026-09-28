@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any, ClassVar
 
 from django.conf import settings
+from pydantic import BaseModel
 
 from api.exceptions import ValidationError
 from decisions.models import DecisionFixture
@@ -104,7 +105,15 @@ class DecisionService:
             ValidationError: If the provider name is unknown.
             ImproperlyConfigured: If the selected provider is unavailable.
         """
-        result = self.get_provider(provider).predict(state, questions)
+        # The HTTP layer validates QuestionSchema objects; provider wire APIs
+        # need plain mappings. Keep direct service callers' dicts unchanged.
+        wire_questions = {
+            key: question.model_dump(exclude_none=True)
+            if isinstance(question, BaseModel)
+            else question
+            for key, question in questions.items()
+        }
+        result = self.get_provider(provider).predict(state, wire_questions)
         return self._apply_escalation_policy(result)
 
     def _apply_escalation_policy(self, result: DecisionResult) -> DecisionResult:

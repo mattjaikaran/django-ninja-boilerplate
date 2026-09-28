@@ -33,6 +33,7 @@ Each worker uses the production image target and depends on healthy `django`,
 | `mail` | `mailhog` | 1025, 8025 | Catches outgoing email |
 | `realtime` | `centrifugo` | 8800 | Centrifugo development server |
 | `monitoring` | `flower`, `jaeger` | 5555, 16686 | Worker dashboard and traces |
+| `decisions-clm` | `clm-encoder`, `clm-api` | 8700 on loopback | NVIDIA GPU Qwen3-8B encoder and CLM head; persistent model caches |
 
 ## prod
 
@@ -56,7 +57,7 @@ Each worker uses the production image target and depends on healthy `django`,
 ## Volumes
 
 `postgres_data`, `valkey_data`, `static_volume`, `media_volume`, `logs_volume`,
-and `redis_data` use the local driver.
+`redis_data`, `clm_hf_cache`, and `clm_head_cache` use the local driver.
 
 The prod, single, and dev stacks share `postgres_data`. Remove the volume when
 you need an isolated database.
