@@ -12,6 +12,7 @@ import logging
 
 from django.contrib.auth import get_user_model
 from ninja_extra import api_controller, http_post
+from ninja_jwt.authentication import JWTAuth
 from ninja_jwt.tokens import RefreshToken
 
 from api.decorators import log_api_call
@@ -247,6 +248,7 @@ class OTPController:
     @http_post(
         "/2fa/request",
         response={200: OTPResponseSchema, 400: dict, 401: dict, 429: dict},
+        auth=JWTAuth(),
     )
     @log_api_call()
     def request_two_factor(self, request, payload: TwoFactorSetupSchema):
@@ -255,9 +257,6 @@ class OTPController:
         Sends a 2FA code to the authenticated user.
         Requires authentication.
         """
-        if not request.user or not request.user.is_authenticated:
-            return 401, {"error": "Authentication required", "success": False}
-
         success, message, expires_in = otp_service.request_two_factor(
             user=request.user,
             delivery_method=payload.delivery_method,
@@ -276,7 +275,11 @@ class OTPController:
             expires_in_seconds=expires_in,
         )
 
-    @http_post("/2fa/verify", response={200: MessageResponse, 400: dict, 401: dict})
+    @http_post(
+        "/2fa/verify",
+        response={200: MessageResponse, 400: dict, 401: dict},
+        auth=JWTAuth(),
+    )
     @log_api_call(include_payload=True)
     def verify_two_factor(self, request, payload: TwoFactorVerifySchema):
         """Verify a two-factor authentication code.
@@ -284,9 +287,6 @@ class OTPController:
         Validates the 2FA code for the authenticated user.
         Requires authentication.
         """
-        if not request.user or not request.user.is_authenticated:
-            return 401, {"error": "Authentication required", "success": False}
-
         success, message = otp_service.verify_two_factor(
             user=request.user,
             code=payload.code,

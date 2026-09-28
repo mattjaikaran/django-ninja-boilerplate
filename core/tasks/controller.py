@@ -189,14 +189,11 @@ class TaskSchedulerController:
         tasks = PeriodicTaskManager.list_periodic_tasks(enabled_only=enabled_only)
         return 200, tasks
 
-    @http_get("/{task_id}", response={200: PeriodicTaskSchema, 404: dict})
+    @http_get("/stats", response={200: SchedulerStatsSchema})
     @log_api_call()
-    def get_periodic_task(self, task_id: int):
-        """Get a specific periodic task by ID."""
-        task = PeriodicTaskManager.get_periodic_task(task_id)
-        if not task:
-            return 404, {"error": "Periodic task not found"}
-        return 200, task
+    def get_scheduler_stats(self):
+        """Get scheduler statistics."""
+        return 200, PeriodicTaskManager.get_scheduler_stats()
 
     @http_post("/interval", response={201: PeriodicTaskSchema, 400: dict})
     @log_api_call(include_payload=True)
@@ -252,6 +249,15 @@ class TaskSchedulerController:
             return 400, {"error": "Failed to create periodic task"}
 
         return 201, task
+
+    @http_get("/{task_id}", response={200: PeriodicTaskSchema, 404: dict})
+    @log_api_call()
+    def get_periodic_task(self, task_id: int):
+        """Get a specific periodic task by ID."""
+        task = PeriodicTaskManager.get_periodic_task(task_id)
+        if not task:
+            return 404, {"error": "Periodic task not found"}
+        return 200, task
 
     @http_put("/{task_id}", response={200: PeriodicTaskSchema, 404: dict})
     @log_api_call(include_payload=True)
@@ -312,12 +318,6 @@ class TaskSchedulerController:
             "task_id": new_task_id,
         }
 
-    @http_get("/stats", response={200: SchedulerStatsSchema})
-    @log_api_call()
-    def get_scheduler_stats(self):
-        """Get scheduler statistics."""
-        return 200, PeriodicTaskManager.get_scheduler_stats()
-
 
 @api_controller(
     "/tasks/dlq",
@@ -376,6 +376,56 @@ class DeadLetterQueueController:
             "total": queryset.count(),
         }
 
+    @http_get("/stats", response={200: DLQStatsSchema})
+    @log_api_call()
+    def get_dlq_stats(self):
+        """Get DLQ statistics."""
+        return 200, DeadLetterQueue.get_stats()
+
+    @http_post("/retry-all", response={200: DLQBulkRetryResponseSchema})
+    @log_api_call()
+    def retry_all_pending(self, data: DLQBulkRetrySchema):
+        """Retry all pending DLQ entries that can be retried."""
+        results = DeadLetterQueue.retry_all_pending(
+            task_name=data.task_name,
+            priority=data.priority,
+            limit=data.limit,
+        )
+        return 200, results
+
+    @http_post("/resolve-bulk", response={200: dict})
+    @log_api_call()
+    def bulk_resolve_entries(self, data: DLQBulkResolveSchema):
+        """Resolve multiple DLQ entries."""
+        results = DeadLetterQueue.bulk_resolve(
+            entry_ids=data.entry_ids,
+            notes=data.notes,
+        )
+        return 200, results
+
+    @http_post("/cleanup", response={200: CleanupResponseSchema})
+    @log_api_call()
+    def cleanup_dlq(self, days: int = 30):
+        """Clean up old resolved DLQ entries.
+
+        Args:
+            days: Delete resolved entries older than this many days
+        """
+        results = DeadLetterQueue.cleanup(days=days)
+
+        if "error" in results:
+            return 200, {
+                "success": False,
+                "deleted": 0,
+                "message": results["error"],
+            }
+
+        return 200, {
+            "success": True,
+            "deleted": results["deleted"],
+            "message": f"Deleted {results['deleted']} resolved DLQ entries older than {days} days",
+        }
+
     @http_get("/{entry_id}", response={200: DLQEntrySchema, 404: dict})
     @log_api_call()
     def get_dlq_entry(self, entry_id: str):
@@ -405,17 +455,6 @@ class DeadLetterQueueController:
             "message": "Failed to retry task. Entry may be resolved or exhausted retries.",
         }
 
-    @http_post("/retry-all", response={200: DLQBulkRetryResponseSchema})
-    @log_api_call()
-    def retry_all_pending(self, data: DLQBulkRetrySchema):
-        """Retry all pending DLQ entries that can be retried."""
-        results = DeadLetterQueue.retry_all_pending(
-            task_name=data.task_name,
-            priority=data.priority,
-            limit=data.limit,
-        )
-        return 200, results
-
     @http_post("/{entry_id}/resolve", response={200: DLQEntrySchema, 404: dict})
     @log_api_call()
     def resolve_dlq_entry(self, entry_id: str, data: DLQResolveSchema):
@@ -427,16 +466,6 @@ class DeadLetterQueueController:
 
         return 200, entry
 
-    @http_post("/resolve-bulk", response={200: dict})
-    @log_api_call()
-    def bulk_resolve_entries(self, data: DLQBulkResolveSchema):
-        """Resolve multiple DLQ entries."""
-        results = DeadLetterQueue.bulk_resolve(
-            entry_ids=data.entry_ids,
-            notes=data.notes,
-        )
-        return 200, results
-
     @http_delete("/{entry_id}", response={200: dict, 404: dict})
     @log_api_call()
     def delete_dlq_entry(self, entry_id: str):
@@ -447,32 +476,3 @@ class DeadLetterQueueController:
             return 404, {"error": "DLQ entry not found"}
 
         return 200, {"success": True, "message": "DLQ entry deleted"}
-
-    @http_get("/stats", response={200: DLQStatsSchema})
-    @log_api_call()
-    def get_dlq_stats(self):
-        """Get DLQ statistics."""
-        return 200, DeadLetterQueue.get_stats()
-
-    @http_post("/cleanup", response={200: CleanupResponseSchema})
-    @log_api_call()
-    def cleanup_dlq(self, days: int = 30):
-        """Clean up old resolved DLQ entries.
-
-        Args:
-            days: Delete resolved entries older than this many days
-        """
-        results = DeadLetterQueue.cleanup(days=days)
-
-        if "error" in results:
-            return 200, {
-                "success": False,
-                "deleted": 0,
-                "message": results["error"],
-            }
-
-        return 200, {
-            "success": True,
-            "deleted": results["deleted"],
-            "message": f"Deleted {results['deleted']} resolved DLQ entries older than {days} days",
-        }
