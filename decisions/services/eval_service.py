@@ -22,8 +22,8 @@ Dataset format (JSON)::
 
 ``choice`` answers are correct when the label matches. ``noul`` answers are
 correct when the yes probability (or boolean) lands on the expected side of
-0.5. ``score`` answers are correct when they round to the expected anchor
-index.
+0.5. ``score`` questions are rejected: CLM returns an anchor index, Laya
+uses another scale, so one rule would mark a provider wrong for its scale.
 """
 
 from __future__ import annotations
@@ -118,7 +118,10 @@ def is_correct(question: dict[str, Any], answer: Any, expected: Any) -> bool:
         said_yes = answer if isinstance(answer, bool) else float(answer) >= 0.5
         return said_yes is bool(expected)
     if qtype == "score":
-        return round(float(answer)) == int(expected)
+        raise ValidationError(
+            "Score questions are not supported in eval datasets: providers "
+            "report scores on different scales."
+        )
     raise ValidationError(f"Unsupported question type '{qtype}' in eval dataset.")
 
 

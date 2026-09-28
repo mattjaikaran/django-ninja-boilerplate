@@ -58,11 +58,13 @@ Each worker uses the production image target and depends on healthy `django`,
 
 ## Volumes
 
-`postgres_data`, `valkey_data`, `static_volume`, `media_volume`, `logs_volume`,
-`redis_data`, `clm_hf_cache`, and `clm_head_cache` use the local driver.
+`postgres_data`, `postgres_dev_data`, `valkey_data`, `valkey_dev_data`,
+`static_volume`, `media_volume`, `logs_volume`, `redis_data`, `clm_hf_cache`,
+`clm_head_cache`, and `embedder_cache` use the local driver.
 
-The prod, single, and dev stacks share `postgres_data`. Remove the volume when
-you need an isolated database.
+Dev `db` and `valkey` use `postgres_dev_data` and `valkey_dev_data`. `db-prod`
+and `db-single` share `postgres_data`, so a local prod run never opens the dev
+database. `scripts/db_setup.sh` resets only the dev volume.
 
 ## Add a service
 

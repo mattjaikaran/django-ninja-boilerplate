@@ -279,11 +279,11 @@ seed-decisions:
 
 # Embed decision fixtures with Qwen3-Embedding-0.6B (needs `just up-embeddings`)
 embed-decisions *args:
-    {{ dev }} exec {{ django_service }} {{ uv }} run python manage.py embed_decisions {{ args }}
+    {{ dev }} exec {{ django_service }} python manage.py embed_decisions {{ args }}
 
 # Measure provider accuracy and confidence calibration on the labelled tickets
 eval-decisions *args:
-    {{ dev }} exec {{ django_service }} {{ uv }} run python manage.py eval_decisions {{ args }}
+    {{ dev }} exec {{ django_service }} python manage.py eval_decisions {{ args }}
 
 # Load development sample data (users, todos)
 seed:

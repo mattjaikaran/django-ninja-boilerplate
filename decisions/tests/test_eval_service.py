@@ -61,16 +61,16 @@ class TestScoring:
             ({"type": "noul"}, 0.2, True, False),
             ({"type": "noul"}, 0.5, True, True),
             ({"type": "noul"}, False, False, True),
-            ({"type": "score"}, 1.4, 1, True),
-            ({"type": "score"}, 1.6, 1, False),
+            ({"type": "noul"}, True, False, False),
         ],
     )
     def test_is_correct(self, question, answer, expected, correct):
         assert is_correct(question, answer, expected) is correct
 
-    def test_unknown_type_is_rejected(self):
+    @pytest.mark.parametrize("qtype", ["score", "vote"])
+    def test_unscorable_types_are_rejected(self, qtype):
         with pytest.raises(ValidationError):
-            is_correct({"type": "vote"}, "a", "a")
+            is_correct({"type": qtype}, 1.0, 1)
 
     def test_perfectly_calibrated_bins_have_zero_error(self):
         outcomes = [Outcome("q", i < 8, 0.85) for i in range(10)]

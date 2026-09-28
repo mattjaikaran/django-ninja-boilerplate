@@ -134,11 +134,16 @@ One run on the bundled set (Apple Silicon, CLM encoder from llama.cpp Q8_0):
 | `clm` | angry (noul) | 72.5% | 78.9% | 0.194 |
 | `clm` | wants_refund (noul) | 92.5% | 89.8% | 0.072 |
 
-Read it this way: on this set, Laya is underconfident. With the default
-threshold of 0.5, it would escalate 40% of `team` answers, and 14 of those
-16 were correct. CLM is weaker here, and more than a quarter of its `angry` answers
-above 0.8 confidence were wrong. Forty tickets is a smoke test, not a
-calibration; measure your own data.
+Read it this way: these are illustrative results on a small synthetic set,
+written and labelled by one person. They do not calibrate anything, and they
+are not a basis for `DECISION_ESCALATION_THRESHOLD`. On this set, Laya is
+underconfident: with the default threshold of 0.5, it would escalate 40% of
+`team` answers, and 14 of those 16 were correct. CLM is weaker here, and
+more than a quarter of its `angry` answers above 0.8 confidence were wrong.
+Both providers were scored on the same sentence-style criteria. Those
+criteria were rewritten after seeing CLM's first results on these same 40
+tickets, so the CLM numbers are optimistic. Run `eval_decisions` on reviewed
+decisions from your own traffic before you pick a threshold.
 
 ### Write CLM criteria as answers
 
@@ -182,7 +187,7 @@ Each file declares a `kind` and a `fixtures` list:
 ```
 
 Postgres needs the `vector` extension. The initial migration creates it on
-PostgreSQL before the table, and `docker/postgres/init/01-extensions.sql`
+PostgreSQL before the table, and `docker/postgres/init/01-init.sql`
 creates it when the Docker volume is first initialised. SQLite accepts the
 column type, so `just test` needs no setup.
 
@@ -255,12 +260,18 @@ just clm-encoder-local   # Qwen3-8B Q8_0 (8.7 GB download), 127.0.0.1:8090
 just dev                 # selects the decisions-clm-host profile
 ```
 
-On an M2 Pro with 32 GB, a three-question decision took 0.4 to 1.7 s. The
-projection head was trained on vLLM bf16 embeddings; Q8_0 llama.cpp
-embeddings are close but not identical, so measure with `eval_decisions`
-before you compare them with a GPU deployment. `clm-api` runs as an amd64
-image under emulation on Apple Silicon; that costs little because the encoder
-does the heavy work on the host.
+On an M2 Pro with 32 GB, a three-question decision took 0.4 to 1.7 s. Running
+the 8B encoder (about 9 GB resident) next to the dev stack and Laya is tight
+on 32 GB; stop it when you are not using CLM.
+
+Encoder parity: the projection head was trained on vLLM bf16 embeddings. A
+check at the same architecture's small size, Qwen3-0.6B Q8_0 in llama.cpp
+against `transformers` bf16 last-token hidden states, gave cosine similarity
+0.998 to 0.9997 on 15 of 16 CLM input texts, and 0.942 on a one-token input.
+So the llama.cpp pipeline (tokenization, final norm, last-token pooling)
+matches. The Q8_0 quantization gap at 8B was not measured. `clm-api` is a
+small native CPU image (`python:3.12-slim`, about 900 MB) on both Apple
+Silicon and GPU hosts; only the encoder needs a GPU or Metal.
 
 The `clm-encoder` service downloads Qwen3-8B on first start. `clm-api`
 downloads the CLM projection head. Both caches use named volumes. The encoder

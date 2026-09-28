@@ -1280,7 +1280,6 @@ services:
     build:
       context: .
       dockerfile: deploy/docker/Dockerfile.clm
-    platform: linux/amd64
     # decisions-clm runs the GPU encoder above. decisions-clm-host runs only
     # this API and uses CLM_ENCODER_URL, for example llama.cpp on an Apple
     # Silicon host (`just clm-encoder-local`) or a remote vLLM server.

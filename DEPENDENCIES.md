@@ -24,6 +24,11 @@ without a matching entry here.
 - Host tool, no Python package: `just clm-encoder-local` and
   `just embedder-local` need `llama-server` from `brew install llama.cpp`.
   The CLM encoder uses `Qwen/Qwen3-8B-GGUF` Q8_0 (8.7 GB).
+- `deploy/docker/Dockerfile.clm` now installs, outside the project lock:
+  CPU `torch==2.14.0`, `numpy==2.5.3`, `requests==2.34.2`,
+  `huggingface-hub==0.36.2`, `uvicorn==0.53.0`, `fastapi>=0.115,<1`, and
+  `contrastive-lm==0.1.0` with `--no-deps` (it declares vllm but never
+  imports it). Versions match `uv.lock` where the project also uses them.
 
 ## Policy
 
