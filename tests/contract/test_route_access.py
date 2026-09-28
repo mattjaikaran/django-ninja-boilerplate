@@ -248,3 +248,42 @@ class TestRouteContractRegressions:
         schema = api.get_openapi_schema()
         operation = schema["paths"][path]["post"]
         assert operation.get("security"), f"{path} missing OpenAPI security"
+
+
+@pytest.mark.django_db
+class TestSingleUnversionedApi:
+    """The API is mounted exactly once, unversioned, at ``/api/``.
+
+    Guards against reintroducing the inactive versioning mount: versioned
+    ``/api/v1/`` and ``/api/v2/`` prefixes must resolve to 404, while the
+    single unversioned API continues to serve its routes.
+    """
+
+    @pytest.fixture
+    def client(self):
+        return Client()
+
+    @pytest.mark.parametrize(
+        "path",
+        [
+            "/api/v1/health/",
+            "/api/v1/token/pair",
+            "/api/v1/users/",
+            "/api/v2/health/",
+            "/api/v2/token/pair",
+            "/api/v2/users/",
+        ],
+    )
+    def test_versioned_routes_not_mounted(self, client, path):
+        """No versioned ``/api/v1/`` or ``/api/v2/`` prefix is mounted."""
+        response = client.get(path)
+        assert response.status_code == 404, (
+            f"versioned route unexpectedly mounted: {path} -> {response.status_code}"
+        )
+
+    def test_unversioned_api_still_serves(self, client):
+        """The single unversioned API continues to serve its routes."""
+        response = client.get("/api/health/")
+        assert response.status_code == 200, (
+            f"unversioned API unreachable: /api/health/ -> {response.status_code}"
+        )

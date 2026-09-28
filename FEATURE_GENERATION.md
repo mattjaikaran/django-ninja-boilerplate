@@ -336,5 +336,4 @@ See the main [README.md](README.md#graphql-optional) for usage examples.
 ## Future Enhancements
 
 - Machine learning model integration
-- API versioning support
 - Docker configuration generation

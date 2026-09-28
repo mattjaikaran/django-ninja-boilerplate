@@ -79,10 +79,10 @@ api = NinjaExtraAPI(
 )
 
 
-# Register exception handlers on the shared API instance.
-api.add_exception_handler(BaseAPIException, handle_api_exception)
-api.add_exception_handler(DjangoValidationError, handle_django_validation_error)
-api.add_exception_handler(Exception, handle_generic_exception)
+# Ninja's handler stub admits exception classes, but runtime supplies instances.
+api.add_exception_handler(BaseAPIException, handle_api_exception)  # type: ignore[arg-type]
+api.add_exception_handler(DjangoValidationError, handle_django_validation_error)  # type: ignore[arg-type]
+api.add_exception_handler(Exception, handle_generic_exception)  # type: ignore[arg-type]
 
 
 def handle_throttled(request, exc: Throttled):
@@ -97,7 +97,7 @@ def handle_throttled(request, exc: Throttled):
     return response
 
 
-api.add_exception_handler(Throttled, handle_throttled)
+api.add_exception_handler(Throttled, handle_throttled)  # type: ignore[arg-type]
 
 
 # Register controllers
@@ -152,29 +152,6 @@ urlpatterns = [
     # SSE streaming endpoint (outside Ninja so it can use StreamingHttpResponse)
     path("api/events/stream/", sse_endpoint),
 ]
-
-# Conditionally mount versioned API instances
-if getattr(settings, "API_VERSIONING_ENABLED", False):
-    from api.versioning import api_v1, api_v2
-
-    api_v1.register_controllers(
-        NinjaJWTDefaultController,
-        AuthController,
-        UserController,
-        OTPController,
-        # Optional — uncomment to enable:
-        # FileController,
-        # WebhookController,
-        # OrganizationController,
-        # NotificationController,
-        # BillingController,
-        # StripeWebhookController,
-    )
-
-    urlpatterns += [
-        path("api/v1/", api_v1.urls),
-        path("api/v2/", api_v2.urls),
-    ]
 
 # Add debug toolbar URLs if available and in debug mode
 if settings.DEBUG and "debug_toolbar" in settings.INSTALLED_APPS:
