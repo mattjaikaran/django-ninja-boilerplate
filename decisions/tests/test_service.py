@@ -79,9 +79,9 @@ class TestDecide:
         assert result.answer_confidence == {"churn": 0.99}
         assert result.provider == "fake"
 
-    def test_decide_provider_override(self, settings):
+    def test_constructor_provider_is_used_by_decide(self, settings):
         settings.SYSTEMONE_PROVIDER = "laya"
-        result = DecisionService().decide({}, {}, provider="fake")
+        result = DecisionService(provider="fake").decide({}, {})
         assert result.provider == "fake"
 
     def test_decide_default_laya_fails_loud(self, settings, monkeypatch):

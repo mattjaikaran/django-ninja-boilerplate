@@ -587,8 +587,7 @@ curl -s http://localhost:8000/api/decisions/evaluate \
   -d '{"state": {"ticket_id": "T-1"},
        "questions": {"refund": {"type": "choice",
                                 "instructions": "Approve the refund?",
-                                "criteria": {"approve": "within window"}}},
-       "provider": "fake"}'
+                                "criteria": {"approve": "within window"}}}}'
 ```
 
 | Provider | Backing | Setup |
@@ -598,21 +597,27 @@ curl -s http://localhost:8000/api/decisions/evaluate \
 | `jev` | Hosted TypeSafe | `uv sync --extra decisions-jev` plus `TYPESAFE_API_KEY` |
 | `fake` | Deterministic tests | none |
 
-Set `SYSTEMONE_PROVIDER=laya|clm|jev` before starting Django, or use the
-authenticated endpoint's `provider` field for a single request. The configured
-provider never silently falls back. CLM needs a Linux NVIDIA host with the
-NVIDIA Container Toolkit; its Compose profile downloads Qwen3-8B and the CLM
-projection head into persistent volumes. Set `CLM_CONTAINER_URL` for an
-external CLM service, or use `CLM_BASE_URL` when Django runs on the host.
-`CLM_API_KEY` optionally protects the CLM API. The Compose profile binds its
-host port to loopback only. See `decisions/README.md` for setup and limits.
+Set `SYSTEMONE_PROVIDER=laya|clm|jev` before starting Django. API and MCP
+callers cannot select a provider; a request that sends `provider` gets a 422
+response. The configured provider never silently falls back. CLM needs a
+Linux NVIDIA host with the NVIDIA Container Toolkit; its Compose profile
+downloads Qwen3-8B and the CLM projection head into persistent volumes. On a
+fresh checkout, `just dev` builds the `clm-api` image, and it rebuilds any
+image whose inputs changed. Set `CLM_CONTAINER_URL` for an external
+CLM service, or use `CLM_BASE_URL` when Django runs on the host.
+`CLM_API_KEY` optionally protects the CLM API, and Compose passes it to every
+Django service that calls CLM. The Compose profile binds its host port to
+loopback only. See `decisions/README.md` for setup and limits.
 
 Question types are `choice`, `score`, and `noul`. `noul` is Laya's own name for
 a yes/no question, not a typo for `null`.
 
 `confidence` in the response is the **lowest** per-answer confidence, because a
-decision is only as trustworthy as its weakest answer. Set
+decision is only as strong as its weakest answer. Set
 `DECISION_ESCALATION_THRESHOLD` to control when a result is flagged.
+Provider confidence is not calibrated: the Laya checkpoint warns that some of
+its confidence is uncalibrated. Keep consequential automation behind a human
+or a rule in code until you calibrate confidence on representative data.
 
 ```bash
 just seed-decisions     # load decisions/data/fixtures into pgvector

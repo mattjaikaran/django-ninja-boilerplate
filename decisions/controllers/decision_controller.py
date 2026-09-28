@@ -37,7 +37,7 @@ class DecisionController:
     @log_api_call(include_payload=True, include_response=False)
     @validate_request()
     def evaluate(self, request, payload: DecisionRequestSchema):
-        """Answer the supplied questions from the supplied state.
+        """Answer the supplied questions with the configured provider.
 
         Args:
             request: The HTTP request object.
@@ -45,14 +45,13 @@ class DecisionController:
 
         Returns:
             Tuple of (200, result) with the provider's answers. Returns
-            (400, error) for an unknown provider and (500, error) with the
-            install instructions when a provider is unavailable.
+            (400, error) for an unknown configured provider and (500, error)
+            with the install instructions when the provider is unavailable.
         """
         try:
             result = self.service.decide(
                 state=payload.state,
                 questions=payload.questions,
-                provider=payload.provider,
             )
         except ValidationError as exc:
             return 400, {"error": exc.code, "message": exc.message}

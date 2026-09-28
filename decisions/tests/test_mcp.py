@@ -23,7 +23,6 @@ class TestEvaluateDecisionTool:
         result = evaluate_decision(
             state={"ticket": "T-1"},
             questions={"churn": {"type": "noul", "instructions": "Will they cancel?"}},
-            provider="fake",
         )
         assert result == {
             "answers": {"churn": False},
@@ -33,11 +32,12 @@ class TestEvaluateDecisionTool:
             "escalation_recommended": False,
         }
 
-    def test_unknown_provider_raises(self):
+    def test_unknown_configured_provider_raises(self, settings):
         from api.exceptions import ValidationError
 
+        settings.SYSTEMONE_PROVIDER = "nope"
         with pytest.raises(ValidationError):
-            evaluate_decision(state={}, questions={}, provider="nope")
+            evaluate_decision(state={}, questions={})
 
 
 @pytest.mark.unit
@@ -51,6 +51,7 @@ class TestGetTools:
         assert tool["name"] == EVALUATE_TOOL_NAME
         assert tool["handler"] is evaluate_decision
         assert tool["input_schema"]["required"] == ["state", "questions"]
+        assert "provider" not in tool["input_schema"]["properties"]
 
 
 @pytest.mark.unit

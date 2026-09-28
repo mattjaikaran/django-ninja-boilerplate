@@ -42,7 +42,10 @@ def _post(client, payload):
 class TestEvaluateEndpoint:
     """The endpoint returns a decision or a clear provider error."""
 
-    def test_evaluate_with_fake_provider(self, authenticated_client):
+    def test_evaluate_with_configured_fake_provider(
+        self, authenticated_client, settings
+    ):
+        settings.SYSTEMONE_PROVIDER = "fake"
         response = _post(
             authenticated_client,
             {
@@ -54,7 +57,6 @@ class TestEvaluateEndpoint:
                         "criteria": {"approve": "ok", "deny": "no"},
                     }
                 },
-                "provider": "fake",
             },
         )
         assert response.status_code == 200
@@ -67,29 +69,24 @@ class TestEvaluateEndpoint:
         assert body["fallbackUsed"] is False
         assert body["escalationRecommended"] is False
 
-    def test_empty_questions_is_valid(self, authenticated_client):
-        response = _post(
-            authenticated_client, {"state": {}, "questions": {}, "provider": "fake"}
-        )
+    def test_empty_questions_is_valid(self, authenticated_client, settings):
+        settings.SYSTEMONE_PROVIDER = "fake"
+        response = _post(authenticated_client, {"state": {}, "questions": {}})
         assert response.status_code == 200
         body = response.json()
         assert body["answers"] == {}
         assert body["confidence"] == 0.0
         assert body["escalationRecommended"] is False
 
-    def test_invalid_provider_rejected_by_schema(self, authenticated_client):
-        response = _post(
-            authenticated_client, {"state": {}, "questions": {}, "provider": "bogus"}
-        )
-        assert response.status_code == 422
-
-    def test_invalid_question_type_rejected_by_schema(self, authenticated_client):
+    def test_invalid_question_type_rejected_by_schema(
+        self, authenticated_client, settings
+    ):
+        settings.SYSTEMONE_PROVIDER = "fake"
         response = _post(
             authenticated_client,
             {
                 "state": {},
                 "questions": {"q": {"type": "yesno", "instructions": "?"}},
-                "provider": "fake",
             },
         )
         assert response.status_code == 422
@@ -109,9 +106,7 @@ class TestEvaluateEndpoint:
         assert response.status_code == 500
         assert "uv sync --locked" in response.json()["message"]
 
-    def test_configured_clm_provider_can_be_overridden(
-        self, authenticated_client, settings
-    ):
+    def test_configured_clm_provider_answers(self, authenticated_client, settings):
         settings.SYSTEMONE_PROVIDER = "clm"
         client = httpx.Client(
             transport=httpx.MockTransport(
@@ -127,17 +122,40 @@ class TestEvaluateEndpoint:
         DecisionService._providers["clm"] = ClmProvider(
             client=client, base_url="http://clm-api:8700"
         )
-        payload = {
-            "state": {"ticket": "T-1"},
-            "questions": {"risk": {"type": "noul", "instructions": "Is there risk?"}},
-        }
-        response = _post(authenticated_client, payload)
+        response = _post(
+            authenticated_client,
+            {
+                "state": {"ticket": "T-1"},
+                "questions": {
+                    "risk": {"type": "noul", "instructions": "Is there risk?"}
+                },
+            },
+        )
         assert response.status_code == 200
         assert response.json()["provider"] == "clm"
         assert response.json()["answers"] == {"risk": 0.02}
         assert response.json()["answerConfidence"] == {"risk": 0.98}
         assert response.json()["escalationRecommended"] is False
 
-        response = _post(authenticated_client, {**payload, "provider": "fake"})
-        assert response.status_code == 200
-        assert response.json()["provider"] == "fake"
+    @pytest.mark.parametrize("override", ["fake", "jev", "laya", "clm"])
+    def test_client_cannot_override_configured_provider(
+        self, authenticated_client, settings, override
+    ):
+        settings.SYSTEMONE_PROVIDER = "clm"
+        calls = []
+
+        def respond(request):
+            calls.append(request)
+            return httpx.Response(200, json={"answers": {}})
+
+        DecisionService._providers["clm"] = ClmProvider(
+            client=httpx.Client(transport=httpx.MockTransport(respond)),
+            base_url="http://clm-api:8700",
+        )
+        response = _post(
+            authenticated_client,
+            {"state": {}, "questions": {}, "provider": override},
+        )
+        assert response.status_code == 422
+        assert calls == []
+        assert set(DecisionService._providers) == {"clm"}

@@ -2,19 +2,22 @@
 """Bump the project version and cut a release.
 
 Usage:
-    python scripts/release.py           # next patch version
-    python scripts/release.py 1.11.0    # explicit version
+    python scripts/release.py --dry-run          # preview the next patch
+    python scripts/release.py 1.12.0 --dry-run   # preview an explicit version
+    python scripts/release.py 1.12.0             # commit and tag locally
+    python scripts/release.py 1.12.0 --push      # also push main and tags
 
 The script bumps the version in pyproject.toml, api/settings/common.py
 (APP_VERSION default), the justfile banner, and the VERSION file; retitles
 the CHANGELOG [Unreleased] section to the new version and inserts the new
-compare link; syncs uv.lock; then commits, tags vX.Y.Z, and pushes.
-
-Run with --dry-run to preview the file changes without committing.
+compare link; syncs uv.lock; then commits and tags vX.Y.Z. It pushes only
+with --push. Unknown arguments exit with an error before any file or git
+change.
 """
 
 from __future__ import annotations
 
+import argparse
 import re
 import subprocess
 import sys
@@ -29,10 +32,31 @@ def run(cmd: list[str]) -> None:
     subprocess.run(cmd, cwd=ROOT, check=True)
 
 
-def main() -> None:
-    dry_run = "--dry-run" in sys.argv
-    args = [arg for arg in sys.argv[1:] if not arg.startswith("--")]
+def parse_args(argv: list[str] | None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Bump the version, then commit and tag the release."
+    )
+    parser.add_argument(
+        "version",
+        nargs="?",
+        help="Explicit X.Y.Z version. Defaults to the next patch version.",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Print the changes without writing files or running git.",
+    )
+    parser.add_argument(
+        "--push",
+        action="store_true",
+        help="Push main and tags to origin after the commit and tag.",
+    )
+    return parser.parse_args(argv)
 
+
+def main(argv: list[str] | None = None) -> None:
+    options = parse_args(argv)
+    dry_run = options.dry_run
     pyproject_path = ROOT / "pyproject.toml"
     pyproject = pyproject_path.read_text()
     match = re.search(r'^version = "([^"]+)"', pyproject, re.MULTILINE)
@@ -40,8 +64,8 @@ def main() -> None:
         sys.exit("error: version not found in pyproject.toml")
     current = match.group(1)
 
-    if args:
-        version = args[0]
+    if options.version:
+        version = options.version
     else:
         major, minor, patch = (int(part) for part in current.split("."))
         version = f"{major}.{minor}.{patch + 1}"
@@ -132,6 +156,9 @@ def main() -> None:
     )
     run(["git", "commit", "-m", f"chore(release): Bump version to {version}"])
     run(["git", "tag", f"v{version}"])
+    if not options.push:
+        print(f"Tagged v{version} locally. Push with: git push origin main --tags")
+        return
     run(["git", "push", "origin", "main", "--tags"])
     print(f"Released v{version}")
 

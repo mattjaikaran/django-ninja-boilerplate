@@ -58,11 +58,14 @@ decision-profile:
             ;;
     esac
 
-# Start the dev stack: db, valkey, django and the configured task worker
+# Start the dev stack: db, valkey, django, the configured task worker, and the
+# CLM services when SYSTEMONE_PROVIDER=clm. `--build` builds missing images,
+# including clm-api on a fresh checkout, and rebuilds images whose inputs
+# changed, such as uv.lock after a pull. Cached builds take a few seconds.
 dev:
     #!/usr/bin/env bash
     set -euo pipefail
-    {{ compose }} --profile dev --profile "$(just backend-profile)" --profile "$(just decision-profile)" up -d
+    {{ compose }} --profile dev --profile "$(just backend-profile)" --profile "$(just decision-profile)" up -d --build
 
 # Follow logs for the whole dev stack
 dev-logs:
@@ -84,48 +87,45 @@ down-volumes:
 reset: down
     #!/usr/bin/env bash
     set -euo pipefail
-    {{ compose }} --profile dev --profile "$(just backend-profile)" --profile "$(just decision-profile)" up -d
+    {{ compose }} --profile dev --profile "$(just backend-profile)" --profile "$(just decision-profile)" up -d --build
     just migrate
 
-# Build the application images. Build CLM separately only on an NVIDIA host.
+# Build the application images, the selected task worker, and clm-api when
+# SYSTEMONE_PROVIDER=clm. Building clm-api needs no GPU; running it does.
 build:
-    {{ compose }} --profile dev --profile prod --profile single build
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{ compose }} --profile dev --profile prod --profile single --profile "$(just backend-profile)" --profile "$(just decision-profile)" build
 
 # Start the dev stack (alias for `dev`)
 up:
     just dev
 
-# Build images and start the dev stack
-up-build:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    {{ compose }} --profile dev --profile "$(just backend-profile)" --profile "$(just decision-profile)" up -d --build
-
 # Start the dev stack with monitoring (Flower, Jaeger)
 up-monitoring:
     #!/usr/bin/env bash
     set -euo pipefail
-    {{ compose }} --profile dev --profile "$(just backend-profile)" --profile "$(just decision-profile)" --profile monitoring up -d
+    {{ compose }} --profile dev --profile "$(just backend-profile)" --profile "$(just decision-profile)" --profile monitoring up -d --build
 
 # Start the dev stack with Centrifugo
 up-realtime:
     #!/usr/bin/env bash
     set -euo pipefail
-    {{ compose }} --profile dev --profile "$(just backend-profile)" --profile "$(just decision-profile)" --profile realtime up -d
+    {{ compose }} --profile dev --profile "$(just backend-profile)" --profile "$(just decision-profile)" --profile realtime up -d --build
 
 # Start the dev stack with Mailhog (catches outgoing email)
 up-mail:
-    {{ compose }} --profile dev --profile mail up -d
+    {{ compose }} --profile dev --profile mail up -d --build
 
 # Start the dev stack with the MCP server (needs the `dev` extra)
 up-mcp:
-    {{ compose }} --profile dev --profile mcp up -d
+    {{ compose }} --profile dev --profile mcp up -d --build
 
 # Start every dev service
 up-full:
     #!/usr/bin/env bash
     set -euo pipefail
-    {{ compose }} --profile dev --profile "$(just backend-profile)" --profile "$(just decision-profile)" --profile monitoring --profile realtime --profile mail --profile mcp up -d
+    {{ compose }} --profile dev --profile "$(just backend-profile)" --profile "$(just decision-profile)" --profile monitoring --profile realtime --profile mail --profile mcp up -d --build
 
 # Stop every dev service
 down-full:
@@ -281,7 +281,7 @@ doctor:
 
 # Start the django-ai-boost SSE server on port 8001
 mcp:
-    {{ dev }} up -d mcp
+    {{ dev }} up -d --build mcp
 
 # Follow MCP server logs
 mcp-logs:
@@ -473,13 +473,14 @@ deploy-safe:
 deploy-setup:
     ./scripts/deploy-setup.sh
 
-# Bump the version and cut a release (commits, tags, and pushes)
-release:
-    {{ uv }} run python scripts/release.py
+# Bump the version, commit, and tag locally. Pass a version and --push to
+# publish, for example: just release 1.12.0 --push
+release *args:
+    {{ uv }} run python scripts/release.py {{ args }}
 
-# Preview the version bump without writing anything
-release-dry-run:
-    {{ uv }} run python scripts/release.py --dry-run
+# Preview the version bump without writing anything (optional X.Y.Z version)
+release-dry-run *args:
+    {{ uv }} run python scripts/release.py --dry-run {{ args }}
 
 # Check deployment status for the configured provider
 deploy-status:

@@ -1,8 +1,9 @@
 """Business logic for the decisions app.
 
 :class:`DecisionService` is the single entry point for callers. It selects a
-provider from the ``SYSTEMONE_PROVIDER`` setting (or a per-request override),
-caches provider instances, and applies the escalation policy.
+provider from the ``SYSTEMONE_PROVIDER`` setting (or the constructor argument
+for internal callers), caches provider instances, and applies the escalation
+policy.
 """
 
 from __future__ import annotations
@@ -88,14 +89,12 @@ class DecisionService:
         self,
         state: dict[str, Any],
         questions: dict[str, Any],
-        provider: str | None = None,
     ) -> DecisionResult:
-        """Answer *questions* using *state*.
+        """Answer *questions* using *state* with this service's provider.
 
         Args:
             state: Structured input for the decision.
             questions: Mapping of question key to a question definition.
-            provider: Provider name override for this call.
 
         Returns:
             The provider's :class:`DecisionResult`, with the escalation policy
@@ -113,7 +112,7 @@ class DecisionService:
             else question
             for key, question in questions.items()
         }
-        result = self.get_provider(provider).predict(state, wire_questions)
+        result = self.get_provider().predict(state, wire_questions)
         return self._apply_escalation_policy(result)
 
     def _apply_escalation_policy(self, result: DecisionResult) -> DecisionResult:

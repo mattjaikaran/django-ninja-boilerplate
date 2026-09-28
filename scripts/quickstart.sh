@@ -483,6 +483,14 @@ check_prerequisites() {
             print_error "Docker Compose not found"
             has_errors=true
         fi
+
+        print_substep "Checking just..."
+        if command_exists just; then
+            print_success "just available"
+        else
+            print_error "just not found (https://just.systems); the Docker path runs 'just dev'"
+            has_errors=true
+        fi
     fi
 
     # Check port availability
@@ -535,7 +543,7 @@ auto_detect_setup() {
         print_success "Using Docker Compose for all services"
         print_info "Services: PostgreSQL, Valkey, Django"
         if [ "$MINIMAL_MODE" = false ]; then
-            print_info "Optional: Celery workers available via 'just up-celery'"
+            print_info "The task worker follows TASK_BACKEND in .env; 'just up-full' adds Flower"
         fi
     else
         print_success "Using local Python environment"
@@ -719,23 +727,16 @@ start_services() {
 }
 
 start_docker_services() {
-    # Build images
-    print_substep "Building Docker images..."
-    start_spinner "Building images (this may take a few minutes on first run)..."
+    # `just dev` builds changed images and starts the stack with the task
+    # worker and decision profiles selected in .env.
+    print_substep "Building images and starting containers..."
+    start_spinner "Building and starting (this may take a few minutes on first run)..."
 
-    if docker compose --profile dev build --quiet 2>/dev/null; then
-        stop_spinner "success" "Docker images built"
-    else
-        # Try without --quiet for better error visibility
-        stop_spinner "warning" "Build had issues, retrying with verbose output..."
-        docker compose --profile dev build
+    if ! just dev >/tmp/quickstart-dev.log 2>&1; then
+        stop_spinner "error" "just dev failed"
+        cat /tmp/quickstart-dev.log
+        exit 1
     fi
-
-    # Start services
-    print_substep "Starting containers..."
-    start_spinner "Starting PostgreSQL, Redis, and Django..."
-
-    docker compose --profile dev up -d 2>/dev/null
 
     stop_spinner "success" "Containers started"
 }
@@ -1037,8 +1038,8 @@ print_summary() {
     echo ""
 
     if [ "$MINIMAL_MODE" = false ]; then
-        echo -e "${BOLD}For Celery background tasks:${NC}"
-        echo -e "  ${CYAN}just up-celery${NC}    Start with Celery workers"
+        echo -e "${BOLD}For background tasks:${NC}"
+        echo -e "  ${CYAN}just dev${NC}          Starts the worker named by TASK_BACKEND"
         echo -e "  ${CYAN}just up-full${NC}      Start all services including Flower"
         echo ""
     fi

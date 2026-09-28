@@ -9,6 +9,8 @@ yes/no question; it is not a typo for ``null``.
 
 from typing import Any, Literal
 
+from pydantic import ConfigDict
+
 from core.schemas.base_schema import CamelCaseSchema
 
 #: Question types the engine understands. These are Laya's typed-question
@@ -36,15 +38,19 @@ class QuestionSchema(CamelCaseSchema):
 class DecisionRequestSchema(CamelCaseSchema):
     """Payload for ``POST /decisions/evaluate``.
 
+    The server selects the provider from ``SYSTEMONE_PROVIDER``. Callers
+    cannot choose one, so an API user cannot pick ``fake`` or bypass the
+    configured engine. Unknown fields, including ``provider``, are rejected.
+
     Attributes:
         state: Structured input the engine reasons over.
         questions: Questions to answer, keyed by question name.
-        provider: Provider override. Defaults to ``SYSTEMONE_PROVIDER``.
     """
+
+    model_config = ConfigDict(extra="forbid")
 
     state: dict[str, Any]
     questions: dict[str, QuestionSchema]
-    provider: Literal["laya", "clm", "jev", "fake"] | None = None
 
 
 class DecisionResponseSchema(CamelCaseSchema):

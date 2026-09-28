@@ -181,6 +181,7 @@ services:
       - TASK_BACKEND=${TASK_BACKEND:-celery}
       # The host uses localhost; containers use the CLM service on the shared network.
       - CLM_BASE_URL=${CLM_CONTAINER_URL:-http://clm-api:8700}
+      - CLM_API_KEY=${CLM_API_KEY:-}
       - CELERY_RESULT_BACKEND=redis://valkey:6379/0
       - FLOWER_URL=${FLOWER_URL:-}
       - UV_PROJECT_ENVIRONMENT=/opt/venv
@@ -215,7 +216,10 @@ services:
       resources:
         limits:
           cpus: "2.0"
-          memory: 1G
+          # Laya, the default decision provider, loads its model in this
+          # process. With the runserver reloader, 1G was OOM-killed on the
+          # first decision. Lower it only if you disable decisions.
+          memory: ${DJANGO_DEV_MEMORY_LIMIT:-4G}
         reservations:
           cpus: "0.5"
           memory: 256M
@@ -686,6 +690,9 @@ services:
       - CELERY_RESULT_BACKEND=redis://valkey:6379/0
       - SECRET_KEY=${SECRET_KEY:?SECRET_KEY must be set}
       - ENABLE_DECISION_MCP=true
+      # The MCP evaluate_decision tool calls the configured decision provider.
+      - CLM_BASE_URL=${CLM_CONTAINER_URL:-http://clm-api:8700}
+      - CLM_API_KEY=${CLM_API_KEY:-}
     depends_on:
       db:
         condition: service_healthy
@@ -831,7 +838,10 @@ services:
       - USE_STRUCTURED_LOGGING=true
       - DEBUG=0
       - SECRET_KEY=${SECRET_KEY}
-      - NINJA_JWT_SIGNING_KEY=${NINJA_JWT_SIGNING_KEY:?NINJA_JWT_SIGNING_KEY must be set and distinct from SECRET_KEY}
+      # api/settings/prod.py fails at startup when this is unset or equals
+      # SECRET_KEY. A Compose `:?` guard here would block every profile,
+      # including dev, because Compose interpolates all services.
+      - NINJA_JWT_SIGNING_KEY=${NINJA_JWT_SIGNING_KEY:-}
       - DB_NAME=${DB_NAME}
       - DB_USER=${DB_USER}
       - DB_PASSWORD=${DB_PASSWORD}
@@ -850,6 +860,7 @@ services:
       # Enable TLS only when Django receives the original scheme from a trusted proxy.
       - USE_TLS=${USE_TLS:-false}
       - CLM_BASE_URL=${CLM_CONTAINER_URL:-http://clm-api:8700}
+      - CLM_API_KEY=${CLM_API_KEY:-}
       # Centrifugo settings
       - CENTRIFUGO_URL=${CENTRIFUGO_URL:-http://centrifugo-prod:8000}
       - CENTRIFUGO_API_KEY=${CENTRIFUGO_API_KEY}
@@ -909,7 +920,7 @@ services:
       - USE_STRUCTURED_LOGGING=true
       - DEBUG=0
       - SECRET_KEY=${SECRET_KEY}
-      - NINJA_JWT_SIGNING_KEY=${NINJA_JWT_SIGNING_KEY:?NINJA_JWT_SIGNING_KEY must be set and distinct from SECRET_KEY}
+      - NINJA_JWT_SIGNING_KEY=${NINJA_JWT_SIGNING_KEY:-}
       - DB_NAME=${DB_NAME}
       - DB_USER=${DB_USER}
       - DB_PASSWORD=${DB_PASSWORD}
@@ -961,7 +972,7 @@ services:
       - USE_STRUCTURED_LOGGING=true
       - DEBUG=0
       - SECRET_KEY=${SECRET_KEY}
-      - NINJA_JWT_SIGNING_KEY=${NINJA_JWT_SIGNING_KEY:?NINJA_JWT_SIGNING_KEY must be set and distinct from SECRET_KEY}
+      - NINJA_JWT_SIGNING_KEY=${NINJA_JWT_SIGNING_KEY:-}
       - DB_NAME=${DB_NAME}
       - DB_USER=${DB_USER}
       - DB_PASSWORD=${DB_PASSWORD}
@@ -1120,9 +1131,10 @@ services:
       - USE_STRUCTURED_LOGGING=true
       - USE_TLS=${USE_TLS:-false}
       - CLM_BASE_URL=${CLM_CONTAINER_URL:-http://clm-api:8700}
+      - CLM_API_KEY=${CLM_API_KEY:-}
       - DEBUG=0
       - SECRET_KEY=${SECRET_KEY}
-      - NINJA_JWT_SIGNING_KEY=${NINJA_JWT_SIGNING_KEY:?NINJA_JWT_SIGNING_KEY must be set and distinct from SECRET_KEY}
+      - NINJA_JWT_SIGNING_KEY=${NINJA_JWT_SIGNING_KEY:-}
       - DB_NAME=${DB_NAME:-boilerplate_db}
       - DB_USER=${DB_USER:-postgres}
       - DB_PASSWORD=${DB_PASSWORD:-postgres}

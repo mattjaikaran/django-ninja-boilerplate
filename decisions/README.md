@@ -1,7 +1,8 @@
 # Decisions app
 
 Provider-agnostic System One decisions from structured state. Set
-`SYSTEMONE_PROVIDER` before starting the app, or select a provider per request:
+`SYSTEMONE_PROVIDER` before you start the app. API and MCP callers cannot
+select a provider:
 
 | Provider | Backing | Setup |
 |---|---|---|
@@ -23,7 +24,7 @@ decisions/
 ├── management/commands/seed_decisions.py
 ├── mcp.py                             # Optional MCP tool wrappers
 ├── models/decision_fixture.py         # Stored example payloads
-├── providers/                         # base, fake, laya, jev, registry
+├── providers/                         # base, fake, laya, clm, jev, registry
 ├── schemas/decision_schema.py         # Question, request, response, fixture
 ├── services/decision_service.py       # Provider selection + policy + fixtures
 └── tests/
@@ -55,12 +56,11 @@ curl -s http://localhost:8000/api/decisions/evaluate \
             "type": "noul",
             "instructions": "Does the customer threaten to cancel?"
           }
-        },
-        "provider": "fake"
+        }
       }'
 ```
 
-Response:
+Response with `SYSTEMONE_PROVIDER=fake`:
 
 ```json
 {
@@ -75,12 +75,38 @@ Response:
 ```
 
 `confidence` is the **lowest** per-answer confidence: a decision is only as
-trustworthy as its weakest answer. Set `DECISION_ESCALATION_THRESHOLD` to
+strong as its weakest answer. Set `DECISION_ESCALATION_THRESHOLD` to
 control when a result is flagged for escalation. Laya also reports `routing`
 metadata naming the checkpoint that handled the request.
 
-Omit `provider` to use `SYSTEMONE_PROVIDER`. The controller is registered
-only when `ENABLE_DECISIONS` is true, so production does not expose it.
+A `noul` answer from CLM or Jev is the probability of "yes". When the
+provider sends no separate confidence, the app uses `max(p, 1 - p)`, so a
+confident "no" (`p = 0.03`) has confidence `0.97`.
+
+The server always uses `SYSTEMONE_PROVIDER`. The request schema rejects
+unknown fields, so a request that sends `provider` gets a 422 response. This
+stops an ordinary JWT user from selecting `fake` or bypassing the configured
+engine to reach Jev. Internal Python code can pass a provider name to
+`DecisionService(provider=...)`. The controller is registered only when
+`ENABLE_DECISIONS` is true, so production does not expose it by default.
+
+## Confidence is not calibrated
+
+Do not use provider confidence to authorize consequential automation, such
+as publishing, deleting, refunding, or spending. Keep a human or a rule in
+code in the loop until you calibrate confidence on representative data.
+
+- During local inference, the published Laya English checkpoint emitted a
+  `RuntimeWarning` that it "ships invalid temperatures" and said: "Treat
+  confidence from the affected entries as uncalibrated."
+- The scores in this README and in the tests are examples. They are not
+  trusted thresholds.
+- `DECISION_ESCALATION_THRESHOLD` (default `0.5`) only flags weak results for
+  review. It does not make a result above the threshold safe to act on.
+
+To calibrate, record decisions and their reviewed outcomes on your own
+traffic. Measure how often answers at each confidence level are correct.
+Then choose a threshold for each question, and keep the gate in code.
 
 ## Add a provider
 
@@ -120,30 +146,38 @@ column type, so `just test` needs no setup.
 
 `uv sync --locked` installs Laya. The first prediction downloads its checkpoint
 from Hugging Face. On Apple Silicon, Laya runs locally without Qwen3-8B.
-The published English checkpoint emitted a temperature-clamping warning during
-local inference. Treat its reported confidence as uncalibrated until you
-measure it against representative decisions. Never use it as authorization.
+Read [Confidence is not calibrated](#confidence-is-not-calibrated) before you
+act on Laya scores.
 Use `LayaProvider(preload=True)` if you need checkpoints loaded before traffic.
 Watch model memory when you raise the Gunicorn worker count: each process holds
 its own Laya router and loaded weights.
-In production, begin with `GUNICORN_WORKERS=1` and
-`DJANGO_MEMORY_LIMIT=4G` from `.env.deploy.example` if you enable Laya.
-Measure actual resident memory before raising the worker count.
+In development, the `django` container limit is `DJANGO_DEV_MEMORY_LIMIT`
+(default `4G`). On Apple Silicon, the first Laya decision in that container
+peaked near 3.1 GiB, and a 1G limit was OOM-killed. In production, begin
+with `GUNICORN_WORKERS=1` and `DJANGO_MEMORY_LIMIT=4G` from
+`.env.deploy.example` if you enable Laya. Measure actual resident memory
+before raising the worker count.
 
 CLM requires a Linux NVIDIA GPU host that can serve Qwen3-8B through vLLM.
-With the NVIDIA Container Toolkit installed, set `SYSTEMONE_PROVIDER=clm` in `.env`.
-`just dev` then activates the `decisions-clm` profile automatically. Or run:
+With the NVIDIA Container Toolkit installed, set `SYSTEMONE_PROVIDER=clm` in
+`.env`. `just dev` then activates the `decisions-clm` profile. It runs
+`docker compose up --build`, so it builds `clm-api` on a fresh checkout and
+rebuilds it after `deploy/docker/Dockerfile.clm` changes. Or run Compose
+directly:
 
 ```bash
-docker compose --profile dev --profile decisions-clm up -d --build
-# For production, substitute --profile prod for --profile dev.
+docker compose --profile dev --profile celery --profile decisions-clm up -d --build
+# For production, substitute --profile prod for --profile dev --profile celery.
 ```
 
 The `clm-encoder` service downloads Qwen3-8B on first start. `clm-api`
 downloads the CLM projection head. Both caches use named volumes. The encoder
-port stays internal; the CLM API binds host port 8700 on loopback only. Set
-`CLM_API_KEY` for access control and `HF_TOKEN` privately if Hugging Face
-rate limits anonymous downloads. Compose pins Django's `CLM_BASE_URL` to the
+port stays internal; the CLM API binds host port 8700 on loopback only.
+
+Set `CLM_API_KEY` for access control. Compose passes the same value to
+`clm-api` and to every Django service that can call CLM: `django`, `mcp`,
+`django-prod`, and `app`. Set `HF_TOKEN` privately if Hugging Face rate
+limits anonymous downloads. Compose pins Django's `CLM_BASE_URL` to the
 internal service; to connect to an external GPU host, set `CLM_CONTAINER_URL`.
 For host-side Django, set `CLM_BASE_URL=http://127.0.0.1:8700`. Without a GPU,
 do not start the profile: select Laya instead. CLM never falls back to Laya
@@ -152,5 +186,4 @@ when its service is unavailable.
 For hosted Jev, install `uv sync --extra decisions-jev` and set
 `TYPESAFE_API_KEY` privately. Neither open-source provider needs that key.
 In production, explicitly set `ENABLE_DECISIONS=true` to expose this JWT
-protected endpoint. A provider's score is not permission to publish, delete,
-or spend. Enforce those rules in code and review calibration on your own data.
+protected endpoint.

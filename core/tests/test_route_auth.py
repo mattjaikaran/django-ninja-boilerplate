@@ -173,16 +173,16 @@ class TestRolePermissions:
         response = client.get("/api/tasks/stats", **bearer_for(regular_user))
         assert response.status_code == 200
 
-    def test_decisions_requires_jwt_not_staff(self, client, regular_user):
+    def test_decisions_requires_jwt_not_staff(self, client, regular_user, settings):
         """Decisions requires JWT (anonymous is 401) but not staff."""
+        settings.SYSTEMONE_PROVIDER = "fake"
         response = post_json(
             client,
             "/api/decisions/evaluate",
-            {"state": {}, "questions": [], "provider": "fake"},
+            {"state": {}, "questions": {}},
             **bearer_for(regular_user),
         )
-        # Auth passes (not 401/403); the remaining status is schema/business.
-        assert response.status_code not in (401, 403)
+        assert response.status_code == 200
 
 
 # =============================================================================

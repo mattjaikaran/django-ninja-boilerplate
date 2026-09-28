@@ -36,22 +36,20 @@ EVALUATE_TOOL_NAME = "evaluate_decision"
 def evaluate_decision(
     state: dict[str, Any],
     questions: dict[str, Any],
-    provider: str | None = None,
 ) -> dict[str, Any]:
-    """Answer *questions* from *state* and return a JSON-serialisable result.
+    """Answer *questions* from *state* with the configured provider.
+
+    MCP clients cannot choose a provider; ``SYSTEMONE_PROVIDER`` decides.
 
     Args:
         state: Structured input for the decision.
         questions: Mapping of question key to a question definition.
-        provider: Optional provider override.
 
     Returns:
         A dictionary with ``answers``, ``confidence``, ``provider``,
         ``fallback_used``, and ``escalation_recommended`` keys.
     """
-    result = DecisionService().decide(
-        state=state, questions=questions, provider=provider
-    )
+    result = DecisionService().decide(state=state, questions=questions)
     return {
         "answers": result.answers,
         "confidence": result.confidence,
@@ -79,9 +77,9 @@ def get_tools() -> list[dict[str, Any]]:
                 "properties": {
                     "state": {"type": "object"},
                     "questions": {"type": "object"},
-                    "provider": {"type": ["string", "null"]},
                 },
                 "required": ["state", "questions"],
+                "additionalProperties": False,
             },
             "handler": evaluate_decision,
         }

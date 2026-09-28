@@ -50,9 +50,14 @@ curl -s http://localhost:8000/api/decisions/evaluate \
   -d '{"state": {"ticket_id": "T-1"},
        "questions": {"refund": {"type": "choice",
                                 "instructions": "Approve the refund?",
-                                "criteria": {"approve": "within window"}}},
-       "provider": "fake"}'
+                                "criteria": {"approve": "within window"}}}}'
 ```
+
+The server always uses `SYSTEMONE_PROVIDER`. `DecisionRequestSchema` forbids
+extra fields, so a request with `provider` gets a 422 response. This stops a
+JWT user from selecting `fake` or bypassing the configured engine. Internal
+Python callers use `DecisionService(provider="...")`. The MCP tool follows the
+same rule.
 
 ## Response shape
 
@@ -74,6 +79,10 @@ curl -s http://localhost:8000/api/decisions/evaluate \
   confidence exists, use `max(p, 1-p)` for selected-side confidence.
 - `DECISION_ESCALATION_THRESHOLD` decides when a result is flagged. An empty
   question set is never escalated.
+- Confidence is not calibrated. The Laya checkpoint warns: "Treat confidence
+  from the affected entries as uncalibrated." Do not present observed scores
+  as trusted thresholds. Gate consequential automation until confidence is
+  calibrated on representative data.
 
 ## Adding a provider
 
@@ -110,3 +119,5 @@ uv run pytest decisions/ -v
 - Testing with the real provider. Use `FakeProvider`.
 - Expecting a flat `confidence` from the engine. It is per answer; the service
   aggregates with `min`.
+- Adding a `provider` field to the API or MCP request. Callers must not choose
+  the provider; configure `SYSTEMONE_PROVIDER` instead.

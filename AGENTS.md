@@ -111,6 +111,10 @@ wrong here. Do not use them.
 - Do not silently fall back from laya to jev. Fail loud with the install hint.
 - Do not test with the real provider. Use `FakeProvider`.
 - Do not load a model or touch the network in a unit test.
+- Do not let API or MCP callers choose the provider. The server uses
+  `SYSTEMONE_PROVIDER`, so a JWT user cannot select `fake` or reach Jev.
+- Do not treat provider confidence as a trusted threshold. Gate consequential
+  automation until confidence is calibrated on representative data.
 
 ### Infrastructure
 
@@ -121,7 +125,8 @@ wrong here. Do not use them.
 - Do not use `pip` or `poetry`. Use `uv`.
 - Do not add a dependency without an entry in `DEPENDENCIES.md`.
 - Do not run `scripts/release.py` without `--dry-run` unless you intend to
-  commit, tag, and push.
+  commit and tag. It pushes only with `--push`; unknown flags exit with an
+  error, and `--help` prints usage.
 
 ### Task queues
 

@@ -8,6 +8,8 @@ without a matching entry here.
 
 - Removed the stale `api.pagination.offset` mypy override. Ninja Extra now
   provides pagination, and this module no longer exists. No package changed.
+- Added `atlas` to the Hatch wheel package list. It is an installed app, so a
+  built wheel without it failed `django.setup()`. No package changed.
 
 ## Policy
 
@@ -78,8 +80,9 @@ Rust toolchain. Add 3.14 back once pydantic-core ships cp314 wheels.
   `uv lock --upgrade` therefore breaks on macOS. `pyproject.toml` caps it at
   `<3.2.0` and the lockfile stays on the known-good 2.3.0; widen the cap after
   testing 3.x on macOS.
-- `decisions` is in the wheel package list, so installs from a built wheel
-  can load the configured provider.
+- Every local installed app, including `decisions` and `atlas`, is in the
+  wheel package list, so installs from a built wheel can run `django.setup()`
+  and load the configured provider. `core/tests/test_packaging.py` checks it.
 - Keep `PYTHONOPTIMIZE=1` in production. Laya loads Transformers models;
   Transformers reads its own class docstrings while building model documentation.
   Optimization level 2 removes those docstrings and breaks model loading.
