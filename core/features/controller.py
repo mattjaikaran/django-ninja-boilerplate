@@ -119,9 +119,9 @@ class FeatureFlagAdminController:
         )[:20]
 
         # Build response with audit logs
-        response_data = FeatureFlagSchema.from_orm(flag).model_dump()
+        response_data = FeatureFlagSchema.model_validate(flag).model_dump()
         response_data["audit_logs"] = [
-            FlagAuditLogSchema.from_orm(log).model_dump() for log in audit_logs
+            FlagAuditLogSchema.model_validate(log).model_dump() for log in audit_logs
         ]
 
         return 200, response_data

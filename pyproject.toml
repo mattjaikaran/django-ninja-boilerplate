@@ -487,7 +487,6 @@ disable_error_code = ["var-annotated"]
 # Manager.create_user/create_superuser and HttpRequest dynamic attrs also hit this.
 module = [
     "api.permissions",
-    "api.pagination.offset",
     "api.utils.http_client",
     "core.observability.middleware",
     "core.observability.health",

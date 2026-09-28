@@ -120,7 +120,7 @@ class OrganizationController:
             return 403, {{"error": "Permission denied"}}
 
         # Apply updates
-        for key, value in payload.dict(exclude_unset=True).items():
+        for key, value in payload.model_dump(exclude_unset=True).items():
             if hasattr(organization, key):
                 setattr(organization, key, value)
         organization.save()

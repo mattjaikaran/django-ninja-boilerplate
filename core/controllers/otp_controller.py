@@ -116,7 +116,7 @@ class OTPController:
                 message="Login successful",
                 access=str(refresh.access_token),  # type: ignore[attr-defined]
                 refresh=str(refresh),
-                user=UserSchema.from_orm(user).dict(),
+                user=UserSchema.model_validate(user).model_dump(),
             )
 
         # For other purposes, just return success
@@ -149,7 +149,7 @@ class OTPController:
             message="Login successful",
             access=str(refresh.access_token),  # type: ignore[attr-defined]
             refresh=str(refresh),
-            user=UserSchema.from_orm(user).dict(),
+            user=UserSchema.model_validate(user).model_dump(),
         )
 
     @http_post("/resend", response={200: OTPResponseSchema, 400: dict, 429: dict})

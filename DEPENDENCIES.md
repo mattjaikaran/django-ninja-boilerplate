@@ -4,6 +4,11 @@ This file records dependency changes so they get reviewed instead of merging
 silently. The `DEPENDENCIES` gauntlet gate fails when `pyproject.toml` changes
 without a matching entry here.
 
+## Tooling changes
+
+- Removed the stale `api.pagination.offset` mypy override. Ninja Extra now
+  provides pagination, and this module no longer exists. No package changed.
+
 ## Policy
 
 - Base dependencies stay small and required. They install for everyone.

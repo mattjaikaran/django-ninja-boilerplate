@@ -264,7 +264,7 @@ class TaskSchedulerController:
     def update_periodic_task(self, task_id: int, data: UpdatePeriodicTaskSchema):
         """Update an existing periodic task."""
         # Filter out None values
-        updates = {k: v for k, v in data.dict().items() if v is not None}
+        updates = {k: v for k, v in data.model_dump().items() if v is not None}
 
         if not updates:
             return 400, {"error": "No updates provided"}

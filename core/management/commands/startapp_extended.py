@@ -318,7 +318,7 @@ class {model_name}Controller:
     def create_{model_name.lower()}(self, request, payload: Create{model_name}Schema):
         try:
             user = request.user
-            item = {model_name}.objects.create(user=user, **payload.dict())
+            item = {model_name}.objects.create(user=user, **payload.model_dump())
             return 201, item
         except Exception as e:
             logger.error(f"Error creating {model_name.lower()}: {{e}}")
@@ -339,7 +339,7 @@ class {model_name}Controller:
         try:
             user = request.user
             item = get_object_or_404({model_name}, id=item_id, user=user)
-            for key, value in payload.dict().items():
+            for key, value in payload.model_dump().items():
                 setattr(item, key, value)
             item.save()
             return 200, item

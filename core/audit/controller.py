@@ -28,7 +28,9 @@ from core.audit.schemas import (
 logger = logging.getLogger(__name__)
 
 
-@api_controller("/audit", tags=["Audit Logs"], auth=JWTAuth(), permissions=[IsAdminUser])
+@api_controller(
+    "/audit", tags=["Audit Logs"], auth=JWTAuth(), permissions=[IsAdminUser]
+)
 class AuditLogController:
     """Controller for managing audit logs.
 
@@ -126,7 +128,7 @@ class AuditLogController:
             audit_log_id: UUID of the audit log entry
         """
         audit_log = get_object_or_404(AuditLog, id=audit_log_id)
-        return 200, AuditLogSchema.from_orm(audit_log)
+        return 200, AuditLogSchema.model_validate(audit_log)
 
     @http_get("/stats/summary", response={200: AuditLogStatsSchema})
     @log_api_call()
@@ -222,7 +224,7 @@ class AuditLogController:
             object_id=object_id,
         ).order_by("-timestamp")
 
-        return [AuditLogListSchema.from_orm(log) for log in queryset]
+        return [AuditLogListSchema.model_validate(log) for log in queryset]
 
     @http_get("/user/{user_email}", response=list[AuditLogListSchema])
     @log_api_call()
@@ -237,7 +239,7 @@ class AuditLogController:
             "-timestamp"
         )[:limit]
 
-        return [AuditLogListSchema.from_orm(log) for log in queryset]
+        return [AuditLogListSchema.model_validate(log) for log in queryset]
 
     @http_get("/ip/{ip_address}", response=list[AuditLogListSchema])
     @log_api_call()
@@ -252,7 +254,7 @@ class AuditLogController:
             "-timestamp"
         )[:limit]
 
-        return [AuditLogListSchema.from_orm(log) for log in queryset]
+        return [AuditLogListSchema.model_validate(log) for log in queryset]
 
     @http_get("/actions", response={200: list[dict]})
     @log_api_call()
@@ -291,4 +293,4 @@ class AuditLogController:
             timestamp__gte=since,
         ).order_by("-timestamp")[:limit]
 
-        return [AuditLogListSchema.from_orm(log) for log in queryset]
+        return [AuditLogListSchema.model_validate(log) for log in queryset]
