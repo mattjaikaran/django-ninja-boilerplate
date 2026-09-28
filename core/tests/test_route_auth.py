@@ -13,8 +13,9 @@ JWT/role permission matrix (slice 2):
 import json
 
 import pytest
+from django.http.response import HttpResponseBase
 from django.test import Client
-from ninja_jwt.tokens import RefreshToken
+from ninja_jwt.tokens import AccessToken
 
 from core.tests.factories import UserFactory
 
@@ -22,13 +23,13 @@ User = pytest.importorskip("django.contrib.auth").get_user_model()
 
 
 def bearer_for(user) -> dict:
-    """Build Django test-client auth headers for *user*."""
-    refresh = RefreshToken.for_user(user)
-    return {"HTTP_AUTHORIZATION": f"Bearer {refresh.access_token}"}
+    return {"HTTP_AUTHORIZATION": f"Bearer {AccessToken.for_user(user)}"}
 
 
-def post_json(client: Client, path: str, data: dict, **headers) -> object:
-    return client.post(path, json.dumps(data), content_type="application/json", **headers)
+def post_json(client: Client, path: str, data: dict, **headers) -> HttpResponseBase:
+    return client.post(
+        path, json.dumps(data), content_type="application/json", **headers
+    )
 
 
 # =============================================================================
@@ -45,7 +46,7 @@ class TestAnonymousRouteContract:
         return Client()
 
     @pytest.mark.parametrize(
-        "method,path,body",
+        ("method", "path", "body"),
         [
             ("get", "/api/auth/me", None),
             ("get", "/api/auth/status", None),
@@ -66,10 +67,12 @@ class TestAnonymousRouteContract:
             response = client.get(path)
         else:
             response = post_json(client, path, body)
-        assert response.status_code == 401, f"{method.upper()} {path} -> {response.status_code}"
+        assert response.status_code == 401, (
+            f"{method.upper()} {path} -> {response.status_code}"
+        )
 
     @pytest.mark.parametrize(
-        "method,path",
+        ("method", "path"),
         [
             ("post", "/api/auth/login"),
             ("post", "/api/auth/login/username"),
@@ -110,7 +113,7 @@ class TestRolePermissions:
         return UserFactory(is_staff=True, is_superuser=True)
 
     @pytest.mark.parametrize(
-        "method,path",
+        ("method", "path"),
         [
             ("get", "/api/users/"),
             ("get", "/api/users/staff"),
@@ -163,7 +166,7 @@ class TestRolePermissions:
         response = post_json(
             client, "/api/users/superuser", payload, **bearer_for(superuser)
         )
-        assert response.status_code == 201, response.content
+        assert response.status_code == 201, response
 
     def test_task_status_allows_authenticated_user(self, client, regular_user):
         """Task status/progress is JWT-protected, not staff-only."""
@@ -201,7 +204,7 @@ class TestOpenAPISecurity:
         return ops[method]
 
     @pytest.mark.parametrize(
-        "method,path",
+        ("method", "path"),
         [
             ("get", "/api/auth/me"),
             ("get", "/api/auth/status"),
@@ -220,7 +223,7 @@ class TestOpenAPISecurity:
         assert op.get("security"), f"{method.upper()} {path} missing security"
 
     @pytest.mark.parametrize(
-        "method,path",
+        ("method", "path"),
         [
             ("post", "/api/auth/login"),
             ("post", "/api/auth/signup"),

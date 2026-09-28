@@ -61,7 +61,6 @@ class TestPaginationEnvelope:
         response = Client().get("/api/todos/?page_size=201", **auth_headers)
         assert response.status_code == 422  # 200 is the configured maximum
 
-
     def test_empty_results(self, auth_headers, user):
         response = Client().get("/api/todos/", **auth_headers)
         body = response.json()

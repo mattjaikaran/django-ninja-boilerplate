@@ -69,7 +69,8 @@ class TestDomainExceptionMapping:
 class TestDjangoValidationError:
     def test_returns_400(self):
         response = handle_django_validation_error(
-            make_request(), DjangoValidationError("A user with this email already exists.")
+            make_request(),
+            DjangoValidationError("A user with this email already exists."),
         )
         assert response.status_code == 400
         body = _body(response)

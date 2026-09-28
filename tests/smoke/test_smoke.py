@@ -93,15 +93,9 @@ def test_auth_token_refresh(smoke_client, smoke_refresh_token):
 
 @pytest.mark.smoke
 @pytest.mark.django_db
-def test_auth_me(smoke_client, smoke_user):
-    """GET /api/auth/me returns 200 for authenticated user.
-
-    AuthController has no JWTAuth on the controller — the endpoint checks
-    request.user.is_authenticated directly.  Use force_login to establish a
-    Django session so the middleware sets request.user correctly.
-    """
-    smoke_client.force_login(smoke_user)
-    response = smoke_client.get("/api/auth/me")
+def test_auth_me(smoke_client, smoke_auth_headers):
+    """GET /api/auth/me accepts a valid JWT."""
+    response = smoke_client.get("/api/auth/me", **smoke_auth_headers)
     assert response.status_code == 200
 
 
