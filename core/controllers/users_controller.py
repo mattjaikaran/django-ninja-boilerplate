@@ -48,7 +48,11 @@ class UserController:
     superuser account.
     """
 
-    @http_post("/superuser", response={201: UserSchema, 400: dict, 500: dict}, permissions=[IsSuperUser])
+    @http_post(
+        "/superuser",
+        response={201: UserSchema, 400: dict, 500: dict},
+        permissions=[IsSuperUser],
+    )
     @log_api_call(include_payload=True)
     def create_superuser(self, request, payload: UserSignupSchema):
         """Create a superuser account.
@@ -81,7 +85,31 @@ class UserController:
             is_staff=True,
             is_superuser=True,
         )
-        return 201, UserSchema.from_orm(user)
+        return 201, UserSchema.model_validate(user)
+
+    @http_get("/staff", response={200: PaginatedResponseSchema[UserSchema]})
+    @log_api_call()
+    @paginate(PageNumberPaginationExtra)
+    def list_staff_users(self):
+        """List all staff users, ordered by most recently joined.
+
+        Returns:
+            Paginated queryset of User instances where ``is_staff=True``,
+            ordered by ``-date_joined``.
+        """
+        return User.objects.filter(is_staff=True).order_by("-date_joined")
+
+    @http_get("/active", response={200: PaginatedResponseSchema[UserSchema]})
+    @log_api_call()
+    @paginate(PageNumberPaginationExtra)
+    def list_active_users(self):
+        """List all active users, ordered by most recent login.
+
+        Returns:
+            Paginated queryset of User instances where ``is_active=True``,
+            ordered by ``-last_login``.
+        """
+        return User.objects.filter(is_active=True).order_by("-last_login")
 
     @http_get("/{user_id}", response={200: UserSchema, 404: dict})
     @log_api_call()
@@ -96,7 +124,7 @@ class UserController:
             user does not exist.
         """
         user = get_object_or_404(User, id=user_id)
-        return 200, UserSchema.from_orm(user)
+        return 200, UserSchema.model_validate(user)
 
     @http_get("/", response={200: PaginatedResponseSchema[UserSchema]})
     @log_api_call()
@@ -122,7 +150,8 @@ class UserController:
         Returns:
             Paginated queryset of matching User instances.
         """
-        queryset = User.objects.all()  # noqa: admin endpoint lists all users
+        # Staff-only administration lists all users.
+        queryset = User.objects.order_by("id")
 
         # Apply filters
         if is_active is not None:
@@ -171,7 +200,7 @@ class UserController:
         for attr, value in payload.model_dump(exclude_unset=True).items():
             setattr(user, attr, value)
         user.save()
-        return 200, UserSchema.from_orm(user)
+        return 200, UserSchema.model_validate(user)
 
     @http_delete("/{user_id}", response={204: None})
     @log_api_call()
@@ -192,27 +221,3 @@ class UserController:
         user = get_object_or_404(User, id=user_id)
         user.delete()
         return 204, None
-
-    @http_get("/staff", response={200: PaginatedResponseSchema[UserSchema]})
-    @log_api_call()
-    @paginate(PageNumberPaginationExtra)
-    def list_staff_users(self):
-        """List all staff users, ordered by most recently joined.
-
-        Returns:
-            Paginated queryset of User instances where ``is_staff=True``,
-            ordered by ``-date_joined``.
-        """
-        return User.objects.filter(is_staff=True).order_by("-date_joined")
-
-    @http_get("/active", response={200: PaginatedResponseSchema[UserSchema]})
-    @log_api_call()
-    @paginate(PageNumberPaginationExtra)
-    def list_active_users(self):
-        """List all active users, ordered by most recent login.
-
-        Returns:
-            Paginated queryset of User instances where ``is_active=True``,
-            ordered by ``-last_login``.
-        """
-        return User.objects.filter(is_active=True).order_by("-last_login")
