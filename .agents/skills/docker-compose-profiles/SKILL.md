@@ -38,6 +38,8 @@ One file: `docker-compose.yml`. There is no separate prod or single file.
 | `mcp` | db, valkey, mcp | Development MCP service |
 | `observability` | jaeger | Traces only |
 | `decisions-clm` | clm-encoder, clm-api | Optional NVIDIA GPU Qwen3-8B + CLM decision service |
+| `decisions-clm-host` | clm-api | CLM API against an encoder outside Compose (`CLM_ENCODER_URL`, e.g. llama.cpp on Apple Silicon) |
+| `embeddings` | embedder | Qwen3-Embedding-0.6B for `POST /api/decisions/similar` |
 
 Always pass a profile. Every service belongs to at least one, so a bare
 `docker compose up` starts nothing.

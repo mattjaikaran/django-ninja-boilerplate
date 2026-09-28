@@ -7,8 +7,11 @@ RUN curl -LsSf https://astral.sh/uv/install.sh -o /tmp/uv-install.sh \
     && rm /tmp/uv-install.sh \
     && /root/.local/bin/uv pip install --system --no-cache 'contrastive-lm==0.1.0'
 
+# clm-serve reads CLM_EMB_URL as the --emb-url default, so Compose can point
+# the API at the GPU encoder service or at an encoder outside Compose.
 ENV CLM_CKPT_DIR=/root/.cache/clm \
-    CLM_DEVICE=cpu
+    CLM_DEVICE=cpu \
+    CLM_EMB_URL=http://clm-encoder:8090/v1/embeddings
 
 ENTRYPOINT ["clm-serve"]
-CMD ["--host", "0.0.0.0", "--port", "8700", "--emb-url", "http://clm-encoder:8090/v1/embeddings", "--no-ui"]
+CMD ["--host", "0.0.0.0", "--port", "8700", "--no-ui"]

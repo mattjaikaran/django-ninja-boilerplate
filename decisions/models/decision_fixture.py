@@ -4,10 +4,10 @@ A fixture is a named example payload for the decision engine. Fixtures give
 the dev seed command something to load and give retrieval work a corpus to
 search.
 
-``embedding`` is a native pgvector ``vector`` column. Postgres needs the
+``embedding`` is a native pgvector ``vector`` column, filled by
+``FixtureEmbeddingService`` (``manage.py embed_decisions``). Postgres needs the
 ``vector`` extension, which the initial migration creates on PostgreSQL only;
-SQLite accepts the column type and stores NULL, so the test suite runs
-unchanged.
+SQLite accepts the column type, so the test suite runs unchanged.
 """
 
 from django.db import models
@@ -15,8 +15,9 @@ from pgvector.django import VectorField
 
 from core.models import AbstractBaseModel
 
-#: Width of the embedding vectors. Matches common 1536-dimension models.
-EMBEDDING_DIMENSIONS = 1536
+#: Width of the embedding vectors: the output size of Qwen3-Embedding-0.6B, the
+#: default ``DECISION_EMBEDDING_MODEL``. A different model must match it.
+EMBEDDING_DIMENSIONS = 1024
 
 #: Fixture categories. Each maps to one seed file in ``data/fixtures``.
 FIXTURE_KINDS = [

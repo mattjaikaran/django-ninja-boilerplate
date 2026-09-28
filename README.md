@@ -359,6 +359,8 @@ service belongs to at least one, so a bare `docker compose up` starts nothing.
 | `huey`, `django-q`, `django-rq`, `dramatiq` | db, valkey, and one worker per backend |
 | `observability` | jaeger |
 | `decisions-clm` | clm-encoder (GPU), clm-api (loopback port 8700) |
+| `decisions-clm-host` | clm-api only, using `CLM_ENCODER_URL` (e.g. `just clm-encoder-local` on Apple Silicon) |
+| `embeddings` | embedder (Qwen3-Embedding-0.6B on llama.cpp, CPU) for fixture similarity search |
 
 Production services carry a `-prod` suffix because Docker Compose allows only
 one definition per service name, and the dev and production variants differ in
@@ -593,7 +595,7 @@ curl -s http://localhost:8000/api/decisions/evaluate \
 | Provider | Backing | Setup |
 |---|---|---|
 | `laya` | Open-source local model (default) | `uv sync`; downloads a checkpoint on first decision |
-| `clm` | Open-source CLM with Qwen3-8B | NVIDIA host: set `SYSTEMONE_PROVIDER=clm`, then run `just dev` |
+| `clm` | Open-source CLM with Qwen3-8B | NVIDIA host: set `SYSTEMONE_PROVIDER=clm`, then `just dev`. Apple Silicon: `just clm-encoder-local` and set `CLM_ENCODER_URL` |
 | `jev` | Hosted TypeSafe | `uv sync --extra decisions-jev` plus `TYPESAFE_API_KEY` |
 | `fake` | Deterministic tests | none |
 
@@ -621,6 +623,9 @@ or a rule in code until you calibrate confidence on representative data.
 
 ```bash
 just seed-decisions     # load decisions/data/fixtures into pgvector
+just up-embeddings      # Qwen3-Embedding-0.6B embedder (`embeddings` profile)
+just embed-decisions    # fill fixture vectors for POST /api/decisions/similar
+just eval-decisions     # accuracy + calibration of the configured provider
 ```
 
 `DecisionFixture.embedding` is a native pgvector `vector` column. Postgres needs

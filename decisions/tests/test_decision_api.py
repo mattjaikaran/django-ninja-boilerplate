@@ -159,3 +159,32 @@ class TestEvaluateEndpoint:
         assert response.status_code == 422
         assert calls == []
         assert set(DecisionService._providers) == {"clm"}
+
+
+SIMILAR_URL = "/api/decisions/similar"
+
+
+@pytest.mark.django_db
+class TestSimilarEndpoint:
+    """Similarity search validates input and fails loud without an embedder."""
+
+    def test_missing_embedder_returns_setup_hint(self, authenticated_client, settings):
+        settings.DECISION_EMBEDDING_URL = ""
+        response = authenticated_client.post(
+            SIMILAR_URL,
+            data=json.dumps({"text": "broken parcel"}),
+            content_type="application/json",
+        )
+        assert response.status_code == 500
+        assert response.json()["error"] == "embeddings_unavailable"
+        assert "DECISION_EMBEDDING_URL" in response.json()["message"]
+
+    @pytest.mark.parametrize(
+        "payload",
+        [{"text": ""}, {"text": "x", "limit": 50}, {"text": "x", "kind": "other"}],
+    )
+    def test_invalid_requests_are_rejected(self, authenticated_client, payload):
+        response = authenticated_client.post(
+            SIMILAR_URL, data=json.dumps(payload), content_type="application/json"
+        )
+        assert response.status_code == 422

@@ -9,7 +9,7 @@ yes/no question; it is not a typo for ``null``.
 
 from typing import Any, Literal
 
-from pydantic import ConfigDict
+from pydantic import ConfigDict, Field
 
 from core.schemas.base_schema import CamelCaseSchema
 
@@ -76,3 +76,30 @@ class DecisionResponseSchema(CamelCaseSchema):
     routing: dict[str, Any] | None = None
     fallback_used: bool = False
     escalation_recommended: bool = False
+
+
+class SimilarFixturesRequestSchema(CamelCaseSchema):
+    """Payload for ``POST /decisions/similar``.
+
+    Attributes:
+        text: The new case, as plain text.
+        kind: Optional fixture kind to search within.
+        limit: Number of nearest fixtures to return.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    text: str = Field(..., min_length=1, max_length=8000)
+    kind: Literal["support_ticket", "form_submission", "api_payload"] | None = None
+    limit: int = Field(5, ge=1, le=20)
+
+
+class SimilarFixtureSchema(CamelCaseSchema):
+    """A stored fixture and its cosine distance to the query (0 is identical)."""
+
+    id: str
+    kind: str
+    name: str
+    description: str
+    payload: dict[str, Any]
+    distance: float

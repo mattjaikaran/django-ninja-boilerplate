@@ -25,7 +25,7 @@ engine. It answers a set of typed questions from a piece of state.
 | Provider | Backing | Dependency |
 |---|---|---|
 | `laya` | Open-source, in-process (default) | Base install; downloads its checkpoint on first prediction |
-| `clm` | Open-source CLM + Qwen3-8B | `decisions-clm` Compose profile on an NVIDIA GPU host, or remote `CLM_BASE_URL` |
+| `clm` | Open-source CLM + Qwen3-8B | `decisions-clm` profile on an NVIDIA GPU host; on Apple Silicon `just clm-encoder-local` + `CLM_ENCODER_URL` (`decisions-clm-host`); or remote `CLM_BASE_URL` |
 | `jev` | Hosted TypeSafe API | extra `decisions-jev` + `TYPESAFE_API_KEY` |
 | `fake` | Deterministic | none |
 

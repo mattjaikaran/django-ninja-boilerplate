@@ -34,6 +34,8 @@ Each worker uses the production image target and depends on healthy `django`,
 | `realtime` | `centrifugo` | 8800 | Centrifugo development server |
 | `monitoring` | `flower`, `jaeger` | 5555, 16686 | Worker dashboard and traces |
 | `decisions-clm` | `clm-encoder`, `clm-api` | 8700 on loopback | NVIDIA GPU Qwen3-8B encoder and CLM head; persistent model caches |
+| `decisions-clm-host` | `clm-api` | 8700 on loopback | CLM head against `CLM_ENCODER_URL`; `just clm-encoder-local` serves Qwen3-8B with llama.cpp on the host |
+| `embeddings` | `embedder` | internal 8080 | Qwen3-Embedding-0.6B (llama.cpp, CPU) for fixture similarity search |
 
 ## prod
 

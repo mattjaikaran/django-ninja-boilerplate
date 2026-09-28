@@ -17,6 +17,13 @@ without a matching entry here.
   `django_ai_boost.server_fastmcp.TOOLS`. django-ai-boost has no public
   extension hook, so an upgrade that renames that list breaks the tool;
   `decisions/tests/test_mcp.py` and a live `list_tools` call catch it.
+- New Compose image, no Python package: `ghcr.io/ggml-org/llama.cpp:server-b11223`
+  (`embedder` service, `embeddings` profile) serves Qwen3-Embedding-0.6B
+  (`Qwen/Qwen3-Embedding-0.6B-GGUF`, Q8_0, about 640 MB). Pinned to a build
+  tag; the rolling `server` tag changes daily.
+- Host tool, no Python package: `just clm-encoder-local` and
+  `just embedder-local` need `llama-server` from `brew install llama.cpp`.
+  The CLM encoder uses `Qwen/Qwen3-8B-GGUF` Q8_0 (8.7 GB).
 
 ## Policy
 

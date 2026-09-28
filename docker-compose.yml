@@ -65,7 +65,9 @@ services:
       - dramatiq
       - mcp
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      # Dev owns postgres_dev_data. db-prod and db-single keep postgres_data,
+      # so a local prod run never opens or migrates the dev database.
+      - postgres_dev_data:/var/lib/postgresql/data
       - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
       - ./docker/postgres/dumps:/dumps
     environment:
@@ -110,7 +112,7 @@ services:
     ports:
       - "${VALKEY_PORT:-6380}:6379"
     volumes:
-      - valkey_data:/data
+      - valkey_dev_data:/data
     command: >
       valkey-server
       --appendonly yes
@@ -182,6 +184,8 @@ services:
       # The host uses localhost; containers use the CLM service on the shared network.
       - CLM_BASE_URL=${CLM_CONTAINER_URL:-http://clm-api:8700}
       - CLM_API_KEY=${CLM_API_KEY:-}
+      # Fixture similarity search (`embeddings` profile).
+      - DECISION_EMBEDDING_URL=${DECISION_EMBEDDING_CONTAINER_URL:-http://embedder:8080/v1/embeddings}
       - CELERY_RESULT_BACKEND=redis://valkey:6379/0
       - FLOWER_URL=${FLOWER_URL:-}
       - UV_PROJECT_ENVIRONMENT=/opt/venv
@@ -733,6 +737,7 @@ services:
       # The MCP evaluate_decision tool calls the configured decision provider.
       - CLM_BASE_URL=${CLM_CONTAINER_URL:-http://clm-api:8700}
       - CLM_API_KEY=${CLM_API_KEY:-}
+      - DECISION_EMBEDDING_URL=${DECISION_EMBEDDING_CONTAINER_URL:-http://embedder:8080/v1/embeddings}
     depends_on:
       db:
         condition: service_healthy
@@ -903,6 +908,7 @@ services:
       - USE_TLS=${USE_TLS:-false}
       - CLM_BASE_URL=${CLM_CONTAINER_URL:-http://clm-api:8700}
       - CLM_API_KEY=${CLM_API_KEY:-}
+      - DECISION_EMBEDDING_URL=${DECISION_EMBEDDING_CONTAINER_URL:-http://embedder:8080/v1/embeddings}
       # Centrifugo settings
       - CENTRIFUGO_URL=${CENTRIFUGO_URL:-http://centrifugo-prod:8000}
       - CENTRIFUGO_API_KEY=${CENTRIFUGO_API_KEY}
@@ -1194,6 +1200,7 @@ services:
       - USE_TLS=${USE_TLS:-false}
       - CLM_BASE_URL=${CLM_CONTAINER_URL:-http://clm-api:8700}
       - CLM_API_KEY=${CLM_API_KEY:-}
+      - DECISION_EMBEDDING_URL=${DECISION_EMBEDDING_CONTAINER_URL:-http://embedder:8080/v1/embeddings}
       - DEBUG=0
       - SECRET_KEY=${SECRET_KEY}
       - NINJA_JWT_SIGNING_KEY=${NINJA_JWT_SIGNING_KEY:-}
@@ -1274,10 +1281,17 @@ services:
       context: .
       dockerfile: deploy/docker/Dockerfile.clm
     platform: linux/amd64
+    # decisions-clm runs the GPU encoder above. decisions-clm-host runs only
+    # this API and uses CLM_ENCODER_URL, for example llama.cpp on an Apple
+    # Silicon host (`just clm-encoder-local`) or a remote vLLM server.
     profiles:
       - decisions-clm
+      - decisions-clm-host
     environment:
       - CLM_API_KEY=${CLM_API_KEY:-}
+      - CLM_EMB_URL=${CLM_ENCODER_URL:-http://clm-encoder:8090/v1/embeddings}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - clm_head_cache:/root/.cache/clm
     ports:
@@ -1285,6 +1299,8 @@ services:
     depends_on:
       clm-encoder:
         condition: service_healthy
+        # Skipped under decisions-clm-host, where clm-encoder is not enabled.
+        required: false
     healthcheck:
       test:
         [
@@ -1300,6 +1316,47 @@ services:
     networks:
       - app-network
 
+  # Qwen3-Embedding-0.6B for decision fixture similarity search. CPU is
+  # enough for this 0.6B model; the first start downloads the ~640 MB GGUF
+  # into a named volume. Add it with `--profile embeddings` (or
+  # `just up-embeddings`); it joins any stack, dev or prod.
+  embedder:
+    image: ghcr.io/ggml-org/llama.cpp:server-b11223
+    profiles:
+      - embeddings
+    command:
+      - -hf
+      - Qwen/Qwen3-Embedding-0.6B-GGUF:Q8_0
+      - --embeddings
+      - --pooling
+      - last
+      - --ctx-size
+      - "8192"
+      - --ubatch-size
+      - "8192"
+      - --batch-size
+      - "8192"
+      - --alias
+      - qwen3-embedding-0.6b
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8080"
+    environment:
+      - HF_TOKEN=${HF_TOKEN:-}
+    volumes:
+      - embedder_cache:/root/.cache/llama.cpp
+    expose:
+      - "8080"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 5m
+    networks:
+      - app-network
+
 networks:
   app-network:
     driver: bridge
@@ -1309,7 +1366,11 @@ networks:
 volumes:
   postgres_data:
     driver: local
+  postgres_dev_data:
+    driver: local
   valkey_data:
+    driver: local
+  valkey_dev_data:
     driver: local
   static_volume:
     driver: local
@@ -1322,4 +1383,6 @@ volumes:
   clm_hf_cache:
     driver: local
   clm_head_cache:
+    driver: local
+  embedder_cache:
     driver: local

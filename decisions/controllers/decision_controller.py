@@ -15,8 +15,13 @@ from ninja_jwt.authentication import JWTAuth
 
 from api.decorators import log_api_call, validate_request
 from api.exceptions import ValidationError
-from decisions.schemas import DecisionRequestSchema, DecisionResponseSchema
-from decisions.services import DecisionService
+from decisions.schemas import (
+    DecisionRequestSchema,
+    DecisionResponseSchema,
+    SimilarFixtureSchema,
+    SimilarFixturesRequestSchema,
+)
+from decisions.services import DecisionService, FixtureEmbeddingService
 
 logger = logging.getLogger(__name__)
 
@@ -26,8 +31,9 @@ class DecisionController:
     """HTTP adapter for the System One decision engine."""
 
     def __init__(self) -> None:
-        """Initialise the controller with an injected service."""
+        """Initialise the controller with injected services."""
         self.service = DecisionService()
+        self.embeddings = FixtureEmbeddingService()
 
     @http_post(
         "/evaluate",
@@ -59,3 +65,36 @@ class DecisionController:
             logger.error("Decision provider unavailable: %s", exc)
             return 500, {"error": "provider_unavailable", "message": str(exc)}
         return 200, DecisionResponseSchema.model_validate(result)
+
+    @http_post(
+        "/similar",
+        response={200: list[SimilarFixtureSchema], 500: dict, 502: dict},
+        throttle=DynamicRateThrottle(scope="decisions"),
+    )
+    @log_api_call(include_payload=True, include_response=False)
+    @validate_request()
+    def similar(self, request, payload: SimilarFixturesRequestSchema):
+        """Return the stored fixtures nearest to *payload.text*.
+
+        Uses Qwen3-Embedding vectors from ``embed_decisions``. Returns
+        (500, error) with a setup hint when the embeddings endpoint is not
+        configured or unreachable.
+        """
+        try:
+            matches = self.embeddings.similar(
+                payload.text, kind=payload.kind, limit=payload.limit
+            )
+        except ImproperlyConfigured as exc:
+            logger.error("Decision embeddings unavailable: %s", exc)
+            return 500, {"error": "embeddings_unavailable", "message": str(exc)}
+        return 200, [
+            SimilarFixtureSchema(
+                id=str(fixture.id),
+                kind=fixture.kind,
+                name=fixture.name,
+                description=fixture.description,
+                payload=fixture.payload,
+                distance=distance,
+            )
+            for fixture, distance in matches
+        ]

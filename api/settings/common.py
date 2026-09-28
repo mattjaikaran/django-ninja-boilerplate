@@ -619,6 +619,21 @@ ENABLE_DECISIONS = env.bool("ENABLE_DECISIONS", default=False)
 ENABLE_DECISION_MCP = env.bool("ENABLE_DECISION_MCP", default=False)
 # Results below this aggregate confidence are flagged for escalation.
 DECISION_ESCALATION_THRESHOLD = env.float("DECISION_ESCALATION_THRESHOLD", default=0.5)
+# Fixture embeddings for similarity search: an OpenAI-compatible
+# /v1/embeddings endpoint serving Qwen3-Embedding-0.6B (the `embeddings`
+# Compose profile or `just embedder-local`). Empty disables the feature.
+DECISION_EMBEDDING_URL = env(
+    "DECISION_EMBEDDING_URL", default="http://127.0.0.1:8091/v1/embeddings"
+)
+DECISION_EMBEDDING_MODEL = env(
+    "DECISION_EMBEDDING_MODEL", default="qwen3-embedding-0.6b"
+)
+DECISION_EMBEDDING_API_KEY = env("DECISION_EMBEDDING_API_KEY", default="")
+# Qwen3-Embedding expects an instruction before each query, not documents.
+DECISION_EMBEDDING_INSTRUCTION = env(
+    "DECISION_EMBEDDING_INSTRUCTION",
+    default="Given a new case, retrieve stored example cases that are most similar",
+)
 
 # =============================================================================
 # Audit Logging Configuration

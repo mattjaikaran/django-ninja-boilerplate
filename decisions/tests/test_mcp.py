@@ -71,3 +71,12 @@ class TestRegister:
         assert register() is True
         assert register() is True
         assert tools == ["existing", evaluate_decision]
+
+    def test_real_ai_boost_exposes_a_tool_list(self):
+        """Fails when a django-ai-boost upgrade removes the list we append to."""
+        pytest.importorskip("django_ai_boost")
+        from decisions.mcp import _boost_tools
+
+        tools = _boost_tools()
+        assert isinstance(tools, list)
+        assert all(callable(tool) for tool in tools)

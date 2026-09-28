@@ -59,6 +59,7 @@ class TestAnonymousRouteContract:
             ("get", "/api/tasks/dlq/", None),
             ("get", "/api/audit/", None),
             ("post", "/api/decisions/evaluate", {}),
+            ("post", "/api/decisions/similar", {"text": "x"}),
             ("get", "/api/api-keys/", None),
             ("post", "/api/realtime/connection-token", {}),
             ("post", "/api/realtime/subscription-token", {"channel": "chat:x"}),

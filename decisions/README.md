@@ -96,17 +96,60 @@ Do not use provider confidence to authorize consequential automation, such
 as publishing, deleting, refunding, or spending. Keep a human or a rule in
 code in the loop until you calibrate confidence on representative data.
 
-- During local inference, the published Laya English checkpoint emitted a
-  `RuntimeWarning` that it "ships invalid temperatures" and said: "Treat
-  confidence from the affected entries as uncalibrated."
+- The published Laya English checkpoint emits a `RuntimeWarning` that it
+  "ships invalid temperatures" and says: "Treat confidence from the affected
+  entries as uncalibrated." Its config clamps one bucket (`choice:11+`, choice
+  questions with 11 or more options). The other buckets load, but nobody has
+  validated them on your data.
+- `choice` and `score` confidence is the top probability minus the mean of
+  the others, not a probability. `noul` confidence is `max(p, 1 - p)`.
 - The scores in this README and in the tests are examples. They are not
   trusted thresholds.
 - `DECISION_ESCALATION_THRESHOLD` (default `0.5`) only flags weak results for
   review. It does not make a result above the threshold safe to act on.
 
-To calibrate, record decisions and their reviewed outcomes on your own
-traffic. Measure how often answers at each confidence level are correct.
-Then choose a threshold for each question, and keep the gate in code.
+### Measure it: `eval_decisions`
+
+`manage.py eval_decisions` (or `just eval-decisions`) runs a labelled dataset
+through a provider and reports accuracy, mean confidence, expected calibration
+error (ECE), and, for each threshold from 0.5 to 0.95, the share of answers at
+or above it and their accuracy. Use that table to choose a threshold per
+question. The bundled `data/eval/support_tickets.json` has 40 hand-labelled
+tickets and three questions; replace it with reviewed decisions from your own
+traffic.
+
+```bash
+just eval-decisions --provider laya
+just eval-decisions --provider clm path/to/reviewed.json --json
+```
+
+One run on the bundled set (Apple Silicon, CLM encoder from llama.cpp Q8_0):
+
+| Provider | Question | Accuracy | Mean confidence | ECE |
+|---|---|---|---|---|
+| `laya` | team (3-way choice) | 95.0% | 53.0% | 0.420 |
+| `laya` | angry (noul) | 90.0% | 70.9% | 0.191 |
+| `laya` | wants_refund (noul) | 97.5% | 81.1% | 0.164 |
+| `clm` | team (3-way choice) | 77.5% | 55.5% | 0.220 |
+| `clm` | angry (noul) | 72.5% | 78.9% | 0.194 |
+| `clm` | wants_refund (noul) | 92.5% | 89.8% | 0.072 |
+
+Read it this way: on this set, Laya is underconfident. With the default
+threshold of 0.5, it would escalate 40% of `team` answers, and 14 of those
+16 were correct. CLM is weaker here, and more than a quarter of its `angry` answers
+above 0.8 confidence were wrong. Forty tickets is a smoke test, not a
+calibration; measure your own data.
+
+### Write CLM criteria as answers
+
+CLM scores each option's text as a candidate answer, so phrase criteria as
+complete answer sentences. On the bundled set, keyword lists such as
+`"Charges, refunds, invoices"` gave 35% on `team`. Sentences such as
+`"The billing team, because the ticket is about a charge, payment, invoice,
+refund or subscription."` gave 77.5%. For `noul`, pass `criteria` with
+`true` and `false` sentences. `"The customer is angry."` versus
+`"The customer is not angry."` scored 25% on tone; a descriptive pair scored
+72.5%.
 
 ## Add a provider
 
@@ -122,7 +165,8 @@ response that carries per-answer `confidence`.
 
 `DecisionFixture` stores named example payloads, with a native pgvector
 `embedding` column. `seed_decisions` loads every JSON file in `data/fixtures`
-and is idempotent:
+and is idempotent. A re-seed keeps a fixture's vector while its description
+and payload are unchanged, and clears it when they change:
 
 ```bash
 uv run python manage.py seed_decisions
@@ -142,6 +186,35 @@ PostgreSQL before the table, and `docker/postgres/init/01-extensions.sql`
 creates it when the Docker volume is first initialised. SQLite accepts the
 column type, so `just test` needs no setup.
 
+### Similarity search with Qwen3-Embedding-0.6B
+
+`POST /api/decisions/similar` returns the stored fixtures nearest to a new
+case, by cosine distance (0 is identical). Use it to show reviewers similar
+past cases or to pick examples for a prompt. The embedding model is
+Qwen3-Embedding-0.6B (1024 dimensions), served by llama.cpp:
+
+```bash
+just up-embeddings      # `embedder` service on the `embeddings` profile (CPU)
+just seed-decisions
+just embed-decisions    # fills missing vectors; --force recomputes all
+curl -s http://localhost:8000/api/decisions/similar \
+  -H "Authorization: Bearer $ACCESS_TOKEN" -H 'Content-Type: application/json' \
+  -d '{"text": "Customer wants a refund two months after buying", "kind": "support_ticket", "limit": 3}'
+```
+
+On the bundled fixtures, that query returned `refund_outside_window` (0.175)
+and `refund_within_window` (0.207) ahead of `enterprise_outage` (0.571).
+Similarity finds the topic. It does not apply rules such as the 30-day
+window, so keep those in code.
+
+Django reads `DECISION_EMBEDDING_URL` (any OpenAI-compatible
+`/v1/embeddings` endpoint), `DECISION_EMBEDDING_MODEL`, and optional
+`DECISION_EMBEDDING_API_KEY`. On the host, `just embedder-local` serves the
+same model with Metal on port 8091. Queries carry the Qwen3 retrieval
+instruction (`DECISION_EMBEDDING_INSTRUCTION`); stored documents do not. A
+model with another output width fails loud; change `EMBEDDING_DIMENSIONS`
+with a migration to use one.
+
 ## Running the engines
 
 `uv sync --locked` installs Laya. The first prediction downloads its checkpoint
@@ -158,17 +231,36 @@ with `GUNICORN_WORKERS=1` and `DJANGO_MEMORY_LIMIT=4G` from
 `.env.deploy.example` if you enable Laya. Measure actual resident memory
 before raising the worker count.
 
-CLM requires a Linux NVIDIA GPU host that can serve Qwen3-8B through vLLM.
-With the NVIDIA Container Toolkit installed, set `SYSTEMONE_PROVIDER=clm` in
-`.env`. `just dev` then activates the `decisions-clm` profile. It runs
-`docker compose up --build`, so it builds `clm-api` on a fresh checkout and
-rebuilds it after `deploy/docker/Dockerfile.clm` changes. Or run Compose
-directly:
+CLM needs a Qwen3-8B encoder. The `decisions-clm` profile serves it with vLLM
+on a Linux NVIDIA GPU host. With the NVIDIA Container Toolkit installed, set
+`SYSTEMONE_PROVIDER=clm` in `.env`. `just dev` then activates the
+`decisions-clm` profile. It runs `docker compose up --build`, so it builds
+`clm-api` on a fresh checkout and rebuilds it after
+`deploy/docker/Dockerfile.clm` changes. Or run Compose directly:
 
 ```bash
 docker compose --profile dev --profile celery --profile decisions-clm up -d --build
 # For production, substitute --profile prod for --profile dev --profile celery.
 ```
+
+**Without an NVIDIA GPU (Apple Silicon):** serve the encoder on the host with
+llama.cpp and Metal, and run only `clm-api` in Compose:
+
+```bash
+brew install llama.cpp
+just clm-encoder-local   # Qwen3-8B Q8_0 (8.7 GB download), 127.0.0.1:8090
+# in .env:
+#   SYSTEMONE_PROVIDER=clm
+#   CLM_ENCODER_URL=http://host.docker.internal:8090/v1/embeddings
+just dev                 # selects the decisions-clm-host profile
+```
+
+On an M2 Pro with 32 GB, a three-question decision took 0.4 to 1.7 s. The
+projection head was trained on vLLM bf16 embeddings; Q8_0 llama.cpp
+embeddings are close but not identical, so measure with `eval_decisions`
+before you compare them with a GPU deployment. `clm-api` runs as an amd64
+image under emulation on Apple Silicon; that costs little because the encoder
+does the heavy work on the host.
 
 The `clm-encoder` service downloads Qwen3-8B on first start. `clm-api`
 downloads the CLM projection head. Both caches use named volumes. The encoder

@@ -44,14 +44,16 @@ backend-profile:
             ;;
     esac
 
-# Start CLM only when it is the configured provider. Reuse the already active
-# dev profile for providers that need no extra service.
+# Start CLM only when it is the configured provider. With CLM_ENCODER_URL set,
+# run only clm-api against that encoder; otherwise also run the GPU encoder.
+# Reuse the already active dev profile for providers that need no service.
 decision-profile:
     #!/usr/bin/env bash
     set -euo pipefail
     name=$(grep -E '^SYSTEMONE_PROVIDER=' .env 2>/dev/null | tail -1 | cut -d= -f2 || true)
+    encoder=$(grep -E '^CLM_ENCODER_URL=' .env 2>/dev/null | tail -1 | cut -d= -f2- || true)
     case "${name:-laya}" in
-        clm) echo decisions-clm ;;
+        clm) if [ -n "${encoder}" ]; then echo decisions-clm-host; else echo decisions-clm; fi ;;
         laya | jev | fake) echo dev ;;
         *)
             echo "Unknown SYSTEMONE_PROVIDER '${name}' in .env" >&2
@@ -59,14 +61,38 @@ decision-profile:
             ;;
     esac
 
+# Serve Qwen3-8B embeddings for CLM with llama.cpp (Metal on Apple Silicon).
+# Set CLM_ENCODER_URL=http://host.docker.internal:8090/v1/embeddings in .env.
+# The first run downloads the 8.7 GB Q8_0 GGUF. Binds loopback only.
+clm-encoder-local:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    command -v llama-server >/dev/null || { echo "llama-server not found. Install it: brew install llama.cpp" >&2; exit 1; }
+    exec llama-server -hf Qwen/Qwen3-8B-GGUF:Q8_0 --embeddings --pooling last \
+        -c 8192 -ub 2048 -b 2048 --parallel 4 --host 127.0.0.1 --port 8090 --alias qwen3-8b
+
+# Serve Qwen3-Embedding-0.6B on the host for fixture similarity search. The
+# `embeddings` Compose profile runs the same model in a container instead.
+embedder-local:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    command -v llama-server >/dev/null || { echo "llama-server not found. Install it: brew install llama.cpp" >&2; exit 1; }
+    exec llama-server -hf Qwen/Qwen3-Embedding-0.6B-GGUF:Q8_0 --embeddings --pooling last \
+        -c 8192 -ub 8192 -b 8192 --host 127.0.0.1 --port 8091 --alias qwen3-embedding-0.6b
+
+# Run Compose with the dev profile plus the task worker and decision profiles
+# selected in .env. Every dev stack recipe goes through this one.
+_stack *args:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{ compose }} --profile dev --profile "$(just backend-profile)" --profile "$(just decision-profile)" {{ args }}
+
 # Start the dev stack: db, valkey, django, the configured task worker, and the
 # CLM services when SYSTEMONE_PROVIDER=clm. `--build` builds missing images,
 # including clm-api on a fresh checkout, and rebuilds images whose inputs
 # changed, such as uv.lock after a pull. Cached builds take a few seconds.
 dev:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    {{ compose }} --profile dev --profile "$(just backend-profile)" --profile "$(just decision-profile)" up -d --build
+    just _stack up -d --build
 
 # Follow logs for the whole dev stack
 dev-logs:
@@ -74,29 +100,21 @@ dev-logs:
 
 # Stop the dev stack
 down:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    {{ compose }} --profile dev --profile "$(just backend-profile)" --profile "$(just decision-profile)" down
+    just _stack down
 
 # Stop the dev stack and remove its volumes
 down-volumes:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    {{ compose }} --profile dev --profile "$(just backend-profile)" --profile "$(just decision-profile)" down -v
+    just _stack down -v
 
 # Restart the dev stack from scratch: down, up, migrate
 reset: down
-    #!/usr/bin/env bash
-    set -euo pipefail
-    {{ compose }} --profile dev --profile "$(just backend-profile)" --profile "$(just decision-profile)" up -d --build
+    just _stack up -d --build
     just migrate
 
 # Build the application images, the selected task worker, and clm-api when
 # SYSTEMONE_PROVIDER=clm. Building clm-api needs no GPU; running it does.
 build:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    {{ compose }} --profile dev --profile prod --profile single --profile "$(just backend-profile)" --profile "$(just decision-profile)" build
+    just _stack --profile prod --profile single build
 
 # Start the dev stack (alias for `dev`)
 up:
@@ -104,46 +122,36 @@ up:
 
 # Start the dev stack with monitoring (Flower, Jaeger)
 up-monitoring:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    {{ compose }} --profile dev --profile "$(just backend-profile)" --profile "$(just decision-profile)" --profile monitoring up -d --build
+    just _stack --profile monitoring up -d --build
 
 # Start the dev stack with Centrifugo
 up-realtime:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    {{ compose }} --profile dev --profile "$(just backend-profile)" --profile "$(just decision-profile)" --profile realtime up -d --build
+    just _stack --profile realtime up -d --build
 
 # Start the dev stack with Mailhog. Point EMAIL_* at mailhog in .env first;
 # see the Email Settings block in .env.example.
 up-mail:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    {{ compose }} --profile dev --profile "$(just backend-profile)" --profile "$(just decision-profile)" --profile mail up -d --build
+    just _stack --profile mail up -d --build
 
 # Start the dev stack with the MCP server (needs the `dev` extra)
 up-mcp:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    {{ compose }} --profile dev --profile "$(just backend-profile)" --profile "$(just decision-profile)" --profile mcp up -d --build
+    just _stack --profile mcp up -d --build
+
+# Start the dev stack with the Qwen3-Embedding-0.6B embedder
+up-embeddings:
+    just _stack --profile embeddings up -d --build
 
 # Start every dev service
 up-full:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    {{ compose }} --profile dev --profile "$(just backend-profile)" --profile "$(just decision-profile)" --profile monitoring --profile realtime --profile mail --profile mcp up -d --build
+    just _stack --profile monitoring --profile realtime --profile mail --profile mcp --profile embeddings up -d --build
 
 # Stop every dev service
 down-full:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    {{ compose }} --profile dev --profile "$(just backend-profile)" --profile "$(just decision-profile)" --profile monitoring --profile realtime --profile mail --profile mcp down
+    just _stack --profile monitoring --profile realtime --profile mail --profile mcp --profile embeddings down
 
 # Stop every dev service and remove volumes
 down-volumes-full:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    {{ compose }} --profile dev --profile "$(just backend-profile)" --profile "$(just decision-profile)" --profile monitoring --profile realtime --profile mail --profile mcp down -v
+    just _stack --profile monitoring --profile realtime --profile mail --profile mcp --profile embeddings down -v
 
 # Follow logs for the dev stack
 logs:
@@ -269,6 +277,14 @@ db-shell:
 seed-decisions:
     {{ dev }} exec {{ django_service }} {{ uv }} run python manage.py seed_decisions
 
+# Embed decision fixtures with Qwen3-Embedding-0.6B (needs `just up-embeddings`)
+embed-decisions *args:
+    {{ dev }} exec {{ django_service }} {{ uv }} run python manage.py embed_decisions {{ args }}
+
+# Measure provider accuracy and confidence calibration on the labelled tickets
+eval-decisions *args:
+    {{ dev }} exec {{ django_service }} {{ uv }} run python manage.py eval_decisions {{ args }}
+
 # Load development sample data (users, todos)
 seed:
     {{ dev }} exec {{ django_service }} {{ uv }} run python manage.py seed_data
@@ -379,7 +395,7 @@ setup-services:
     ./scripts/generate_realtime_secret.sh
     ./scripts/doctor.sh
     # --wait keeps `just migrate` from racing the container's own migrate.
-    {{ compose }} --profile dev --profile "$(just backend-profile)" --profile "$(just decision-profile)" up -d --build --wait
+    just _stack up -d --build --wait
     just migrate
     just create-superuser
     just wait-for-api

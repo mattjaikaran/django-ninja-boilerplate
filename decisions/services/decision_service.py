@@ -162,7 +162,10 @@ class DecisionService:
         """Load every JSON fixture file in *fixtures_dir*.
 
         The operation is idempotent: a fixture with the same ``kind`` and
-        ``name`` is updated in place, not duplicated.
+        ``name`` is updated in place, not duplicated. A stored embedding is
+        kept when the text it was computed from is unchanged, and cleared when
+        the description or payload changes, so ``embed_decisions`` recomputes
+        only stale vectors. A file may supply its own ``embedding``.
 
         Args:
             fixtures_dir: Directory holding the ``*.json`` fixture files.
@@ -181,15 +184,24 @@ class DecisionService:
             if not kind:
                 raise ValueError(f"Fixture file {path.name} is missing a 'kind' key.")
             for item in document.get("fixtures", []):
-                _, was_created = DecisionFixture.objects.update_or_create(
+                description = item.get("description", "")
+                payload = item.get("payload", {})
+                fixture, was_created = DecisionFixture.objects.get_or_create(
                     kind=kind,
                     name=item["name"],
-                    defaults={
-                        "description": item.get("description", ""),
-                        "payload": item.get("payload", {}),
-                        "embedding": item.get("embedding"),
-                    },
+                    defaults={"description": description, "payload": payload},
                 )
+                changed = (fixture.description, fixture.payload) != (
+                    description,
+                    payload,
+                )
+                fixture.description = description
+                fixture.payload = payload
+                if item.get("embedding") is not None:
+                    fixture.embedding = item["embedding"]
+                elif changed:
+                    fixture.embedding = None
+                fixture.save()
                 created += int(was_created)
                 updated += int(not was_created)
         logger.info(

@@ -62,8 +62,10 @@ reset_database() {
     print_info "Stopping services..."
     docker compose --profile dev down
 
-    print_info "Removing database volume..."
-    docker volume rm django-ninja-boilerplate_postgres_data 2>/dev/null || true
+    print_info "Removing the dev database volume..."
+    # Only the dev volume: db-prod and db-single use postgres_data.
+    project="${COMPOSE_PROJECT_NAME:-$(basename "$PWD" | tr '[:upper:]' '[:lower:]')}"
+    docker volume rm "${project}_postgres_dev_data" 2>/dev/null || true
 
     print_info "Starting services..."
     docker compose --profile dev up -d
