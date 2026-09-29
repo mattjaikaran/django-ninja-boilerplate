@@ -105,8 +105,9 @@ jobs:
 
       - name: Install dependencies with Django ${{ matrix.django-version }}
         run: |
-          # Lock-respecting install, then pin the matrix Django version.
-          uv sync --locked --extra dev
+          # Lock-respecting install, then pin the matrix Django version. The
+          # task-backend extras let the task contract tests import every backend.
+          uv sync --locked --extra dev --extra huey --extra django-q --extra django-rq --extra dramatiq
           uv pip install --python .venv/bin/python "Django~=${{ matrix.django-version }}.0"
           # --no-sync on every later step too, or uv re-syncs the lock's
           # Django back over the matrix version.
@@ -254,7 +255,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          uv sync --extra dev
+          uv sync --locked --extra dev --extra huey --extra django-q --extra django-rq --extra dramatiq
 
       - name: Run migrations
         run: uv run python manage.py migrate --noinput
