@@ -728,7 +728,7 @@ start_services() {
 
 start_docker_services() {
     # `just dev` builds changed images and starts the stack with the task
-    # worker and decision profiles selected in .env.
+    # worker profile selected in .env.
     print_substep "Building images and starting containers..."
     start_spinner "Building and starting (this may take a few minutes on first run)..."
 

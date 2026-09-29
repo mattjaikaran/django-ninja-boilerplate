@@ -22,7 +22,7 @@ at `/admin/atlas/`. It is generated, cached, and staff-only.
 
 - `core/atlas.py` documents the metadata shape.
 - Each app may ship an `atlas.py` module with an `ATLAS` dict: `code`, `name`,
-  `what`, `how`, and `children`. See `todos/atlas.py`, `decisions/atlas.py`.
+  `what`, `how`, and `children`. See `todos/atlas.py`.
 - The generator writes `atlas-data.json` at the repo root.
 - The map is gated by `ATLAS_ENABLED` and served by `atlas/views.py` behind the
   staff permission.

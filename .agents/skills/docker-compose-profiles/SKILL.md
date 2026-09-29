@@ -37,9 +37,6 @@ One file: `docker-compose.yml`. There is no separate prod or single file.
 | `mail` | mailhog | Development email capture |
 | `mcp` | db, valkey, mcp | Development MCP service |
 | `observability` | jaeger | Traces only |
-| `decisions-clm` | clm-encoder, clm-api | Optional NVIDIA GPU Qwen3-8B + CLM decision service |
-| `decisions-clm-host` | clm-api | CLM API against an encoder outside Compose (`CLM_ENCODER_URL`, e.g. llama.cpp on Apple Silicon) |
-| `embeddings` | embedder | Qwen3-Embedding-0.6B for `POST /api/decisions/similar` |
 
 Always pass a profile. Every service belongs to at least one, so a bare
 `docker compose up` starts nothing.
@@ -49,14 +46,9 @@ just dev
 docker compose --profile prod up -d
 ```
 
-`just dev` reads `TASK_BACKEND`, `SYSTEMONE_PROVIDER`, and `CLM_ENCODER_URL`
-from `.env`. It starts one task backend. When CLM is selected, it adds
-`decisions-clm` (GPU encoder in Compose), or `decisions-clm-host` when
-`CLM_ENCODER_URL` points at an encoder outside Compose, such as
-`just clm-encoder-local` on Apple Silicon. Celery and Laya are the defaults;
-Laya needs no GPU. Run only one large model at a time on a 32 GB host: the
-Qwen3-8B encoder holds 8 to 9 GB resident. Mailhog and MCP stay opt-in
-through `just up-mail` and `just up-mcp`.
+`just dev` reads `TASK_BACKEND` from `.env`. It starts one task backend.
+Celery is the default. Mailhog and MCP are opt-in through `just up-mail` and
+`just up-mcp`.
 
 ## Why the `-prod` suffix
 

@@ -129,7 +129,7 @@ def protected_endpoints():
 
     These are network-private: observability detail/metrics, auth
     profile/status/logout, user administration, task internals, audit logs,
-    decisions, API-key management and todo data. Several additionally require
+    API-key management and todo data. Several additionally require
     a staff account (checked by the controller's permission classes).
     """
     return [
@@ -195,8 +195,6 @@ def protected_endpoints():
         {"method": "DELETE", "path": "/api/tasks/dlq/{entry_id}"},
         {"method": "POST", "path": "/api/tasks/dlq/{entry_id}/resolve"},
         {"method": "POST", "path": "/api/tasks/dlq/{entry_id}/retry"},
-        # Decisions.
-        {"method": "POST", "path": "/api/decisions/evaluate"},
         # Todo data — four controllers expose the same CRUD + search surface.
         {"method": "GET", "path": "/api/todos/"},
         {"method": "POST", "path": "/api/todos/"},

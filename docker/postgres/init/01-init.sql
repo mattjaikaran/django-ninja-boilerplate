@@ -6,7 +6,6 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";      -- UUID generation
 CREATE EXTENSION IF NOT EXISTS "pg_trgm";        -- Trigram matching for fuzzy search
 CREATE EXTENSION IF NOT EXISTS "unaccent";       -- Accent-insensitive search
 CREATE EXTENSION IF NOT EXISTS "btree_gin";      -- GIN index support
-CREATE EXTENSION IF NOT EXISTS "vector";         -- pgvector: decision fixture embeddings
 
 -- Set timezone to UTC
 SET timezone = 'UTC';

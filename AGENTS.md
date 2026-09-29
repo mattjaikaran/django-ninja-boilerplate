@@ -104,29 +104,6 @@ wrong here. Do not use them.
 - Put static URL paths before dynamic `/{id}` paths in each controller so
   dynamic paths do not shadow static operations.
 
-### Decisions app
-
-- Do not rename `noul` to `null`. `noul` is Laya's own question-type name; the
-  engine rejects other spellings.
-- Do not silently fall back from laya to jev. Fail loud with the install hint.
-- Do not test with the real provider. Use `FakeProvider`.
-- Do not load a model or touch the network in a unit test.
-- Do not let API or MCP callers choose the provider. The server uses
-  `SYSTEMONE_PROVIDER`, so a JWT user cannot select `fake` or reach Jev.
-- Do not treat provider confidence as a trusted threshold. Gate consequential
-  automation until confidence is calibrated on representative data.
-- Do not let API or MCP callers send escalation thresholds. Per-question
-  thresholds come only from `DECISION_THRESHOLDS_FILE`, keyed by provider.
-- Do not tune question wording or thresholds on the `test` split of
-  `decisions/data/benchmark/`. Tune on `dev`; report `test`.
-- Do not add a question to an agent pack without benchmark cases for it. Each
-  pack in `AgentDecisionService` reads its questions from the benchmark
-  domain that measures it.
-- Do not map an uncertain `gate_action` answer to `allow`. The gate fails
-  closed.
-- Do not report token savings from estimates. `measure_decision_savings`
-  uses the baseline LLM's reported usage.
-
 ### Infrastructure
 
 - Do not add a second `docker-compose.yml`. Add a service under a profile.

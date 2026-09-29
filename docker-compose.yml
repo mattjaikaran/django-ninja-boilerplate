@@ -22,7 +22,6 @@
 #   observability  Jaeger traces only
 #   mail       Mailhog email capture
 #   mcp        Development MCP server
-#   decisions-clm  Optional GPU-backed Qwen3-8B encoder and CLM API
 #
 # Production services carry a -prod suffix because Docker Compose allows only
 # one definition per service name, and the dev and production variants differ
@@ -53,7 +52,8 @@ services:
 
   # PostgreSQL 17 Database
   db:
-    # pgvector build: ships the `vector` extension used by the decisions app.
+    # Postgres 17 (pgvector build). Kept so existing dev volumes, initialised
+    # with this Debian-based image, keep the same collation.
     image: pgvector/pgvector:pg17
     profiles:
       - dev
@@ -181,11 +181,6 @@ services:
       # so use the redis scheme against the Valkey server (wire-compatible)
       - CELERY_BROKER_URL=redis://valkey:6379/0
       - TASK_BACKEND=${TASK_BACKEND:-celery}
-      # The host uses localhost; containers use the CLM service on the shared network.
-      - CLM_BASE_URL=${CLM_CONTAINER_URL:-http://clm-api:8700}
-      - CLM_API_KEY=${CLM_API_KEY:-}
-      # Fixture similarity search (`embeddings` profile).
-      - DECISION_EMBEDDING_URL=${DECISION_EMBEDDING_CONTAINER_URL:-http://embedder:8080/v1/embeddings}
       - CELERY_RESULT_BACKEND=redis://valkey:6379/0
       - FLOWER_URL=${FLOWER_URL:-}
       - UV_PROJECT_ENVIRONMENT=/opt/venv
@@ -220,10 +215,8 @@ services:
       resources:
         limits:
           cpus: "2.0"
-          # Laya, the default decision provider, loads its model in this
-          # process. With the runserver reloader, 1G was OOM-killed on the
-          # first decision. Lower it only if you disable decisions.
-          memory: ${DJANGO_DEV_MEMORY_LIMIT:-4G}
+          # Raise with DJANGO_DEV_MEMORY_LIMIT in .env.
+          memory: ${DJANGO_DEV_MEMORY_LIMIT:-1G}
         reservations:
           cpus: "0.5"
           memory: 256M
@@ -292,9 +285,6 @@ services:
     environment:
       # The dev stack's trace collector (`just up-monitoring`).
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4317
-      # Tasks run the same Django code and may call the CLM decision provider.
-      - CLM_BASE_URL=${CLM_CONTAINER_URL:-http://clm-api:8700}
-      - CLM_API_KEY=${CLM_API_KEY:-}
       - DJANGO_SETTINGS_MODULE=${DJANGO_SETTINGS_MODULE:-api.settings}
       - DEBUG=${DEBUG:-1}
       - SECRET_KEY=${SECRET_KEY:?SECRET_KEY must be set}
@@ -347,9 +337,6 @@ services:
     environment:
       # The dev stack's trace collector (`just up-monitoring`).
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4317
-      # Tasks run the same Django code and may call the CLM decision provider.
-      - CLM_BASE_URL=${CLM_CONTAINER_URL:-http://clm-api:8700}
-      - CLM_API_KEY=${CLM_API_KEY:-}
       - DJANGO_SETTINGS_MODULE=${DJANGO_SETTINGS_MODULE:-api.settings}
       - DEBUG=${DEBUG:-1}
       - SECRET_KEY=${SECRET_KEY:?SECRET_KEY must be set}
@@ -404,9 +391,6 @@ services:
     environment:
       # The dev stack's trace collector (`just up-monitoring`).
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4317
-      # Tasks run the same Django code and may call the CLM decision provider.
-      - CLM_BASE_URL=${CLM_CONTAINER_URL:-http://clm-api:8700}
-      - CLM_API_KEY=${CLM_API_KEY:-}
       - DJANGO_SETTINGS_MODULE=${DJANGO_SETTINGS_MODULE:-api.settings}
       - DEBUG=${DEBUG:-1}
       - SECRET_KEY=${SECRET_KEY:?SECRET_KEY must be set}
@@ -459,9 +443,6 @@ services:
     environment:
       # The dev stack's trace collector (`just up-monitoring`).
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4317
-      # Tasks run the same Django code and may call the CLM decision provider.
-      - CLM_BASE_URL=${CLM_CONTAINER_URL:-http://clm-api:8700}
-      - CLM_API_KEY=${CLM_API_KEY:-}
       - DJANGO_SETTINGS_MODULE=${DJANGO_SETTINGS_MODULE:-api.settings}
       - DEBUG=${DEBUG:-1}
       - SECRET_KEY=${SECRET_KEY:?SECRET_KEY must be set}
@@ -514,9 +495,6 @@ services:
     environment:
       # The dev stack's trace collector (`just up-monitoring`).
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4317
-      # Tasks run the same Django code and may call the CLM decision provider.
-      - CLM_BASE_URL=${CLM_CONTAINER_URL:-http://clm-api:8700}
-      - CLM_API_KEY=${CLM_API_KEY:-}
       - DJANGO_SETTINGS_MODULE=${DJANGO_SETTINGS_MODULE:-api.settings}
       - DEBUG=${DEBUG:-1}
       - SECRET_KEY=${SECRET_KEY:?SECRET_KEY must be set}
@@ -569,9 +547,6 @@ services:
     environment:
       # The dev stack's trace collector (`just up-monitoring`).
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4317
-      # Tasks run the same Django code and may call the CLM decision provider.
-      - CLM_BASE_URL=${CLM_CONTAINER_URL:-http://clm-api:8700}
-      - CLM_API_KEY=${CLM_API_KEY:-}
       - DJANGO_SETTINGS_MODULE=${DJANGO_SETTINGS_MODULE:-api.settings}
       - DEBUG=${DEBUG:-1}
       - SECRET_KEY=${SECRET_KEY:?SECRET_KEY must be set}
@@ -731,13 +706,8 @@ services:
       - CELERY_BROKER_URL=redis://valkey:6379/0
       - CELERY_RESULT_BACKEND=redis://valkey:6379/0
       - SECRET_KEY=${SECRET_KEY:?SECRET_KEY must be set}
-      - ENABLE_DECISION_MCP=true
       # The dev stack's trace collector (`just up-monitoring`).
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4317
-      # The MCP evaluate_decision tool calls the configured decision provider.
-      - CLM_BASE_URL=${CLM_CONTAINER_URL:-http://clm-api:8700}
-      - CLM_API_KEY=${CLM_API_KEY:-}
-      - DECISION_EMBEDDING_URL=${DECISION_EMBEDDING_CONTAINER_URL:-http://embedder:8080/v1/embeddings}
     depends_on:
       db:
         condition: service_healthy
@@ -906,9 +876,6 @@ services:
       # Bundled nginx listens on HTTP port 80 and sets X-Forwarded-Proto=http.
       # Enable TLS only when Django receives the original scheme from a trusted proxy.
       - USE_TLS=${USE_TLS:-false}
-      - CLM_BASE_URL=${CLM_CONTAINER_URL:-http://clm-api:8700}
-      - CLM_API_KEY=${CLM_API_KEY:-}
-      - DECISION_EMBEDDING_URL=${DECISION_EMBEDDING_CONTAINER_URL:-http://embedder:8080/v1/embeddings}
       # Centrifugo settings
       - CENTRIFUGO_URL=${CENTRIFUGO_URL:-http://centrifugo-prod:8000}
       - CENTRIFUGO_API_KEY=${CENTRIFUGO_API_KEY}
@@ -966,9 +933,6 @@ services:
     volumes:
       - logs_volume:/app/logs
     environment:
-      # Tasks run the same Django code and may call the CLM decision provider.
-      - CLM_BASE_URL=${CLM_CONTAINER_URL:-http://clm-api:8700}
-      - CLM_API_KEY=${CLM_API_KEY:-}
       - DJANGO_SETTINGS_MODULE=api.settings.prod
       # ENVIRONMENT drives structured logging and the S3 storage branch in
       # api/settings/common.py. Without it the reused dev .env leaks
@@ -1024,9 +988,6 @@ services:
     volumes:
       - logs_volume:/app/logs
     environment:
-      # Tasks run the same Django code and may call the CLM decision provider.
-      - CLM_BASE_URL=${CLM_CONTAINER_URL:-http://clm-api:8700}
-      - CLM_API_KEY=${CLM_API_KEY:-}
       - DJANGO_SETTINGS_MODULE=api.settings.prod
       # ENVIRONMENT drives structured logging and the S3 storage branch in
       # api/settings/common.py. Without it the reused dev .env leaks
@@ -1198,9 +1159,6 @@ services:
       # JSON logging: .env carries the development value, so pin it here.
       - USE_STRUCTURED_LOGGING=true
       - USE_TLS=${USE_TLS:-false}
-      - CLM_BASE_URL=${CLM_CONTAINER_URL:-http://clm-api:8700}
-      - CLM_API_KEY=${CLM_API_KEY:-}
-      - DECISION_EMBEDDING_URL=${DECISION_EMBEDDING_CONTAINER_URL:-http://embedder:8080/v1/embeddings}
       - DEBUG=0
       - SECRET_KEY=${SECRET_KEY}
       - NINJA_JWT_SIGNING_KEY=${NINJA_JWT_SIGNING_KEY:-}
@@ -1227,135 +1185,6 @@ services:
       - app-network
     restart: unless-stopped
 
-  # Optional GPU-backed open-source System One engine. Start this profile only
-  # on a Linux host with the NVIDIA Container Toolkit and enough GPU memory
-  # for Qwen3-8B. vLLM downloads its weights into the persistent cache.
-  clm-encoder:
-    image: vllm/vllm-openai:v0.11.2
-    platform: linux/amd64
-    profiles:
-      - decisions-clm
-    command:
-      - Qwen/Qwen3-8B
-      - --served-model-name
-      - qwen3-8b
-      - --runner
-      - pooling
-      - --max-model-len
-      - "2048"
-      - --port
-      - "8090"
-    environment:
-      - HF_HOME=/root/.cache/huggingface
-      - HF_TOKEN=${HF_TOKEN:-}
-    volumes:
-      - clm_hf_cache:/root/.cache/huggingface
-    expose:
-      - "8090"
-    # The vLLM image ships `python3` only; a `python` probe never passes, and
-    # clm-api waits on this service being healthy.
-    healthcheck:
-      test:
-        [
-          "CMD",
-          "python3",
-          "-c",
-          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8090/health', timeout=5)",
-        ]
-      interval: 30s
-      timeout: 10s
-      retries: 20
-      start_period: 10m
-    networks:
-      - app-network
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
-
-  clm-api:
-    build:
-      context: .
-      dockerfile: deploy/docker/Dockerfile.clm
-    # decisions-clm runs the GPU encoder above. decisions-clm-host runs only
-    # this API and uses CLM_ENCODER_URL, for example llama.cpp on an Apple
-    # Silicon host (`just clm-encoder-local`) or a remote vLLM server.
-    profiles:
-      - decisions-clm
-      - decisions-clm-host
-    environment:
-      - CLM_API_KEY=${CLM_API_KEY:-}
-      - CLM_EMB_URL=${CLM_ENCODER_URL:-http://clm-encoder:8090/v1/embeddings}
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    volumes:
-      - clm_head_cache:/root/.cache/clm
-    ports:
-      - "127.0.0.1:${CLM_PORT:-8700}:8700"
-    depends_on:
-      clm-encoder:
-        condition: service_healthy
-        # Skipped under decisions-clm-host, where clm-encoder is not enabled.
-        required: false
-    healthcheck:
-      test:
-        [
-          "CMD",
-          "python3",
-          "-c",
-          "import json,urllib.request; assert json.load(urllib.request.urlopen('http://127.0.0.1:8700/health', timeout=5))['embedder']",
-        ]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 5m
-    networks:
-      - app-network
-
-  # Qwen3-Embedding-0.6B for decision fixture similarity search. CPU is
-  # enough for this 0.6B model; the first start downloads the ~640 MB GGUF
-  # into a named volume. Add it with `--profile embeddings` (or
-  # `just up-embeddings`); it joins any stack, dev or prod.
-  embedder:
-    image: ghcr.io/ggml-org/llama.cpp:server-b11223
-    profiles:
-      - embeddings
-    command:
-      - -hf
-      - Qwen/Qwen3-Embedding-0.6B-GGUF:Q8_0
-      - --embeddings
-      - --pooling
-      - last
-      - --ctx-size
-      - "8192"
-      - --ubatch-size
-      - "8192"
-      - --batch-size
-      - "8192"
-      - --alias
-      - qwen3-embedding-0.6b
-      - --host
-      - 0.0.0.0
-      - --port
-      - "8080"
-    environment:
-      - HF_TOKEN=${HF_TOKEN:-}
-    volumes:
-      - embedder_cache:/root/.cache/llama.cpp
-    expose:
-      - "8080"
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
-      interval: 15s
-      timeout: 5s
-      retries: 10
-      start_period: 5m
-    networks:
-      - app-network
-
 networks:
   app-network:
     driver: bridge
@@ -1378,10 +1207,4 @@ volumes:
   logs_volume:
     driver: local
   redis_data:
-    driver: local
-  clm_hf_cache:
-    driver: local
-  clm_head_cache:
-    driver: local
-  embedder_cache:
     driver: local

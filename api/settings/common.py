@@ -101,7 +101,6 @@ INSTALLED_APPS = [
     "core",  # core app
     "todos",  # todos app
     "atlas",  # codebase atlas (interactive architecture map in admin)
-    "decisions",  # decisions app (System One decision engine)
     # Optional apps — uncomment to enable:
     # "files",  # files app (S3 presigned upload)
     # "webhooks",  # outbound webhooks
@@ -253,7 +252,6 @@ NINJA_EXTRA = {
         "anon": "100/day",  # anonymous general API
         "anon-auth": "20/min",  # credential auth endpoints (signup/login/verify)
         "anon-email": "5/min",  # magic-link request (email sending)
-        "decisions": "30/min",  # decision evaluation (expensive)
         "tasks": "60/min",  # task admin endpoints
     },
     "NUM_PROXIES": TRUSTED_PROXY_COUNT,  # trusted reverse proxies
@@ -608,52 +606,6 @@ ATLAS_CACHE_TTL = env.int("ATLAS_CACHE_TTL", default=3600)
 ATLAS_REAL_SAMPLES = env.bool("ATLAS_REAL_SAMPLES", default=True)
 # Optional per-app prose metadata; apps can also ship an atlas.py module
 ATLAS_METADATA: dict = {}
-
-# ── Decisions app (System One decision engine) ─────────────────────────────
-# Provider: laya (open-source default), clm (open-source GPU), jev (hosted), fake (tests).
-SYSTEMONE_PROVIDER = env("SYSTEMONE_PROVIDER", default="laya")
-CLM_BASE_URL = env("CLM_BASE_URL", default="http://127.0.0.1:8700")
-CLM_API_KEY = env("CLM_API_KEY", default="")
-TYPESAFE_API_KEY = env("TYPESAFE_API_KEY", default="")
-ENABLE_DECISIONS = env.bool("ENABLE_DECISIONS", default=False)
-ENABLE_DECISION_MCP = env.bool("ENABLE_DECISION_MCP", default=False)
-# Results below this aggregate confidence are flagged for escalation.
-DECISION_ESCALATION_THRESHOLD = env.float("DECISION_ESCALATION_THRESHOLD", default=0.5)
-# Per-question escalation thresholds, keyed by provider and question key, as
-# written by `manage.py recommend_thresholds --write`. Server-side only: API
-# and MCP callers cannot set them. Questions not in the file use
-# DECISION_ESCALATION_THRESHOLD. Empty disables the file.
-DECISION_THRESHOLDS_FILE = env("DECISION_THRESHOLDS_FILE", default="")
-# Price in USD per decision call, per provider, for eval cost reports, for
-# example {"jev": 0.002}. Unset providers report no cost.
-DECISION_PROVIDER_COSTS = env.json("DECISION_PROVIDER_COSTS", default={})
-# Baseline LLM for `measure_decision_savings`: any OpenAI-compatible
-# /v1/chat/completions endpoint. Token counts come from its `usage` field.
-DECISION_BASELINE_LLM_URL = env("DECISION_BASELINE_LLM_URL", default="")
-DECISION_BASELINE_LLM_MODEL = env("DECISION_BASELINE_LLM_MODEL", default="")
-DECISION_BASELINE_LLM_API_KEY = env("DECISION_BASELINE_LLM_API_KEY", default="")
-# USD per million tokens for the baseline LLM. Unset reports tokens only.
-DECISION_LLM_INPUT_PRICE_PER_MTOK = env.float(
-    "DECISION_LLM_INPUT_PRICE_PER_MTOK", default=None
-)
-DECISION_LLM_OUTPUT_PRICE_PER_MTOK = env.float(
-    "DECISION_LLM_OUTPUT_PRICE_PER_MTOK", default=None
-)
-# Fixture embeddings for similarity search: an OpenAI-compatible
-# /v1/embeddings endpoint serving Qwen3-Embedding-0.6B (the `embeddings`
-# Compose profile or `just embedder-local`). Empty disables the feature.
-DECISION_EMBEDDING_URL = env(
-    "DECISION_EMBEDDING_URL", default="http://127.0.0.1:8091/v1/embeddings"
-)
-DECISION_EMBEDDING_MODEL = env(
-    "DECISION_EMBEDDING_MODEL", default="qwen3-embedding-0.6b"
-)
-DECISION_EMBEDDING_API_KEY = env("DECISION_EMBEDDING_API_KEY", default="")
-# Qwen3-Embedding expects an instruction before each query, not documents.
-DECISION_EMBEDDING_INSTRUCTION = env(
-    "DECISION_EMBEDDING_INSTRUCTION",
-    default="Given a new case, retrieve stored example cases that are most similar",
-)
 
 # =============================================================================
 # Audit Logging Configuration

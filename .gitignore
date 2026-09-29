@@ -139,6 +139,3 @@ gauntlet-report.json
 
 # Codebase atlas data file (generated)
 atlas-data.json
-
-# Decision benchmark and savings reports (just decisions-benchmark)
-/reports/

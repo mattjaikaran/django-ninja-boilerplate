@@ -25,8 +25,7 @@ The agent harness has `grep` and `glob` tools. Use them first. From a shell, use
 the recipe:
 
 ```bash
-just search "SYSTEMONE_PROVIDER"
-just search "TODO" decisions/
+just search "TODO"
 ```
 
 which runs:

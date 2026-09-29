@@ -53,4 +53,4 @@ on list endpoints. See `TodoController.list_todos`.
 When a controller calls something that can fail on configuration (a provider, a
 client, a feature flag), catch the specific exception and return a clear status
 with the real message. Do not let the generic 500 handler in `api/exceptions.py`
-swallow the detail. See `decisions/controllers/decision_controller.py`.
+swallow the detail.

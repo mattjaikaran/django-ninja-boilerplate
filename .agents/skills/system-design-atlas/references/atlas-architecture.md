@@ -18,8 +18,8 @@
 
 ```python
 ATLAS = {
-    "code": "DC",
-    "name": "Decisions",
+    "code": "XX",
+    "name": "Example",
     "what": "One sentence on what the app does.",
     "how": "One sentence on how it is built.",
     "children": {

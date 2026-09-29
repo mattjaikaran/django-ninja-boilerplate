@@ -13,32 +13,10 @@ without a matching entry here.
 - The Docker images (`Dockerfile`, `deploy/docker/Dockerfile.single`) now
   install the existing `observability` extra, so `OTEL_ENABLED=true` works
   without a rebuild. No new package; the extra was already locked.
-- `decisions/mcp.py` appends `evaluate_decision` and the four agent tools
-  (`route_agent_task`, `triage_change`, `gate_agent_action`, `pick_generator`)
-  to `django_ai_boost.server_fastmcp.TOOLS`. django-ai-boost has no public
-  extension hook, so an upgrade that renames that list breaks the tools;
-  `decisions/tests/test_mcp.py` and a live `list_tools` call catch it.
-- The agent decision tools and `measure_decision_savings` add no package. The
-  baseline LLM client uses the existing `httpx` dependency, and `dnm decide`
-  uses the CLI's existing `typer` dependency.
-- New Compose image, no Python package: `ghcr.io/ggml-org/llama.cpp:server-b11223`
-  (`embedder` service, `embeddings` profile) serves Qwen3-Embedding-0.6B
-  (`Qwen/Qwen3-Embedding-0.6B-GGUF`, Q8_0, about 640 MB). Pinned to a build
-  tag; the rolling `server` tag changes daily.
-- Host tool, no Python package: `just clm-encoder-local` and
-  `just embedder-local` need `llama-server` from `brew install llama.cpp`.
-  The CLM encoder uses `Qwen/Qwen3-8B-GGUF` Q8_0 (8.7 GB).
-- `deploy/docker/Dockerfile.clm` now installs, outside the project lock:
-  CPU `torch==2.14.0`, `numpy==2.5.3`, `requests==2.34.2`,
-  `huggingface-hub==0.36.2`, `uvicorn==0.53.0`, `fastapi>=0.115,<1`, and
-  `contrastive-lm==0.1.0` with `--no-deps` (it declares vllm but never
-  imports it). Versions match `uv.lock` where the project also uses them.
 
 ## Policy
 
-- Base dependencies install for everyone. Laya is the open-source default, so
-  its PyTorch and Transformers dependencies are required even when decisions
-  endpoints are disabled. Expect larger installs and production images.
+- Base dependencies install for everyone.
 - Situational packages go in an optional extra under
   `[project.optional-dependencies]` and fail loud when absent.
 
@@ -91,9 +69,6 @@ Rust toolchain. Add 3.14 back once pydantic-core ships cp314 wheels.
 
 | Package | Version | Why |
 |---|---|---|
-| `pgvector` | `>=0.5.0` | Native `vector` column for `DecisionFixture.embedding`. Small, pure Python; the initial migration creates the Postgres extension. SQLite accepts the column type, so the test suite needs no special setup. |
-| `laya` | `>=0.3.11` | Open-source default System One engine. Includes PyTorch and Transformers; the first prediction downloads a checkpoint from Hugging Face. A standard `uv sync` must support the default provider. |
-| `torch` | `>=2.1` | Required by Laya. uv installs the official CPU wheel on Linux to keep Django images free of CUDA libraries; macOS retains its native PyPI wheel and MPS support. |
 | `whitenoise` | `>=6.9` | Serves `/static/` from Gunicorn in the `single` and PaaS image, which has no nginx. Without it the admin and `/api/docs` assets returned 404 there. The `prod` profile's nginx still serves static files first. |
 
 ## Known constraints
@@ -104,12 +79,9 @@ Rust toolchain. Add 3.14 back once pydantic-core ships cp314 wheels.
   `uv lock --upgrade` therefore breaks on macOS. `pyproject.toml` caps it at
   `<3.2.0` and the lockfile stays on the known-good 2.3.0; widen the cap after
   testing 3.x on macOS.
-- Every local installed app, including `decisions` and `atlas`, is in the
-  wheel package list, so installs from a built wheel can run `django.setup()`
-  and load the configured provider. `core/tests/test_packaging.py` checks it.
-- Keep `PYTHONOPTIMIZE=1` in production. Laya loads Transformers models;
-  Transformers reads its own class docstrings while building model documentation.
-  Optimization level 2 removes those docstrings and breaks model loading.
+- Every local installed app, including `atlas`, is in the wheel package list,
+  so installs from a built wheel can run `django.setup()`.
+  `core/tests/test_packaging.py` checks it.
 - `mcp` is held below 1.28 by `django-ai-boost`'s `fastmcp<4` requirement. It
   is a dev-only dependency and does not ship in the production image.
 
@@ -121,20 +93,8 @@ Rust toolchain. Add 3.14 back once pydantic-core ships cp314 wheels.
 |---|---|---|
 | `django-ai-boost` | `>=0.9.0` | Backs the dev-profile `mcp` compose service (`django-ai-boost --transport sse --port 8001`). Pulls `fastmcp`. |
 
-
-### `decisions-jev`
-
-| Package | Version | Why |
-|---|---|---|
-| `typesafe-sdk` | `>=0.6.0` | Hosted TypeSafe ("Jev") decision client. The provider uses `TypeSafeClient.system_one` and typed answer objects from this SDK version. |
-
 ### `dramatiq`
 
 | Package | Version | Why |
 |---|---|---|
 | `dramatiq[redis]` | `>=1.17.0` | Fifth task backend. The Redis extra lets its worker use the existing Valkey service. The task facade fails loud when the extra is absent. |
-
-The `decisions` app is registered in `INSTALLED_APPS` for every environment,
-but its controller is registered only when `ENABLE_DECISIONS` is true. Laya is
-installed by default; the Jev client remains optional. CLM uses the existing
-`httpx` dependency, with its GPU model service deployed separately.

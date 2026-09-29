@@ -26,7 +26,6 @@ class TestOpenAPIContract:
             ("/api/auth/me", "get", True),
             ("/api/users/", "get", True),
             ("/api/audit/", "get", True),
-            ("/api/decisions/evaluate", "post", True),
         ],
     )
     def test_openapi_declares_route_auth(self, path, method, requires_auth):

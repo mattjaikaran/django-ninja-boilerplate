@@ -181,7 +181,6 @@ class TestRouteAccessContract:
             ("GET", "/api/tasks/stats", None),
             ("GET", "/api/tasks/scheduler/", None),
             ("GET", "/api/tasks/dlq/", None),
-            ("POST", "/api/decisions/evaluate", {}),
             ("GET", "/api/todos/", None),
             # Schema-hidden routes that still require authentication.
             ("GET", "/api/metrics", None),

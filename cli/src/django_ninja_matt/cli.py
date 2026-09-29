@@ -14,7 +14,6 @@ from rich.table import Table
 from rich.text import Text
 
 from django_ninja_matt import __version__
-from django_ninja_matt.commands.decide import decide_app
 from django_ninja_matt.commands.doctor import run_doctor
 from django_ninja_matt.commands.init import run_init
 from django_ninja_matt.commands.setup import TaskBackend, run_setup
@@ -40,7 +39,6 @@ app = typer.Typer(
 )
 
 console = Console()
-app.add_typer(decide_app, name="decide")
 
 
 def version_callback(value: bool) -> None:

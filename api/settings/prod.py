@@ -173,12 +173,6 @@ else:
         }
     )
 
-# =============================================================================
-# Decisions app — off unless explicitly enabled in the environment
-# =============================================================================
-ENABLE_DECISIONS = env.bool("ENABLE_DECISIONS", default=False)
-ENABLE_DECISION_MCP = False
-
 # Database connection pooling for production
 DATABASES["default"].update(
     {

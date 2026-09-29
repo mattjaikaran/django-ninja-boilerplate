@@ -267,7 +267,7 @@ class ConventionChecker:
         for fpath in self.collect_files():
             text = fpath.read_text()
             for i, line in enumerate(text.splitlines(), 1):
-                # The lookbehind excludes dotted access such as ``laya.Router()``
+                # The lookbehind excludes dotted access such as ``pkg.Router()``
                 # and identifiers such as ``_StubRouter()``; those are not
                 # Django Ninja routers.
                 if re.search(

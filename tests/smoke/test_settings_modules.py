@@ -66,8 +66,6 @@ print("PROBE:" + json.dumps({
     "referrer_policy": getattr(settings, "SECURE_REFERRER_POLICY", None),
     "allowed_hosts": getattr(settings, "ALLOWED_HOSTS", None),
     "rq_queues": getattr(settings, "RQ_QUEUES", None),
-    "enable_decisions": getattr(settings, "ENABLE_DECISIONS", None),
-    "enable_decision_mcp": getattr(settings, "ENABLE_DECISION_MCP", None),
 }))
 """
 
@@ -301,18 +299,6 @@ class TestDevelopmentSettings:
         assert {queue["URL"] for queue in data["rq_queues"].values()} == {
             "redis://localhost:6380/0"
         }
-
-    def test_decision_flags_follow_the_environment(self):
-        data = probe(
-            "api.settings.dev",
-            ENVIRONMENT="development",
-            ENABLE_DECISIONS="false",
-            ENABLE_DECISION_MCP="true",
-        )
-        assert (data["enable_decisions"], data["enable_decision_mcp"]) == (
-            False,
-            True,
-        )
 
     def test_test_module_imports(self):
         assert probe("api.settings.test")["module"] == "api.settings.test"

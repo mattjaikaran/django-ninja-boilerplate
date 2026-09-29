@@ -69,7 +69,7 @@ LOGGING["loggers"].update(  # type: ignore[attr-defined]
             "propagate": False,
         },
         # At DEBUG, runserver's StatReloader logs one line for every file it
-        # watches, including each torch module that Laya imports.
+        # watches.
         "django.utils.autoreload": {
             "handlers": ["console"],
             "level": "INFO",
@@ -80,13 +80,3 @@ LOGGING["loggers"].update(  # type: ignore[attr-defined]
 
 # Enable template debug mode for better error reporting
 TEMPLATES[0]["OPTIONS"]["debug"] = True  # type: ignore[index]
-
-# =============================================================================
-# Development-only feature flags
-# =============================================================================
-# Decisions app (System One decision engine). Both flags follow .env, with
-# dev defaults. The `mcp` Compose service sets ENABLE_DECISION_MCP=true; the
-# worker images do not install django-ai-boost, so forcing it on made every
-# worker warn.
-ENABLE_DECISIONS = env.bool("ENABLE_DECISIONS", default=True)
-ENABLE_DECISION_MCP = env.bool("ENABLE_DECISION_MCP", default=False)

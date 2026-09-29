@@ -44,53 +44,16 @@ backend-profile:
             ;;
     esac
 
-# Start CLM only when it is the configured provider. With CLM_ENCODER_URL set,
-# run only clm-api against that encoder; otherwise also run the GPU encoder.
-# Reuse the already active dev profile for providers that need no service.
-decision-profile:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    name=$(grep -E '^SYSTEMONE_PROVIDER=' .env 2>/dev/null | tail -1 | cut -d= -f2 || true)
-    encoder=$(grep -E '^CLM_ENCODER_URL=' .env 2>/dev/null | tail -1 | cut -d= -f2- || true)
-    case "${name:-laya}" in
-        clm) if [ -n "${encoder}" ]; then echo decisions-clm-host; else echo decisions-clm; fi ;;
-        laya | jev | fake) echo dev ;;
-        *)
-            echo "Unknown SYSTEMONE_PROVIDER '${name}' in .env" >&2
-            exit 1
-            ;;
-    esac
-
-# Serve Qwen3-8B embeddings for CLM with llama.cpp (Metal on Apple Silicon).
-# Set CLM_ENCODER_URL=http://host.docker.internal:8090/v1/embeddings in .env.
-# The first run downloads the 8.7 GB Q8_0 GGUF. Binds loopback only.
-clm-encoder-local:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    command -v llama-server >/dev/null || { echo "llama-server not found. Install it: brew install llama.cpp" >&2; exit 1; }
-    exec llama-server -hf Qwen/Qwen3-8B-GGUF:Q8_0 --embeddings --pooling last \
-        -c 8192 -ub 2048 -b 2048 --parallel 4 --host 127.0.0.1 --port 8090 --alias qwen3-8b
-
-# Serve Qwen3-Embedding-0.6B on the host for fixture similarity search. The
-# `embeddings` Compose profile runs the same model in a container instead.
-embedder-local:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    command -v llama-server >/dev/null || { echo "llama-server not found. Install it: brew install llama.cpp" >&2; exit 1; }
-    exec llama-server -hf Qwen/Qwen3-Embedding-0.6B-GGUF:Q8_0 --embeddings --pooling last \
-        -c 8192 -ub 8192 -b 8192 --host 127.0.0.1 --port 8091 --alias qwen3-embedding-0.6b
-
-# Run Compose with the dev profile plus the task worker and decision profiles
-# selected in .env. Every dev stack recipe goes through this one.
+# Run Compose with the dev profile plus the task worker profile selected in
+# .env. Every dev stack recipe goes through this one.
 _stack *args:
     #!/usr/bin/env bash
     set -euo pipefail
-    {{ compose }} --profile dev --profile "$(just backend-profile)" --profile "$(just decision-profile)" {{ args }}
+    {{ compose }} --profile dev --profile "$(just backend-profile)" {{ args }}
 
-# Start the dev stack: db, valkey, django, the configured task worker, and the
-# CLM services when SYSTEMONE_PROVIDER=clm. `--build` builds missing images,
-# including clm-api on a fresh checkout, and rebuilds images whose inputs
-# changed, such as uv.lock after a pull. Cached builds take a few seconds.
+# Start the dev stack: db, valkey, django, and the configured task worker.
+# `--build` builds missing images and rebuilds images whose inputs changed,
+# such as uv.lock after a pull. Cached builds take a few seconds.
 dev:
     just _stack up -d --build
 
@@ -111,8 +74,7 @@ reset: down
     just _stack up -d --build
     just migrate
 
-# Build the application images, the selected task worker, and clm-api when
-# SYSTEMONE_PROVIDER=clm. Building clm-api needs no GPU; running it does.
+# Build the application images and the selected task worker
 build:
     just _stack --profile prod --profile single build
 
@@ -137,21 +99,17 @@ up-mail:
 up-mcp:
     just _stack --profile mcp up -d --build
 
-# Start the dev stack with the Qwen3-Embedding-0.6B embedder
-up-embeddings:
-    just _stack --profile embeddings up -d --build
-
 # Start every dev service
 up-full:
-    just _stack --profile monitoring --profile realtime --profile mail --profile mcp --profile embeddings up -d --build
+    just _stack --profile monitoring --profile realtime --profile mail --profile mcp up -d --build
 
 # Stop every dev service
 down-full:
-    just _stack --profile monitoring --profile realtime --profile mail --profile mcp --profile embeddings down
+    just _stack --profile monitoring --profile realtime --profile mail --profile mcp down
 
 # Stop every dev service and remove volumes
 down-volumes-full:
-    just _stack --profile monitoring --profile realtime --profile mail --profile mcp --profile embeddings down -v
+    just _stack --profile monitoring --profile realtime --profile mail --profile mcp down -v
 
 # Follow logs for the dev stack
 logs:
@@ -216,13 +174,9 @@ test:
 
 # Run the test suite with coverage
 test-coverage:
-    {{ uv }} run pytest --cov=core --cov=todos --cov=decisions --cov-report=term-missing
+    {{ uv }} run pytest --cov=core --cov=todos --cov-report=term-missing
 
-# Run the decisions app tests
-test-decisions:
-    {{ uv }} run pytest decisions/ -v
-
-# Run the full suite against Postgres + pgvector, then tear down.
+# Run the full suite against Postgres, then tear down.
 # Host ports are offset from the defaults so this works while a local
 # Postgres (5432) or Valkey (6379) is already running.
 test-integration:
@@ -272,38 +226,6 @@ shell:
 # Open a psql shell on the dev database
 db-shell:
     {{ dev }} exec {{ db_service }} psql -U postgres -d boilerplate_db
-
-# Load the decisions fixtures
-seed-decisions:
-    {{ dev }} exec {{ django_service }} {{ uv }} run python manage.py seed_decisions
-
-# Embed decision fixtures with Qwen3-Embedding-0.6B (needs `just up-embeddings`)
-embed-decisions *args:
-    {{ dev }} exec {{ django_service }} python manage.py embed_decisions {{ args }}
-
-# Measure provider accuracy and confidence calibration on labelled cases
-eval-decisions *args:
-    {{ dev }} exec {{ django_service }} python manage.py eval_decisions {{ args }}
-
-# Evaluate one provider on the bundled benchmark; writes reports/decisions/<provider>.json
-decisions-benchmark provider *args:
-    {{ dev }} exec {{ django_service }} python manage.py eval_decisions --benchmark --provider {{ provider }} --output reports/decisions/{{ provider }}.json {{ args }}
-
-# Compare benchmark reports on the held-out test split (default: every saved report)
-decisions-compare *args='reports/decisions/*.json':
-    {{ dev }} exec {{ django_service }} python manage.py compare_decisions {{ args }}
-
-# Tune per-question thresholds on dev, check on test (add --write <file>)
-decisions-thresholds report *args:
-    {{ dev }} exec {{ django_service }} python manage.py recommend_thresholds {{ report }} {{ args }}
-
-# Ask the local engine an agent question on the host: route, triage, gate, generator
-decide *args:
-    {{ uv }} run python manage.py agent_decide {{ args }}
-
-# Measure LLM tokens saved on a real flow (needs DECISION_BASELINE_LLM_URL)
-decisions-savings *args:
-    {{ uv }} run python manage.py measure_decision_savings {{ args }}
 
 # Load development sample data (users, todos)
 seed:

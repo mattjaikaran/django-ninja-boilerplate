@@ -63,11 +63,6 @@ PASSWORD_HASHERS = [
     "django.contrib.auth.hashers.MD5PasswordHasher",
 ]
 
-# Decisions app: enabled so the /decisions controller is registered. MCP stays
-# off; the test suite uses FakeProvider.
-ENABLE_DECISIONS = True
-ENABLE_DECISION_MCP = False
-
 # Simplified logging for tests
 LOGGING = {
     "version": 1,

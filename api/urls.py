@@ -36,7 +36,6 @@ from core.controllers import (
 from core.observability.admin_views import health_admin_view, metrics_admin_view
 from core.observability.controllers import MetricsController
 from core.sse.views import sse_endpoint
-from decisions.controllers import AgentDecisionController, DecisionController
 
 # from files.controllers import FileController
 # from notifications.controllers import NotificationController
@@ -133,10 +132,6 @@ api.register_controllers(
     TodoControllerDeclarative,  # Pattern 1: explicit try/except, maximum verbosity
     # Add more controllers here
 )
-
-# Decisions app — registered only when ENABLE_DECISIONS is true.
-if settings.ENABLE_DECISIONS:
-    api.register_controllers(DecisionController, AgentDecisionController)
 
 # add the urls to the urlpatterns
 urlpatterns = [

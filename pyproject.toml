@@ -101,12 +101,6 @@ dependencies = [
     "resend>=2.23.0",
     "stripe>=15.1.0",
     "msgpack>=1.2.1",
-    "pgvector>=0.5.0",
-    # Open-source System One default; keep the selected provider runnable
-    # after a standard uv sync, without a hidden model extra.
-    "laya>=0.3.11",
-    # Linux CPU wheel avoids multi-gigabyte CUDA libraries in the Django image.
-    "torch>=2.1",
     "whitenoise>=6.9",
 ]
 
@@ -171,10 +165,6 @@ django-rq = [
     "django-rq>=2.10.0",
     "rq>=1.16.0",
 ]
-decisions-jev = [
-    # Hosted TypeSafe ("Jev") decision API
-    "typesafe-sdk>=0.6.0",
-]
 dramatiq = [
     "dramatiq[redis]>=1.17.0",
 ]
@@ -184,20 +174,12 @@ homepage = "https://github.com/mattjaikaran/django-ninja-boilerplate"
 repository = "https://github.com/mattjaikaran/django-ninja-boilerplate"
 documentation = "https://github.com/mattjaikaran/django-ninja-boilerplate#readme"
 
-[tool.uv.sources]
-torch = [{ index = "pytorch-cpu", marker = "sys_platform == 'linux'" }]
-
-[[tool.uv.index]]
-name = "pytorch-cpu"
-url = "https://download.pytorch.org/whl/cpu"
-explicit = true
-
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["api", "atlas", "core", "decisions", "todos", "billing", "files", "webhooks", "organizations", "notifications"]
+packages = ["api", "atlas", "core", "todos", "billing", "files", "webhooks", "organizations", "notifications"]
 
 [tool.ruff]
 target-version = "py313"
@@ -414,7 +396,7 @@ addopts = [
     "--cov-report=xml",
     "--cov-fail-under=30",
 ]
-testpaths = ["core", "todos", "decisions", "tests/smoke"]
+testpaths = ["core", "todos", "tests/smoke"]
 filterwarnings = [
     "error",
     "ignore::UserWarning",
@@ -487,7 +469,6 @@ module = [
     "organizations.models.organization",
     "files.models.file_upload",
     "billing.models.plan",
-    "decisions.models.decision_fixture",
 ]
 disable_error_code = ["var-annotated"]
 

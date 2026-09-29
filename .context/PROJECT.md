@@ -76,13 +76,6 @@ django-ninja-boilerplate/
 │   ├── schemas/                  # Todo schemas
 │   └── tests/                    # Todo tests with factories
 │
-├── decisions/                    # System One decision engine (Laya, CLM, Jev, fake)
-│   ├── controllers/              # /decisions and /decisions/agent controllers
-│   ├── data/benchmark/           # Labelled eval benchmark (5 domains, dev/test)
-│   ├── providers/                # Provider ABC, implementations, registry
-│   ├── services/                 # Decisions, thresholds, agent packs, eval, savings
-│   └── tests/                    # FakeProvider and stub-based tests
-│
 ├── cli/                          # CLI tool for project scaffolding
 ├── deploy/                       # Deployment configurations
 │   ├── centrifugo/               # Centrifugo server config

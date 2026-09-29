@@ -55,9 +55,7 @@ jobs:
 
     services:
       postgres:
-        # pgvector build: the decisions migration creates the `vector`
-        # extension, which the plain alpine image does not ship.
-        image: pgvector/pgvector:pg17
+        image: postgres:17-alpine
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
@@ -206,9 +204,7 @@ jobs:
 
     services:
       postgres:
-        # pgvector build: the decisions migration creates the `vector`
-        # extension, which the plain alpine image does not ship.
-        image: pgvector/pgvector:pg17
+        image: postgres:17-alpine
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres

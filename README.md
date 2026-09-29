@@ -253,7 +253,6 @@ Add demo content when you want it:
 
 ```bash
 just seed                    # sample users and todos
-just seed-decisions          # decision fixtures
 ```
 
 Prefer a guided, scripted run? `just quickstart` does the same and also seeds
@@ -332,7 +331,7 @@ just up-full             # Add monitoring, realtime, Mailhog, and MCP
 just up-realtime         # Add Centrifugo (ws://localhost:8800)
 just up-monitoring       # Add Flower (:5555) and Jaeger (:16686); set OTEL_ENABLED=true for traces
 just up-mail             # Add Mailhog (:8025); point EMAIL_* at mailhog first (see .env.example)
-just up-mcp              # Add the MCP server (SSE on 127.0.0.1:8001/sse, includes the decision tools)
+just up-mcp              # Add the MCP server (SSE on 127.0.0.1:8001/sse)
 just logs                # View logs
 just shell               # Django shell
 just migrate             # Run migrations
@@ -358,9 +357,6 @@ service belongs to at least one, so a bare `docker compose up` starts nothing.
 | `monitoring` | valkey, flower, jaeger |
 | `huey`, `django-q`, `django-rq`, `dramatiq` | db, valkey, and one worker per backend |
 | `observability` | jaeger |
-| `decisions-clm` | clm-encoder (GPU), clm-api (loopback port 8700) |
-| `decisions-clm-host` | clm-api only, using `CLM_ENCODER_URL` (e.g. `just clm-encoder-local` on Apple Silicon) |
-| `embeddings` | embedder (Qwen3-Embedding-0.6B on llama.cpp, CPU) for fixture similarity search |
 
 Production services carry a `-prod` suffix because Docker Compose allows only
 one definition per service name, and the dev and production variants differ in
@@ -371,7 +367,7 @@ build target, command, and volume mounts.
 Use `rg`, not `grep`. It respects `.gitignore`.
 
 ```bash
-just search "SYSTEMONE_PROVIDER"   # rg --smart-case
+just search "TODO"                  # rg --smart-case
 ```
 
 See the `rtk-ripgrep` skill for the RTK `exclude_commands` workaround.
@@ -576,87 +572,6 @@ class ItemSchema(CamelCaseSchema):
     name: str
     created_at: str
 ```
-
-## Decisions App
-
-`decisions/` integrates a provider-agnostic System One decision engine. It is
-gated by `ENABLE_DECISIONS` (true in dev, off in production by default).
-
-```bash
-curl -s http://localhost:8000/api/decisions/evaluate \
-  -H "Authorization: Bearer $ACCESS_TOKEN" \
-  -H 'Content-Type: application/json' \
-  -d '{"state": {"ticket_id": "T-1"},
-       "questions": {"refund": {"type": "choice",
-                                "instructions": "Approve the refund?",
-                                "criteria": {"approve": "within window"}}}}'
-```
-
-| Provider | Backing | Setup |
-|---|---|---|
-| `laya` | Open-source local model (default) | `uv sync`; downloads a checkpoint on first decision |
-| `clm` | Open-source CLM with Qwen3-8B | NVIDIA host: set `SYSTEMONE_PROVIDER=clm`, then `just dev`. Apple Silicon: `just clm-encoder-local` and set `CLM_ENCODER_URL` |
-| `jev` | Hosted TypeSafe | `uv sync --extra decisions-jev` plus `TYPESAFE_API_KEY` |
-| `fake` | Deterministic tests | none |
-
-Set `SYSTEMONE_PROVIDER=laya|clm|jev` before starting Django. API and MCP
-callers cannot select a provider; a request that sends `provider` gets a 422
-response. The configured provider never silently falls back. The
-`decisions-clm` profile needs a Linux NVIDIA host with the NVIDIA Container
-Toolkit; it downloads Qwen3-8B and the CLM projection head into persistent
-volumes. On Apple Silicon, `just clm-encoder-local` serves the encoder on the
-host and only `clm-api` runs in Compose (`decisions-clm-host`). On a
-fresh checkout, `just dev` builds the `clm-api` image, and it rebuilds any
-image whose inputs changed. Set `CLM_CONTAINER_URL` for an external
-CLM service, or use `CLM_BASE_URL` when Django runs on the host.
-`CLM_API_KEY` optionally protects the CLM API, and Compose passes it to every
-Django service that calls CLM. The Compose profile binds its host port to
-loopback only. See `decisions/README.md` for setup and limits.
-
-Question types are `choice`, `score`, and `noul`. `noul` is Laya's own name for
-a yes/no question, not a typo for `null`.
-
-`confidence` in the response is the **lowest** per-answer confidence, because a
-decision is only as strong as its weakest answer. Each answer is compared with
-its question's threshold from `DECISION_THRESHOLDS_FILE` (keyed by provider,
-written by `recommend_thresholds`), or with `DECISION_ESCALATION_THRESHOLD`;
-`escalatedQuestions` lists the weak answers. Clients cannot send thresholds.
-Provider confidence is not calibrated: the Laya checkpoint warns that some of
-its confidence is uncalibrated. Keep consequential automation behind a human
-or a rule in code until you calibrate confidence on representative data.
-
-```bash
-just seed-decisions             # load decisions/data/fixtures into pgvector
-just up-embeddings              # Qwen3-Embedding-0.6B embedder (`embeddings` profile)
-just embed-decisions            # fill fixture vectors for POST /api/decisions/similar
-just decisions-benchmark laya   # 310-case benchmark -> reports/decisions/laya.json
-just decisions-compare          # compare saved reports on the held-out test split
-just decisions-thresholds reports/decisions/laya.json --write thresholds.json
-```
-
-On the bundled benchmark's test split, Laya scored 65.8% and CLM 62.0%, a gap
-within the noise. Laya stays the default for its in-process setup, lower
-latency, and better choice-question accuracy. See
-[docs/DECISIONS_BENCHMARK.md](docs/DECISIONS_BENCHMARK.md) for the results
-and caveats.
-
-### Decisions for agents
-
-Four typed question packs help coding agents answer cheap questions locally
-before they call a large model: route a task to a model tier, triage a
-commit, gate an action, and pick a `generate_feature` generator. Use them
-through `POST /api/decisions/agent/*` (JWT), the MCP tools, `dnm decide`, or
-`just decide`. `measure_decision_savings` measures the LLM tokens a flow
-saves, from the baseline LLM's reported usage. Read
-[docs/DECISIONS_FOR_AGENTS.md](docs/DECISIONS_FOR_AGENTS.md) for the
-measured savings and the packs that are not reliable yet.
-
-`DecisionFixture.embedding` is a native pgvector `vector` column. Postgres needs
-the `vector` extension: the initial migration creates it before the table, and
-`docker/postgres/init/01-init.sql` creates it on first container start. SQLite
-accepts the column type, so `just test` needs no special setup.
-
-See [decisions/README.md](decisions/README.md) and the `decisions-app` skill.
 
 ## Feature Generators
 
@@ -1759,7 +1674,6 @@ See [docs/openapi/README.md](docs/openapi/README.md) for detailed documentation.
 | Skill | Purpose |
 |---|---|
 | `django-ninja-dev` | Controllers, schemas, services |
-| `decisions-app` | Decision engine, providers, fixtures |
 | `docker-compose-profiles` | The Compose file and its profiles |
 | `rtk-ripgrep` | Searching with ripgrep |
 | `system-design-atlas` | The admin architecture map |

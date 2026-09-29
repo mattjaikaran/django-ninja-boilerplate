@@ -58,8 +58,6 @@ class TestAnonymousRouteContract:
             ("get", "/api/tasks/scheduler/", None),
             ("get", "/api/tasks/dlq/", None),
             ("get", "/api/audit/", None),
-            ("post", "/api/decisions/evaluate", {}),
-            ("post", "/api/decisions/similar", {"text": "x"}),
             ("get", "/api/api-keys/", None),
             ("post", "/api/realtime/connection-token", {}),
             ("post", "/api/realtime/subscription-token", {"channel": "chat:x"}),
@@ -176,17 +174,6 @@ class TestRolePermissions:
         response = client.get("/api/tasks/stats", **bearer_for(regular_user))
         assert response.status_code == 200
 
-    def test_decisions_requires_jwt_not_staff(self, client, regular_user, settings):
-        """Decisions requires JWT (anonymous is 401) but not staff."""
-        settings.SYSTEMONE_PROVIDER = "fake"
-        response = post_json(
-            client,
-            "/api/decisions/evaluate",
-            {"state": {}, "questions": {}},
-            **bearer_for(regular_user),
-        )
-        assert response.status_code == 200
-
 
 # =============================================================================
 # Slice 2 — OpenAPI security declarations
@@ -218,7 +205,6 @@ class TestOpenAPISecurity:
             ("get", "/api/tasks/scheduler/"),
             ("get", "/api/tasks/dlq/"),
             ("get", "/api/audit/"),
-            ("post", "/api/decisions/evaluate"),
         ],
     )
     def test_protected_operations_declare_security(self, schema, method, path):

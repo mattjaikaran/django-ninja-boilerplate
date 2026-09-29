@@ -28,7 +28,6 @@ class TestAtlasGenerator:
         assert "api" in ids
         assert "core" in ids
         assert "todos" in ids
-        assert "decisions" in ids
         assert any(
             edge["f"] == "client" and edge["t"] == "api" for edge in data["edges"]
         )
