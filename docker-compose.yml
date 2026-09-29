@@ -52,9 +52,7 @@ services:
 
   # PostgreSQL 17 Database
   db:
-    # Postgres 17 (pgvector build). Kept so existing dev volumes, initialised
-    # with this Debian-based image, keep the same collation.
-    image: pgvector/pgvector:pg17
+    image: postgres:17-alpine
     profiles:
       - dev
       - test
@@ -741,7 +739,7 @@ services:
 
   # PostgreSQL Database (production tuning, no port exposure)
   db-prod:
-    image: pgvector/pgvector:pg17
+    image: postgres:17-alpine
     profiles:
       - prod
       - realtime-prod
@@ -1109,7 +1107,7 @@ services:
 
   # PostgreSQL Database (single-container stack)
   db-single:
-    image: pgvector/pgvector:pg17
+    image: postgres:17-alpine
     profiles:
       - single
     volumes:

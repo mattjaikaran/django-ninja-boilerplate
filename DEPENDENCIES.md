@@ -13,6 +13,15 @@ without a matching entry here.
 - The Docker images (`Dockerfile`, `deploy/docker/Dockerfile.single`) now
   install the existing `observability` extra, so `OTEL_ENABLED=true` works
   without a rebuild. No new package; the extra was already locked.
+- Removed `python-jose`. No code imports it; JWTs use `PyJWT` through
+  `django-ninja-jwt`. It pulled in `ecdsa`, which has an advisory with no
+  fixed version (PYSEC-2026-1325), plus `rsa` and `pyasn1`.
+- Lockfile upgrades to clear `pip-audit` advisories, with no range change in
+  `pyproject.toml`: `pip` 26.2.1 (`dev`, through `pip-audit`); `flask` 3.1.3,
+  `werkzeug` 3.1.9, `python-engineio` 4.14.0, and `python-socketio` 5.17.0
+  (`testing`, through `locust`); and `strawberry-graphql` 0.327.7
+  (`graphql`). `mcp` stays at 1.27.2 because `django-ai-boost` requires
+  `fastmcp<4`; it is used in the `dev` extra only.
 
 ## Policy
 

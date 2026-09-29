@@ -73,11 +73,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 - `/api/realtime/connection-token` and `/api/realtime/subscription-token` had no authentication. Anonymous callers got subscription tokens for any channel (`sub` claim `None`). The controller now requires JWT, a user may subscribe only to their own `notifications:<user id>` channel, and a test fails when any new operation is public without being on an explicit allowlist.
-- Upgraded dependencies to clear `pip-audit` advisories: Django 5.2.6 to 5.2.17, cryptography 46.0.1 to 50.0.1, pillow 11.3.0 to 12.3.0, urllib3 2.5.0 to 2.8.0, tornado 6.5.4 to 6.5.10, plus idna, anyio, click, orjson, pyasn1, ecdsa, and tablib. The only remaining advisory is `mcp`, pinned by `django-ai-boost`'s `fastmcp<4` requirement and used in the dev extra only.
+- Upgraded dependencies to clear `pip-audit` advisories: Django 5.2.6 to 5.2.17, cryptography 46.0.1 to 50.0.1, pillow 11.3.0 to 12.3.0, urllib3 2.5.0 to 2.8.0, tornado 6.5.4 to 6.5.10, plus idna, anyio, click, orjson, and tablib; then pip 26.2.1, flask 3.1.3, werkzeug 3.1.9, python-engineio 4.14.0, python-socketio 5.17.0, and strawberry-graphql 0.327.7. Removed the unused `python-jose`, which pulled in `ecdsa` (an advisory with no fix). The only remaining advisory across all extras is `mcp`, pinned by `django-ai-boost`'s `fastmcp<4` requirement and used in the dev extra only.
 
 ### Changed
 - The task backend set now includes Dramatiq through the `dramatiq` optional extra and Compose profile.
-- `docker-compose.yml`: the `db` image is now `pgvector/pgvector:pg17`, the Postgres 17 image (pgvector build), kept for existing dev volumes.
 - `scripts/release.py`, `scripts/deploy.sh`, the `cli` monorepo generator, and `.env.deploy.example` follow the new Compose layout and `just` recipes.
 - Docs (`README.md`, `.context/PROJECT.md`, `.context/PROMPTS.md`, `scripts/quickstart.sh`): stale `Makefile` references now name `justfile`; the old runner stays at `Makefile.legacy`.
 - Docs now match the code where they disagreed: the README quick start, command list, and profile table; the deleted `docker-compose.yml (prod profile)` references in `docs/MIGRATION.md` and `docs/REALTIME.md`; the removed `django-csp` settings in `SECURITY_CHECKLIST.md`; the raw `ninja.Schema` examples in `.context/CONVENTIONS.md`, `.context/ANTI_PATTERNS.md`, `.context/PROJECT.md`, and `.context/SYSTEM_PROMPT.md` (the repo's own gate rejects raw `Schema`); the `uv sync --dev` instruction in `setup.md` and `README.md` (`dev` is an extra: `--extra dev`); and `ROADMAP.md`, whose banner still read v1.8.0.
@@ -87,9 +86,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The dev stack publishes Postgres on 5433 and Valkey on 6380 instead of 5432 and 6379 (`POSTGRES_PORT`, `VALKEY_PORT`). `doctor` warns that 5432 conflicts with a local Postgres, and the application only ever reaches these services over the compose network, so the host ports are free to be offset. `just test-integration` moves to 5434/6381 to stay clear of the dev stack. `doctor` now reads the configured ports instead of assuming the defaults.
 - `docs/TASK_BACKENDS.md` and `.env.example` used the `valkey://` scheme for the Celery broker and result backend, which kombu cannot use.
 - `scripts/check_conventions.py`: the `ROUTER_USAGE` rule no longer flags dotted third-party attributes.
-
-### Removed
-- The `decisions` app (System One providers, CLM services, the `embeddings` profile, and the eval harness) is removed from v1.12. It never shipped in a release. Before you pull this change onto an existing dev database, run `python manage.py migrate decisions zero`, or drop the `decisions_decisionfixture` table.
 
 ## [1.11.0] - 2026-08-15
 

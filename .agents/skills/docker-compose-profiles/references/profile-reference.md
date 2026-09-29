@@ -6,7 +6,7 @@ Service inventory for `docker-compose.yml`.
 
 | Service | Image / target | Host ports | Notes |
 |---|---|---|---|
-| `db` | `pgvector/pgvector:pg17` | `${POSTGRES_PORT:-5433}` | Mounts the Postgres init and dump directories |
+| `db` | `postgres:17-alpine` | `${POSTGRES_PORT:-5433}` | Mounts the Postgres init and dump directories |
 | `valkey` | `valkey/valkey:8-alpine` | `${VALKEY_PORT:-6380}` | No password in development |
 | `django` | `Dockerfile` target `development` | `${DJANGO_PORT:-8000}` | `runserver` with a source bind mount |
 

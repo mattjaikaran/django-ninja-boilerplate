@@ -59,7 +59,6 @@ dependencies = [
     "bcrypt>=4.2.1",
     "cryptography>=43.0.1",
     "PyJWT>=2.9.0",
-    "python-jose>=3.3.0",
     "passlib>=1.7.4",
     # Email (Resend via Anymail)
     "django-anymail[resend]>=14.0",
