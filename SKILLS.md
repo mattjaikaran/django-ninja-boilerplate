@@ -7,7 +7,7 @@ Skills specification discover it automatically and load a skill on demand.
 | Skill | Description |
 |---|---|
 | [`django-ninja-dev`](.agents/skills/django-ninja-dev/SKILL.md) | Controller, schema, and service patterns for Django Ninja Extra. |
-| [`decisions-app`](.agents/skills/decisions-app/SKILL.md) | System One decision engine, providers (laya/jev/fake), fixtures. |
+| [`decisions-app`](.agents/skills/decisions-app/SKILL.md) | System One decision engine, providers (laya/clm/jev/fake), eval harness, thresholds, agent packs, fixtures. |
 | [`docker-compose-profiles`](.agents/skills/docker-compose-profiles/SKILL.md) | One Compose file, the dev/test/prod/single profiles. |
 | [`rtk-ripgrep`](.agents/skills/rtk-ripgrep/SKILL.md) | Searching with ripgrep, and the RTK `exclude_commands` workaround. |
 | [`system-design-atlas`](.agents/skills/system-design-atlas/SKILL.md) | The admin architecture map and how to regenerate it. |

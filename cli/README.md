@@ -90,6 +90,17 @@ dnm --help
 | `dnm init <name>` | Create a new project |
 | `dnm doctor` | Validate development environment |
 | `dnm setup` | Bootstrap current project |
+| `dnm decide route "<task>"` | Pick a model tier for a coding task |
+| `dnm decide triage --commit <rev>` | Classify a commit and choose its review depth |
+| `dnm decide gate "<action>" --environment <env>` | Check whether an action needs approval |
+| `dnm decide generator "<request>" --app-name <name>` | Pick a `generate_feature` generator |
+| `dnm decide eval --provider <p> --output <file>` | Evaluate a provider on the decision benchmark |
+| `dnm decide compare <reports...>` | Compare saved eval reports on the test split |
+
+`dnm decide` runs `uv run python manage.py ...` in the current project, so
+run it from the project root. It uses the project's `SYSTEMONE_PROVIDER` and
+`DECISION_THRESHOLDS_FILE`. It exits with status 3 when the decision is
+`escalate` or `ask_human`, so a hook or script can stop and hand over.
 
 ### Init Options
 

@@ -13,10 +13,14 @@ without a matching entry here.
 - The Docker images (`Dockerfile`, `deploy/docker/Dockerfile.single`) now
   install the existing `observability` extra, so `OTEL_ENABLED=true` works
   without a rebuild. No new package; the extra was already locked.
-- `decisions/mcp.py` appends `evaluate_decision` to
-  `django_ai_boost.server_fastmcp.TOOLS`. django-ai-boost has no public
-  extension hook, so an upgrade that renames that list breaks the tool;
+- `decisions/mcp.py` appends `evaluate_decision` and the four agent tools
+  (`route_agent_task`, `triage_change`, `gate_agent_action`, `pick_generator`)
+  to `django_ai_boost.server_fastmcp.TOOLS`. django-ai-boost has no public
+  extension hook, so an upgrade that renames that list breaks the tools;
   `decisions/tests/test_mcp.py` and a live `list_tools` call catch it.
+- The agent decision tools and `measure_decision_savings` add no package. The
+  baseline LLM client uses the existing `httpx` dependency, and `dnm decide`
+  uses the CLI's existing `typer` dependency.
 - New Compose image, no Python package: `ghcr.io/ggml-org/llama.cpp:server-b11223`
   (`embedder` service, `embeddings` profile) serves Qwen3-Embedding-0.6B
   (`Qwen/Qwen3-Embedding-0.6B-GGUF`, Q8_0, about 640 MB). Pinned to a build

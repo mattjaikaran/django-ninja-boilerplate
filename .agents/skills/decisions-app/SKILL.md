@@ -2,10 +2,12 @@
 name: decisions-app
 description: >
   Use when working with the decisions app: the System One decision engine, its
-  providers (laya, clm, jev, fake), DecisionService, DecisionFixture, or the
-  POST /api/decisions/evaluate endpoint. Use when the user mentions "decision",
-  "decisions", "laya", "clm", "jev", "typesafe", "provider", "System One",
-  "DecisionFixture", or "evaluate".
+  providers (laya, clm, jev, fake), DecisionService, the eval harness and
+  benchmark, per-question thresholds, the agent packs (route, triage, gate,
+  generator), DecisionFixture, or the /api/decisions endpoints. Use when the
+  user mentions "decision", "decisions", "laya", "clm", "jev", "typesafe",
+  "provider", "System One", "benchmark", "threshold", "dnm decide", or
+  "evaluate".
 ---
 
 # Decisions app
@@ -15,8 +17,10 @@ engine. It answers a set of typed questions from a piece of state.
 
 ## When to use this skill
 
-- Calling or changing `POST /api/decisions/evaluate`
+- Calling or changing `POST /api/decisions/evaluate` or `/api/decisions/agent/*`
 - Adding or changing a provider
+- Running the eval harness or tuning per-question thresholds
+- Working with the agent packs, MCP tools, or `dnm decide`
 - Working with `DecisionFixture` or `seed_decisions`
 - Debugging an "install the extra" error
 
@@ -69,7 +73,8 @@ same rule.
   "provider": "fake",
   "routing": null,
   "fallbackUsed": false,
-  "escalationRecommended": false
+  "escalationRecommended": false,
+  "escalatedQuestions": []
 }
 ```
 
@@ -77,8 +82,10 @@ same rule.
   per answer and routing metadata; `result_from_raw` normalises both.
   CLM and Jev `noul` answers carry a yes probability. When no separate
   confidence exists, use `max(p, 1-p)` for selected-side confidence.
-- `DECISION_ESCALATION_THRESHOLD` decides when a result is flagged. An empty
-  question set is never escalated.
+- Each answer is compared with its question's threshold for the active
+  provider in `DECISION_THRESHOLDS_FILE`, or with
+  `DECISION_ESCALATION_THRESHOLD`. `escalatedQuestions` lists the weak
+  answers. An empty question set is never escalated.
 - Confidence is not calibrated. The Laya checkpoint warns: "Treat confidence
   from the affected entries as uncalibrated." Do not present observed scores
   as trusted thresholds. Gate consequential automation until confidence is
@@ -104,9 +111,33 @@ See `references/provider-interface.md`.
 The initial migration creates the Postgres `vector` extension before the table.
 SQLite accepts the column type, so tests need no setup.
 
+## Eval harness and benchmark
+
+- `eval_decisions --benchmark --provider <p> --output <file>` runs the five
+  domains in `decisions/data/benchmark/` (310 cases, `dev` and `test`
+  splits). It accepts JSONL for reviewed traffic. It fails when the provider
+  is unavailable; `--skip-unavailable` records a skipped report instead.
+- `compare_decisions` compares reports on the `test` split.
+- `recommend_thresholds <report> --write <file>` tunes on `dev` and checks on
+  `test`.
+- Results and caveats: `docs/DECISIONS_BENCHMARK.md`. Laya is the default:
+  65.8% against CLM's 62.0% on the test split. Neither routes model tiers
+  reliably.
+
+## Agent packs
+
+`AgentDecisionService` answers `route_task`, `triage_change`, `gate_action`,
+and `pick_generator`. Each pack reads its questions from a benchmark domain.
+Surfaces: `POST /api/decisions/agent/*`, MCP tools, `dnm decide`, and
+`just decide`. `escalate` and `ask_human` exit with status 3 on the CLI.
+`measure_decision_savings` measures tokens against a baseline LLM. See
+`docs/DECISIONS_FOR_AGENTS.md`.
+
 ## Testing
 
-Use `FakeProvider`. Unit tests must not load a model or touch the network.
+Use `FakeProvider` or a scripted `DecisionProvider` stub. Unit tests must not
+load a model or touch the network; stub the baseline LLM with
+`httpx.MockTransport`.
 
 ```bash
 uv run pytest decisions/ -v
@@ -121,3 +152,9 @@ uv run pytest decisions/ -v
   aggregates with `min`.
 - Adding a `provider` field to the API or MCP request. Callers must not choose
   the provider; configure `SYSTEMONE_PROVIDER` instead.
+- Sending thresholds from a client. Per-question thresholds come only from
+  `DECISION_THRESHOLDS_FILE`.
+- Tuning wording or thresholds on the benchmark `test` split. Tune on `dev`.
+- Treating `gate_action` `allow` as permission for production or
+  irreversible actions. The gate is a first filter; your own policy still
+  applies.

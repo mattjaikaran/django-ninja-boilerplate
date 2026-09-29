@@ -18,15 +18,25 @@ install or setup hint; an unavailable model service returns an error.
 
 ```
 decisions/
-├── admin/decision_admin.py            # DecisionFixture admin
-├── controllers/decision_controller.py # POST /decisions/evaluate
-├── data/fixtures/*.json               # Seed examples
-├── management/commands/seed_decisions.py
-├── mcp.py                             # evaluate_decision MCP tool + registration
-├── models/decision_fixture.py         # Stored example payloads
-├── providers/                         # base, fake, laya, clm, jev, registry
-├── schemas/decision_schema.py         # Question, request, response, fixture
-├── services/decision_service.py       # Provider selection + policy + fixtures
+├── admin/decision_admin.py                  # DecisionFixture admin
+├── controllers/decision_controller.py       # POST /decisions/evaluate, /similar
+├── controllers/agent_decision_controller.py # POST /decisions/agent/*
+├── data/benchmark/<domain>/                 # questions.json + cases.jsonl
+├── data/eval/support_tickets.json           # Older 40-ticket eval set
+├── data/fixtures/*.json                     # Seed examples
+├── data/thresholds.example.json             # Example per-question thresholds
+├── management/commands/                     # seed, embed, eval, compare,
+│                                            # recommend_thresholds, agent_decide,
+│                                            # measure_decision_savings
+├── mcp.py                                   # MCP tools + registration
+├── models/decision_fixture.py               # Stored example payloads
+├── providers/                               # base, fake, laya, clm, jev, registry
+├── schemas/                                 # decision and agent decision schemas
+├── services/decision_service.py             # Provider selection + escalation
+├── services/thresholds.py                   # DECISION_THRESHOLDS_FILE
+├── services/agent_service.py                # Agent packs and next steps
+├── services/eval_*.py                       # Eval dataset, metrics, runner, compare
+├── services/savings_service.py              # Token savings against a baseline LLM
 └── tests/
 ```
 
@@ -70,14 +80,18 @@ Response with `SYSTEMONE_PROVIDER=fake`:
   "provider": "fake",
   "routing": null,
   "fallbackUsed": false,
-  "escalationRecommended": false
+  "escalationRecommended": false,
+  "escalatedQuestions": []
 }
 ```
 
 `confidence` is the **lowest** per-answer confidence: a decision is only as
-strong as its weakest answer. Set `DECISION_ESCALATION_THRESHOLD` to
-control when a result is flagged for escalation. Laya also reports `routing`
-metadata naming the checkpoint that handled the request.
+strong as its weakest answer. Each answer is compared with its question's
+threshold (see [Per-question thresholds](#per-question-thresholds)) or with
+`DECISION_ESCALATION_THRESHOLD`. `escalatedQuestions` lists the answers below
+their threshold, and `escalationRecommended` is true when that list is not
+empty. Laya also reports `routing` metadata naming the checkpoint that
+handled the request.
 
 A `noul` answer from CLM or Jev is the probability of "yes". When the
 provider sends no separate confidence, the app uses `max(p, 1 - p)`, so a
@@ -105,56 +119,90 @@ code in the loop until you calibrate confidence on representative data.
   the others, not a probability. `noul` confidence is `max(p, 1 - p)`.
 - The scores in this README and in the tests are examples. They are not
   trusted thresholds.
-- `DECISION_ESCALATION_THRESHOLD` (default `0.5`) only flags weak results for
-  review. It does not make a result above the threshold safe to act on.
+- `DECISION_ESCALATION_THRESHOLD` (default `0.5`) and per-question
+  thresholds only flag weak answers for review. They do not make an answer
+  above the threshold safe to act on.
 
-### Measure it: `eval_decisions`
+### Measure it: the eval harness
 
-`manage.py eval_decisions` (or `just eval-decisions`) runs a labelled dataset
-through a provider and reports accuracy, mean confidence, expected calibration
-error (ECE), and, for each threshold from 0.5 to 0.95, the share of answers at
-or above it and their accuracy. Use that table to choose a threshold per
-question. The bundled `data/eval/support_tickets.json` has 40 hand-labelled
-tickets and three questions; replace it with reviewed decisions from your own
-traffic.
+`eval_decisions` runs labelled cases through one provider and reports
+accuracy, mean confidence, expected calibration error (ECE), reliability
+bins, coverage and accuracy at each threshold from 0.5 to 0.95, latency (cold,
+warm p50 and p95), and cost when `DECISION_PROVIDER_COSTS` sets a price.
+`--output` saves a JSON report with every scored answer. It accepts the
+original JSON format, JSONL (one reviewed case per line, for your own
+traffic), and benchmark domain directories.
 
 ```bash
-just eval-decisions --provider laya
-just eval-decisions --provider clm path/to/reviewed.json --json
+just decisions-benchmark laya          # all 5 domains -> reports/decisions/laya.json
+just decisions-benchmark jev --skip-unavailable
+just decisions-compare                 # held-out test split, every saved report
+just decisions-thresholds reports/decisions/laya.json --target 0.9
+just eval-decisions reviewed.jsonl --questions questions.json --provider laya
 ```
 
-One run on the bundled set (Apple Silicon, CLM encoder from llama.cpp Q8_0):
+The bundled benchmark (`data/benchmark/`) has 310 labelled cases in five
+domains, split into `dev` (109) and `test` (201). On its test split, Laya
+scored 65.8% and CLM 62.0% overall; neither was fit for model-tier routing or
+for deciding alone that an action is safe. Read
+[the benchmark report](../docs/DECISIONS_BENCHMARK.md) for the full results,
+the sample sizes, and the caveats. The older 40-ticket set is still in
+`data/eval/support_tickets.json` and is the default dataset.
 
-| Provider | Question | Accuracy | Mean confidence | ECE |
-|---|---|---|---|---|
-| `laya` | team (3-way choice) | 95.0% | 53.0% | 0.420 |
-| `laya` | angry (noul) | 90.0% | 70.9% | 0.191 |
-| `laya` | wants_refund (noul) | 97.5% | 81.1% | 0.164 |
-| `clm` | team (3-way choice) | 77.5% | 55.5% | 0.220 |
-| `clm` | angry (noul) | 72.5% | 78.9% | 0.194 |
-| `clm` | wants_refund (noul) | 92.5% | 89.8% | 0.072 |
+### Per-question thresholds
 
-Read it this way: these are illustrative results on a small synthetic set,
-written and labelled by one person. They do not calibrate anything, and they
-are not a basis for `DECISION_ESCALATION_THRESHOLD`. On this set, Laya is
-underconfident: with the default threshold of 0.5, it would escalate 40% of
-`team` answers, and 14 of those 16 were correct. CLM is weaker here, and
-more than a quarter of its `angry` answers above 0.8 confidence were wrong.
-Both providers were scored on the same sentence-style criteria. Those
-criteria were rewritten after seeing CLM's first results on these same 40
-tickets, so the CLM numbers are optimistic. Run `eval_decisions` on reviewed
-decisions from your own traffic before you pick a threshold.
+`recommend_thresholds` tunes a threshold per question on the report's `dev`
+split and checks it on `test`. `--write` stores the result in a JSON file
+keyed by provider, then by question:
+
+```json
+{"laya": {"team": 0.2, "tier": 1.0}, "clm": {"security_sensitive": 0.0}}
+```
+
+Set `DECISION_THRESHOLDS_FILE` to that file. `DecisionService` then compares
+each answer with its question's threshold for the active provider, and uses
+`DECISION_ESCALATION_THRESHOLD` for questions the file does not list. The
+response names the weak answers in `escalatedQuestions`. A threshold of 1.0
+escalates every answer below certainty. An unreadable or invalid file fails
+loud with `ImproperlyConfigured`. Clients cannot send thresholds: the request
+schemas reject extra fields with a 422 response.
+`data/thresholds.example.json` was tuned on the synthetic benchmark at a 90%
+target; re-tune it on your own reviewed traffic.
 
 ### Write CLM criteria as answers
 
 CLM scores each option's text as a candidate answer, so phrase criteria as
-complete answer sentences. On the bundled set, keyword lists such as
+complete answer sentences. On the 40-ticket set, keyword lists such as
 `"Charges, refunds, invoices"` gave 35% on `team`. Sentences such as
 `"The billing team, because the ticket is about a charge, payment, invoice,
 refund or subscription."` gave 77.5%. For `noul`, pass `criteria` with
 `true` and `false` sentences. `"The customer is angry."` versus
 `"The customer is not angry."` scored 25% on tone; a descriptive pair scored
-72.5%.
+72.5%. Wording still matters with sentences: on the benchmark, CLM answered
+`account` for 63 of 65 `team` cases.
+
+## Agent decisions
+
+`AgentDecisionService` answers four fixed question packs for coding agents
+and developer tooling. Each pack reads its questions from the benchmark
+domain that measures it, so tuned thresholds apply to the same questions.
+
+| Pack | Benchmark domain | `next_step` values |
+|---|---|---|
+| `route_task` | `task_routing` | `use_local`, `use_mid`, `use_frontier`, `ask_human`, `escalate` |
+| `triage_change` | `code_review_triage` | `deep_review`, `standard_review`, `escalate` |
+| `gate_action` | `risk_flags` | `allow`, `ask_human` (fails closed) |
+| `pick_generator` | `generator_choice` | `generate` (with the command), `escalate` |
+
+Surfaces: `POST /api/decisions/agent/{route-task,triage-change,gate-action,pick-generator}`
+(JWT), the MCP tools `route_agent_task`, `triage_change`, `gate_agent_action`,
+and `pick_generator`, `dnm decide ...`, and `just decide ...`. The CLI exits
+with status 3 when the step is `escalate` or `ask_human`.
+`measure_decision_savings` measures the LLM tokens a flow saves. Read
+[Decisions for agents](../docs/DECISIONS_FOR_AGENTS.md) before you rely on a
+pack: on the benchmark, `route_task` and the `destructive` and
+`needs_approval` gate questions were not better than guessing the most common
+label.
 
 ## Add a provider
 
@@ -269,9 +317,12 @@ check at the same architecture's small size, Qwen3-0.6B Q8_0 in llama.cpp
 against `transformers` bf16 last-token hidden states, gave cosine similarity
 0.998 to 0.9997 on 15 of 16 CLM input texts, and 0.942 on a one-token input.
 So the llama.cpp pipeline (tokenization, final norm, last-token pooling)
-matches. The Q8_0 quantization gap at 8B was not measured. `clm-api` is a
-small native CPU image (`python:3.12-slim`, about 900 MB) on both Apple
-Silicon and GPU hosts; only the encoder needs a GPU or Metal.
+matches, and it probably does not explain most of CLM's accuracy gap to
+Laya. The Q8_0 quantization gap at 8B and parity with vLLM were not
+measured; a vLLM run on a GPU would settle it. `clm-api` is a small CPU image
+(`python:3.12-slim`, 915 MB); only the encoder needs a GPU or Metal. The
+image is built and verified on arm64 (Apple Silicon); the amd64 build is not
+verified.
 
 The `clm-encoder` service downloads Qwen3-8B on first start. `clm-api`
 downloads the CLM projection head. Both caches use named volumes. The encoder
@@ -289,13 +340,15 @@ when its service is unavailable. An unreachable service or a rejected
 `CLM_API_KEY` returns a 500 `provider_unavailable` response that names the
 address or the setting to fix.
 
-## MCP tool
+## MCP tools
 
 `just up-mcp` starts the django-ai-boost SSE server on
 `http://127.0.0.1:8001/sse` (loopback only). The `mcp` service sets
-`ENABLE_DECISION_MCP=true`, so `DecisionsConfig.ready()` adds
-`evaluate_decision(state, questions)` to the server's tool list. The tool uses
-the configured provider; a call that passes `provider` fails validation.
+`ENABLE_DECISION_MCP=true`, so `DecisionsConfig.ready()` adds five tools to
+the server's tool list: `evaluate_decision(state, questions)` and the four
+agent tools in [Agent decisions](#agent-decisions). The tools use the
+configured provider and thresholds; a call that passes `provider` fails
+validation.
 
 For hosted Jev, install `uv sync --extra decisions-jev` and set
 `TYPESAFE_API_KEY` privately. Neither open-source provider needs that key.

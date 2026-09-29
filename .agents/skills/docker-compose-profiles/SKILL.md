@@ -49,10 +49,14 @@ just dev
 docker compose --profile prod up -d
 ```
 
-`just dev` reads `TASK_BACKEND` and `SYSTEMONE_PROVIDER` from `.env`. It starts
-one task backend and adds `decisions-clm` only when CLM is selected. Celery and
-Laya are the defaults. Start CLM only on a Linux NVIDIA host; Laya needs no GPU.
-Mailhog and MCP stay opt-in through `just up-mail` and `just up-mcp`.
+`just dev` reads `TASK_BACKEND`, `SYSTEMONE_PROVIDER`, and `CLM_ENCODER_URL`
+from `.env`. It starts one task backend. When CLM is selected, it adds
+`decisions-clm` (GPU encoder in Compose), or `decisions-clm-host` when
+`CLM_ENCODER_URL` points at an encoder outside Compose, such as
+`just clm-encoder-local` on Apple Silicon. Celery and Laya are the defaults;
+Laya needs no GPU. Run only one large model at a time on a 32 GB host: the
+Qwen3-8B encoder holds 8 to 9 GB resident. Mailhog and MCP stay opt-in
+through `just up-mail` and `just up-mcp`.
 
 ## Why the `-prod` suffix
 

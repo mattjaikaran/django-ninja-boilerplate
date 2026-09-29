@@ -332,7 +332,7 @@ just up-full             # Add monitoring, realtime, Mailhog, and MCP
 just up-realtime         # Add Centrifugo (ws://localhost:8800)
 just up-monitoring       # Add Flower (:5555) and Jaeger (:16686); set OTEL_ENABLED=true for traces
 just up-mail             # Add Mailhog (:8025); point EMAIL_* at mailhog first (see .env.example)
-just up-mcp              # Add the MCP server (SSE on 127.0.0.1:8001/sse, includes evaluate_decision)
+just up-mcp              # Add the MCP server (SSE on 127.0.0.1:8001/sse, includes the decision tools)
 just logs                # View logs
 just shell               # Django shell
 just migrate             # Run migrations
@@ -615,18 +615,38 @@ Question types are `choice`, `score`, and `noul`. `noul` is Laya's own name for
 a yes/no question, not a typo for `null`.
 
 `confidence` in the response is the **lowest** per-answer confidence, because a
-decision is only as strong as its weakest answer. Set
-`DECISION_ESCALATION_THRESHOLD` to control when a result is flagged.
+decision is only as strong as its weakest answer. Each answer is compared with
+its question's threshold from `DECISION_THRESHOLDS_FILE` (keyed by provider,
+written by `recommend_thresholds`), or with `DECISION_ESCALATION_THRESHOLD`;
+`escalatedQuestions` lists the weak answers. Clients cannot send thresholds.
 Provider confidence is not calibrated: the Laya checkpoint warns that some of
 its confidence is uncalibrated. Keep consequential automation behind a human
 or a rule in code until you calibrate confidence on representative data.
 
 ```bash
-just seed-decisions     # load decisions/data/fixtures into pgvector
-just up-embeddings      # Qwen3-Embedding-0.6B embedder (`embeddings` profile)
-just embed-decisions    # fill fixture vectors for POST /api/decisions/similar
-just eval-decisions     # accuracy + calibration of the configured provider
+just seed-decisions             # load decisions/data/fixtures into pgvector
+just up-embeddings              # Qwen3-Embedding-0.6B embedder (`embeddings` profile)
+just embed-decisions            # fill fixture vectors for POST /api/decisions/similar
+just decisions-benchmark laya   # 310-case benchmark -> reports/decisions/laya.json
+just decisions-compare          # compare saved reports on the held-out test split
+just decisions-thresholds reports/decisions/laya.json --write thresholds.json
 ```
+
+On the bundled benchmark's test split, Laya scored 65.8% and CLM 62.0%, so
+Laya stays the default. See
+[docs/DECISIONS_BENCHMARK.md](docs/DECISIONS_BENCHMARK.md) for the results
+and caveats.
+
+### Decisions for agents
+
+Four typed question packs help coding agents answer cheap questions locally
+before they call a large model: route a task to a model tier, triage a
+commit, gate an action, and pick a `generate_feature` generator. Use them
+through `POST /api/decisions/agent/*` (JWT), the MCP tools, `dnm decide`, or
+`just decide`. `measure_decision_savings` measures the LLM tokens a flow
+saves, from the baseline LLM's reported usage. Read
+[docs/DECISIONS_FOR_AGENTS.md](docs/DECISIONS_FOR_AGENTS.md) for the
+measured savings and the packs that are not reliable yet.
 
 `DecisionFixture.embedding` is a native pgvector `vector` column. Postgres needs
 the `vector` extension: the initial migration creates it before the table, and

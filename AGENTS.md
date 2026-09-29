@@ -115,6 +115,17 @@ wrong here. Do not use them.
   `SYSTEMONE_PROVIDER`, so a JWT user cannot select `fake` or reach Jev.
 - Do not treat provider confidence as a trusted threshold. Gate consequential
   automation until confidence is calibrated on representative data.
+- Do not let API or MCP callers send escalation thresholds. Per-question
+  thresholds come only from `DECISION_THRESHOLDS_FILE`, keyed by provider.
+- Do not tune question wording or thresholds on the `test` split of
+  `decisions/data/benchmark/`. Tune on `dev`; report `test`.
+- Do not add a question to an agent pack without benchmark cases for it. Each
+  pack in `AgentDecisionService` reads its questions from the benchmark
+  domain that measures it.
+- Do not map an uncertain `gate_action` answer to `allow`. The gate fails
+  closed.
+- Do not report token savings from estimates. `measure_decision_savings`
+  uses the baseline LLM's reported usage.
 
 ### Infrastructure
 

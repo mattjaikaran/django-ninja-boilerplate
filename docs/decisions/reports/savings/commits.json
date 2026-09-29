@@ -1,0 +1,1063 @@
+{
+  "pack": "triage_change",
+  "source": "git v1.11.0..HEAD",
+  "provider": "laya",
+  "baseline_model": "qwen3-4b-instruct-2507",
+  "items": 45,
+  "resolved_locally": 0,
+  "local_rate": 0.0,
+  "local_answer_share": 0.2814814814814815,
+  "baseline_invalid": 0,
+  "tokens": {
+    "llm_only": {
+      "prompt": 25447,
+      "completion": 975
+    },
+    "hybrid": {
+      "prompt": 19975,
+      "completion": 686
+    },
+    "saved": 5761,
+    "saved_share": 0.21803799863749906
+  },
+  "cost_usd": {
+    "llm_only": null,
+    "hybrid": null
+  },
+  "agreement_on_local": 0.9736842105263158,
+  "accuracy": {
+    "llm_only": null,
+    "hybrid": null
+  },
+  "latency_ms": {
+    "engine_p50": 278.83700001984835,
+    "baseline_p50": 1307.0546669187024
+  },
+  "results": [
+    {
+      "id": "c0cebd53cb",
+      "next_step": "escalate",
+      "escalated": [
+        "change_type",
+        "needs_migration_review",
+        "security_sensitive"
+      ],
+      "engine_answers": {
+        "change_type": "fix",
+        "needs_migration_review": 0.2701,
+        "security_sensitive": 0.4307
+      },
+      "baseline_answers": {
+        "change_type": "fix",
+        "needs_migration_review": false,
+        "security_sensitive": false
+      },
+      "hybrid_answers": {
+        "change_type": "fix",
+        "needs_migration_review": false,
+        "security_sensitive": false
+      },
+      "expected": null,
+      "baseline_tokens": 489,
+      "hybrid_tokens": 489
+    },
+    {
+      "id": "9a9d2cedfe",
+      "next_step": "escalate",
+      "escalated": ["needs_migration_review", "security_sensitive"],
+      "engine_answers": {
+        "change_type": "feature",
+        "needs_migration_review": 0.9134,
+        "security_sensitive": 0.783
+      },
+      "baseline_answers": {
+        "change_type": "feature",
+        "needs_migration_review": true,
+        "security_sensitive": false
+      },
+      "hybrid_answers": {
+        "needs_migration_review": true,
+        "security_sensitive": false
+      },
+      "expected": null,
+      "baseline_tokens": 886,
+      "hybrid_tokens": 735
+    },
+    {
+      "id": "babe7dd01c",
+      "next_step": "escalate",
+      "escalated": [
+        "change_type",
+        "needs_migration_review",
+        "security_sensitive"
+      ],
+      "engine_answers": {
+        "change_type": "refactor",
+        "needs_migration_review": 0.9675,
+        "security_sensitive": 0.6241
+      },
+      "baseline_answers": {
+        "change_type": "chore",
+        "needs_migration_review": false,
+        "security_sensitive": false
+      },
+      "hybrid_answers": {
+        "change_type": "chore",
+        "needs_migration_review": false,
+        "security_sensitive": false
+      },
+      "expected": null,
+      "baseline_tokens": 575,
+      "hybrid_tokens": 575
+    },
+    {
+      "id": "54bef868e9",
+      "next_step": "escalate",
+      "escalated": [
+        "change_type",
+        "needs_migration_review",
+        "security_sensitive"
+      ],
+      "engine_answers": {
+        "change_type": "feature",
+        "needs_migration_review": 0.6651,
+        "security_sensitive": 0.8645
+      },
+      "baseline_answers": {
+        "change_type": "fix",
+        "needs_migration_review": false,
+        "security_sensitive": false
+      },
+      "hybrid_answers": {
+        "change_type": "fix",
+        "needs_migration_review": false,
+        "security_sensitive": false
+      },
+      "expected": null,
+      "baseline_tokens": 650,
+      "hybrid_tokens": 650
+    },
+    {
+      "id": "fcb0081ca8",
+      "next_step": "escalate",
+      "escalated": ["needs_migration_review", "security_sensitive"],
+      "engine_answers": {
+        "change_type": "docs",
+        "needs_migration_review": 0.7466,
+        "security_sensitive": 0.8645
+      },
+      "baseline_answers": {
+        "change_type": "docs",
+        "needs_migration_review": false,
+        "security_sensitive": false
+      },
+      "hybrid_answers": {
+        "needs_migration_review": false,
+        "security_sensitive": false
+      },
+      "expected": null,
+      "baseline_tokens": 850,
+      "hybrid_tokens": 699
+    },
+    {
+      "id": "a2960cd6c7",
+      "next_step": "escalate",
+      "escalated": ["needs_migration_review", "security_sensitive"],
+      "engine_answers": {
+        "change_type": "fix",
+        "needs_migration_review": 0.7504,
+        "security_sensitive": 0.6567
+      },
+      "baseline_answers": {
+        "change_type": "fix",
+        "needs_migration_review": false,
+        "security_sensitive": false
+      },
+      "hybrid_answers": {
+        "needs_migration_review": false,
+        "security_sensitive": false
+      },
+      "expected": null,
+      "baseline_tokens": 594,
+      "hybrid_tokens": 438
+    },
+    {
+      "id": "f8cd0a3c33",
+      "next_step": "escalate",
+      "escalated": ["needs_migration_review", "security_sensitive"],
+      "engine_answers": {
+        "change_type": "fix",
+        "needs_migration_review": 0.6876,
+        "security_sensitive": 0.3392
+      },
+      "baseline_answers": {
+        "change_type": "fix",
+        "needs_migration_review": false,
+        "security_sensitive": true
+      },
+      "hybrid_answers": {
+        "needs_migration_review": false,
+        "security_sensitive": true
+      },
+      "expected": null,
+      "baseline_tokens": 528,
+      "hybrid_tokens": 377
+    },
+    {
+      "id": "244673c4a0",
+      "next_step": "escalate",
+      "escalated": ["needs_migration_review", "security_sensitive"],
+      "engine_answers": {
+        "change_type": "feature",
+        "needs_migration_review": 0.8496,
+        "security_sensitive": 0.8587
+      },
+      "baseline_answers": {
+        "change_type": "feature",
+        "needs_migration_review": false,
+        "security_sensitive": true
+      },
+      "hybrid_answers": {
+        "needs_migration_review": false,
+        "security_sensitive": true
+      },
+      "expected": null,
+      "baseline_tokens": 613,
+      "hybrid_tokens": 462
+    },
+    {
+      "id": "317e742197",
+      "next_step": "escalate",
+      "escalated": ["needs_migration_review", "security_sensitive"],
+      "engine_answers": {
+        "change_type": "fix",
+        "needs_migration_review": 0.5054,
+        "security_sensitive": 0.5046
+      },
+      "baseline_answers": {
+        "change_type": "fix",
+        "needs_migration_review": false,
+        "security_sensitive": false
+      },
+      "hybrid_answers": {
+        "needs_migration_review": false,
+        "security_sensitive": false
+      },
+      "expected": null,
+      "baseline_tokens": 508,
+      "hybrid_tokens": 357
+    },
+    {
+      "id": "3adf0c084e",
+      "next_step": "escalate",
+      "escalated": ["needs_migration_review", "security_sensitive"],
+      "engine_answers": {
+        "change_type": "docs",
+        "needs_migration_review": 0.7856,
+        "security_sensitive": 0.6476
+      },
+      "baseline_answers": {
+        "change_type": "docs",
+        "needs_migration_review": false,
+        "security_sensitive": false
+      },
+      "hybrid_answers": {
+        "needs_migration_review": false,
+        "security_sensitive": false
+      },
+      "expected": null,
+      "baseline_tokens": 500,
+      "hybrid_tokens": 349
+    },
+    {
+      "id": "2fc3da9b94",
+      "next_step": "escalate",
+      "escalated": ["needs_migration_review", "security_sensitive"],
+      "engine_answers": {
+        "change_type": "fix",
+        "needs_migration_review": 0.8342,
+        "security_sensitive": 0.6834
+      },
+      "baseline_answers": {
+        "change_type": "fix",
+        "needs_migration_review": false,
+        "security_sensitive": false
+      },
+      "hybrid_answers": {
+        "needs_migration_review": false,
+        "security_sensitive": true
+      },
+      "expected": null,
+      "baseline_tokens": 541,
+      "hybrid_tokens": 390
+    },
+    {
+      "id": "e6ebe8f262",
+      "next_step": "escalate",
+      "escalated": [
+        "change_type",
+        "needs_migration_review",
+        "security_sensitive"
+      ],
+      "engine_answers": {
+        "change_type": "fix",
+        "needs_migration_review": 0.8463,
+        "security_sensitive": 0.613
+      },
+      "baseline_answers": {
+        "change_type": "fix",
+        "needs_migration_review": false,
+        "security_sensitive": false
+      },
+      "hybrid_answers": {
+        "change_type": "fix",
+        "needs_migration_review": false,
+        "security_sensitive": false
+      },
+      "expected": null,
+      "baseline_tokens": 541,
+      "hybrid_tokens": 541
+    },
+    {
+      "id": "a7b35ff43c",
+      "next_step": "escalate",
+      "escalated": ["needs_migration_review", "security_sensitive"],
+      "engine_answers": {
+        "change_type": "fix",
+        "needs_migration_review": 0.1914,
+        "security_sensitive": 0.11
+      },
+      "baseline_answers": {
+        "change_type": "fix",
+        "needs_migration_review": false,
+        "security_sensitive": false
+      },
+      "hybrid_answers": {
+        "needs_migration_review": false,
+        "security_sensitive": false
+      },
+      "expected": null,
+      "baseline_tokens": 492,
+      "hybrid_tokens": 341
+    },
+    {
+      "id": "062f3ec6fd",
+      "next_step": "escalate",
+      "escalated": ["needs_migration_review", "security_sensitive"],
+      "engine_answers": {
+        "change_type": "fix",
+        "needs_migration_review": 0.4638,
+        "security_sensitive": 0.4623
+      },
+      "baseline_answers": {
+        "change_type": "fix",
+        "needs_migration_review": false,
+        "security_sensitive": true
+      },
+      "hybrid_answers": {
+        "needs_migration_review": false,
+        "security_sensitive": true
+      },
+      "expected": null,
+      "baseline_tokens": 485,
+      "hybrid_tokens": 334
+    },
+    {
+      "id": "71fec9565b",
+      "next_step": "escalate",
+      "escalated": ["needs_migration_review", "security_sensitive"],
+      "engine_answers": {
+        "change_type": "fix",
+        "needs_migration_review": 0.6749,
+        "security_sensitive": 0.7999
+      },
+      "baseline_answers": {
+        "change_type": "fix",
+        "needs_migration_review": false,
+        "security_sensitive": true
+      },
+      "hybrid_answers": {
+        "needs_migration_review": false,
+        "security_sensitive": true
+      },
+      "expected": null,
+      "baseline_tokens": 526,
+      "hybrid_tokens": 375
+    },
+    {
+      "id": "3280508d44",
+      "next_step": "escalate",
+      "escalated": ["needs_migration_review", "security_sensitive"],
+      "engine_answers": {
+        "change_type": "docs",
+        "needs_migration_review": 0.4993,
+        "security_sensitive": 0.4742
+      },
+      "baseline_answers": {
+        "change_type": "docs",
+        "needs_migration_review": false,
+        "security_sensitive": false
+      },
+      "hybrid_answers": {
+        "needs_migration_review": false,
+        "security_sensitive": false
+      },
+      "expected": null,
+      "baseline_tokens": 471,
+      "hybrid_tokens": 320
+    },
+    {
+      "id": "497713cdfe",
+      "next_step": "escalate",
+      "escalated": ["needs_migration_review", "security_sensitive"],
+      "engine_answers": {
+        "change_type": "fix",
+        "needs_migration_review": 0.2404,
+        "security_sensitive": 0.1042
+      },
+      "baseline_answers": {
+        "change_type": "fix",
+        "needs_migration_review": false,
+        "security_sensitive": false
+      },
+      "hybrid_answers": {
+        "needs_migration_review": false,
+        "security_sensitive": false
+      },
+      "expected": null,
+      "baseline_tokens": 494,
+      "hybrid_tokens": 343
+    },
+    {
+      "id": "0ddee464a2",
+      "next_step": "escalate",
+      "escalated": ["needs_migration_review", "security_sensitive"],
+      "engine_answers": {
+        "change_type": "fix",
+        "needs_migration_review": 0.6021,
+        "security_sensitive": 0.5011
+      },
+      "baseline_answers": {
+        "change_type": "fix",
+        "needs_migration_review": false,
+        "security_sensitive": false
+      },
+      "hybrid_answers": {
+        "needs_migration_review": false,
+        "security_sensitive": false
+      },
+      "expected": null,
+      "baseline_tokens": 500,
+      "hybrid_tokens": 349
+    },
+    {
+      "id": "0fc0507ab7",
+      "next_step": "escalate",
+      "escalated": [
+        "change_type",
+        "needs_migration_review",
+        "security_sensitive"
+      ],
+      "engine_answers": {
+        "change_type": "chore",
+        "needs_migration_review": 0.8713,
+        "security_sensitive": 0.8398
+      },
+      "baseline_answers": {
+        "change_type": "chore",
+        "needs_migration_review": false,
+        "security_sensitive": false
+      },
+      "hybrid_answers": {
+        "change_type": "chore",
+        "needs_migration_review": false,
+        "security_sensitive": false
+      },
+      "expected": null,
+      "baseline_tokens": 547,
+      "hybrid_tokens": 547
+    },
+    {
+      "id": "9f34559524",
+      "next_step": "escalate",
+      "escalated": ["needs_migration_review", "security_sensitive"],
+      "engine_answers": {
+        "change_type": "feature",
+        "needs_migration_review": 0.6515,
+        "security_sensitive": 0.1776
+      },
+      "baseline_answers": {
+        "change_type": "feature",
+        "needs_migration_review": false,
+        "security_sensitive": false
+      },
+      "hybrid_answers": {
+        "needs_migration_review": false,
+        "security_sensitive": false
+      },
+      "expected": null,
+      "baseline_tokens": 521,
+      "hybrid_tokens": 370
+    },
+    {
+      "id": "b693c57bd9",
+      "next_step": "escalate",
+      "escalated": ["needs_migration_review", "security_sensitive"],
+      "engine_answers": {
+        "change_type": "feature",
+        "needs_migration_review": 0.91,
+        "security_sensitive": 0.4362
+      },
+      "baseline_answers": {
+        "change_type": "feature",
+        "needs_migration_review": false,
+        "security_sensitive": false
+      },
+      "hybrid_answers": {
+        "needs_migration_review": false,
+        "security_sensitive": false
+      },
+      "expected": null,
+      "baseline_tokens": 623,
+      "hybrid_tokens": 472
+    },
+    {
+      "id": "23c87e40bd",
+      "next_step": "escalate",
+      "escalated": ["needs_migration_review", "security_sensitive"],
+      "engine_answers": {
+        "change_type": "feature",
+        "needs_migration_review": 0.9248,
+        "security_sensitive": 0.5449
+      },
+      "baseline_answers": {
+        "change_type": "feature",
+        "needs_migration_review": false,
+        "security_sensitive": false
+      },
+      "hybrid_answers": {
+        "needs_migration_review": false,
+        "security_sensitive": false
+      },
+      "expected": null,
+      "baseline_tokens": 529,
+      "hybrid_tokens": 378
+    },
+    {
+      "id": "fd083bdaba",
+      "next_step": "escalate",
+      "escalated": ["needs_migration_review", "security_sensitive"],
+      "engine_answers": {
+        "change_type": "docs",
+        "needs_migration_review": 0.827,
+        "security_sensitive": 0.5313
+      },
+      "baseline_answers": {
+        "change_type": "docs",
+        "needs_migration_review": false,
+        "security_sensitive": false
+      },
+      "hybrid_answers": {
+        "needs_migration_review": false,
+        "security_sensitive": false
+      },
+      "expected": null,
+      "baseline_tokens": 486,
+      "hybrid_tokens": 335
+    },
+    {
+      "id": "c4dfbcbf3e",
+      "next_step": "escalate",
+      "escalated": ["needs_migration_review", "security_sensitive"],
+      "engine_answers": {
+        "change_type": "feature",
+        "needs_migration_review": 0.9632,
+        "security_sensitive": 0.9291
+      },
+      "baseline_answers": {
+        "change_type": "feature",
+        "needs_migration_review": false,
+        "security_sensitive": false
+      },
+      "hybrid_answers": {
+        "needs_migration_review": false,
+        "security_sensitive": false
+      },
+      "expected": null,
+      "baseline_tokens": 604,
+      "hybrid_tokens": 448
+    },
+    {
+      "id": "be59762f0a",
+      "next_step": "escalate",
+      "escalated": ["needs_migration_review", "security_sensitive"],
+      "engine_answers": {
+        "change_type": "refactor",
+        "needs_migration_review": 0.6968,
+        "security_sensitive": 0.8191
+      },
+      "baseline_answers": {
+        "change_type": "refactor",
+        "needs_migration_review": false,
+        "security_sensitive": false
+      },
+      "hybrid_answers": {
+        "needs_migration_review": false,
+        "security_sensitive": false
+      },
+      "expected": null,
+      "baseline_tokens": 782,
+      "hybrid_tokens": 630
+    },
+    {
+      "id": "71854836b1",
+      "next_step": "escalate",
+      "escalated": ["needs_migration_review", "security_sensitive"],
+      "engine_answers": {
+        "change_type": "feature",
+        "needs_migration_review": 0.9006,
+        "security_sensitive": 0.8902
+      },
+      "baseline_answers": {
+        "change_type": "feature",
+        "needs_migration_review": false,
+        "security_sensitive": true
+      },
+      "hybrid_answers": {
+        "needs_migration_review": false,
+        "security_sensitive": true
+      },
+      "expected": null,
+      "baseline_tokens": 609,
+      "hybrid_tokens": 453
+    },
+    {
+      "id": "6b67747888",
+      "next_step": "escalate",
+      "escalated": ["needs_migration_review", "security_sensitive"],
+      "engine_answers": {
+        "change_type": "docs",
+        "needs_migration_review": 0.8313,
+        "security_sensitive": 0.7957
+      },
+      "baseline_answers": {
+        "change_type": "docs",
+        "needs_migration_review": false,
+        "security_sensitive": false
+      },
+      "hybrid_answers": {
+        "needs_migration_review": false,
+        "security_sensitive": false
+      },
+      "expected": null,
+      "baseline_tokens": 522,
+      "hybrid_tokens": 371
+    },
+    {
+      "id": "8d7b179cb9",
+      "next_step": "escalate",
+      "escalated": [
+        "change_type",
+        "needs_migration_review",
+        "security_sensitive"
+      ],
+      "engine_answers": {
+        "change_type": "feature",
+        "needs_migration_review": 0.5962,
+        "security_sensitive": 0.3699
+      },
+      "baseline_answers": {
+        "change_type": "fix",
+        "needs_migration_review": false,
+        "security_sensitive": false
+      },
+      "hybrid_answers": {
+        "change_type": "fix",
+        "needs_migration_review": false,
+        "security_sensitive": false
+      },
+      "expected": null,
+      "baseline_tokens": 463,
+      "hybrid_tokens": 463
+    },
+    {
+      "id": "7908333d78",
+      "next_step": "escalate",
+      "escalated": ["needs_migration_review", "security_sensitive"],
+      "engine_answers": {
+        "change_type": "feature",
+        "needs_migration_review": 0.9079,
+        "security_sensitive": 0.8208
+      },
+      "baseline_answers": {
+        "change_type": "feature",
+        "needs_migration_review": false,
+        "security_sensitive": false
+      },
+      "hybrid_answers": {
+        "needs_migration_review": false,
+        "security_sensitive": false
+      },
+      "expected": null,
+      "baseline_tokens": 693,
+      "hybrid_tokens": 542
+    },
+    {
+      "id": "e7b934a868",
+      "next_step": "escalate",
+      "escalated": ["needs_migration_review", "security_sensitive"],
+      "engine_answers": {
+        "change_type": "feature",
+        "needs_migration_review": 0.9146,
+        "security_sensitive": 0.8641
+      },
+      "baseline_answers": {
+        "change_type": "feature",
+        "needs_migration_review": false,
+        "security_sensitive": false
+      },
+      "hybrid_answers": {
+        "needs_migration_review": false,
+        "security_sensitive": true
+      },
+      "expected": null,
+      "baseline_tokens": 647,
+      "hybrid_tokens": 496
+    },
+    {
+      "id": "cb26d8ce8d",
+      "next_step": "escalate",
+      "escalated": ["needs_migration_review", "security_sensitive"],
+      "engine_answers": {
+        "change_type": "fix",
+        "needs_migration_review": 0.8052,
+        "security_sensitive": 0.8478
+      },
+      "baseline_answers": {
+        "change_type": "fix",
+        "needs_migration_review": false,
+        "security_sensitive": false
+      },
+      "hybrid_answers": {
+        "needs_migration_review": false,
+        "security_sensitive": false
+      },
+      "expected": null,
+      "baseline_tokens": 589,
+      "hybrid_tokens": 433
+    },
+    {
+      "id": "8425e2b117",
+      "next_step": "escalate",
+      "escalated": ["needs_migration_review", "security_sensitive"],
+      "engine_answers": {
+        "change_type": "fix",
+        "needs_migration_review": 0.7141,
+        "security_sensitive": 0.6874
+      },
+      "baseline_answers": {
+        "change_type": "fix",
+        "needs_migration_review": false,
+        "security_sensitive": false
+      },
+      "hybrid_answers": {
+        "needs_migration_review": false,
+        "security_sensitive": false
+      },
+      "expected": null,
+      "baseline_tokens": 463,
+      "hybrid_tokens": 312
+    },
+    {
+      "id": "8fdf8d33d7",
+      "next_step": "escalate",
+      "escalated": ["needs_migration_review", "security_sensitive"],
+      "engine_answers": {
+        "change_type": "feature",
+        "needs_migration_review": 0.8864,
+        "security_sensitive": 0.916
+      },
+      "baseline_answers": {
+        "change_type": "feature",
+        "needs_migration_review": false,
+        "security_sensitive": true
+      },
+      "hybrid_answers": {
+        "needs_migration_review": false,
+        "security_sensitive": true
+      },
+      "expected": null,
+      "baseline_tokens": 571,
+      "hybrid_tokens": 420
+    },
+    {
+      "id": "75a1bdbb94",
+      "next_step": "escalate",
+      "escalated": ["needs_migration_review", "security_sensitive"],
+      "engine_answers": {
+        "change_type": "refactor",
+        "needs_migration_review": 0.8634,
+        "security_sensitive": 0.6579
+      },
+      "baseline_answers": {
+        "change_type": "refactor",
+        "needs_migration_review": false,
+        "security_sensitive": false
+      },
+      "hybrid_answers": {
+        "needs_migration_review": false,
+        "security_sensitive": false
+      },
+      "expected": null,
+      "baseline_tokens": 468,
+      "hybrid_tokens": 316
+    },
+    {
+      "id": "6ee35b3e69",
+      "next_step": "escalate",
+      "escalated": ["needs_migration_review", "security_sensitive"],
+      "engine_answers": {
+        "change_type": "fix",
+        "needs_migration_review": 0.664,
+        "security_sensitive": 0.2109
+      },
+      "baseline_answers": {
+        "change_type": "fix",
+        "needs_migration_review": false,
+        "security_sensitive": false
+      },
+      "hybrid_answers": {
+        "needs_migration_review": false,
+        "security_sensitive": false
+      },
+      "expected": null,
+      "baseline_tokens": 445,
+      "hybrid_tokens": 294
+    },
+    {
+      "id": "768bc9f6c5",
+      "next_step": "escalate",
+      "escalated": ["needs_migration_review", "security_sensitive"],
+      "engine_answers": {
+        "change_type": "refactor",
+        "needs_migration_review": 0.9364,
+        "security_sensitive": 0.7174
+      },
+      "baseline_answers": {
+        "change_type": "refactor",
+        "needs_migration_review": false,
+        "security_sensitive": false
+      },
+      "hybrid_answers": {
+        "needs_migration_review": false,
+        "security_sensitive": false
+      },
+      "expected": null,
+      "baseline_tokens": 552,
+      "hybrid_tokens": 400
+    },
+    {
+      "id": "3720a26471",
+      "next_step": "escalate",
+      "escalated": ["needs_migration_review", "security_sensitive"],
+      "engine_answers": {
+        "change_type": "docs",
+        "needs_migration_review": 0.7862,
+        "security_sensitive": 0.811
+      },
+      "baseline_answers": {
+        "change_type": "docs",
+        "needs_migration_review": false,
+        "security_sensitive": false
+      },
+      "hybrid_answers": {
+        "needs_migration_review": false,
+        "security_sensitive": false
+      },
+      "expected": null,
+      "baseline_tokens": 536,
+      "hybrid_tokens": 385
+    },
+    {
+      "id": "e062c9154e",
+      "next_step": "escalate",
+      "escalated": ["needs_migration_review", "security_sensitive"],
+      "engine_answers": {
+        "change_type": "refactor",
+        "needs_migration_review": 0.8848,
+        "security_sensitive": 0.8339
+      },
+      "baseline_answers": {
+        "change_type": "feature",
+        "needs_migration_review": false,
+        "security_sensitive": false
+      },
+      "hybrid_answers": {
+        "needs_migration_review": false,
+        "security_sensitive": false
+      },
+      "expected": null,
+      "baseline_tokens": 468,
+      "hybrid_tokens": 317
+    },
+    {
+      "id": "e866e8d2c7",
+      "next_step": "escalate",
+      "escalated": ["needs_migration_review", "security_sensitive"],
+      "engine_answers": {
+        "change_type": "fix",
+        "needs_migration_review": 0.874,
+        "security_sensitive": 0.8425
+      },
+      "baseline_answers": {
+        "change_type": "fix",
+        "needs_migration_review": false,
+        "security_sensitive": false
+      },
+      "hybrid_answers": {
+        "needs_migration_review": false,
+        "security_sensitive": false
+      },
+      "expected": null,
+      "baseline_tokens": 478,
+      "hybrid_tokens": 327
+    },
+    {
+      "id": "b9de1cd15a",
+      "next_step": "escalate",
+      "escalated": ["needs_migration_review", "security_sensitive"],
+      "engine_answers": {
+        "change_type": "feature",
+        "needs_migration_review": 0.8822,
+        "security_sensitive": 0.8158
+      },
+      "baseline_answers": {
+        "change_type": "feature",
+        "needs_migration_review": false,
+        "security_sensitive": false
+      },
+      "hybrid_answers": {
+        "needs_migration_review": false,
+        "security_sensitive": false
+      },
+      "expected": null,
+      "baseline_tokens": 637,
+      "hybrid_tokens": 486
+    },
+    {
+      "id": "268de01ea7",
+      "next_step": "escalate",
+      "escalated": ["needs_migration_review", "security_sensitive"],
+      "engine_answers": {
+        "change_type": "fix",
+        "needs_migration_review": 0.9605,
+        "security_sensitive": 0.9225
+      },
+      "baseline_answers": {
+        "change_type": "fix",
+        "needs_migration_review": false,
+        "security_sensitive": true
+      },
+      "hybrid_answers": {
+        "needs_migration_review": false,
+        "security_sensitive": true
+      },
+      "expected": null,
+      "baseline_tokens": 835,
+      "hybrid_tokens": 684
+    },
+    {
+      "id": "83f3c02c89",
+      "next_step": "escalate",
+      "escalated": ["needs_migration_review", "security_sensitive"],
+      "engine_answers": {
+        "change_type": "fix",
+        "needs_migration_review": 0.9203,
+        "security_sensitive": 0.9397
+      },
+      "baseline_answers": {
+        "change_type": "fix",
+        "needs_migration_review": false,
+        "security_sensitive": true
+      },
+      "hybrid_answers": {
+        "needs_migration_review": false,
+        "security_sensitive": true
+      },
+      "expected": null,
+      "baseline_tokens": 850,
+      "hybrid_tokens": 699
+    },
+    {
+      "id": "ab4c249006",
+      "next_step": "escalate",
+      "escalated": ["needs_migration_review", "security_sensitive"],
+      "engine_answers": {
+        "change_type": "fix",
+        "needs_migration_review": 0.9669,
+        "security_sensitive": 0.9207
+      },
+      "baseline_answers": {
+        "change_type": "fix",
+        "needs_migration_review": false,
+        "security_sensitive": false
+      },
+      "hybrid_answers": {
+        "needs_migration_review": false,
+        "security_sensitive": false
+      },
+      "expected": null,
+      "baseline_tokens": 664,
+      "hybrid_tokens": 513
+    },
+    {
+      "id": "a486f7c760",
+      "next_step": "escalate",
+      "escalated": ["needs_migration_review", "security_sensitive"],
+      "engine_answers": {
+        "change_type": "feature",
+        "needs_migration_review": 0.916,
+        "security_sensitive": 0.8655
+      },
+      "baseline_answers": {
+        "change_type": "feature",
+        "needs_migration_review": true,
+        "security_sensitive": false
+      },
+      "hybrid_answers": {
+        "needs_migration_review": true,
+        "security_sensitive": false
+      },
+      "expected": null,
+      "baseline_tokens": 940,
+      "hybrid_tokens": 789
+    },
+    {
+      "id": "81d2d1e906",
+      "next_step": "escalate",
+      "escalated": [
+        "change_type",
+        "needs_migration_review",
+        "security_sensitive"
+      ],
+      "engine_answers": {
+        "change_type": "fix",
+        "needs_migration_review": 0.9051,
+        "security_sensitive": 0.9166
+      },
+      "baseline_answers": {
+        "change_type": "fix",
+        "needs_migration_review": false,
+        "security_sensitive": false
+      },
+      "hybrid_answers": {
+        "change_type": "fix",
+        "needs_migration_review": false,
+        "security_sensitive": false
+      },
+      "expected": null,
+      "baseline_tokens": 657,
+      "hybrid_tokens": 657
+    }
+  ]
+}
