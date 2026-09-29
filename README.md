@@ -635,7 +635,7 @@ This creates:
   - `mutations.py` - Mutation type with example mutations
   - `types.py` - Strawberry types for models
   - `context.py` - Custom context class with user access
-- `core/graphql.py` - JWT-authenticated GraphQL view
+- `core/graphql_view.py` - JWT-authenticated GraphQL view
 
 3. **Access the GraphQL playground:**
 

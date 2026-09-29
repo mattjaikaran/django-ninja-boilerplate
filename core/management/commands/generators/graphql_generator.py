@@ -4,6 +4,8 @@ This generator creates an optional GraphQL API setup using Strawberry GraphQL.
 It generates schemas, queries, mutations, types, and a JWT-authenticated GraphQL view.
 """
 
+import ast
+
 from .base_generator import BaseGenerator
 
 
@@ -152,6 +154,7 @@ from strawberry.django.context import StrawberryDjangoContext
 
 if TYPE_CHECKING:
     from django.http import HttpRequest
+    from strawberry.django.views import TemporalHttpResponse
 
     from core.models import User
 
@@ -175,19 +178,21 @@ class GraphQLContext(StrawberryDjangoContext):
         return self.request.user.is_authenticated
 
 
-def get_context(request: "HttpRequest") -> GraphQLContext:
+def get_context(
+    request: "HttpRequest", response: "TemporalHttpResponse"
+) -> GraphQLContext:
     """Create a GraphQL context from an HTTP request.
 
-    This function is used by the GraphQL view to create the context
-    for each request.
+    The GraphQL view calls this for each request.
 
     Args:
         request: The Django HTTP request.
+        response: The response Strawberry builds for the request.
 
     Returns:
         GraphQLContext: The context instance for resolvers.
     """
-    return GraphQLContext(request=request)
+    return GraphQLContext(request=request, response=response)
 '''
         self.create_file(self.app_path / "graphql" / "context.py", content)
 
@@ -201,16 +206,12 @@ Queries are read-only operations that fetch data.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
 import strawberry
 from django.contrib.auth import get_user_model
 from strawberry.types import Info
 
+from .context import GraphQLContext
 from .types import UserType
-
-if TYPE_CHECKING:
-    from .context import GraphQLContext
 
 User = get_user_model()
 
@@ -239,7 +240,7 @@ class Query:
             first_name=user.first_name,
             last_name=user.last_name,
             is_active=user.is_active,
-            created_at=user.created_at,
+            created_at=user.date_joined,
             updated_at=user.updated_at,
         )
 
@@ -264,7 +265,7 @@ class Query:
                 first_name=user.first_name,
                 last_name=user.last_name,
                 is_active=user.is_active,
-                created_at=user.created_at,
+                created_at=user.date_joined,
                 updated_at=user.updated_at,
             )
         except User.DoesNotExist:
@@ -298,7 +299,7 @@ class Query:
                 first_name=user.first_name,
                 last_name=user.last_name,
                 is_active=user.is_active,
-                created_at=user.created_at,
+                created_at=user.date_joined,
                 updated_at=user.updated_at,
             )
             for user in users
@@ -321,16 +322,12 @@ Mutations are operations that modify data.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
 import strawberry
 from django.contrib.auth import get_user_model
 from strawberry.types import Info
 
+from .context import GraphQLContext
 from .types import ErrorType, SuccessType, UserType
-
-if TYPE_CHECKING:
-    from .context import GraphQLContext
 
 User = get_user_model()
 
@@ -413,7 +410,7 @@ class Mutation:
                 first_name=user.first_name,
                 last_name=user.last_name,
                 is_active=user.is_active,
-                created_at=user.created_at,
+                created_at=user.date_joined,
                 updated_at=user.updated_at,
             )
         )
@@ -493,8 +490,13 @@ __all__ = [
         self.create_file(self.app_path / "graphql" / "__init__.py", content)
 
     def _generate_jwt_graphql_view(self) -> None:
-        """Generate JWT authenticated GraphQL view in core."""
-        core_graphql_path = self.project_root / "core" / "graphql.py"
+        """Generate the JWT authenticated GraphQL view in core.
+
+        The view lives in ``core/graphql_view.py``, not ``core/graphql.py``:
+        with ``--app-name=core`` the generator also creates a ``core/graphql/``
+        package, and a package shadows a module of the same name.
+        """
+        core_graphql_path = self.project_root / "core" / "graphql_view.py"
 
         content = '''"""JWT Authenticated GraphQL View.
 
@@ -512,6 +514,8 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.models import AnonymousUser
 from strawberry.django.views import GraphQLView as BaseGraphQLView
 
+from __APP__.graphql.context import get_context
+
 if TYPE_CHECKING:
     from django.http import HttpRequest, HttpResponse
 
@@ -527,7 +531,7 @@ class JWTAuthenticatedGraphQLView(BaseGraphQLView):
     If no valid token is provided, the user remains anonymous.
 
     Usage in urls.py:
-        from core.graphql import JWTAuthenticatedGraphQLView
+        from core.graphql_view import JWTAuthenticatedGraphQLView
         from myapp.graphql import schema
 
         urlpatterns = [
@@ -564,6 +568,10 @@ class JWTAuthenticatedGraphQLView(BaseGraphQLView):
                 request.user = user
 
         return super().dispatch(request, *args, **kwargs)
+
+    def get_context(self, request, response):
+        """Return the app's GraphQLContext, which exposes ``user``."""
+        return get_context(request, response)
 
     def _authenticate_token(self, token: str) -> User | None:
         """Authenticate a JWT token and return the user.
@@ -609,7 +617,7 @@ class AsyncJWTAuthenticatedGraphQLView(JWTAuthenticatedGraphQLView):
 
     pass
 '''
-        self.create_file(core_graphql_path, content)
+        self.create_file(core_graphql_path, content.replace("__APP__", self.app_name))
 
     def _update_urls_for_graphql(self) -> None:
         """Update URLs to include GraphQL endpoint."""
@@ -633,19 +641,23 @@ class AsyncJWTAuthenticatedGraphQLView(JWTAuthenticatedGraphQLView):
             # Add imports at the top
             graphql_imports = f"""
 # GraphQL imports
-from core.graphql import JWTAuthenticatedGraphQLView
+from core.graphql_view import JWTAuthenticatedGraphQLView
 from {self.app_name}.graphql import schema as graphql_schema
 """
-            # Find a good place to insert imports (after existing imports)
-            import_insert_pos = content.find("from todos.controllers")
-            if import_insert_pos == -1:
-                import_insert_pos = content.find("from core.controllers")
-
-            if import_insert_pos != -1:
-                # Find the end of that import line
-                line_end = content.find("\n", import_insert_pos)
+            # Insert after the last top-level import statement. Searching for
+            # one import line split multi-line parenthesized imports.
+            lines = content.splitlines(keepends=True)
+            import_ends = [
+                node.end_lineno
+                for node in ast.parse(content).body
+                if isinstance(node, ast.Import | ast.ImportFrom)
+            ]
+            if import_ends:
+                insert_at = max(n for n in import_ends if n is not None)
                 content = (
-                    content[: line_end + 1] + graphql_imports + content[line_end + 1 :]
+                    "".join(lines[:insert_at])
+                    + graphql_imports
+                    + "".join(lines[insert_at:])
                 )
 
             # Add GraphQL URL pattern

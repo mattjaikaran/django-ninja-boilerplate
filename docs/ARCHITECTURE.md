@@ -404,7 +404,7 @@ sequenceDiagram
     C->>API: POST /auth/login {email, password}
     API->>DB: Verify credentials
     DB-->>API: User found
-    API-->>C: {access_token, refresh_token}
+    API-->>C: {token, refresh, user}
 
     C->>API: GET /api/resource<br/>Authorization: Bearer {jwt}
     API->>API: Validate JWT, extract user_id
@@ -430,7 +430,7 @@ sequenceDiagram
     C->>API: POST /auth/otp/verify {email, code}
     API->>R: Verify OTP
     R-->>API: Valid
-    API-->>C: {access_token, refresh_token}
+    API-->>C: {success, message, access, refresh, user}
 ```
 
 ---

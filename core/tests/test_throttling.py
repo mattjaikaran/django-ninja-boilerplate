@@ -8,8 +8,11 @@ login lockout.
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import pytest
+import yaml
+from django.conf import settings
 from django.contrib.auth.models import AnonymousUser
 from django.core.cache import cache
 from django.test import RequestFactory
@@ -111,6 +114,31 @@ class TestTrustedProxyChain:
         throttle = UserRateThrottle()
         request = _request(remote_addr="10.0.0.1", xff="6.6.6.6, 5.6.7.8")
         assert throttle.get_ident(request) == "5.6.7.8"
+
+    def test_clients_behind_one_proxy_get_separate_buckets(self, monkeypatch):
+        # Every request arrives from nginx's address. With one trusted proxy,
+        # an exhausted client must not block the next one.
+        monkeypatch.setattr(ninja_extra_settings, "NUM_PROXIES", 1)
+        throttle = DynamicRateThrottle(rate="2/min", scope="anon-auth")
+        first = _request(remote_addr="172.18.0.5", xff="198.51.100.7")
+        second = _request(remote_addr="172.18.0.5", xff="198.51.100.8")
+        assert throttle.allow_request(first) is True
+        assert throttle.allow_request(first) is True
+        assert throttle.allow_request(first) is False
+        assert throttle.allow_request(second) is True
+
+
+def test_prod_django_behind_nginx_trusts_one_proxy():
+    """django-prod sits behind nginx, so it must trust one proxy by default.
+
+    With a count of 0, every client shared nginx's throttle bucket.
+    """
+    compose = yaml.safe_load(
+        (Path(settings.BASE_DIR) / "docker-compose.yml").read_text()
+    )
+    service = compose["services"]["django-prod"]
+    assert "prod" in service["profiles"]
+    assert "NINJA_NUM_PROXIES=${NINJA_NUM_PROXIES:-1}" in service["environment"]
 
 
 # =============================================================================
