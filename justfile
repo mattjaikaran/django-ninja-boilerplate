@@ -1,4 +1,4 @@
-# Django Ninja Boilerplate v1.11.0 — developer tasks
+# Django Ninja Boilerplate v1.12.0 — developer tasks
 #
 # The previous Makefile is kept at Makefile.legacy for anything not ported here.
 # Run `just` with no arguments (or `just help`) to list every recipe.

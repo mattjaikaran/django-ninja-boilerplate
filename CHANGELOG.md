@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.12.0] - 2026-09-29
 
 ### Added
 - **Single profiled Compose file**: `docker-compose.prod.yml` and `docker-compose.single.yml` are gone; `docker-compose.yml` carries the application, task backend, production, realtime, monitoring, mail, and MCP profiles. The default development stack starts Django, Postgres, Valkey, and one task backend. Mailhog and MCP are opt-in.
@@ -573,7 +573,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 | 0.7.0 | 2026-01-20 | JWT auth, UV, Docker dev environment |
 | 0.6.0 | 2026-01-15 | Initial release |
 
-[Unreleased]: https://github.com/mattjaikaran/django-ninja-boilerplate/compare/v1.11.0...HEAD
+[Unreleased]: https://github.com/mattjaikaran/django-ninja-boilerplate/compare/v1.12.0...HEAD
+[1.12.0]: https://github.com/mattjaikaran/django-ninja-boilerplate/compare/v1.11.0...v1.12.0
 [1.11.0]: https://github.com/mattjaikaran/django-ninja-boilerplate/compare/v1.10.0...v1.11.0
 [1.10.0]: https://github.com/mattjaikaran/django-ninja-boilerplate/compare/v1.9.0...v1.10.0
 [1.9.0]: https://github.com/mattjaikaran/django-ninja-boilerplate/compare/v1.8.0...v1.9.0
