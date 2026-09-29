@@ -9,23 +9,34 @@ ATLAS = {
     "name": "Decisions",
     "what": (
         "Provider-agnostic System One decision engine. Answers a set of "
-        "questions from a piece of state using Laya (in-process), Jev "
-        "(hosted TypeSafe), or a deterministic fake for tests."
+        "questions from a piece of state using Laya (in-process), CLM (HTTP "
+        "to clm-api), Jev (hosted TypeSafe), or a deterministic fake for "
+        "tests. Agent packs route tasks, triage changes, gate actions, and "
+        "pick generators."
     ),
     "how": (
-        "Route prefix /decisions. DecisionController delegates to "
-        "DecisionService, which selects and caches a provider from the "
-        "PROVIDER_REGISTRY. Providers fail loud when their dependency or "
-        "configuration is missing."
+        "Route prefixes /decisions and /decisions/agent. The controllers "
+        "delegate to DecisionService and AgentDecisionService. "
+        "DecisionService selects and caches a provider from the "
+        "PROVIDER_REGISTRY and applies per-question escalation thresholds "
+        "from DECISION_THRESHOLDS_FILE. Providers fail loud when their "
+        "dependency or configuration is missing."
     ),
     "children": {
         "controllers": {
             "name": "Controllers",
-            "what": "DecisionController: POST /decisions/evaluate",
+            "what": (
+                "DecisionController: /evaluate, /similar. "
+                "AgentDecisionController: /route-task, /triage-change, "
+                "/gate-action, /pick-generator"
+            ),
         },
         "services": {
             "name": "Services",
-            "what": "DecisionService: provider selection, caching, fixtures",
+            "what": (
+                "DecisionService (providers, escalation), AgentDecisionService "
+                "(agent packs), eval and savings measurement, fixture embeddings"
+            ),
         },
         "providers": {
             "name": "Providers",

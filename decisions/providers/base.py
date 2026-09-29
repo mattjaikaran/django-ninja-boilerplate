@@ -55,6 +55,8 @@ class DecisionResult:
         fallback_used: Whether a non-primary provider answered the request.
         escalation_recommended: Whether the result is too weak to trust and
             should be escalated to a human.
+        escalated_questions: Question keys whose confidence fell below their
+            escalation threshold.
     """
 
     answers: dict[str, Any]
@@ -64,6 +66,7 @@ class DecisionResult:
     routing: dict[str, Any] | None = None
     fallback_used: bool = False
     escalation_recommended: bool = False
+    escalated_questions: tuple[str, ...] = ()
 
 
 def aggregate_confidence(confidences: Iterable[float]) -> float:

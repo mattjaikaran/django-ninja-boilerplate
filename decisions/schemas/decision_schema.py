@@ -65,8 +65,11 @@ class DecisionResponseSchema(CamelCaseSchema):
         routing: Provider routing metadata, when the provider reports it.
         fallback_used: Whether a non-primary provider answered.
         escalation_recommended: Whether the result should be escalated. Set by
-            the provider, or by the service when confidence is below
+            the provider, or by the service when any answer is below its
+            question's threshold (``DECISION_THRESHOLDS_FILE``) or below
             ``DECISION_ESCALATION_THRESHOLD``.
+        escalated_questions: Question keys whose answers were below their
+            threshold.
     """
 
     answers: dict[str, Any]
@@ -76,6 +79,7 @@ class DecisionResponseSchema(CamelCaseSchema):
     routing: dict[str, Any] | None = None
     fallback_used: bool = False
     escalation_recommended: bool = False
+    escalated_questions: list[str] = Field(default_factory=list)
 
 
 class SimilarFixturesRequestSchema(CamelCaseSchema):

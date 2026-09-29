@@ -619,6 +619,26 @@ ENABLE_DECISIONS = env.bool("ENABLE_DECISIONS", default=False)
 ENABLE_DECISION_MCP = env.bool("ENABLE_DECISION_MCP", default=False)
 # Results below this aggregate confidence are flagged for escalation.
 DECISION_ESCALATION_THRESHOLD = env.float("DECISION_ESCALATION_THRESHOLD", default=0.5)
+# Per-question escalation thresholds, keyed by provider and question key, as
+# written by `manage.py recommend_thresholds --write`. Server-side only: API
+# and MCP callers cannot set them. Questions not in the file use
+# DECISION_ESCALATION_THRESHOLD. Empty disables the file.
+DECISION_THRESHOLDS_FILE = env("DECISION_THRESHOLDS_FILE", default="")
+# Price in USD per decision call, per provider, for eval cost reports, for
+# example {"jev": 0.002}. Unset providers report no cost.
+DECISION_PROVIDER_COSTS = env.json("DECISION_PROVIDER_COSTS", default={})
+# Baseline LLM for `measure_decision_savings`: any OpenAI-compatible
+# /v1/chat/completions endpoint. Token counts come from its `usage` field.
+DECISION_BASELINE_LLM_URL = env("DECISION_BASELINE_LLM_URL", default="")
+DECISION_BASELINE_LLM_MODEL = env("DECISION_BASELINE_LLM_MODEL", default="")
+DECISION_BASELINE_LLM_API_KEY = env("DECISION_BASELINE_LLM_API_KEY", default="")
+# USD per million tokens for the baseline LLM. Unset reports tokens only.
+DECISION_LLM_INPUT_PRICE_PER_MTOK = env.float(
+    "DECISION_LLM_INPUT_PRICE_PER_MTOK", default=None
+)
+DECISION_LLM_OUTPUT_PRICE_PER_MTOK = env.float(
+    "DECISION_LLM_OUTPUT_PRICE_PER_MTOK", default=None
+)
 # Fixture embeddings for similarity search: an OpenAI-compatible
 # /v1/embeddings endpoint serving Qwen3-Embedding-0.6B (the `embeddings`
 # Compose profile or `just embedder-local`). Empty disables the feature.

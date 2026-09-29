@@ -4,7 +4,7 @@ import inspect
 
 import pytest
 
-from decisions.mcp import evaluate_decision, register
+from decisions.mcp import TOOLS, evaluate_decision, gate_agent_action, register
 from decisions.services import DecisionService
 
 
@@ -28,10 +28,12 @@ class TestEvaluateDecisionTool:
         )
         assert result == {
             "answers": {"churn": False},
+            "answer_confidence": {"churn": 0.99},
             "confidence": 0.99,
             "provider": "fake",
             "fallback_used": False,
             "escalation_recommended": False,
+            "escalated_questions": [],
         }
 
     def test_unknown_configured_provider_raises(self, settings):
@@ -46,6 +48,19 @@ class TestEvaluateDecisionTool:
             "state",
             "questions",
         ]
+
+
+@pytest.mark.unit
+class TestAgentTools:
+    def test_agent_tools_take_no_provider_or_threshold(self):
+        for tool in TOOLS:
+            params = set(inspect.signature(tool).parameters)
+            assert not params & {"provider", "threshold", "thresholds"}
+
+    def test_gate_tool_returns_the_decision(self, settings):
+        settings.SYSTEMONE_PROVIDER = "fake"
+        result = gate_agent_action("ls", "local")
+        assert (result["pack"], result["provider"]) == ("gate_action", "fake")
 
 
 @pytest.mark.unit
@@ -64,13 +79,13 @@ class TestRegister:
         monkeypatch.setattr("decisions.mcp._boost_tools", lambda: None)
         assert register() is False
 
-    def test_enabled_adds_the_tool_once(self, settings, monkeypatch):
+    def test_enabled_adds_each_tool_once(self, settings, monkeypatch):
         tools: list = ["existing"]
         monkeypatch.setattr("decisions.mcp._boost_tools", lambda: tools)
         settings.ENABLE_DECISION_MCP = True
         assert register() is True
         assert register() is True
-        assert tools == ["existing", evaluate_decision]
+        assert tools == ["existing", *TOOLS]
 
     def test_real_ai_boost_exposes_a_tool_list(self):
         """Fails when a django-ai-boost upgrade removes the list we append to."""

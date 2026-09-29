@@ -1,0 +1,32 @@
+{
+  "clm": {
+    "angry": 0.7,
+    "change_type": 1.0,
+    "destructive": 1.0,
+    "generator": 1.0,
+    "needs_approval": 1.0,
+    "needs_human": 1.0,
+    "needs_migration_review": 0.0,
+    "scope": 1.0,
+    "security_sensitive": 0.0,
+    "team": 1.0,
+    "tier": 1.0,
+    "urgent": 1.0,
+    "wants_refund": 0.7
+  },
+  "laya": {
+    "angry": 0.6,
+    "change_type": 0.1,
+    "destructive": 1.0,
+    "generator": 0.9,
+    "needs_approval": 1.0,
+    "needs_human": 1.0,
+    "needs_migration_review": 1.0,
+    "scope": 0.25,
+    "security_sensitive": 1.0,
+    "team": 0.2,
+    "tier": 1.0,
+    "urgent": 1.0,
+    "wants_refund": 0.8
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "name": "code_review_triage",
+  "description": "Pull requests and commits in a Django API project. Classify the change and flag reviews that need a specialist.",
+  "state_fields": {
+    "title": "PR or commit subject",
+    "description": "PR body or commit body",
+    "files": "Changed file paths",
+    "additions": "Added lines",
+    "deletions": "Deleted lines"
+  },
+  "questions": {
+    "change_type": {
+      "type": "choice",
+      "instructions": "What kind of change is this?",
+      "criteria": {
+        "feature": "A feature, because the change adds new behavior, an endpoint, a command or an option for users.",
+        "fix": "A fix, because the change corrects wrong behavior, a crash, a regression or a failing check.",
+        "refactor": "A refactor, because the change restructures or renames code without changing its behavior.",
+        "docs": "A documentation change, because the change only edits docs, comments, guides or the changelog.",
+        "chore": "A chore, because the change updates dependencies, CI, build files, tooling or configuration."
+      }
+    },
+    "needs_migration_review": {
+      "type": "noul",
+      "instructions": "Does this change alter the database schema or data?",
+      "criteria": {
+        "true": "Yes, the change adds or edits a migration, a model field, an index, a constraint or a data backfill.",
+        "false": "No, the change does not touch models, migrations or stored data."
+      }
+    },
+    "security_sensitive": {
+      "type": "noul",
+      "instructions": "Does this change need a security review?",
+      "criteria": {
+        "true": "Yes, the change touches authentication, permissions, tokens, secrets, cryptography, file uploads or the handling of untrusted input.",
+        "false": "No, the change does not touch authentication, permissions, secrets or the handling of untrusted input."
+      }
+    }
+  }
+}

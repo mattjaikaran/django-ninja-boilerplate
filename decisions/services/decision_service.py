@@ -20,6 +20,7 @@ from pydantic import BaseModel
 from api.exceptions import ValidationError
 from decisions.models import DecisionFixture
 from decisions.providers import PROVIDER_REGISTRY, DecisionProvider, DecisionResult
+from decisions.services.thresholds import question_thresholds
 
 logger = logging.getLogger(__name__)
 
@@ -116,29 +117,43 @@ class DecisionService:
         return self._apply_escalation_policy(result)
 
     def _apply_escalation_policy(self, result: DecisionResult) -> DecisionResult:
-        """Flag weak results for escalation.
+        """Flag weak answers and results for escalation.
 
-        A provider may set ``escalation_recommended`` itself; otherwise the
-        result is escalated when it has answers and its aggregate confidence
-        falls below ``DECISION_ESCALATION_THRESHOLD``. A request with no
+        Each answer is compared with its question's threshold from
+        ``DECISION_THRESHOLDS_FILE`` for this provider, or with
+        ``DECISION_ESCALATION_THRESHOLD`` when the file has no entry. The
+        result is escalated when any answer falls below its threshold, or when
+        the provider already asked for escalation. A request with no
         questions is empty, not weak, so it is never escalated.
 
         Args:
             result: The provider result.
 
         Returns:
-            The result, flagged for escalation when it is too weak.
+            The result, with ``escalated_questions`` and
+            ``escalation_recommended`` set.
+
+        Raises:
+            ImproperlyConfigured: If the thresholds file is invalid.
         """
-        if result.escalation_recommended or not result.answers:
+        if not result.answers:
             return result
-        threshold = float(
+        default = float(
             getattr(
                 settings, "DECISION_ESCALATION_THRESHOLD", DEFAULT_ESCALATION_THRESHOLD
             )
         )
-        if result.confidence >= threshold:
-            return result
-        return replace(result, escalation_recommended=True)
+        per_question = question_thresholds(result.provider)
+        weak = tuple(
+            key
+            for key in result.answers
+            if result.answer_confidence.get(key, 0.0) < per_question.get(key, default)
+        )
+        return replace(
+            result,
+            escalated_questions=weak,
+            escalation_recommended=result.escalation_recommended or bool(weak),
+        )
 
     # ------------------------------------------------------------------
     # Fixtures

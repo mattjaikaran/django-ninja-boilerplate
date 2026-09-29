@@ -281,9 +281,29 @@ seed-decisions:
 embed-decisions *args:
     {{ dev }} exec {{ django_service }} python manage.py embed_decisions {{ args }}
 
-# Measure provider accuracy and confidence calibration on the labelled tickets
+# Measure provider accuracy and confidence calibration on labelled cases
 eval-decisions *args:
     {{ dev }} exec {{ django_service }} python manage.py eval_decisions {{ args }}
+
+# Evaluate one provider on the bundled benchmark; writes reports/decisions/<provider>.json
+decisions-benchmark provider *args:
+    {{ dev }} exec {{ django_service }} python manage.py eval_decisions --benchmark --provider {{ provider }} --output reports/decisions/{{ provider }}.json {{ args }}
+
+# Compare benchmark reports on the held-out test split (default: every saved report)
+decisions-compare *args='reports/decisions/*.json':
+    {{ dev }} exec {{ django_service }} python manage.py compare_decisions {{ args }}
+
+# Tune per-question thresholds on dev, check on test (add --write <file>)
+decisions-thresholds report *args:
+    {{ dev }} exec {{ django_service }} python manage.py recommend_thresholds {{ report }} {{ args }}
+
+# Ask the local engine an agent question on the host: route, triage, gate, generator
+decide *args:
+    {{ uv }} run python manage.py agent_decide {{ args }}
+
+# Measure LLM tokens saved on a real flow (needs DECISION_BASELINE_LLM_URL)
+decisions-savings *args:
+    {{ uv }} run python manage.py measure_decision_savings {{ args }}
 
 # Load development sample data (users, todos)
 seed:
