@@ -1,0 +1,8 @@
+{"domain": "code_review_triage", "id": "cr-006", "question": "change_type", "final": "chore", "note": "Adding an index is a non-functional performance change, not new user behavior."}
+{"domain": "code_review_triage", "id": "cr-055", "question": "security_sensitive", "final": true, "note": "PyJWT handles tokens, which the criteria flags for security review."}
+{"domain": "code_review_triage", "id": "cr-058", "question": "security_sensitive", "final": true, "note": "Cryptography dependency is explicitly listed as security-sensitive."}
+{"domain": "code_review_triage", "id": "cr-060", "question": "security_sensitive", "final": true, "note": "JWT integration package touches tokens and authentication."}
+{"domain": "code_review_triage", "id": "cr-061", "question": "change_type", "final": "fix", "note": "Removing a hardcoded secret corrects a security bug."}
+{"domain": "code_review_triage", "id": "cr-062", "question": "change_type", "final": "chore", "note": "Enabling middleware is a configuration change, not a user-facing feature."}
+{"domain": "code_review_triage", "id": "cr-063", "question": "change_type", "final": "refactor", "note": "Renaming the app label restructures without changing behavior."}
+{"domain": "code_review_triage", "id": "cr-065", "question": "change_type", "final": "feature", "note": "Postgres full-text search adds new search behavior for users."}

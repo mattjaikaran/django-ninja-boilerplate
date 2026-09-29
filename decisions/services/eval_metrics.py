@@ -9,6 +9,7 @@ from saved reports.
 from __future__ import annotations
 
 import math
+from collections import Counter
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from typing import Any
@@ -94,6 +95,7 @@ class Summary:
     ece: float
     thresholds: list[ThresholdRow]
     bins: list[ReliabilityBin]
+    majority_rate: float | None = None
 
     def as_dict(self) -> dict[str, Any]:
         """Return a JSON-serialisable form of the summary."""
@@ -102,6 +104,7 @@ class Summary:
             "accuracy": self.accuracy,
             "mean_confidence": self.mean_confidence,
             "ece": self.ece,
+            "majority_rate": self.majority_rate,
             "thresholds": [
                 {
                     "threshold": r.threshold,
@@ -174,6 +177,18 @@ def threshold_row(outcomes: Sequence[Outcome], threshold: float) -> ThresholdRow
     )
 
 
+def majority_rate(outcomes: Sequence[Outcome]) -> float | None:
+    """Return the accuracy of always giving the most common expected label.
+
+    A provider at or below this rate does no better than a constant answer.
+    Only meaningful for one question; ``None`` when no label is recorded.
+    """
+    labels = Counter(repr(o.expected) for o in outcomes if o.expected is not None)
+    if not labels:
+        return None
+    return labels.most_common(1)[0][1] / sum(labels.values())
+
+
 def summarise(
     outcomes: Sequence[Outcome], thresholds: Iterable[float] = DEFAULT_THRESHOLDS
 ) -> Summary:
@@ -186,6 +201,7 @@ def summarise(
         ece=expected_calibration_error(outcomes),
         thresholds=[threshold_row(outcomes, t) for t in thresholds],
         bins=reliability_bins(outcomes),
+        majority_rate=majority_rate(outcomes),
     )
 
 

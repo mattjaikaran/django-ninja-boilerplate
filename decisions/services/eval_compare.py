@@ -93,27 +93,52 @@ def compare(
     return rows, skipped
 
 
+#: Recommendation statuses. Only ``held`` writes a tuned threshold; every
+#: other status writes 1.0, so the question always escalates.
+HELD = "held"
+INSUFFICIENT_DEV = "insufficient dev data"
+NO_THRESHOLD = "no threshold met the target on dev"
+FAILED_TEST = "missed the target on test"
+
+
 @dataclass(frozen=True, slots=True)
 class Recommendation:
-    """A tuned threshold for one question and how it held on held-out data."""
+    """A tuned threshold for one question and how it held on held-out data.
+
+    Attributes:
+        threshold: The threshold checked on ``test``: the value tuned on
+            ``dev``, raised to the floor. ``None`` when nothing was tuned.
+        status: :data:`HELD` or the reason the question must escalate.
+    """
 
     question: str
     threshold: float | None
+    status: str
     tune_count: int
     check_count: int
+    check_kept: int
     check_coverage: float | None
     check_accuracy: float | None
 
     @property
     def written_threshold(self) -> float:
-        """Return the value to store: 1.0 escalates every uncertain answer."""
-        return 1.0 if self.threshold is None else self.threshold
+        """Return the value to store: 1.0 unless the threshold held on test."""
+        if self.status == HELD and self.threshold is not None:
+            return self.threshold
+        return 1.0
 
 
 def recommend(
-    report: dict[str, Any], target_accuracy: float, min_support: int
+    report: dict[str, Any],
+    target_accuracy: float,
+    min_support: int,
+    floor: float = 0.0,
 ) -> list[Recommendation]:
     """Tune a threshold per question on ``dev`` and check it on ``test``.
+
+    A tuned threshold below *floor* is raised to *floor* before the check. A
+    threshold holds only when at least *min_support* ``test`` answers meet it
+    and their accuracy reaches *target_accuracy*.
 
     Raises:
         ValidationError: If the report was skipped or has no ``dev`` outcomes.
@@ -133,14 +158,31 @@ def recommend(
     for key in dict.fromkeys(o.question for o in tune):
         tuned = [o for o in tune if o.question == key]
         held = [o for o in check if o.question == key]
-        threshold = recommend_threshold(tuned, target_accuracy, min_support)
+        threshold = None
+        if len(tuned) < min_support:
+            status = INSUFFICIENT_DEV
+        else:
+            tuned_value = recommend_threshold(tuned, target_accuracy, min_support)
+            status = NO_THRESHOLD if tuned_value is None else FAILED_TEST
+            if tuned_value is not None:
+                threshold = max(tuned_value, floor)
         row = threshold_row(held, 1.0 if threshold is None else threshold)
+        kept = round(row.coverage * len(held))
+        if (
+            threshold is not None
+            and kept >= min_support
+            and row.accuracy is not None
+            and row.accuracy >= target_accuracy
+        ):
+            status = HELD
         recommendations.append(
             Recommendation(
                 question=key,
                 threshold=threshold,
+                status=status,
                 tune_count=len(tuned),
                 check_count=len(held),
+                check_kept=kept,
                 check_coverage=row.coverage if held else None,
                 check_accuracy=row.accuracy,
             )

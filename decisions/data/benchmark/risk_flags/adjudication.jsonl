@@ -1,0 +1,5 @@
+{"domain": "risk_flags", "id": "rf-011", "question": "needs_approval", "final": false, "note": "terraform plan is read-only and reversible, so it needs no approval."}
+{"domain": "risk_flags", "id": "rf-011", "question": "scope", "final": "local", "note": "Revised by the adjudicator: the action only reads, so its blast radius is local."}
+{"domain": "risk_flags", "id": "rf-020", "question": "destructive", "final": true, "note": "Pruning volumes with --volumes deletes data that is hard to recover."}
+{"domain": "risk_flags", "id": "rf-036", "question": "destructive", "final": true, "note": "rm -f deletes a production config file that may not be recoverable."}
+{"domain": "risk_flags", "id": "rf-058", "question": "destructive", "final": true, "note": "terraform apply -auto-approve on production can delete or overwrite resources."}

@@ -60,6 +60,14 @@ def _service():
     return AgentDecisionService(provider="fake")
 
 
+def _calibrate(settings, tmp_path, provider="scripted"):
+    """Write thresholds for every gate question, as a calibrated setup would."""
+    path = tmp_path / "thresholds.json"
+    gate = dict.fromkeys(pack_questions("gate_action"), 0.5)
+    path.write_text(json.dumps({provider: gate}))
+    settings.DECISION_THRESHOLDS_FILE = str(path)
+
+
 @pytest.mark.unit
 class TestNextStep:
     @pytest.mark.parametrize(
@@ -95,7 +103,10 @@ class TestNextStep:
         assert decision.next_step == "deep_review"
         assert decision.details == {"reasons": ["needs_migration_review"]}
 
-    def test_gate_allows_only_a_confident_safe_local_action(self):
+    def test_gate_allows_only_a_calibrated_confident_safe_local_action(
+        self, settings, tmp_path
+    ):
+        _calibrate(settings, tmp_path)
         _use({"destructive": False, "needs_approval": False, "scope": "local"})
         assert _service().gate_action("uv run pytest").next_step == "allow"
 
@@ -119,13 +130,37 @@ class TestNextStep:
             ),
         ],
     )
-    def test_gate_fails_closed(self, answers, confidence, reasons):
+    def test_gate_fails_closed(self, answers, confidence, reasons, settings, tmp_path):
+        _calibrate(settings, tmp_path)
         _use(answers, confidence)
         decision = _service().gate_action("something")
         assert (decision.next_step, decision.details["reasons"]) == (
             "ask_human",
             reasons,
         )
+
+    def test_a_non_local_environment_always_asks_a_human(self, settings, tmp_path):
+        _calibrate(settings, tmp_path)
+        _use({"destructive": False, "needs_approval": False, "scope": "local"})
+        decision = _service().gate_action("drop table users", "production")
+        assert (decision.next_step, decision.details["reasons"]) == (
+            "ask_human",
+            ["environment:production"],
+        )
+
+    def test_the_global_default_alone_never_allows(self):
+        _use({"destructive": False, "needs_approval": False, "scope": "local"})
+        decision = _service().gate_action("uv run pytest")
+        assert (decision.next_step, decision.details["reasons"]) == (
+            "ask_human",
+            ["uncalibrated"],
+        )
+
+    @pytest.mark.parametrize("environment", ["prod", "Production", ""])
+    def test_unknown_environments_are_rejected(self, environment):
+        _use({"destructive": False, "needs_approval": False, "scope": "local"})
+        with pytest.raises(ValidationError, match="environment must be one of"):
+            _service().gate_action("ls", environment)
 
     def test_generator_command_keeps_app_name_out_of_the_engine_state(self):
         provider = _use({"generator": "file_storage"})
@@ -197,10 +232,17 @@ class TestGitChanges:
 
 @pytest.mark.unit
 class TestAgentDecideCommand:
-    def test_allow_prints_json_and_exits_zero(self, capsys, settings):
+    def test_allow_prints_json_and_exits_zero(self, capsys, settings, tmp_path):
         settings.SYSTEMONE_PROVIDER = "fake"
+        _calibrate(settings, tmp_path, "fake")
         call_command("agent_decide", "gate", "uv run pytest")
         assert json.loads(capsys.readouterr().out)["next_step"] == "allow"
+
+    def test_an_uncalibrated_gate_exits_with_status_3(self, settings):
+        settings.SYSTEMONE_PROVIDER = "fake"
+        with pytest.raises(SystemExit) as exit_info:
+            call_command("agent_decide", "gate", "uv run pytest")
+        assert exit_info.value.code == 3
 
     def test_a_handover_exits_with_status_3(self, settings):
         settings.SYSTEMONE_PROVIDER = "fake"

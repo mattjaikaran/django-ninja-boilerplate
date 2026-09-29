@@ -39,7 +39,7 @@ fails with a setup hint. A failed CLM HTTP request raises an error.
 ## Question types
 
 `choice`, `score`, and `noul`. These are Laya's own typed-question names and are
-sent to the engine unchanged. **`noul` is not a typo for `null`** — Laya's
+sent to the engine unchanged. **`noul` is not a typo for `null`.** Laya's
 README and changelog both use `noul` for yes/no questions, and the engine
 rejects other spellings. Do not rename it.
 
@@ -98,7 +98,7 @@ same rule.
 2. Return `result_from_raw(response, self.name)` so vendor shapes stay out of
    the API.
 3. Register the class in `PROVIDER_REGISTRY` in `decisions/providers/__init__.py`.
-4. Add a test that injects a stub client — never the real provider.
+4. Add a test that injects a stub client, never the real provider.
 
 See `references/provider-interface.md`.
 
@@ -116,12 +116,16 @@ SQLite accepts the column type, so tests need no setup.
 - `eval_decisions --benchmark --provider <p> --output <file>` runs the five
   domains in `decisions/data/benchmark/` (310 cases, `dev` and `test`
   splits). It accepts JSONL for reviewed traffic. It fails when the provider
-  is unavailable; `--skip-unavailable` records a skipped report instead.
-- `compare_decisions` compares reports on the `test` split.
-- `recommend_thresholds <report> --write <file>` tunes on `dev` and checks on
-  `test`.
-- Results and caveats: `docs/DECISIONS_BENCHMARK.md`. Laya is the default:
-  65.8% against CLM's 62.0% on the test split. Neither routes model tiers
+  is unavailable before the run; `--skip-unavailable` records a skipped
+  report for that pre-flight case only. Errors during the run always fail.
+- `compare_decisions` compares reports on the `test` split, with a
+  majority-class column per question.
+- `recommend_thresholds <report> --write <file>` tunes on `dev`, raises the
+  value to `DECISION_ESCALATION_THRESHOLD`, and writes it only when it held on
+  `test`. Every other question gets 1.0.
+- Results and caveats: `docs/DECISIONS_BENCHMARK.md`. Laya is the default
+  for its in-process setup, latency, and choice-question accuracy; the
+  overall gap to CLM is within the noise. Neither routes model tiers
   reliably.
 
 ## Agent packs
@@ -157,4 +161,5 @@ uv run pytest decisions/ -v
 - Tuning wording or thresholds on the benchmark `test` split. Tune on `dev`.
 - Treating `gate_action` `allow` as permission for production or
   irreversible actions. The gate is a first filter; your own policy still
-  applies.
+  applies. A non-`local` environment or a missing gate calibration always
+  gives `ask_human`.

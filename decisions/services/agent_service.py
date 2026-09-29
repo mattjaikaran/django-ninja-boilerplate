@@ -33,6 +33,7 @@ from typing import Any
 from api.exceptions import ValidationError
 from decisions.services.decision_service import DecisionService
 from decisions.services.eval_dataset import BENCHMARK_DIR
+from decisions.services.thresholds import question_thresholds
 
 #: Maps a pack name to the benchmark domain that defines and measures it.
 PACK_DOMAINS = {
@@ -41,6 +42,9 @@ PACK_DOMAINS = {
     "gate_action": "risk_flags",
     "pick_generator": "generator_choice",
 }
+
+#: Environments ``gate_action`` accepts. Anything but ``local`` asks a human.
+ENVIRONMENTS = ("local", "ci", "staging", "production")
 
 #: App names accepted in a suggested generator command.
 APP_NAME = re.compile(r"^[a-z][a-z0-9_]{0,39}$")
@@ -155,9 +159,31 @@ class AgentDecisionService:
     def gate_action(
         self, action: str, environment: str = "local", reason: str = ""
     ) -> AgentDecision:
-        """Decide whether an agent may run *action* without approval."""
+        """Decide whether an agent may run *action* without approval.
+
+        Two rules do not depend on the model. An *environment* other than
+        ``local`` always asks a human. The gate returns ``allow`` only when
+        ``DECISION_THRESHOLDS_FILE`` has calibrated thresholds for every gate
+        question for the active provider; otherwise it asks a human with the
+        reason ``uncalibrated``.
+
+        Raises:
+            ValidationError: If *environment* is not a known environment.
+        """
+        if environment not in ENVIRONMENTS:
+            raise ValidationError(
+                f"environment must be one of: {', '.join(ENVIRONMENTS)}."
+            )
         state = {"action": action, "environment": environment, "reason": reason}
-        return self.ask("gate_action", state)
+        decision = self.ask("gate_action", state)
+        reasons = list(decision.details["reasons"])
+        if environment != "local":
+            reasons.append(f"environment:{environment}")
+        calibrated = question_thresholds(decision.provider)
+        if not set(pack_questions("gate_action")) <= set(calibrated):
+            reasons.append("uncalibrated")
+        step = "ask_human" if reasons else "allow"
+        return replace(decision, next_step=step, details={"reasons": reasons})
 
     def pick_generator(self, request: str, app_name: str = "") -> AgentDecision:
         """Pick the ``generate_feature`` generator for a feature request.

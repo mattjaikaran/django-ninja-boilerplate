@@ -122,15 +122,25 @@ class Command(BaseCommand):
             for path in self._paths(options):
                 loaded = load_cases(path, questions, options["split"])
                 cases += loaded[: options["limit"]] if options["limit"] else loaded
-            report: EvalReport | None = service.evaluate(cases, split=options["split"])
-            data = report.as_dict()
         except ValidationError as exc:
             raise CommandError(exc.message) from exc
+        report: EvalReport | None = None
+        try:
+            service.require_available()
         except ImproperlyConfigured as exc:
+            # Only the pre-flight check may be skipped. An error during the
+            # run (a dropped encoder, a rejected key) fails the command.
             if not options["skip_unavailable"]:
                 raise CommandError(str(exc)) from exc
-            report = None
             data = skipped_report(service.decisions.provider_name, str(exc))
+        else:
+            try:
+                report = service.evaluate(cases, split=options["split"])
+            except ValidationError as exc:
+                raise CommandError(exc.message) from exc
+            except ImproperlyConfigured as exc:
+                raise CommandError(f"The run failed: {exc}") from exc
+            data = report.as_dict()
         data["environment"] = environment()
         if options["output"]:
             Path(options["output"]).parent.mkdir(parents=True, exist_ok=True)

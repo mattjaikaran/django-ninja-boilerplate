@@ -601,9 +601,11 @@ curl -s http://localhost:8000/api/decisions/evaluate \
 
 Set `SYSTEMONE_PROVIDER=laya|clm|jev` before starting Django. API and MCP
 callers cannot select a provider; a request that sends `provider` gets a 422
-response. The configured provider never silently falls back. CLM needs a
-Linux NVIDIA host with the NVIDIA Container Toolkit; its Compose profile
-downloads Qwen3-8B and the CLM projection head into persistent volumes. On a
+response. The configured provider never silently falls back. The
+`decisions-clm` profile needs a Linux NVIDIA host with the NVIDIA Container
+Toolkit; it downloads Qwen3-8B and the CLM projection head into persistent
+volumes. On Apple Silicon, `just clm-encoder-local` serves the encoder on the
+host and only `clm-api` runs in Compose (`decisions-clm-host`). On a
 fresh checkout, `just dev` builds the `clm-api` image, and it rebuilds any
 image whose inputs changed. Set `CLM_CONTAINER_URL` for an external
 CLM service, or use `CLM_BASE_URL` when Django runs on the host.
@@ -632,8 +634,9 @@ just decisions-compare          # compare saved reports on the held-out test spl
 just decisions-thresholds reports/decisions/laya.json --write thresholds.json
 ```
 
-On the bundled benchmark's test split, Laya scored 65.8% and CLM 62.0%, so
-Laya stays the default. See
+On the bundled benchmark's test split, Laya scored 65.8% and CLM 62.0%, a gap
+within the noise. Laya stays the default for its in-process setup, lower
+latency, and better choice-question accuracy. See
 [docs/DECISIONS_BENCHMARK.md](docs/DECISIONS_BENCHMARK.md) for the results
 and caveats.
 

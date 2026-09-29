@@ -266,3 +266,21 @@ class TestEvalCommand:
         report = json.loads(output.read_text())
         assert (report["status"], report["provider"]) == ("skipped", "jev")
         assert "outcomes" not in report
+
+    def test_a_failure_during_the_run_is_not_recorded_as_skipped(self, tmp_path):
+        class _Drops(_ScriptedProvider):
+            def predict(self, state, questions):
+                raise ImproperlyConfigured("CLM is unreachable")
+
+        DecisionService._providers["fake"] = _Drops([])
+        output = tmp_path / "r.json"
+        with pytest.raises(CommandError, match="The run failed: CLM is unreachable"):
+            call_command(
+                "eval_decisions",
+                "--provider",
+                "fake",
+                "--skip-unavailable",
+                "--output",
+                str(output),
+            )
+        assert not output.exists()

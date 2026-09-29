@@ -60,16 +60,18 @@ class Command(BaseCommand):
             raise CommandError(exc.message) from exc
         self.stdout.write(f"Split: {options['split']}\n")
         self.stdout.write(
-            "| Provider | Question | n | Accuracy | Mean conf. | ECE | "
+            "| Provider | Question | n | Majority | Accuracy | Mean conf. | ECE | "
             f"Coverage at {at:.2f} | Accuracy at {at:.2f} |"
         )
-        self.stdout.write("|---|---|---|---|---|---|---|---|")
+        self.stdout.write("|---|---|---|---|---|---|---|---|---|")
         for row in rows:
             s, cut = row.summary, row.summary.thresholds[0]
+            # A majority rate is only meaningful for one question.
+            majority = None if row.scope == "overall" else s.majority_rate
             self.stdout.write(
-                f"| {row.provider} | {row.scope} | {s.count} | {_pct(s.accuracy)} | "
-                f"{_pct(s.mean_confidence)} | {s.ece:.3f} | {_pct(cut.coverage)} | "
-                f"{_pct(cut.accuracy)} |"
+                f"| {row.provider} | {row.scope} | {s.count} | {_pct(majority)} | "
+                f"{_pct(s.accuracy)} | {_pct(s.mean_confidence)} | {s.ece:.3f} | "
+                f"{_pct(cut.coverage)} | {_pct(cut.accuracy)} |"
             )
         self.stdout.write(
             "\n| Provider | Cases (all splits) | Cold ms | p50 ms | p95 ms | "

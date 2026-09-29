@@ -18,8 +18,8 @@ from decisions.providers.fake import FakeProvider
 from decisions.providers.jev import JevProvider
 from decisions.providers.laya import LayaProvider
 
-#: Maps a provider name to its class. The key is the name used in settings
-#: (``SYSTEMONE_PROVIDER``) and in the ``provider`` request field.
+#: Maps a provider name to its class. The key is the name used in the
+#: ``SYSTEMONE_PROVIDER`` setting and by internal ``DecisionService`` callers.
 PROVIDER_REGISTRY: dict[str, type[DecisionProvider]] = {
     ClmProvider.name: ClmProvider,
     FakeProvider.name: FakeProvider,

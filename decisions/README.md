@@ -135,7 +135,7 @@ traffic), and benchmark domain directories.
 
 ```bash
 just decisions-benchmark laya          # all 5 domains -> reports/decisions/laya.json
-just decisions-benchmark jev --skip-unavailable
+just decisions-benchmark jev --skip-unavailable   # skips only if unavailable up front
 just decisions-compare                 # held-out test split, every saved report
 just decisions-thresholds reports/decisions/laya.json --target 0.9
 just eval-decisions reviewed.jsonl --questions questions.json --provider laya
@@ -152,11 +152,16 @@ the sample sizes, and the caveats. The older 40-ticket set is still in
 ### Per-question thresholds
 
 `recommend_thresholds` tunes a threshold per question on the report's `dev`
-split and checks it on `test`. `--write` stores the result in a JSON file
+split, raises it to `DECISION_ESCALATION_THRESHOLD` (unless you pass
+`--allow-below-default`), and checks it on `test`. It writes a tuned value
+only when the value held on `test`: at least `--min-support` test answers met
+it, at the target accuracy. Every other question gets 1.0, and the table
+shows why (`insufficient dev data`, `no threshold met the target on dev`, or
+`missed the target on test`). `--write` stores the result in a JSON file
 keyed by provider, then by question:
 
 ```json
-{"laya": {"team": 0.2, "tier": 1.0}, "clm": {"security_sensitive": 0.0}}
+{"laya": {"team": 0.5, "tier": 1.0}, "clm": {"security_sensitive": 0.5}}
 ```
 
 Set `DECISION_THRESHOLDS_FILE` to that file. `DecisionService` then compares
@@ -167,7 +172,8 @@ escalates every answer below certainty. An unreadable or invalid file fails
 loud with `ImproperlyConfigured`. Clients cannot send thresholds: the request
 schemas reject extra fields with a 422 response.
 `data/thresholds.example.json` was tuned on the synthetic benchmark at a 90%
-target; re-tune it on your own reviewed traffic.
+target; only seven rows held on test. Re-tune it on your own reviewed
+traffic.
 
 ### Write CLM criteria as answers
 
@@ -191,7 +197,7 @@ domain that measures it, so tuned thresholds apply to the same questions.
 |---|---|---|
 | `route_task` | `task_routing` | `use_local`, `use_mid`, `use_frontier`, `ask_human`, `escalate` |
 | `triage_change` | `code_review_triage` | `deep_review`, `standard_review`, `escalate` |
-| `gate_action` | `risk_flags` | `allow`, `ask_human` (fails closed) |
+| `gate_action` | `risk_flags` | `allow`, `ask_human` (fails closed; any non-`local` environment or missing calibration asks a human) |
 | `pick_generator` | `generator_choice` | `generate` (with the command), `escalate` |
 
 Surfaces: `POST /api/decisions/agent/{route-task,triage-change,gate-action,pick-generator}`
@@ -202,7 +208,7 @@ with status 3 when the step is `escalate` or `ask_human`.
 [Decisions for agents](../docs/DECISIONS_FOR_AGENTS.md) before you rely on a
 pack: on the benchmark, `route_task` and the `destructive` and
 `needs_approval` gate questions were not better than guessing the most common
-label.
+label, and with the shipped thresholds only the gate pack saved tokens.
 
 ## Add a provider
 

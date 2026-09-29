@@ -109,37 +109,67 @@ def _report(tmp_path, outcomes, provider="laya"):
 
 @pytest.mark.unit
 class TestRecommendCommand:
-    def test_tunes_on_dev_checks_on_test_and_writes_the_provider_section(
-        self, tmp_path, capsys
-    ):
+    @staticmethod
+    def _outcomes(test_wrong=0):
         dev = [Outcome("team", False, 0.2, split="dev") for _ in range(3)]
         dev += [Outcome("team", True, 0.7, split="dev") for _ in range(12)]
-        test = [Outcome("team", True, 0.7, split="test") for _ in range(4)]
-        test += [Outcome("team", True, 0.1, split="test")]
+        test = [Outcome("team", True, 0.7, split="test") for _ in range(12)]
+        test += [Outcome("team", False, 0.7, split="test") for _ in range(test_wrong)]
+        test += [Outcome("team", False, 0.1, split="test")]
+        return dev + test
+
+    def test_a_threshold_that_held_on_test_is_written_at_the_default_floor(
+        self, tmp_path, capsys, settings
+    ):
+        settings.DECISION_ESCALATION_THRESHOLD = 0.5
         target = tmp_path / "thresholds.json"
         target.write_text(json.dumps({"clm": {"team": 0.9}}))
+        report = _report(tmp_path, self._outcomes())
+        call_command("recommend_thresholds", str(report), "--write", str(target))
+        out = capsys.readouterr().out
+        assert "| team | 0.50 | 0.50 | held | 15 | 13 | 12 | 100.0% |" in out
+        assert json.loads(target.read_text()) == {
+            "clm": {"team": 0.9},
+            "laya": {"team": 0.5},
+        }
+
+    def test_below_default_needs_an_explicit_flag(self, tmp_path, settings):
+        settings.DECISION_ESCALATION_THRESHOLD = 0.5
+        target = tmp_path / "thresholds.json"
+        report = _report(tmp_path, self._outcomes())
         call_command(
             "recommend_thresholds",
-            str(_report(tmp_path, dev + test)),
+            str(report),
+            "--allow-below-default",
             "--write",
             str(target),
         )
-        out = capsys.readouterr().out
-        assert "| team | 0.25 | 15 | 5 | 80.0% | 100.0% |" in out
-        assert json.loads(target.read_text()) == {
-            "clm": {"team": 0.9},
-            "laya": {"team": 0.25},
-        }
+        assert json.loads(target.read_text()) == {"laya": {"team": 0.25}}
+
+    def test_a_threshold_that_missed_on_test_escalates_everything(
+        self, tmp_path, capsys
+    ):
+        target = tmp_path / "thresholds.json"
+        report = _report(tmp_path, self._outcomes(test_wrong=6))
+        call_command("recommend_thresholds", str(report), "--write", str(target))
+        assert "missed the target on test" in capsys.readouterr().out
+        assert json.loads(target.read_text()) == {"laya": {"team": 1.0}}
 
     def test_questions_without_a_qualifying_threshold_escalate_everything(
-        self, tmp_path
+        self, tmp_path, capsys
     ):
         dev = [Outcome("team", i % 2 == 0, 0.9, split="dev") for i in range(20)]
         target = tmp_path / "thresholds.json"
         call_command(
             "recommend_thresholds", str(_report(tmp_path, dev)), "--write", str(target)
         )
+        assert "no threshold met the target on dev" in capsys.readouterr().out
         assert json.loads(target.read_text()) == {"laya": {"team": 1.0}}
+
+    def test_too_few_dev_answers_are_reported_as_insufficient(self, tmp_path, capsys):
+        dev = [Outcome("team", True, 0.9, split="dev") for _ in range(5)]
+        call_command("recommend_thresholds", str(_report(tmp_path, dev)))
+        assert "insufficient dev data" in capsys.readouterr().out
 
     def test_a_report_without_a_dev_split_is_rejected(self, tmp_path):
         outcomes = [Outcome("team", True, 0.9, split="test")]
@@ -157,5 +187,6 @@ def test_compare_lists_skipped_providers_and_uses_the_test_split(tmp_path, capsy
     )
     call_command("compare_decisions", str(_report(tmp_path, outcomes)), str(skipped))
     out = capsys.readouterr().out
-    assert "| laya | overall | 1 | 100.0% |" in out
+    assert "| laya | overall | 1 | n/a | 100.0% |" in out
+    assert "| laya | team | 1 | n/a | 100.0% |" in out
     assert "jev: skipped. no key" in out

@@ -6,10 +6,10 @@ provider. Read the [caveats](#caveats) before you use any number here.
 
 ## Summary
 
-- Laya stays the default provider. On the held-out test split it scored 65.8%
-  overall against 62.0% for CLM, and it was better on four of the five choice
-  questions. It needs no encoder service, and a warm decision took 111 ms at
-  the median.
+- Laya stays the default provider. It needs no encoder service, a warm
+  decision took 111 ms at the median, and it was better by large margins on
+  four of the five choice questions. The overall test scores (65.8% against
+  62.0% for CLM) are within the noise and do not decide it.
 - CLM was better on four of the eight yes/no (`noul`) questions, with large
   margins on `needs_migration_review` (97.7% against 48.8%) and
   `security_sensitive` (95.3% against 60.5%). Its choice answers collapsed
@@ -17,7 +17,8 @@ provider. Read the [caveats](#caveats) before you use any number here.
 - Neither provider is fit to route agent tasks by model tier, or to decide
   alone whether an action is destructive or needs approval. Both scored at or
   below the majority-class rate on `tier`, `destructive`, and
-  `needs_approval`.
+  `needs_approval`. `compare_decisions` shows that rate in its `Majority`
+  column.
 - Jev was not measured. No `TYPESAFE_API_KEY` was available; the harness
   recorded Jev as skipped.
 
@@ -40,10 +41,13 @@ A report holds, overall, per dataset, and per question:
 - every scored answer, with its case id and split;
 - the host, Python version, and package versions.
 
-The harness evaluates exactly the provider you name. When that provider is
-unavailable, the command fails. With `--skip-unavailable`, it writes a
-`skipped` report with the reason. It never runs another provider in its
-place. `compare_decisions` lists skipped providers with their reason.
+The harness evaluates exactly the provider you name. Before the first case,
+it checks that the provider is available. When it is not, the command fails.
+With `--skip-unavailable`, it writes a `skipped` report with the reason
+instead. The skip applies only to that pre-flight check: an error during the
+run, such as a dropped encoder or a rejected key, always fails the command.
+It never runs another provider in its place. `compare_decisions` lists
+skipped providers with their reason.
 
 ### Use your own traffic
 
@@ -187,38 +191,54 @@ configured: both providers ran locally.
 ### Per-question thresholds
 
 `recommend_thresholds --target 0.9 --min-support 10` tuned a threshold per
-question on `dev` and checked it on `test`. The result is in
-`decisions/data/thresholds.example.json`. A question with no threshold that
-reached 90% on `dev` gets 1.0, so every answer to it escalates.
+question on `dev`, raised it to the global default (0.5), and checked it on
+`test`. A threshold is written only when it held on `test`: at least 10 test
+answers met it, at 90% accuracy or more. Every other question gets 1.0, so
+every answer to it escalates. The result is
+`decisions/data/thresholds.example.json`.
 
-| Question | Laya threshold | Laya test coverage, accuracy | CLM threshold | CLM test coverage, accuracy |
-|---|---|---|---|---|
-| `team` | 0.20 | 66.7%, 90.0% | 1.0 | 0% |
-| `wants_refund` | 0.80 | 44.4%, 90.0% | 0.70 | 84.4%, 92.1% |
-| `angry` | 0.60 | 71.1%, 93.8% | 0.70 | 62.2%, 89.3% |
-| `scope` | 0.25 | 83.3%, 94.3% | 1.0 | 0% |
-| `generator` | 0.90 | 56.7%, 76.5% | 1.0 | 0% |
-| `change_type` | 0.10 | 90.7%, 79.5% | 1.0 | 0% |
-| `needs_migration_review` | 1.0 | 0% | 0.00 | 100%, 97.7% |
-| `security_sensitive` | 1.0 | 0% | 0.00 | 100%, 95.3% |
-| `urgent`, `tier`, `needs_human`, `destructive`, `needs_approval` | 1.0 | 0% | 1.0 | 0% |
+Rows that held (dev n, test n, test answers kept, test accuracy):
 
-Dev has only 20 to 24 answers per question, so these thresholds are noisy.
-`generator` and `change_type` met 90% on `dev` and missed it on `test`
-(76.5% and 79.5%). Re-tune on your own reviewed traffic.
+| Provider | Question | Threshold | Dev n | Test n | Kept | Test accuracy |
+|---|---|---|---|---|---|---|
+| Laya | `team` | 0.50 | 20 | 45 | 16 | 93.8% |
+| Laya | `scope` | 0.50 | 23 | 42 | 28 | 100.0% |
+| Laya | `wants_refund` | 0.80 | 20 | 45 | 20 | 90.0% |
+| Laya | `angry` | 0.60 | 20 | 45 | 32 | 93.8% |
+| CLM | `needs_migration_review` | 0.50 | 22 | 43 | 43 | 97.7% |
+| CLM | `security_sensitive` | 0.50 | 22 | 43 | 43 | 95.3% |
+| CLM | `wants_refund` | 0.70 | 20 | 45 | 38 | 92.1% |
+
+Rows that did not hold, and are written as 1.0:
+
+- Laya `change_type` (checked at 0.50: only 4 test answers kept) and
+  `generator` (0.90: 76.5% on test).
+- CLM `angry` (0.70: 89.3% on test).
+- Every other question for both providers: no threshold reached 90% on
+  `dev`.
+
+A `noul` confidence is never below 0.5, so a `noul` threshold of 0.5 keeps
+every answer local. For CLM's two review flags, that is what the test split
+supports. Dev has only 20 to 24 answers per question, so these thresholds are
+noisy. Re-tune on your own reviewed traffic.
 
 ## Default provider decision
 
 Keep `SYSTEMONE_PROVIDER=laya` as the default:
 
-1. Laya had the higher overall test accuracy (65.8% against 62.0%).
-2. Laya was better on four of the five choice questions, which drive routing
-   and generator selection. CLM's choice answers collapsed toward one label.
-3. Laya runs in-process with no extra service. CLM needs an 8B encoder that
+1. Laya runs in-process with no extra service. CLM needs an 8B encoder that
    holds 8 to 9 GB of memory, or a GPU host.
-4. Laya's warm latency was lower (111 ms against 504 ms p50). Its cold start
+2. Laya was better by large margins on four of the five choice questions:
+   `team` (73.3% against 28.9%), `scope` (85.7% against 42.9%), `generator`
+   (83.3% against 40.0%), and `change_type` (81.4% against 53.5%). CLM's
+   choice answers collapsed toward one label.
+3. Laya's warm latency was lower (111 ms against 504 ms p50). Its cold start
    was higher (13.4 s), so preload it in production
    (`LayaProvider(preload=True)`).
+
+The overall scores (65.8% against 62.0%) do not decide it. At n = 547 the
+95% interval is about plus or minus 4 points, and the answers are paired on
+the same cases, so a 3.8-point gap is inside the noise.
 
 Consider CLM when your questions are mostly yes/no reviews, such as
 migration or security review flags, and you can run the encoder. The server
@@ -242,3 +262,14 @@ supported.
 - Jev was not measured.
 - The question wording is one wording. CLM results change a lot with
   wording. Wording was not tuned for either provider.
+- **The fixed 0.5 yes-cutoff for `noul` decides several comparisons.** Some
+  `noul` scores rank cases well but cut at the wrong point (CLM
+  `destructive`: ROC AUC 0.92 at 28.6% accuracy). A per-question yes-cutoff
+  tuned on `dev` could change these results. The harness does not tune one
+  yet, so the table rewards whichever model happens to center near 0.5.
+- The label files for the second annotator (`annotator_b.jsonl`) and the
+  adjudication (`adjudication.jsonl`) are in each domain directory, so you
+  can recompute the agreement table. The two blind annotators did not read
+  the first annotator's labels (checked in their transcripts). The
+  adjudicator revised two rows after its first pass (`st-031` `urgent`,
+  `rf-011` `scope`); the files record the applied labels.

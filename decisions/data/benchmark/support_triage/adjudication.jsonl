@@ -1,0 +1,15 @@
+{"domain": "support_triage", "id": "st-006", "question": "angry", "final": true, "note": "\"You overcharged us\" is a direct accusation that signals the customer is upset."}
+{"domain": "support_triage", "id": "st-009", "question": "angry", "final": true, "note": "\"I never agreed to this\" is a harsh accusation of an unauthorized charge."}
+{"domain": "support_triage", "id": "st-010", "question": "angry", "final": false, "note": "Calm, factual report of a billing error with a polite request to reverse charges."}
+{"domain": "support_triage", "id": "st-013", "question": "angry", "final": false, "note": "Urgent but professional; no harsh words, only a firm request for restoration."}
+{"domain": "support_triage", "id": "st-018", "question": "team", "final": "technical", "note": "Webhooks are explicitly listed under the technical team, and the plan change is only context."}
+{"domain": "support_triage", "id": "st-023", "question": "angry", "final": false, "note": "Neutral, factual outage report that calmly requests a credit."}
+{"domain": "support_triage", "id": "st-026", "question": "angry", "final": false, "note": "Businesslike performance report with no harsh or emotional language."}
+{"domain": "support_triage", "id": "st-031", "question": "urgent", "final": false, "note": "Revised by the adjudicator: the customer has a working fallback, so it can wait."}
+{"domain": "support_triage", "id": "st-036", "question": "angry", "final": true, "note": "\"Breaking our data\" and \"Fix it now\" are harsh, frustrated language."}
+{"domain": "support_triage", "id": "st-039", "question": "urgent", "final": false, "note": "A failing nightly sync is degraded but not production-down; no data loss or outage right now."}
+{"domain": "support_triage", "id": "st-039", "question": "angry", "final": true, "note": "Frustration over three days of failures surfaces in \"This is costing us\" and the curt \"Fix it.\""}
+{"domain": "support_triage", "id": "st-047", "question": "angry", "final": true, "note": "\"Fix it now\" over a data leak is demanding, harsh language."}
+{"domain": "support_triage", "id": "st-048", "question": "angry", "final": false, "note": "Factual webhook outage report with a calm credit request."}
+{"domain": "support_triage", "id": "st-050", "question": "urgent", "final": false, "note": "A single user locked out is not many users blocked and no incident is ongoing."}
+{"domain": "support_triage", "id": "st-050", "question": "angry", "final": true, "note": "\"This is so frustrating\" is explicit emotional frustration."}

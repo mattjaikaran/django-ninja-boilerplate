@@ -1,12 +1,14 @@
 """Provider abstraction for the System One decision engine.
 
 A *provider* answers a set of questions from a piece of state. The
-boilerplate ships three:
+boilerplate ships four:
 
 ``fake``
     Deterministic answers for tests. No model loading, no network.
 ``laya``
     The in-process Laya System 1 engine (default).
+``clm``
+    The open-source CLM service (``clm-api``) over HTTP.
 ``jev``
     The hosted TypeSafe ("Jev") API.
 
