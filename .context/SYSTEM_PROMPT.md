@@ -183,7 +183,6 @@ If you use raw `Schema`, your API will return `snake_case` keys which breaks fro
 | `SuccessResponse` | Standard success response |
 | `ErrorResponse` | Standard error response |
 | `IdResponse` | Response with just an `id` |
-| `PaginatedResponse[T]` | Generic paginated list wrapper |
 | `BulkActionSchema` | Input for bulk operations (`ids` + `action`) |
 | `BulkActionResponse` | Response for bulk operations |
 | `BaseFilterSchema` | Base filter with `search`, `is_active`, date range |
@@ -412,7 +411,7 @@ Always apply decorators in this order (outermost first):
 ```python
 @http_get("/")           # 1. HTTP method + route (MUST be first)
 @log_api_call()           # 2. Logging (optional)
-@paginate                 # 3. Pagination (list endpoints, innermost)
+@paginate(PageNumberPaginationExtra)  # 3. Pagination (list endpoints, innermost)
 def my_endpoint(self, request):
     ...
 ```

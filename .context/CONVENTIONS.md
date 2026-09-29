@@ -489,7 +489,8 @@ class Article(SoftDeleteModel):
 import logging
 from django.shortcuts import get_object_or_404
 from ninja_extra import api_controller, http_delete, http_get, http_post, http_put
-from ninja_extra.pagination import paginate
+from ninja_extra.pagination import PageNumberPaginationExtra, paginate
+from ninja_extra.schemas import PaginatedResponseSchema
 from ninja_jwt.authentication import JWTAuth
 
 from api.decorators import log_api_call
@@ -500,9 +501,9 @@ logger = logging.getLogger(__name__)
 class ItemController:
     """Controller for Item CRUD operations."""
 
-    @http_get("/", response={200: list[ItemSchema]})
+    @http_get("/", response={200: PaginatedResponseSchema[ItemSchema]})
     @log_api_call()
-    @paginate
+    @paginate(PageNumberPaginationExtra)
     def list_items(
         self,
         request,

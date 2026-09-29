@@ -221,7 +221,7 @@ def list_items(self, request):
 ```python
 @http_get("/")             # 1st: HTTP method (outermost)
 @log_api_call()            # 2nd: logging
-@paginate                  # 3rd: pagination (list endpoints, innermost)
+@paginate(PageNumberPaginationExtra)  # 3rd: pagination (list endpoints, innermost)
 def list_items(self, request):
     ...
 ```

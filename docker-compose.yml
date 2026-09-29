@@ -845,6 +845,10 @@ services:
       - "8000"
     environment:
       - DJANGO_SETTINGS_MODULE=api.settings.prod
+      # The bundled nginx is one proxy hop. Throttles read the client IP from
+      # X-Forwarded-For; with 0 every client shares nginx's IP. Add one per
+      # extra proxy (for example an external TLS proxy).
+      - NINJA_NUM_PROXIES=${NINJA_NUM_PROXIES:-1}
       # ENVIRONMENT drives structured logging and the S3 storage branch in
       # api/settings/common.py. Without it the reused dev .env leaks
       # "development" into production.

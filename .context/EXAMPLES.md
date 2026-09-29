@@ -806,6 +806,7 @@ app.conf.beat_schedule = {
 ```python
 from ninja_extra import api_controller, http_get, http_post
 from ninja_extra.pagination import PageNumberPaginationExtra, paginate
+from ninja_extra.schemas import PaginatedResponseSchema
 from ninja_extra.throttling import DynamicRateThrottle, throttle
 from ninja_jwt.authentication import JWTAuth
 
@@ -815,7 +816,7 @@ from api.decorators import log_api_call
 @api_controller("/search", tags=["Search"], auth=JWTAuth())
 class SearchController:
 
-    @http_get("/", response={200: list[SearchResultSchema]})
+    @http_get("/", response={200: PaginatedResponseSchema[SearchResultSchema]})
     @log_api_call()
     @paginate(PageNumberPaginationExtra)
     def search(self, request, q: str, category: str | None = None):

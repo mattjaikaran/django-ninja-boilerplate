@@ -465,14 +465,18 @@ from api.decorators import log_api_call
 
 @api_controller("/items", tags=["Items"], auth=JWTAuth())
 class ItemController:
+    def __init__(self) -> None:
+        self.service = ItemService()
+
     @http_get("/", response={200: PaginatedResponseSchema[ItemSchema]})
     @log_api_call()
     @paginate(PageNumberPaginationExtra)
     def list_items(self, request):
-        return Item.objects.filter(user=request.user)
+        return self.service.list_for_user(request.user)
 ```
 
-Put `@http_*` first, then `@log_api_call()`, then `@paginate(...)`. Do not
+Put `@http_*` first, then `@log_api_call()`, then `@paginate(...)`. The
+controller calls a service and returns a queryset scoped to the user. Do not
 catch errors in the controller: raise an `api.exceptions` error or use
 `get_object_or_404`, and the handlers registered in `api/urls.py` map it to
 the right status.
@@ -543,20 +547,21 @@ POST /api/auth/otp/2fa/verify     # Verify 2FA code
 
 ### Rate Limiting
 
-Apply rate limits to endpoints:
+Rate limits use Ninja Extra throttles. Rates are set per scope in
+`NINJA_EXTRA["THROTTLE_RATES"]` in `api/settings/common.py`: `user`
+(1000/day), `anon` (100/day), `anon-auth` (20/min, credential endpoints),
+`anon-email` (5/min, magic-link email), and `tasks` (60/min). A throttled
+request gets 429 with a `Retry-After` header. Set `NINJA_NUM_PROXIES` to the number
+of reverse proxies in front of Django so the client IP is correct.
 
 ```python
-from api.decorators import rate_limit
+from ninja_extra import api_controller, http_post
+from ninja_extra.throttling import DynamicRateThrottle, throttle
 
-@api_controller("/items")
+@api_controller("/items", tags=["Items"], auth=JWTAuth())
 class ItemController:
-    @rate_limit(requests_per_minute=100)
-    @http_get("/")
-    def list_items(self, request):
-        ...
-
-    @rate_limit(requests_per_minute=10)
-    @http_post("/sensitive")
+    @http_post("/sensitive", response={200: dict})
+    @throttle(DynamicRateThrottle, scope="user")
     def sensitive_action(self, request):
         ...
 ```

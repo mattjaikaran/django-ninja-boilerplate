@@ -35,9 +35,7 @@ django-ninja-boilerplate/
 │   ├── exceptions.py             # Custom exception classes
 │   ├── healthcheck.py            # Health check controller
 │   ├── middleware.py             # Custom middleware
-│   ├── pagination/               # Pagination utilities (offset, cursor)
 │   ├── permissions.py            # Permission classes
-│   ├── throttling/               # Rate limiting utilities
 │   ├── urls.py                   # URL configuration and controller registration
 │   └── utils/                    # HTTP utilities, validation helpers
 │
@@ -352,7 +350,7 @@ helm install my-api ./deploy/kubernetes/helm/django-ninja-stack
 | Base models | `core/models/base.py` |
 | Test example | `todos/tests/test_todo.py` |
 | Factory example | `core/tests/factories/user_factory.py` |
-| Celery tasks | `core/tasks.py` |
+| Background tasks | `core/tasks/jobs.py` |
 | Centrifugo client | `api/centrifugo.py` |
 | Centrifugo tokens | `core/controllers/centrifugo_controller.py` |
 | API decorators | `api/decorators.py` |

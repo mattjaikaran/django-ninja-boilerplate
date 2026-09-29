@@ -53,7 +53,7 @@ locust -f tests/load/locustfile.py \
     -t 5m
 ```
 
-### Using Makefile
+### Using just
 
 ```bash
 # Run load tests (interactive)

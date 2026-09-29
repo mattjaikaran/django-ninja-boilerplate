@@ -138,17 +138,18 @@ Rate limiting is configured at two levels in this boilerplate:
 - Authenticated users: 1000 req/day
 - Anonymous: 100 req/day
 
-**Per-endpoint** (`@rate_limit` decorator):
-- `POST /auth/signup` — 10 req/min
-- `POST /auth/login` — 20 req/min
-- `POST /auth/passwordless/login/request` — 5 req/min
+**Per-endpoint** (Ninja Extra `@throttle` with a scope):
+- `anon-auth`, 20 req/min: signup, both login endpoints, and passwordless verify
+- `anon-email`, 5 req/min: `POST /auth/passwordless/login/request`
+- `tasks`, 60 req/min: task admin endpoints
 
 **Brute force lockout** (`core/security/brute_force.py`):
 - Login locked after 5 failed attempts for 15 minutes
 
 Before launching:
 - [ ] Confirm Valkey/Redis is running and cache backend is connected (rate limits degrade gracefully if the cache is down, but won't protect you)
-- [ ] Add `@rate_limit` to any endpoint that sends email, creates a resource, or calls a paid external API
+- [ ] Add `@throttle(DynamicRateThrottle, scope=...)` to any endpoint that sends email, creates a resource, or calls a paid external API
+- [ ] Set `NINJA_NUM_PROXIES` to the number of reverse proxies, so throttles see the real client IP
 - [ ] Consider tightening `THROTTLE_RATES["anon"]` for public-facing APIs
 
 ---

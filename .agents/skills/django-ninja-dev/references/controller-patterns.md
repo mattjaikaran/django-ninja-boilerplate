@@ -33,9 +33,11 @@ class TodoController:
 ## Decorator rules
 
 - The `@http_*` decorator is outermost.
-- `@paginate(...)` sits directly inside `@http_*` on list endpoints.
-- `@log_api_call()` sits inside `@http_*` (or `@paginate`) on endpoints that
-  need request/response logging.
+- `@log_api_call()` sits directly inside `@http_*` on endpoints that need
+  request/response logging.
+- `@paginate(PageNumberPaginationExtra)` is innermost on list endpoints. The
+  endpoint returns a queryset and declares
+  `response={200: PaginatedResponseSchema[...]}`.
 
 There is no per-endpoint exception decorator. Domain exceptions are mapped to
 HTTP responses by the handlers registered on the shared API instance in
@@ -45,8 +47,11 @@ status code automatically.
 
 ## Pagination
 
-Import `paginate` from `ninja_extra.pagination` and stack it above `@http_get`
-on list endpoints. See `TodoController.list_todos`.
+Import `paginate` and `PageNumberPaginationExtra` from
+`ninja_extra.pagination`, and `PaginatedResponseSchema` from
+`ninja_extra.schemas`. Put `@paginate(PageNumberPaginationExtra)` below
+`@http_get` and `@log_api_call()`. The response is the envelope `count`,
+`next`, `previous`, `results`. See `TodoController.list_todos`.
 
 ## Provider errors
 
