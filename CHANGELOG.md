@@ -105,6 +105,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 - `/api/realtime/connection-token` and `/api/realtime/subscription-token` had no authentication. Anonymous callers got subscription tokens for any channel (`sub` claim `None`). The controller now requires JWT, a user may subscribe only to their own `notifications:<user id>` channel, and a test fails when any new operation is public without being on an explicit allowlist.
 - Upgraded dependencies to clear `pip-audit` advisories: Django 5.2.6 to 5.2.17, cryptography 46.0.1 to 50.0.1, pillow 11.3.0 to 12.3.0, urllib3 2.5.0 to 2.8.0, tornado 6.5.4 to 6.5.10, plus idna, anyio, click, orjson, and tablib; then pip 26.2.1, flask 3.1.3, werkzeug 3.1.9, python-engineio 4.14.0, python-socketio 5.17.0, and strawberry-graphql 0.327.7. Removed the unused `python-jose`, which pulled in `ecdsa` (an advisory with no fix). The only remaining advisory across all extras is `mcp`, pinned by `django-ai-boost`'s `fastmcp<4` requirement and used in the dev extra only.
+- The dev stack published Postgres, Valkey, Django, Flower, Jaeger, Mailhog, and Centrifugo on every interface, so anyone on the same network could reach the dev database and cache. They now bind to `127.0.0.1`; set `DEV_BIND_ADDRESS=0.0.0.0` to expose them. The `prod` nginx and the `single` app still listen on all interfaces.
 
 ## [1.11.0] - 2026-08-15
 

@@ -74,8 +74,10 @@ services:
       - POSTGRES_PASSWORD=${DB_PASSWORD:-postgres}
       # Performance tuning for development
       - POSTGRES_INITDB_ARGS=--encoding=UTF-8
+    # Dev ports bind to loopback. Set DEV_BIND_ADDRESS=0.0.0.0 in .env to reach
+    # the dev stack from other machines on your network.
     ports:
-      - "${POSTGRES_PORT:-5433}:5432"
+      - "${DEV_BIND_ADDRESS:-127.0.0.1}:${POSTGRES_PORT:-5433}:5432"
     networks:
       - app-network
     healthcheck:
@@ -108,7 +110,7 @@ services:
       - monitoring
       - mcp
     ports:
-      - "${VALKEY_PORT:-6380}:6379"
+      - "${DEV_BIND_ADDRESS:-127.0.0.1}:${VALKEY_PORT:-6380}:6379"
     volumes:
       - valkey_dev_data:/data
     command: >
@@ -163,7 +165,7 @@ services:
       - /app/.pytest_cache
       - /app/.ruff_cache
     ports:
-      - "${DJANGO_PORT:-8000}:8000"
+      - "${DEV_BIND_ADDRESS:-127.0.0.1}:${DJANGO_PORT:-8000}:8000"
     environment:
       - DJANGO_SETTINGS_MODULE=${DJANGO_SETTINGS_MODULE:-api.settings}
       - DEBUG=${DEBUG:-1}
@@ -229,7 +231,7 @@ services:
     volumes:
       - ./deploy/centrifugo/config.json:/centrifugo/config.json:ro
     ports:
-      - "8800:8000"
+      - "${DEV_BIND_ADDRESS:-127.0.0.1}:8800:8000"
     environment:
       # Centrifugo does NOT expand ${...} in its config file; it only reads
       # env vars whose names match its own config keys. So the hmac key must
@@ -590,16 +592,16 @@ services:
   jaeger:
     image: jaegertracing/all-in-one:1.53
     ports:
-      - "6831:6831/udp" # Jaeger thrift compact protocol
-      - "6832:6832/udp" # Jaeger thrift binary protocol
-      - "5778:5778" # Agent serve configs
-      - "16686:16686" # Jaeger UI
-      - "4317:4317" # OTLP gRPC receiver
-      - "4318:4318" # OTLP HTTP receiver
-      - "14250:14250" # Jaeger gRPC collector
-      - "14268:14268" # Jaeger HTTP collector
-      - "14269:14269" # Admin port (health check)
-      - "9411:9411" # Zipkin compatible endpoint
+      - "${DEV_BIND_ADDRESS:-127.0.0.1}:6831:6831/udp" # Jaeger thrift compact protocol
+      - "${DEV_BIND_ADDRESS:-127.0.0.1}:6832:6832/udp" # Jaeger thrift binary protocol
+      - "${DEV_BIND_ADDRESS:-127.0.0.1}:5778:5778" # Agent serve configs
+      - "${DEV_BIND_ADDRESS:-127.0.0.1}:16686:16686" # Jaeger UI
+      - "${DEV_BIND_ADDRESS:-127.0.0.1}:4317:4317" # OTLP gRPC receiver
+      - "${DEV_BIND_ADDRESS:-127.0.0.1}:4318:4318" # OTLP HTTP receiver
+      - "${DEV_BIND_ADDRESS:-127.0.0.1}:14250:14250" # Jaeger gRPC collector
+      - "${DEV_BIND_ADDRESS:-127.0.0.1}:14268:14268" # Jaeger HTTP collector
+      - "${DEV_BIND_ADDRESS:-127.0.0.1}:14269:14269" # Admin port (health check)
+      - "${DEV_BIND_ADDRESS:-127.0.0.1}:9411:9411" # Zipkin compatible endpoint
     environment:
       - COLLECTOR_OTLP_ENABLED=true
       - LOG_LEVEL=info
@@ -638,7 +640,7 @@ services:
       retries: 5
       start_period: 20s
     ports:
-      - "5555:5555"
+      - "${DEV_BIND_ADDRESS:-127.0.0.1}:5555:5555"
     environment:
       - DJANGO_SETTINGS_MODULE=${DJANGO_SETTINGS_MODULE:-api.settings}
       - SECRET_KEY=${SECRET_KEY:?SECRET_KEY must be set}
@@ -727,8 +729,8 @@ services:
     profiles:
       - mail
     ports:
-      - "1025:1025"
-      - "8025:8025"
+      - "${DEV_BIND_ADDRESS:-127.0.0.1}:1025:1025"
+      - "${DEV_BIND_ADDRESS:-127.0.0.1}:8025:8025"
     networks:
       - app-network
 

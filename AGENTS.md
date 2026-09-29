@@ -60,6 +60,8 @@ accept it. Do not delegate the top-level plan.
 - Ports: django 8000, mcp 8001, mailhog 8025, centrifugo 8800, flower 5555.
   The Docker stack publishes Postgres on 5433 and Valkey on 6380, offset from
   the local 5432/6379, so it can run beside local services.
+  Dev ports bind to `127.0.0.1` (`DEV_BIND_ADDRESS`); only the `prod` nginx
+  and the `single` app listen on all interfaces.
 
 ## 08 Patterns We Do Not Use
 
