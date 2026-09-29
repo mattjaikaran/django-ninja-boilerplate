@@ -14,6 +14,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`AGENTS.md`** — hand-maintained agent guidance with a "Patterns We Do Not Use" section.
 - **Uniform task contract**: `api.tasks.shared_task` now provides `.delay()` and `.retry()` across Celery, Huey, django-q2, django-rq, and the new Dramatiq backend. Each backend has a tested Compose worker profile.
 - **CLI-driven setup**: `just setup` runs the in-repo `dnm` CLI, asks for the task backend, updates `.env`, and then builds the selected stack.
+- **Refresh-token rotation**: `ROTATE_REFRESH_TOKENS` and `BLACKLIST_AFTER_ROTATION` are on. Access tokens last 60 minutes and refresh tokens 7 days. `POST /api/auth/logout` blacklists the refresh token. The `core.flush_expired_tokens` task (Celery beat) and the `flush_expired_tokens` command remove expired tokens. `NINJA_JWT_SIGNING_KEY` is separate from `SECRET_KEY`, and production requires it.
+- **Scoped rate limits**: Ninja Extra throttles by scope: `anon-auth` and `anon-email` for anonymous auth endpoints, `user` for the authenticated API, and `tasks` for task admin. A throttled request gets 429 with `Retry-After` and `retry_after`. `TRUSTED_PROXY_COUNT` (default 0) sets `NUM_PROXIES` for both Ninja and Ninja Extra.
+- **Unified health probes**: one controller owns `/api/health`. Liveness and readiness are public; readiness checks only the database and cache and returns 503 on failure. Detailed, component, system, and metrics probes require a staff JWT.
+- **Route access contract tests** (`tests/contract/`): every route is either on the public allowlist or requires auth, so a new public operation fails the suite.
+
+### Changed
+- **Breaking: list endpoints are paginated.** Every list endpoint returns the Ninja Extra `PageNumberPaginationExtra` envelope (`count`, `next`, `previous`, `results`) and declares `PaginatedResponseSchema[...]` in OpenAPI.
+- **Breaking: routes require auth.** `/auth/me`, `/auth/status`, `/auth/logout`, and `/tasks` require a JWT. `/users`, `/audit`, the task scheduler, and the DLQ require staff; `POST /users/superuser` requires a superuser. Signup, login, and passwordless login stay public.
+- **Exception handling is centralized.** Handlers registered on the shared API in `api/urls.py` map `BaseAPIException` to 400/401/403/404/409/429/502, Django `ValidationError` to 400, and any other exception to a JSON 500 without internal detail. Invalid login credentials return 400.
+- The task backend set now includes Dramatiq through the `dramatiq` optional extra and Compose profile.
+- `scripts/release.py`, `scripts/deploy.sh`, the `cli` monorepo generator, and `.env.deploy.example` follow the new Compose layout and `just` recipes.
+- Docs (`README.md`, `.context/PROJECT.md`, `.context/PROMPTS.md`, `scripts/quickstart.sh`): stale `Makefile` references now name `justfile`; the old runner stays at `Makefile.legacy`.
+- Docs now match the code where they disagreed: the README quick start, command list, and profile table; the deleted `docker-compose.yml (prod profile)` references in `docs/MIGRATION.md` and `docs/REALTIME.md`; the removed `django-csp` settings in `SECURITY_CHECKLIST.md`; the raw `ninja.Schema` examples in `.context/CONVENTIONS.md`, `.context/ANTI_PATTERNS.md`, `.context/PROJECT.md`, and `.context/SYSTEM_PROMPT.md` (the repo's own gate rejects raw `Schema`); the `uv sync --dev` instruction in `setup.md` and `README.md` (`dev` is an extra: `--extra dev`); and `ROADMAP.md`, whose banner still read v1.8.0.
+- `.env.example` documents the compose-only host ports and tuning knobs it omitted: `POSTGRES_PORT`, `VALKEY_PORT`, `PORT`, `GUNICORN_WORKERS`, `CELERY_CONCURRENCY`, `OTEL_SERVICE_NAME`, `USE_STRUCTURED_LOGGING`, and the `TEST_*` integration ports.
+- `docs/REALTIME.md` claimed Centrifugo expands environment variables in its config file. It does not; the guide now names the environment variables Centrifugo actually reads.
+- `ROADMAP.md` gains a status column: 1.9.0 to 1.11.0 were proposal labels and the items under them remain unshipped, and the Django 6.0 item is marked done.
+- The dev stack publishes Postgres on 5433 and Valkey on 6380 instead of 5432 and 6379 (`POSTGRES_PORT`, `VALKEY_PORT`). `doctor` warns that 5432 conflicts with a local Postgres, and the application only ever reaches these services over the compose network, so the host ports are free to be offset. `just test-integration` moves to 5434/6381 to stay clear of the dev stack. `doctor` now reads the configured ports instead of assuming the defaults.
+- `docs/TASK_BACKENDS.md` and `.env.example` used the `valkey://` scheme for the Celery broker and result backend, which kombu cannot use.
+- `scripts/check_conventions.py`: the `ROUTER_USAGE` rule no longer flags dotted third-party attributes.
+
+### Removed
+- The per-endpoint `@handle_exceptions` decorator. Use the centralized handlers.
+- The inactive `api/versioning.py` and the `API_VERSIONING_ENABLED` v1/v2 mounts.
+- The custom `rate_limit` decorator, `check_rate_limit`, and the `api.throttling` package. Use Ninja Extra throttles.
+- The duplicate `api/pagination` package, the `core.schemas` pagination helpers, and the unused `core/schemas/users.py` schemas.
+- The unused `python-jose` dependency.
+
 ### Fixed
 - `nginx/nginx.conf`: `gzip_proxied` had an invalid `must-revalidate` token, so nginx aborted with `[emerg] invalid value` and the production reverse proxy never started. The `centrifugo` upstream also pointed at the pre-rename service name; it now resolves per request, so nginx starts even when the `realtime-prod` profile is not enabled.
 - `docker-compose.yml` and `nginx/Dockerfile`: the `prod` nginx service published `443:443` and mounted `./nginx/certs`, but `nginx/nginx.conf` listens on port 80 only and that directory does not exist. TLS terminates at an external proxy (`USE_TLS` in `.env.deploy.example`), so the unused port mapping, the certs mount, and `EXPOSE 443` are gone.
@@ -68,24 +95,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `mcp` service: django-ai-boost bound to `127.0.0.1` inside the container, so the published port 8001 was unreachable. It now binds `0.0.0.0` inside the container, and Compose publishes it on host loopback only.
 - `api/settings/dev.py` forced the console email backend, so `just up-mail` never received mail. The backend now follows `EMAIL_BACKEND`; `.env.example` shows the Mailhog values, and `up-mail` and `up-mcp` start the configured worker too.
 - OpenTelemetry was never initialized: `init_tracing()` had no caller and the images lacked the packages, so Jaeger received nothing. `OTEL_ENABLED=true` now starts tracing in `CoreConfig.ready()` (and fails loud if the packages are missing), the images install the `observability` extra, and dev workers export to `jaeger:4317`.
-- `api/settings/dev.py`: runserver's autoreloader logged every watched file at DEBUG, including each torch module; it now logs at INFO.
+- `api/settings/dev.py`: runserver's autoreloader logged every watched file at DEBUG; it now logs at INFO.
 - `docker-compose.yml`: dev `db` and prod `db-prod` shared the `postgres_data` volume, so a local prod run opened the dev database and failed with `password authentication failed`, or migrated it. Dev now uses `postgres_dev_data` and `valkey_dev_data`; `db-prod` and `db-single` keep `postgres_data`, so servers keep their data. **Upgrade step for local dev:** the dev stack starts with an empty database. To keep it, copy the old volume first: `docker run --rm -v <project>_postgres_data:/from -v <project>_postgres_dev_data:/to alpine cp -a /from/. /to/`. `scripts/db_setup.sh` now removes only the dev volume.
+- `core/controllers/users_controller.py`: `/users/staff` and `/users/active` were declared after `/users/{user_id}`, which shadowed them. Static paths now come first.
+- `POST /users/superuser` now passes snake_case fields explicitly when it creates the user.
 
 ### Security
 - `/api/realtime/connection-token` and `/api/realtime/subscription-token` had no authentication. Anonymous callers got subscription tokens for any channel (`sub` claim `None`). The controller now requires JWT, a user may subscribe only to their own `notifications:<user id>` channel, and a test fails when any new operation is public without being on an explicit allowlist.
 - Upgraded dependencies to clear `pip-audit` advisories: Django 5.2.6 to 5.2.17, cryptography 46.0.1 to 50.0.1, pillow 11.3.0 to 12.3.0, urllib3 2.5.0 to 2.8.0, tornado 6.5.4 to 6.5.10, plus idna, anyio, click, orjson, and tablib; then pip 26.2.1, flask 3.1.3, werkzeug 3.1.9, python-engineio 4.14.0, python-socketio 5.17.0, and strawberry-graphql 0.327.7. Removed the unused `python-jose`, which pulled in `ecdsa` (an advisory with no fix). The only remaining advisory across all extras is `mcp`, pinned by `django-ai-boost`'s `fastmcp<4` requirement and used in the dev extra only.
-
-### Changed
-- The task backend set now includes Dramatiq through the `dramatiq` optional extra and Compose profile.
-- `scripts/release.py`, `scripts/deploy.sh`, the `cli` monorepo generator, and `.env.deploy.example` follow the new Compose layout and `just` recipes.
-- Docs (`README.md`, `.context/PROJECT.md`, `.context/PROMPTS.md`, `scripts/quickstart.sh`): stale `Makefile` references now name `justfile`; the old runner stays at `Makefile.legacy`.
-- Docs now match the code where they disagreed: the README quick start, command list, and profile table; the deleted `docker-compose.yml (prod profile)` references in `docs/MIGRATION.md` and `docs/REALTIME.md`; the removed `django-csp` settings in `SECURITY_CHECKLIST.md`; the raw `ninja.Schema` examples in `.context/CONVENTIONS.md`, `.context/ANTI_PATTERNS.md`, `.context/PROJECT.md`, and `.context/SYSTEM_PROMPT.md` (the repo's own gate rejects raw `Schema`); the `uv sync --dev` instruction in `setup.md` and `README.md` (`dev` is an extra: `--extra dev`); and `ROADMAP.md`, whose banner still read v1.8.0.
-- `.env.example` documents the compose-only host ports and tuning knobs it omitted: `POSTGRES_PORT`, `VALKEY_PORT`, `PORT`, `GUNICORN_WORKERS`, `CELERY_CONCURRENCY`, `OTEL_SERVICE_NAME`, `USE_STRUCTURED_LOGGING`, and the `TEST_*` integration ports.
-- `docs/REALTIME.md` claimed Centrifugo expands environment variables in its config file. It does not; the guide now names the environment variables Centrifugo actually reads.
-- `ROADMAP.md` gains a status column: 1.9.0 to 1.11.0 were proposal labels and the items under them remain unshipped, and the Django 6.0 item is marked done.
-- The dev stack publishes Postgres on 5433 and Valkey on 6380 instead of 5432 and 6379 (`POSTGRES_PORT`, `VALKEY_PORT`). `doctor` warns that 5432 conflicts with a local Postgres, and the application only ever reaches these services over the compose network, so the host ports are free to be offset. `just test-integration` moves to 5434/6381 to stay clear of the dev stack. `doctor` now reads the configured ports instead of assuming the defaults.
-- `docs/TASK_BACKENDS.md` and `.env.example` used the `valkey://` scheme for the Celery broker and result backend, which kombu cannot use.
-- `scripts/check_conventions.py`: the `ROUTER_USAGE` rule no longer flags dotted third-party attributes.
 
 ## [1.11.0] - 2026-08-15
 

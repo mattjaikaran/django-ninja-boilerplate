@@ -19,7 +19,7 @@ docker compose --profile dev run --rm django python manage.py createsuperuser --
 
 echo "🎉 Setup complete! Your Django Ninja Boilerplate is ready with:"
 echo "   ✓ PostgreSQL 17"
-echo "   ✓ Professional decorators (@handle_exceptions, @log_api_call, etc.)"
+echo "   ✓ Centralized exception handling and @log_api_call logging"
 echo "   ✓ Advanced search & filtering"
 echo "   ✓ Pagination support"
 echo "   ✓ Query optimizations"

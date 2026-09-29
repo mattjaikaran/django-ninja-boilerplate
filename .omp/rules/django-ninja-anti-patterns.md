@@ -148,26 +148,27 @@ class OrderController:
         self.service = OrderService()
 
     @http_post("/", response={201: OrderSchema, 400: dict})
-    @handle_exceptions()
     @log_api_call(include_payload=True)
     def create_order(self, request, payload: CreateOrderSchema):
         order = self.service.create_order(request.user, payload.model_dump())
         return 201, order
 ```
 
-## 7. Missing `@handle_exceptions()` — ERROR
+## 7. Importing `handle_exceptions`: ERROR
 
-WRONG:
+WRONG: the decorator does not exist.
 ```python
+from api.decorators import handle_exceptions
+
 @http_get("/{item_id}", response={200: ItemSchema})
+@handle_exceptions()
 def get_item(self, request, item_id: str):
     return 200, get_object_or_404(Item, id=item_id)
 ```
 
-CORRECT:
+CORRECT: the handlers in `api/urls.py` map exceptions to responses.
 ```python
 @http_get("/{item_id}", response={200: ItemSchema, 404: dict})
-@handle_exceptions()
 @log_api_call()
 def get_item(self, request, item_id: str):
     item = get_object_or_404(Item, id=item_id, user=request.user)
@@ -178,7 +179,7 @@ def get_item(self, request, item_id: str):
 
 WRONG:
 ```python
-@handle_exceptions()       # WRONG: must be after @http_get
+@log_api_call()            # WRONG: must be after @http_get
 @http_get("/")
 def list_items(self, request):
     ...
@@ -187,8 +188,8 @@ def list_items(self, request):
 CORRECT — HTTP method decorator is always first (outermost):
 ```python
 @http_get("/")             # 1st: HTTP method
-@handle_exceptions()       # 2nd: error handling
-@log_api_call()            # 3rd: logging
+@log_api_call()            # 2nd: logging
+@paginate(PageNumberPaginationExtra)  # 3rd: list endpoints only
 def list_items(self, request):
     ...
 ```

@@ -8,7 +8,7 @@ Example app demonstrating **4 API controller patterns** that progress from maxim
 |---|---------|------|-------------|-------------|
 | 1 | Declarative | `controllers/todo_controller_declarative.py` | `/api/todos-declarative/` | Explicit `try/except` in every method. No decorator magic. Maximum visibility. |
 | 2 | Basic | `controllers/todo_controller_basic.py` | `/api/todos-basic/` | No custom decorators. Uses `get_object_or_404`. Cleanest starting point. |
-| 3 | Partial | `controllers/todo_controller_partial.py` | `/api/todos-partial/` | Reads are plain; writes use `@handle_exceptions` + `@log_api_call`. |
+| 3 | Partial | `controllers/todo_controller_partial.py` | `/api/todos-partial/` | Reads are plain; writes use `@log_api_call`. |
 | 4 | Full (service layer) | `controllers/todo_controller.py` | `/api/todos/` | Full decorator stack + `TodoService` injected via `__init__`. Recommended for production. |
 
 ## App Structure
@@ -85,7 +85,7 @@ Best for: Small projects. Developers who prefer no abstraction on top of the fra
 
 ### Pattern 3 — Partial (selective decorators)
 
-Read endpoints are undecorated. Write endpoints use `@handle_exceptions` and `@log_api_call` where it matters most.
+Read endpoints are undecorated. Write endpoints use `@log_api_call` where it matters most. Errors reach the shared exception handlers in `api/urls.py`.
 
 ```python
 # Read — no custom decorators
@@ -96,7 +96,6 @@ def get_todo(self, request, todo_id: str):
 # Write — decorated for observability and structured error responses
 @http_post("/", response={201: TodoSchema, 400: dict, 500: dict})
 @log_api_call(include_payload=True, include_response=False)
-@handle_exceptions(return_500_on_error=True, log_errors=True)
 def create_todo(self, request, payload: CreateTodoSchema):
     todo_data = payload.model_dump()
     todo_data["user"] = request.user
@@ -117,13 +116,11 @@ class TodoController:
 
     @http_post("/", response={201: TodoSchema, 400: dict, 500: dict})
     @log_api_call(include_payload=True, include_response=False)
-    @handle_exceptions(return_500_on_error=True, log_errors=True)
     @validate_request()
     def create_todo(self, request, payload: CreateTodoSchema):
         return 201, self.service.create_todo(payload, request.user)
 
     @http_get("/{todo_id}", response={200: TodoSchema, 404: dict, 500: dict})
-    @handle_exceptions()
     @log_api_call()
     def get_todo(self, request, todo_id: str):
         return 200, self.service.get_todo(todo_id, request.user)
@@ -148,7 +145,7 @@ class TodoService:
 ```
 
 Key design decisions:
-- Methods raise `Http404` (not `Todo.DoesNotExist`) so the `@handle_exceptions` decorator maps them to a 404 response automatically.
+- Methods raise `Http404` (not `Todo.DoesNotExist`) so the framework returns a 404 response automatically.
 - The service has no knowledge of HTTP — it takes Python types as arguments and returns Django model instances or QuerySets.
 - `TodoService` is instantiated once per controller instance (`self.service = TodoService()`) and reused across requests.
 

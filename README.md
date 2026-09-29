@@ -37,7 +37,7 @@ The `todos` app ships **four controller variants** so you can compare approaches
 | --- | ------------------------ | ------------------------- | -------------------------------- | --------------------------------------------------------------------------------------------- |
 | 1   | **Declarative**          | `/api/todos-declarative/` | `todo_controller_declarative.py` | Learning the framework; teams that want every error path explicit with no decorator magic     |
 | 2   | **Basic**                | `/api/todos-basic/`       | `todo_controller_basic.py`       | Small projects; minimal abstraction with `get_object_or_404`                                  |
-| 3   | **Partial**              | `/api/todos-partial/`     | `todo_controller_partial.py`     | Mix-and-match: reads are plain, writes use `handle_exceptions` + `log_api_call`               |
+| 3   | **Partial**              | `/api/todos-partial/`     | `todo_controller_partial.py`     | Mix-and-match: reads are plain, writes use `log_api_call`               |
 | 4   | **Full (service layer)** | `/api/todos/`             | `todo_controller.py`             | **Recommended for production.** Controller is a thin HTTP adapter; all logic in `TodoService` |
 
 ```python
@@ -62,7 +62,6 @@ def create_todo(self, request, payload: CreateTodoSchema):
 # Pattern 3 — Partial: decorators on writes only
 @http_post("/", response={201: TodoSchema, 400: dict, 500: dict})
 @log_api_call(include_payload=True, include_response=False)
-@handle_exceptions(return_500_on_error=True, log_errors=True)
 def create_todo(self, request, payload: CreateTodoSchema):
     todo_data = payload.model_dump()
     todo_data["user"] = request.user
@@ -75,7 +74,6 @@ class TodoController:
 
     @http_post("/", response={201: TodoSchema, 400: dict, 500: dict})
     @log_api_call(include_payload=True, include_response=False)
-    @handle_exceptions(return_500_on_error=True, log_errors=True)
     @validate_request()
     def create_todo(self, request, payload: CreateTodoSchema):
         return 201, self.service.create_todo(payload, request.user)
@@ -458,17 +456,26 @@ class MyModelService(CRUDService[MyModel]):
 API endpoints use class-based controllers:
 
 ```python
-from ninja_extra import api_controller, http_get, http_post
-from api.decorators import handle_exceptions, log_api_call
+from ninja_extra import api_controller, http_get
+from ninja_extra.pagination import PageNumberPaginationExtra, paginate
+from ninja_extra.schemas import PaginatedResponseSchema
+from ninja_jwt.authentication import JWTAuth
 
-@api_controller("/items", tags=["Items"])
+from api.decorators import log_api_call
+
+@api_controller("/items", tags=["Items"], auth=JWTAuth())
 class ItemController:
-    @http_get("/", response=list[ItemSchema])
-    @handle_exceptions()
+    @http_get("/", response={200: PaginatedResponseSchema[ItemSchema]})
     @log_api_call()
+    @paginate(PageNumberPaginationExtra)
     def list_items(self, request):
         return Item.objects.filter(user=request.user)
 ```
+
+Put `@http_*` first, then `@log_api_call()`, then `@paginate(...)`. Do not
+catch errors in the controller: raise an `api.exceptions` error or use
+`get_object_or_404`, and the handlers registered in `api/urls.py` map it to
+the right status.
 
 ## Authentication
 

@@ -79,7 +79,8 @@ class ItemController:
 
 The `@http_*` decorator is outermost. Register exception handlers on the
 shared API instance in `api/urls.py`, not on each operation. This repository
-does not define `@handle_exceptions()` or `@validate_request()`.
+does not define `@handle_exceptions()`. `@validate_request()` exists in
+`api/decorators.py`; put it after `@log_api_call()`.
 
 Controllers are HTTP adapters. They validate, call a service, and return. Put
 business logic in the service.
