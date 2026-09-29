@@ -53,17 +53,17 @@ locust -f tests/load/locustfile.py \
     -t 5m
 ```
 
-### Using Makefile
+### Using just
 
 ```bash
 # Run load tests (interactive)
-make test-load
+just legacy test-load
 
 # Run quick load test
-make test-load-quick
+just legacy test-load-quick
 
 # Run stress test (200 users, 10 minutes)
-make test-load-stress
+just legacy test-load-stress
 ```
 
 ## Test Scenarios

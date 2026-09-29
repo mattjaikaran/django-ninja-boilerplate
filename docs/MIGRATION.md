@@ -36,7 +36,7 @@ Valkey is a wire-compatible fork of Redis under the BSD license. The migration i
 
 ### 2a. Docker Compose
 
-The `redis` service is renamed to `valkey` in `docker-compose.yml` and `docker-compose.prod.yml`. If you have custom Docker Compose overrides:
+The `redis` service is renamed to `valkey` in `docker-compose.yml`; the production cache service is `valkey-prod`. The `single` profile keeps a real `redis` service. If you have custom Docker Compose overrides:
 
 ```yaml
 # Before
@@ -56,7 +56,7 @@ If you need to preserve existing Redis data:
 
 ```bash
 # Stop services
-make down
+just down
 
 # Rename the volume (if using named volumes)
 docker volume create valkey_data
@@ -66,14 +66,14 @@ docker run --rm \
   alpine sh -c "cp -a /source/. /dest/"
 
 # Start with new config
-make up
+just up
 ```
 
 Or simply flush and start fresh (recommended for dev):
 
 ```bash
-make down-volumes
-make up
+just down-volumes
+just up
 ```
 
 ### 2c. Environment Variables
@@ -138,7 +138,7 @@ api = NinjaExtraAPI(
 A new `APIKey` model is added. Run migrations:
 
 ```bash
-make migrate
+just migrate
 # or
 python manage.py migrate
 ```
@@ -175,8 +175,8 @@ To try an alternative backend, see `docs/TASK_BACKENDS.md`.
 ty is added alongside mypy as an optional Rust-based type checker:
 
 ```bash
-make ty          # Docker
-make local-ty    # Local
+just ty          # Docker
+just legacy local-ty    # Local
 ```
 
 No changes to existing mypy configuration.
@@ -194,7 +194,9 @@ All new env vars have backward-compatible defaults — existing deploys won't br
 | `API_KEY_HEADER` | `X-API-Key` | Header name for API keys |
 | `API_KEY_PREFIX` | `bnp` | Project prefix for generated keys |
 
-## New Makefile Targets
+## New task-runner targets
+
+These targets live in `Makefile.legacy`. Run them with `just legacy <target>`:
 
 | Target | Description |
 |--------|-------------|
@@ -216,4 +218,4 @@ All new env vars have backward-compatible defaults — existing deploys won't br
 - **Redis clients/URLs**: `redis://` URLs still work with Valkey (wire-compatible protocol)
 - **REDIS_URL env var**: Still read as a fallback for `VALKEY_URL`
 - **Docker volumes**: Named volumes changed from `redis_data` to `valkey_data`
-- **Makefile**: `redis-*` targets kept as aliases for `valkey-*` targets
+- **Makefile.legacy**: `redis-*` targets kept as aliases for `valkey-*` targets

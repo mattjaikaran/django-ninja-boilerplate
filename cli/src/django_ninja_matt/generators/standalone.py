@@ -90,24 +90,24 @@ class StandaloneGenerator(BaseGenerator):
 
 ```bash
 # Bootstrap the development environment
-make setup
+just setup
 
 # Or step by step:
-make doctor    # Validate environment
-make build     # Build Docker images
-make up        # Start services
-make migrate   # Run migrations
+just doctor    # Validate environment
+just build     # Build Docker images
+just up        # Start services
+just migrate   # Run migrations
 ```
 
 ## Available Commands
 
 ```bash
-make help      # Show all commands
-make up        # Start services
-make down      # Stop services
-make logs      # View logs
-make test      # Run tests
-make doctor    # Check environment
+just help      # Show all commands
+just up        # Start services
+just down      # Stop services
+just logs      # View logs
+just test      # Run tests
+just doctor    # Check environment
 ```
 
 ## API Documentation
@@ -126,7 +126,7 @@ make doctor    # Check environment
 ├── docker/           # Docker configurations
 ├── scripts/          # Setup and utility scripts
 ├── docker-compose.yml
-├── Makefile
+├── justfile                    # task runner (Makefile.legacy is kept too)
 └── pyproject.toml
 ```
 

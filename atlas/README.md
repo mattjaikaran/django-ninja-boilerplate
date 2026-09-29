@@ -25,8 +25,8 @@ Open it at **Admin → Monitoring → Codebase Atlas** (`/admin/atlas/`).
 ## Usage
 
 ```bash
-make atlas            # regenerate the data file (Docker)
-make local-atlas      # regenerate locally (no Docker)
+just legacy atlas            # regenerate the data file (Docker)
+just legacy local-atlas      # regenerate locally (no Docker)
 python manage.py atlas --output /tmp/atlas.json   # custom path
 python manage.py atlas --no-samples               # skip audit mining
 ```

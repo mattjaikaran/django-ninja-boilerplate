@@ -57,7 +57,8 @@ class TestConnectionToken(TestCase):
         assert decoded["exp"] == expire_at
 
     def test_user_id_coerced_to_string(self):
-        token = generate_connection_token(user_id=42)
+        # An int on purpose: callers pass ``user.id`` values of any type.
+        token = generate_connection_token(user_id=42)  # type: ignore[arg-type]
         decoded = jwt.decode(token, "test-secret-key", algorithms=["HS256"])
 
         assert decoded["sub"] == "42"
@@ -92,7 +93,7 @@ class TestCentrifugoClient(TestCase):
     """Test CentrifugoClient HTTP wrapper."""
 
     def setUp(self):
-        self.client = CentrifugoClient(
+        self.centrifugo = CentrifugoClient(
             url="http://centrifugo:8000",
             api_key="test-api-key",
         )
@@ -104,7 +105,7 @@ class TestCentrifugoClient(TestCase):
         mock_response.raise_for_status = MagicMock()
         mock_post.return_value = mock_response
 
-        result = self.client.publish("chat:123", {"text": "hello"})
+        result = self.centrifugo.publish("chat:123", {"text": "hello"})
 
         mock_post.assert_called_once_with(
             "http://centrifugo:8000/api",
@@ -129,7 +130,7 @@ class TestCentrifugoClient(TestCase):
 
         channels = ["notifications:u1", "notifications:u2"]
         data = {"type": "alert", "message": "hi"}
-        self.client.broadcast(channels, data)
+        self.centrifugo.broadcast(channels, data)
 
         call_args = mock_post.call_args
         payload = call_args.kwargs["json"]
@@ -144,7 +145,7 @@ class TestCentrifugoClient(TestCase):
         mock_response.raise_for_status = MagicMock()
         mock_post.return_value = mock_response
 
-        self.client.subscribe("user-1", "chat:conv-1")
+        self.centrifugo.subscribe("user-1", "chat:conv-1")
 
         payload = mock_post.call_args.kwargs["json"]
         assert payload["method"] == "subscribe"
@@ -157,7 +158,7 @@ class TestCentrifugoClient(TestCase):
         mock_response.raise_for_status = MagicMock()
         mock_post.return_value = mock_response
 
-        self.client.unsubscribe("user-1", "chat:conv-1")
+        self.centrifugo.unsubscribe("user-1", "chat:conv-1")
 
         payload = mock_post.call_args.kwargs["json"]
         assert payload["method"] == "unsubscribe"
@@ -169,7 +170,7 @@ class TestCentrifugoClient(TestCase):
         mock_response.raise_for_status = MagicMock()
         mock_post.return_value = mock_response
 
-        self.client.disconnect("user-1")
+        self.centrifugo.disconnect("user-1")
 
         payload = mock_post.call_args.kwargs["json"]
         assert payload["method"] == "disconnect"
@@ -182,7 +183,7 @@ class TestCentrifugoClient(TestCase):
         mock_response.raise_for_status = MagicMock()
         mock_post.return_value = mock_response
 
-        result = self.client.presence("chat:123")
+        result = self.centrifugo.presence("chat:123")
 
         payload = mock_post.call_args.kwargs["json"]
         assert payload["method"] == "presence"
@@ -195,7 +196,7 @@ class TestCentrifugoClient(TestCase):
         mock_response.raise_for_status = MagicMock()
         mock_post.return_value = mock_response
 
-        result = self.client.history("chat:123", limit=10)
+        result = self.centrifugo.history("chat:123", limit=10)
 
         payload = mock_post.call_args.kwargs["json"]
         assert payload["method"] == "history"
@@ -208,4 +209,18 @@ class TestCentrifugoClient(TestCase):
         mock_post.side_effect = httpx.HTTPError("Connection refused")
 
         with pytest.raises(httpx.HTTPError):
-            self.client.publish("chat:123", {"text": "hello"})
+            self.centrifugo.publish("chat:123", {"text": "hello"})
+
+    @patch("api.centrifugo.httpx.post")
+    def test_error_payload_raises(self, mock_post):
+        from api.exceptions import ExternalServiceError
+
+        mock_response = MagicMock()
+        mock_response.json.return_value = {
+            "error": {"code": 102, "message": "unknown channel"}
+        }
+        mock_response.raise_for_status = MagicMock()
+        mock_post.return_value = mock_response
+
+        with pytest.raises(ExternalServiceError, match="unknown channel"):
+            self.centrifugo.publish("nope:123", {"text": "hello"})

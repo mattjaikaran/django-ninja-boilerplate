@@ -108,7 +108,7 @@ Staff engineer-level VSCode configuration optimized for Django development with 
 ## Integration Points
 
 - **pyproject.toml**: Ruff settings are centralized here
-- **Makefile**: Tasks complement make commands
+- **justfile**: Tasks complement just recipes (run `just` to list them)
 - **Docker**: Debugging works with containerized setup
 - **pytest**: Full test integration and debugging
 - **Environment**: Seamless .env and virtual environment handling

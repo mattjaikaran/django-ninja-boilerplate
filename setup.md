@@ -10,10 +10,10 @@ Use the automated setup script for the fastest start:
 ./scripts/setup.sh
 ```
 
-Or use make commands:
+Or use the just recipes:
 
 ```bash
-make setup
+just setup
 ```
 
 ## Manual Setup Process
@@ -43,7 +43,7 @@ Using uv (recommended):
 curl -LsSf https://astral.sh/uv/install.sh | sh
 
 # Install dependencies
-uv sync --dev
+uv sync --extra dev
 ```
 
 Using traditional Python virtual environment:
@@ -59,7 +59,7 @@ source env/bin/activate
 # env\Scripts\activate
 
 # Install dependencies with uv
-uv sync --dev
+uv sync --extra dev
 ```
 
 ### 4. Database Setup
@@ -80,10 +80,10 @@ uv run python manage.py create_superuser
 
 ```bash
 # Using Docker (recommended)
-make up
+just up
 
 # Or locally
-make local-run
+just legacy local-run
 ```
 
 ## Creating New Apps
@@ -91,7 +91,7 @@ make local-run
 Use the extended startapp command that includes Django Ninja structure:
 
 ```bash
-make startapp APP=myapp
+just legacy startapp APP=myapp
 ```
 
 This creates an app with the proper folder structure including:
@@ -106,15 +106,15 @@ This creates an app with the proper folder structure including:
 See all available commands:
 
 ```bash
-make help
+just help
 ```
 
 Common commands:
 
-- `make up` - Start development environment
-- `make down` - Stop development environment
-- `make test` - Run tests
-- `make lint` - Check code quality
-- `make format` - Format code
-- `make migrate` - Run database migrations
-- `make shell` - Open Django shell
+- `just up` - Start development environment
+- `just down` - Stop development environment
+- `just test` - Run tests
+- `just lint` - Check code quality
+- `just format` - Format code
+- `just migrate` - Run database migrations
+- `just shell` - Open Django shell

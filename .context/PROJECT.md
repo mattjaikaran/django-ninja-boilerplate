@@ -31,13 +31,11 @@ django-ninja-boilerplate/
 │   ├── settings/                 # Split settings (common.py, dev.py, prod.py)
 │   ├── celery.py                 # Celery configuration
 │   ├── centrifugo.py             # Centrifugo JWT tokens + HTTP client
-│   ├── decorators.py             # API decorators (@handle_exceptions, @log_api_call)
+│   ├── decorators.py             # API decorators (@log_api_call, @require_authentication)
 │   ├── exceptions.py             # Custom exception classes
 │   ├── healthcheck.py            # Health check controller
 │   ├── middleware.py             # Custom middleware
-│   ├── pagination/               # Pagination utilities (offset, cursor)
 │   ├── permissions.py            # Permission classes
-│   ├── throttling/               # Rate limiting utilities
 │   ├── urls.py                   # URL configuration and controller registration
 │   └── utils/                    # HTTP utilities, validation helpers
 │
@@ -84,9 +82,8 @@ django-ninja-boilerplate/
 │   └── paas/                     # Railway, Render configs
 │
 ├── conftest.py                   # Global pytest fixtures
-├── docker-compose.yml            # Development Docker setup
-├── docker-compose.prod.yml       # Production Docker setup
-├── Makefile                      # Development commands
+├── docker-compose.yml            # One file, 12 profiles (dev, prod, single, …)
+├── justfile                      # Task runner (the old Makefile is Makefile.legacy)
 └── pyproject.toml                # Project configuration
 ```
 
@@ -98,19 +95,18 @@ Controllers use Django Ninja Extra's `@api_controller` decorator with class-base
 
 ```python
 from ninja_extra import api_controller, http_get, http_post, http_put, http_delete
-from api.decorators import handle_exceptions, log_api_call
+from ninja_jwt.authentication import JWTAuth
+from api.decorators import log_api_call
 
-@api_controller("/items", tags=["Items"])
+@api_controller("/items", tags=["Items"], auth=JWTAuth())
 class ItemController:
     @http_get("/", response={200: list[ItemSchema]})
-    @handle_exceptions()
     @log_api_call()
     def list_items(self, request):
         """List all items for the authenticated user."""
         return 200, Item.objects.filter(user=request.user)
 
     @http_post("/", response={201: ItemSchema, 400: dict})
-    @handle_exceptions()
     @log_api_call(include_payload=True)
     def create_item(self, request, payload: CreateItemSchema):
         """Create a new item."""
@@ -150,28 +146,25 @@ class MyModel(SoftDeleteModel):
 Request and response validation using Pydantic schemas:
 
 ```python
-from ninja import Schema
+from core.schemas.base_schema import CamelCaseSchema
 from pydantic import Field, EmailStr, field_validator
 from datetime import datetime
 
-# Response schema
-class ItemSchema(Schema):
+# Response schema — inherits camelCase aliases and from_attributes
+class ItemSchema(CamelCaseSchema):
     id: str
     name: str
     description: str | None = None
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        from_attributes = True  # Enable ORM mode
-
 # Create schema
-class CreateItemSchema(Schema):
+class CreateItemSchema(CamelCaseSchema):
     name: str = Field(..., min_length=1, max_length=255)
     description: str | None = None
 
 # Update schema (all fields optional)
-class UpdateItemSchema(Schema):
+class UpdateItemSchema(CamelCaseSchema):
     name: str | None = None
     description: str | None = None
 ```
@@ -199,15 +192,15 @@ class MyModelService(CRUDService[MyModel]):
 
 ### 5. Decorators
 
-Use provided decorators for consistent error handling:
+Exception handling is centralized. Register the handlers once on the shared
+`NinjaExtraAPI` in `api/urls.py`; do NOT use a per-endpoint decorator.
+`@log_api_call` is the primary endpoint decorator:
 
 ```python
-from api.decorators import handle_exceptions, log_api_call, validate_request
+from api.decorators import log_api_call
 
 @http_post("/")
-@handle_exceptions(return_500_on_error=True, log_errors=True)
 @log_api_call(include_payload=True, include_response=False)
-@validate_request()  # Optional custom validators
 def create_item(self, request, payload: CreateItemSchema):
     ...
 ```
@@ -218,20 +211,20 @@ def create_item(self, request, payload: CreateItemSchema):
 
 ```bash
 # With Docker (recommended)
-make up                  # Start db, redis, django
-make up-celery          # Start with Celery workers
-make up-realtime        # Start with Centrifugo
-make up-full            # Start all services
+just up                  # Start db, valkey, django, mcp, mailhog
+just up-celery          # Start with Celery workers
+just up-realtime        # Start with Centrifugo
+just up-full            # Start all services
 
 # Without Docker
-make local-run          # Run Django locally
+just legacy local-run          # Run Django locally
 ```
 
 ### Running Tests
 
 ```bash
-make test               # Run all tests
-make test-coverage      # Run with coverage report
+just test               # Run all tests
+just test-coverage      # Run with coverage report
 uv run pytest -k "test_auth"  # Run specific tests
 uv run pytest -v        # Verbose output
 ```
@@ -239,28 +232,28 @@ uv run pytest -v        # Verbose output
 ### Creating Migrations
 
 ```bash
-make makemigrations     # Create new migrations
-make migrate            # Apply migrations
+just makemigrations     # Create new migrations
+just migrate            # Apply migrations
 ```
 
 ### Adding a New App
 
 ```bash
-make startapp APP=myapp  # Create new app with proper structure
+just legacy startapp APP=myapp  # Create new app with proper structure
 ```
 
 ### Generating Features
 
 ```bash
-make generate-feature FEATURE=payments PROVIDER=stripe
-make generate-feature FEATURE=rbac PLATFORM=b2b
+just legacy generate-feature FEATURE=payments PROVIDER=stripe
+just legacy generate-feature FEATURE=rbac PLATFORM=b2b
 ```
 
 ### Linting and Formatting
 
 ```bash
-make lint               # Run ruff linter
-make format             # Format code with ruff
+just lint               # Run ruff linter
+just format             # Format code with ruff
 ```
 
 ## Testing Patterns
@@ -324,14 +317,14 @@ class MyModelFactory(factory.django.DjangoModelFactory):
 ### 1. Docker Compose (Development)
 
 ```bash
-make up                 # Development
-make prod-up           # Production with Nginx
+just up                 # Development
+just prod-up           # Production with Nginx
 ```
 
 ### 2. PaaS (Railway, Render, Fly.io)
 
 ```bash
-make single-build       # Build single container
+just single-build       # Build single container
 railway up              # Deploy to Railway
 ```
 
@@ -357,7 +350,7 @@ helm install my-api ./deploy/kubernetes/helm/django-ninja-stack
 | Base models | `core/models/base.py` |
 | Test example | `todos/tests/test_todo.py` |
 | Factory example | `core/tests/factories/user_factory.py` |
-| Celery tasks | `core/tasks.py` |
+| Background tasks | `core/tasks/jobs.py` |
 | Centrifugo client | `api/centrifugo.py` |
 | Centrifugo tokens | `core/controllers/centrifugo_controller.py` |
 | API decorators | `api/decorators.py` |

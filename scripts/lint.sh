@@ -30,9 +30,9 @@ print_error() {
 # Function to run linting checks
 run_checks() {
     local exit_code=0
-    
+
     print_info "Running code quality checks..."
-    
+
     # Run Ruff linting
     print_info "Running Ruff linting..."
     if uv run ruff check .; then
@@ -41,17 +41,17 @@ run_checks() {
         print_error "Ruff linting failed!"
         exit_code=1
     fi
-    
+
     # Check code formatting
     print_info "Checking code formatting..."
     if uv run ruff format --check .; then
         print_success "Code formatting is correct!"
     else
         print_error "Code formatting issues found!"
-        print_info "Run 'make format' to fix formatting issues"
+        print_info "Run 'just format' to fix formatting issues"
         exit_code=1
     fi
-    
+
     # Run type checking if mypy is available
     if command -v mypy >/dev/null 2>&1; then
         print_info "Running type checking..."
@@ -64,22 +64,22 @@ run_checks() {
     else
         print_warning "MyPy not available, skipping type checking"
     fi
-    
+
     return $exit_code
 }
 
 # Function to fix auto-fixable issues
 fix_issues() {
     print_info "Fixing auto-fixable issues..."
-    
+
     # Fix linting issues
     print_info "Fixing linting issues..."
     uv run ruff check --fix .
-    
+
     # Format code
     print_info "Formatting code..."
     uv run ruff format .
-    
+
     print_success "Auto-fix complete!"
 }
 
@@ -100,7 +100,7 @@ show_usage() {
 # Main execution
 main() {
     local command="${1:-check}"
-    
+
     case $command in
         check)
             run_checks

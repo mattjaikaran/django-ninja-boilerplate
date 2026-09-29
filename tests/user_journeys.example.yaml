@@ -1,7 +1,7 @@
 # User Journeys for E2E Testing
 #
 # This file defines user journeys that will be used to generate E2E test stubs.
-# Run `make generate-e2e` or `python scripts/generate_e2e_tests.py` to generate tests.
+# Run `just legacy generate-e2e` or `python scripts/generate_e2e_tests.py` to generate tests.
 #
 # Each journey represents a complete user flow through the application.
 # The generated tests are stubs that need to be filled in with actual test logic.

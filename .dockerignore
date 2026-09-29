@@ -223,7 +223,10 @@ credentials/
 # ===========================================
 # Misc
 # ===========================================
+# Task runners are not needed inside the image.
 Makefile
+Makefile.legacy
+justfile
 *.make
 Vagrantfile
 .vagrant/

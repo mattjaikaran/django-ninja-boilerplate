@@ -1,146 +1,135 @@
-# Task Queue Backends
+# Task queue backends
 
-This boilerplate supports multiple task queue backends via the `TASK_BACKEND` environment variable. Celery is the default and most full-featured option, but lighter alternatives are available for projects that don't need Celery's complexity.
+The project supports five task backends through one `api.tasks` contract. Set
+`TASK_BACKEND` in `.env`, then run `just dev`. The selected profile starts with
+Django, Postgres, and Valkey.
 
-## Quick Comparison
+## Backend comparison
 
-| Feature | Celery | Huey | django-q2 | django-rq |
-|---------|--------|------|-----------|-----------|
-| **Complexity** | High | Low | Medium | Low |
-| **Broker** | Redis, RabbitMQ, SQS | Redis, SQLite, in-memory | Redis, SQS, MongoDB, ORM | Redis only |
-| **Scheduling** | django-celery-beat (DB) | Built-in cron | Built-in | rq-scheduler (separate) |
-| **Admin UI** | Flower (separate) | Django admin | Django admin (built-in) | Built-in dashboard |
-| **Concurrency** | Prefork, eventlet, gevent | Threading, greenlet | Multiprocessing | Threading |
-| **Task chains** | Yes (chord, group, chain) | Pipeline | Chain, group | No |
-| **Best for** | Production at scale | Small-medium projects | Django-native monitoring | Simple Redis queues |
+| Backend | Extra | Worker service | Delayed retry |
+|---|---|---|---|
+| Celery | Base dependency | `celery-worker` and `celery-beat` | Native Celery retry |
+| Huey | `huey` | `huey-worker` | Huey scheduling |
+| django-q2 | `django-q` | `django-q-worker` | One-time schedule |
+| django-rq | `django-rq` | `django-rq-worker` | RQ `enqueue_in` |
+| Dramatiq | `dramatiq` | `dramatiq-worker` | Dramatiq message delay |
 
-## Configuration
+Docker images install every extra. For host development, install only the
+backend you use:
 
-### Celery (Default)
+```bash
+uv sync --extra huey
+uv sync --extra django-q
+uv sync --extra django-rq
+uv sync --extra dramatiq
+```
 
-No changes needed — Celery is configured out of the box.
+The loader raises `ImproperlyConfigured` when the selected backend package is
+missing. It never falls back to another backend.
+
+## Configure the stack
+
+Run the interactive setup command:
+
+```bash
+just setup
+```
+
+The in-repo `dnm` CLI asks for a backend and writes `TASK_BACKEND` to `.env`.
+If you skip the prompt or use `--auto`, it selects Celery.
+
+You can also set the value directly:
 
 ```env
-TASK_BACKEND=celery
-CELERY_BROKER_URL=valkey://valkey:6379/0
-CELERY_RESULT_BACKEND=valkey://valkey:6379/0
+TASK_BACKEND=dramatiq
 ```
+
+Then start the configured stack:
 
 ```bash
-# Docker
-make up-celery
-
-# Local
-make celery-worker
-make celery-beat
-make celery-flower
+just dev
 ```
 
-### Huey
+`just backend-profile` maps `django_q` to the `django-q` Compose profile and
+`django_rq` to `django-rq`. Mailhog and MCP remain separate opt-in profiles.
 
-Lightweight task queue with automatic synchronous mode in development (`DEBUG=True`).
+## Define and dispatch tasks
 
-```bash
-# Install
-uv add huey
-
-# Configure
-TASK_BACKEND=huey
-```
-
-```bash
-# Docker
-make up-huey
-
-# Local
-make worker-huey
-```
-
-**Settings auto-configured when `TASK_BACKEND=huey`:**
-
-```python
-HUEY = {
-    "huey_class": "huey.RedisHuey",
-    "name": "boilerplate",
-    "url": REDIS_URL,
-    "immediate": DEBUG,  # sync in dev, async in prod
-    "consumer": {"workers": 4, "worker_type": "thread"},
-}
-```
-
-### django-q2
-
-Multiprocessing task queue with built-in Django admin monitoring.
-
-```bash
-# Install
-uv add django-q2
-
-# Configure
-TASK_BACKEND=django_q
-```
-
-```bash
-# Docker
-make up-django-q
-
-# Local
-make worker-q
-```
-
-### django-rq
-
-Simplest Redis-backed queue with a built-in web dashboard.
-
-```bash
-# Install
-uv add django-rq rq
-
-# Configure
-TASK_BACKEND=django_rq
-```
-
-```bash
-# Docker
-make up-django-rq
-
-# Local
-make worker-rq
-```
-
-To enable the built-in dashboard, add to `api/urls.py`:
-
-```python
-urlpatterns += [path("django-rq/", include("django_rq.urls"))]
-```
-
-## Using the Abstraction Layer
-
-For backend-agnostic tasks, use the `shared_task` decorator from `api.tasks`:
+Import `shared_task` from the facade, not from Celery:
 
 ```python
 from api.tasks import shared_task
 
+
+@shared_task(name="accounts.send_welcome", max_retries=3)
+def send_welcome(user_id: str) -> None:
+    ...
+
+
+send_welcome.delay(str(user.id))
+```
+
+The decorator accepts bare and configured forms:
+
+```python
 @shared_task
-def send_welcome_email(user_id):
+def cleanup() -> None:
+    ...
+
+
+@shared_task(name="reports.build", bind=True, max_retries=5)
+def build_report(context, report_id: str) -> None:
     ...
 ```
 
-This decorator automatically adapts to whichever backend is configured. Each backend provides a `.delay()` method for async dispatch.
+A bound task receives `TaskContext`, not a backend-specific object. Prefer the
+task handle for retries so the same code runs on all backends:
 
-## Existing Celery Tasks
+```python
+@shared_task(max_retries=5)
+def deliver(delivery_id: str) -> None:
+    try:
+        send_delivery(delivery_id)
+    except Exception as exc:
+        raise deliver.retry(
+            delivery_id,
+            exc=exc,
+            countdown=60,
+        )
+```
 
-All existing tasks in `core/tasks.py`, `webhooks/tasks.py`, and `notifications/tasks.py` use Celery's `@shared_task` directly and continue to work unchanged when `TASK_BACKEND=celery` (the default).
+Every decorated task exposes these operations:
 
-If you switch to a different backend, these tasks will need to be updated to use the abstraction layer or rewritten for the new backend.
+- `task(*args, **kwargs)`: run synchronously in the current process.
+- `task.delay(*args, **kwargs)`: enqueue an immediate run.
+- `task.retry(*args, countdown=N, **kwargs)`: create the retry signal that the
+  task raises.
 
-## Docker Compose Profiles
+For non-Celery backends, the facade tracks the retry attempt in the serialized
+message and enforces `max_retries`. Celery delegates retry counting to its
+native task request.
 
-Each backend has its own Docker Compose profile:
+## Core task names
 
-| Profile | Service | Command |
-|---------|---------|---------|
-| `celery` | `celery-worker`, `celery-beat` | `make up-celery` |
-| `huey` | `huey-worker` | `make up-huey` |
-| `django-q` | `django-q-worker` | `make up-django-q` |
-| `django-rq` | `django-rq-worker` | `make up-django-rq` |
+The core jobs live in `core/tasks/jobs.py` and the package re-exports them.
+Their stable names remain:
+
+- `core.cleanup_expired_otps`
+- `core.cleanup_inactive_users`
+- `core.send_otp_email`
+- `core.health_check`
+
+This layout avoids the old `core/tasks.py` and `core/tasks/` import collision.
+
+## Backend commands
+
+| Profile | Worker command |
+|---|---|
+| `celery` | `celery -A api worker` plus database-backed beat |
+| `huey` | `python manage.py run_huey` |
+| `django-q` | `python manage.py qcluster` |
+| `django-rq` | `python manage.py rqworker default high low` |
+| `dramatiq` | `dramatiq api.tasks.backends.dramatiq_backend ...` |
+
+Use `docker compose --profile dev --profile <backend> logs` to inspect the
+selected worker. Do not run two task profiles against the same queues at once.

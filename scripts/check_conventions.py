@@ -6,14 +6,13 @@ Checks:
   2. RAW_SCHEMA        — no raw ninja.Schema; must use CamelCaseSchema
   3. MODEL_SCHEMA      — no ninja.ModelSchema usage
   4. ROUTER_USAGE      — no ninja.Router function-based views
-  5. DECORATOR_ORDER   — @http_* before @handle_exceptions
-  6. MISSING_DECORATOR — write endpoints need @handle_exceptions
-  7. UNSCOPED_QUERY    — no Model.objects.all() in controllers
-  8. REDECLARED_FIELDS — no redeclared base model fields
-  9. MISSING_EXPORTS   — __init__.py must export public classes
- 10. PIP_USAGE         — no pip install in code/docs
- 11. MOCKED_ORM        — no mocker.patch on ORM in tests
- 12. CONTROLLER_REG    — controllers registered in api/urls.py
+  5. DECORATOR_ORDER   — @http_* before @paginate
+  6. UNSCOPED_QUERY    — no Model.objects.all() in controllers
+  7. REDECLARED_FIELDS — no redeclared base model fields
+  8. MISSING_EXPORTS   — __init__.py must export public classes
+  9. PIP_USAGE         — no pip install in code/docs
+ 10. MOCKED_ORM        — no mocker.patch on ORM in tests
+ 11. CONTROLLER_REG    — controllers registered in api/urls.py
 
 Usage:
     python scripts/check_conventions.py              # check all
@@ -106,7 +105,7 @@ BASE_CLASS_FIELDS: dict[str, set[str]] = {
     },
 }
 
-# HTTP method decorators (must come before @handle_exceptions).
+# HTTP method decorators (must come before @paginate).
 HTTP_METHOD_DECORATORS = {
     "http_get",
     "http_post",
@@ -114,9 +113,6 @@ HTTP_METHOD_DECORATORS = {
     "http_patch",
     "http_delete",
 }
-
-# Write HTTP methods that must have @handle_exceptions.
-WRITE_METHODS = {"http_post", "http_put", "http_patch", "http_delete"}
 
 # Directories whose __init__.py should export public classes.
 EXPORT_DIRS = {"models", "schemas", "services", "controllers", "factories"}
@@ -271,7 +267,12 @@ class ConventionChecker:
         for fpath in self.collect_files():
             text = fpath.read_text()
             for i, line in enumerate(text.splitlines(), 1):
-                if re.search(r"(from ninja import.*Router|Router\s*\()", line):
+                # The lookbehind excludes dotted access such as ``pkg.Router()``
+                # and identifiers such as ``_StubRouter()``; those are not
+                # Django Ninja routers.
+                if re.search(
+                    r"(from ninja import.*Router|(?<![\w.])Router\s*\()", line
+                ):
                     if line.strip().startswith("#"):
                         continue
                     yield Violation(
@@ -282,7 +283,7 @@ class ConventionChecker:
                     )
 
     def check_decorator_order(self) -> Iterator[Violation]:
-        """@http_* decorators must come before @handle_exceptions."""
+        """@http_* decorators must come before @paginate."""
         for fpath in self._controller_files():
             text = fpath.read_text()
             try:
@@ -306,62 +307,20 @@ class ConventionChecker:
                 decorator_names = [n for n in decorator_names if n is not None]
 
                 http_idx = -1
-                handle_exc_idx = -1
+                paginate_idx = -1
                 for idx, name in enumerate(decorator_names):
                     if name in HTTP_METHOD_DECORATORS and http_idx == -1:
                         http_idx = idx
-                    if name == "handle_exceptions" and handle_exc_idx == -1:
-                        handle_exc_idx = idx
+                    if name == "paginate" and paginate_idx == -1:
+                        paginate_idx = idx
 
-                if (
-                    http_idx != -1
-                    and handle_exc_idx != -1
-                    and handle_exc_idx < http_idx
-                ):
+                if http_idx != -1 and paginate_idx != -1 and paginate_idx < http_idx:
                     yield Violation(
                         "DECORATOR_ORDER",
                         str(fpath.relative_to(PROJECT_ROOT)),
                         node.lineno,
-                        f"{node.name}: @handle_exceptions before @http_* — "
+                        f"{node.name}: @paginate before @http_* — "
                         "@http_* must be outermost",
-                    )
-
-    def check_missing_decorator(self) -> Iterator[Violation]:
-        """Write endpoints (POST/PUT/PATCH/DELETE) must have @handle_exceptions."""
-        for fpath in self._controller_files():
-            # Skip intentionally-basic controller patterns
-            if fpath.stem.endswith("_basic") or fpath.stem.endswith("_declarative"):
-                continue
-            text = fpath.read_text()
-            try:
-                tree = ast.parse(text)
-            except SyntaxError:
-                continue
-
-            for node in ast.walk(tree):
-                if not isinstance(node, ast.FunctionDef):
-                    continue
-                decorator_names = [
-                    (
-                        d.func.id
-                        if isinstance(d, ast.Call) and isinstance(d.func, ast.Name)
-                        else d.id
-                        if isinstance(d, ast.Name)
-                        else None
-                    )
-                    for d in node.decorator_list
-                ]
-                decorator_names = [n for n in decorator_names if n is not None]
-
-                has_write_method = any(n in WRITE_METHODS for n in decorator_names)
-                has_handle_exc = "handle_exceptions" in decorator_names
-
-                if has_write_method and not has_handle_exc:
-                    yield Violation(
-                        "MISSING_DECORATOR",
-                        str(fpath.relative_to(PROJECT_ROOT)),
-                        node.lineno,
-                        f"{node.name}: write endpoint missing @handle_exceptions()",
                     )
 
     def check_unscoped_query(self) -> Iterator[Violation]:
@@ -495,8 +454,8 @@ class ConventionChecker:
                         "pip install found — use uv add instead",
                     )
 
-        # Also check shell scripts and Makefile
-        for pattern in ["*.sh", "Makefile"]:
+        # Also check shell scripts and the task runners
+        for pattern in ["*.sh", "Makefile", "Makefile.legacy", "justfile"]:
             for fpath in PROJECT_ROOT.glob(pattern):
                 if any(part in EXCLUDE_DIRS for part in fpath.parts):
                     continue
@@ -609,7 +568,6 @@ ConventionChecker.CHECKS = {  # type: ignore[attr-defined]
     "MODEL_SCHEMA": ConventionChecker.check_model_schema,
     "ROUTER_USAGE": ConventionChecker.check_router_usage,
     "DECORATOR_ORDER": ConventionChecker.check_decorator_order,
-    "MISSING_DECORATOR": ConventionChecker.check_missing_decorator,
     "UNSCOPED_QUERY": ConventionChecker.check_unscoped_query,
     "REDECLARED_FIELDS": ConventionChecker.check_redeclared_fields,
     "MISSING_EXPORTS": ConventionChecker.check_missing_exports,

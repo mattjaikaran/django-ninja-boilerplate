@@ -1,7 +1,7 @@
 ---
-description: Interrupts when model generates wrong decorator order, missing @handle_exceptions, or redeclares base model fields
+description: Interrupts when model imports the removed handle_exceptions decorator or redeclares base model fields
 condition:
-  - "@handle_exceptions.*\n.*@http_"
+  - "handle_exceptions"
   - "created_at = models\\.(DateTimeField|DateField)"
   - "updated_at = models\\.(DateTimeField|DateField)"
   - "is_active = models\\.BooleanField"
@@ -24,19 +24,19 @@ scope:
 
 You just generated code that violates project conventions. Fix before continuing.
 
-## If decorator order is wrong:
+## If decorator order is wrong or you used `handle_exceptions`:
 
 Decorator order MUST be:
 ```python
 @http_get("/")          # 1st: HTTP method (outermost)
-@handle_exceptions()    # 2nd: error handling
-@log_api_call()         # 3rd: logging
-@validate_request()     # 4th: validation (innermost)
+@log_api_call()         # 2nd: logging
+@validate_request()     # 3rd: optional validation
+@paginate(PageNumberPaginationExtra)  # last, list endpoints only
 def endpoint(self, request):
     ...
 ```
 
-`@http_*` decorators MUST be the outermost decorator. `@handle_exceptions` goes INSIDE them.
+`@http_*` decorators MUST be the outermost decorator.
 
 ## If you redeclared a base model field:
 
@@ -59,16 +59,9 @@ class MyModel(SoftDeleteModel):
     # id, created_at, updated_at, is_active, metadata, etc. come from SoftDeleteModel
 ```
 
-## If you forgot @handle_exceptions on a write endpoint:
+## If you used `handle_exceptions`:
 
-Every POST, PUT, PATCH, DELETE endpoint MUST have `@handle_exceptions()`:
-
-```python
-@http_post("/", response={201: TodoSchema, 400: dict})
-@handle_exceptions()
-@log_api_call(include_payload=True)
-def create_todo(self, request, payload: CreateTodoSchema):
-    ...
-```
-
-Without it, exceptions return raw 500 errors instead of structured error responses.
+`handle_exceptions` does not exist. Remove the import and the decorator.
+Exception handlers are registered once on the shared API in `api/urls.py`.
+Raise an `api.exceptions` error or use `get_object_or_404`, and the handler
+returns the structured error response.

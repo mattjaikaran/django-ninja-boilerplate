@@ -97,9 +97,10 @@ class TestTodoAPI:
 
         response = api_client.get("/api/todos/", **auth_headers)
         assert response.status_code == 200
-        todos = response.json()
-        assert len(todos) == 2  # Only current user's todos
-        assert all(todo["user"] == str(user.id) for todo in todos)
+        body = response.json()
+        assert body["count"] == 2  # Only current user's todos
+        assert len(body["results"]) == 2
+        assert all(todo["user"] == str(user.id) for todo in body["results"])
 
     def test_get_todo(self, api_client, auth_headers, user):
         todo = TodoFactory(title="Test Todo", user=user)

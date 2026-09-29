@@ -9,8 +9,8 @@ A production-ready, **opinionated** Django boilerplate built with **Django Ninja
 > **Architecture Note:** This boilerplate uses [Django Ninja Extra](https://eadwincode.github.io/django-ninja-extra/) which extends Django Ninja with class-based API controllers, dependency injection, and permissions. Instead of function-based views, you write clean controller classes with decorators like `@api_controller` and `@http_get`.
 
 [![CI](https://github.com/mattjaikaran/django-ninja-boilerplate/actions/workflows/ci.yml/badge.svg)](https://github.com/mattjaikaran/django-ninja-boilerplate/actions/workflows/ci.yml)
-[![Python 3.13+](https://img.shields.io/badge/python-3.13+-blue.svg)](https://www.python.org/downloads/)
-[![Django 5.2](https://img.shields.io/badge/django-5.2-green.svg)](https://docs.djangoproject.com/)
+[![Python 3.13](https://img.shields.io/badge/python-3.13-blue.svg)](https://www.python.org/downloads/)
+[![Django 5.2 and 6.0](https://img.shields.io/badge/django-5.2%20%7C%206.0-green.svg)](https://docs.djangoproject.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Code style: Ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
 [![OpenAPI](https://img.shields.io/badge/OpenAPI-3.1-6BA539.svg)](https://swagger.io/specification/)
@@ -19,7 +19,7 @@ A production-ready, **opinionated** Django boilerplate built with **Django Ninja
 
 | Feature                          | Benefit                                                                     |
 | -------------------------------- | --------------------------------------------------------------------------- |
-| **One-command setup**            | `make setup` gets you from clone to running in under 2 minutes              |
+| **One-command setup**            | `just setup` gets you from clone to running in under 2 minutes              |
 | **Class-based controllers**      | Clean, organized API code with Django Ninja Extra                           |
 | **Enterprise features built-in** | Audit logging, feature flags, observability - no need to add later          |
 | **Multiple auth methods**        | JWT, magic links, OTP codes, 2FA, API keys - ready for web, mobile, and M2M |
@@ -37,7 +37,7 @@ The `todos` app ships **four controller variants** so you can compare approaches
 | --- | ------------------------ | ------------------------- | -------------------------------- | --------------------------------------------------------------------------------------------- |
 | 1   | **Declarative**          | `/api/todos-declarative/` | `todo_controller_declarative.py` | Learning the framework; teams that want every error path explicit with no decorator magic     |
 | 2   | **Basic**                | `/api/todos-basic/`       | `todo_controller_basic.py`       | Small projects; minimal abstraction with `get_object_or_404`                                  |
-| 3   | **Partial**              | `/api/todos-partial/`     | `todo_controller_partial.py`     | Mix-and-match: reads are plain, writes use `handle_exceptions` + `log_api_call`               |
+| 3   | **Partial**              | `/api/todos-partial/`     | `todo_controller_partial.py`     | Mix-and-match: reads are plain, writes use `log_api_call`               |
 | 4   | **Full (service layer)** | `/api/todos/`             | `todo_controller.py`             | **Recommended for production.** Controller is a thin HTTP adapter; all logic in `TodoService` |
 
 ```python
@@ -62,7 +62,6 @@ def create_todo(self, request, payload: CreateTodoSchema):
 # Pattern 3 — Partial: decorators on writes only
 @http_post("/", response={201: TodoSchema, 400: dict, 500: dict})
 @log_api_call(include_payload=True, include_response=False)
-@handle_exceptions(return_500_on_error=True, log_errors=True)
 def create_todo(self, request, payload: CreateTodoSchema):
     todo_data = payload.model_dump()
     todo_data["user"] = request.user
@@ -75,7 +74,6 @@ class TodoController:
 
     @http_post("/", response={201: TodoSchema, 400: dict, 500: dict})
     @log_api_call(include_payload=True, include_response=False)
-    @handle_exceptions(return_500_on_error=True, log_errors=True)
     @validate_request()
     def create_todo(self, request, payload: CreateTodoSchema):
         return 201, self.service.create_todo(payload, request.user)
@@ -141,7 +139,7 @@ This boilerplate gives you a solid foundation with:
 - **Rate Limiting** - Flexible throttling for API endpoints
 - **Feature Generators** - CLI tools to quickly scaffold new features like payments, RBAC, teams
 - **Testing Setup** - Factory-based testing with pytest (no mocks needed)
-- **Developer Tools** - Comprehensive Makefile, code formatting, linting with Ruff
+- **Developer Tools** - Comprehensive justfile task runner, code formatting, linting with Ruff
 - **Production Ready** - Docker setup, error handling, logging, S3 storage, and security configurations
 
 ## Project Structure
@@ -171,9 +169,8 @@ project/
 ├── .cursor/                  # Cursor IDE rules
 │   └── rules/
 │       └── backend_guidelines.mdc
-├── docker-compose.yml        # Development Docker setup
-├── docker-compose.prod.yml   # Production Docker setup
-├── Makefile                  # Command automation
+├── docker-compose.yml        # Profiled Docker setup (dev, prod, single, celery)
+├── justfile                  # Task runner (the old Makefile is Makefile.legacy)
 └── pyproject.toml            # Project configuration
 ```
 
@@ -200,14 +197,14 @@ app_name/
 
 ### Core Stack
 
-- **Python 3.13+** with type hints
-- **[Django 5.2 LTS](https://docs.djangoproject.com/en/5.2/)** - Web framework (6.0 tested and ready)
+- **Python 3.13** with type hints
+- **[Django 5.2 LTS](https://docs.djangoproject.com/en/5.2/)** - Default; Django 6.0 is also tested
 - **[Django Ninja](https://django-ninja.dev/)** - Fast API framework
 - **[Django Ninja Extra](https://eadwincode.github.io/django-ninja-extra/)** - Class-based controllers
 - **[Django Ninja JWT](https://eadwincode.github.io/django-ninja-jwt/)** - JWT authentication
 - **[PostgreSQL](https://www.postgresql.org/)** - Primary database
 - **[Valkey](https://valkey.io/)** - Caching and task broker (Redis-compatible, BSD license)
-- **[Celery](https://docs.celeryproject.org/)** - Background task processing (default; Huey, django-q2, django-rq also supported)
+- **[Celery](https://docs.celeryproject.org/)** - Default task backend; Huey, django-q2, django-rq, and Dramatiq are also supported
 - **[Centrifugo](https://centrifugal.dev/)** - Real-time WebSocket messaging
 - **[Pydantic](https://docs.pydantic.dev/)** - Data validation
 - **[orjson](https://github.com/ijl/orjson)** - High-performance JSON (global renderer)
@@ -238,17 +235,26 @@ Performance-critical components use Rust under the hood:
 # Clone and setup in one go
 git clone https://github.com/mattjaikaran/django-ninja-boilerplate my-api
 cd my-api
-make setup
+just setup
 ```
 
-That's it! The setup command will:
+That's it! The setup recipe will:
 
-- Check your environment (Docker, Python, etc.)
-- Create `.env` with generated `SECRET_KEY`
-- Build Docker images
+- Create `.env` from the template and write a real `SECRET_KEY` into it
+- Validate your environment (Docker, Python, etc.)
+- Build the Docker images and start the stack
 - Run migrations
-- Seed sample data
-- Create a superuser
+- Create the superuser from the `SUPERUSER_*` values in `.env`
+- Leave you a login at http://localhost:8000/admin/
+
+Add demo content when you want it:
+
+```bash
+just seed                    # sample users and todos
+```
+
+Prefer a guided, scripted run? `just quickstart` does the same and also seeds
+sample data, opens the docs in your browser, and can run without Docker.
 
 Visit http://localhost:8000/api/docs for the API documentation.
 
@@ -276,11 +282,11 @@ cd django-ninja-boilerplate
 cp .env.development .env
 
 # Start the services
-make up
+just up
 
 # Run migrations and create superuser
-make migrate
-make create-superuser
+just migrate
+just create-superuser
 ```
 
 ### Local Development (Without Docker)
@@ -294,15 +300,15 @@ git clone https://github.com/mattjaikaran/django-ninja-boilerplate
 cd django-ninja-boilerplate
 
 # Create virtual environment and install dependencies
-uv sync --dev
+uv sync --extra dev
 
 # Setup environment
 cp .env.example .env
 ./scripts/generate_secret_key.sh
 
 # Start PostgreSQL and Valkey locally, then:
-make local-migrate
-make local-run
+just legacy local-migrate
+just legacy local-run
 ```
 
 ## Available Commands
@@ -310,73 +316,105 @@ make local-run
 ### Setup & Environment
 
 ```bash
-make setup               # One-command project bootstrap
-make doctor              # Validate development environment
-make setup-env           # Create .env from template
+just setup               # Ask for a task backend, then bootstrap the project
+just doctor              # Validate development environment
+just setup-env           # Create .env from template without starting services
 ```
 
 ### Docker Commands
 
 ```bash
-make up                  # Start core services (db, valkey, django)
-make up-full             # Start everything (core + celery, monitoring, realtime)
-make up-celery           # Start core + Celery workers
-make up-realtime         # Start core + Centrifugo real-time server
-make up-monitoring       # Start core + Flower dashboard
-make down                # Stop environment (all services)
-make logs                # View logs
-make shell               # Django shell
-make migrate             # Run migrations
-make test                # Run tests
-make lint                # Run linting
-make format              # Format code
+just dev                 # Build changed images; start Django, data services, and the selected worker
+just up-full             # Add monitoring, realtime, Mailhog, and MCP
+just up-realtime         # Add Centrifugo (ws://localhost:8800)
+just up-monitoring       # Add Flower (:5555) and Jaeger (:16686); set OTEL_ENABLED=true for traces
+just up-mail             # Add Mailhog (:8025); point EMAIL_* at mailhog first (see .env.example)
+just up-mcp              # Add the MCP server (SSE on 127.0.0.1:8001/sse)
+just logs                # View logs
+just shell               # Django shell
+just migrate             # Run migrations
+just test                # Run tests
+just lint                # Run linting
+just format              # Format code
 ```
+
+#### Compose profiles
+
+One `docker-compose.yml` holds every stack. Always pass a profile — every
+service belongs to at least one, so a bare `docker compose up` starts nothing.
+
+| Profile | Services |
+|---|---|
+| `dev` | db, valkey, django |
+| `test` | db, valkey |
+| `prod` | db-prod, valkey-prod, django-prod, celery-worker-prod, celery-beat-prod, nginx |
+| `single` | db-single, redis, app |
+| `celery` | db, valkey, celery-worker, celery-beat |
+| `realtime` | valkey, centrifugo |
+| `realtime-prod` | db-prod, valkey-prod, centrifugo-prod |
+| `monitoring` | valkey, flower, jaeger |
+| `huey`, `django-q`, `django-rq`, `dramatiq` | db, valkey, and one worker per backend |
+| `observability` | jaeger |
+
+Production services carry a `-prod` suffix because Docker Compose allows only
+one definition per service name, and the dev and production variants differ in
+build target, command, and volume mounts.
+
+#### Searching
+
+Use `rg`, not `grep`. It respects `.gitignore`.
+
+```bash
+just search "TODO"                  # rg --smart-case
+```
+
+See the `rtk-ripgrep` skill for the RTK `exclude_commands` workaround.
 
 ### Celery Commands
 
 ```bash
-make celery-worker       # Start Celery worker
-make celery-beat         # Start Celery beat scheduler
-make celery-flower       # Start Flower monitoring (port 5555)
-make celery-inspect      # Inspect active tasks
-make celery-purge        # Purge all tasks
+just legacy celery-worker       # Start Celery worker
+just legacy celery-beat         # Start Celery beat scheduler
+just legacy celery-flower       # Start Flower monitoring (port 5555)
+just legacy celery-inspect      # Inspect active tasks
+just legacy celery-purge        # Purge all tasks
 ```
 
 ### App Generation
 
 ```bash
-make startapp APP=myapp                              # Create new app
-make generate-feature FEATURE=payments PROVIDER=stripe   # Generate feature
-make generate-data                                   # Generate sample data
+just legacy startapp APP=myapp                              # Create new app
+just legacy generate-feature FEATURE=payments PROVIDER=stripe   # Generate feature
+just legacy generate-data                                   # Generate sample data
 ```
 
 ### Database Management
 
 ```bash
 # Seeding data
-make seed-data               # Load comprehensive seed data
-make seed-data-full          # Load with higher counts
-make seed-data-clear         # Clear and reload all data
+just legacy seed-data               # Load comprehensive seed data
+just legacy seed-data-full          # Load with higher counts
+just legacy seed-data-clear         # Clear and reload all data
 
 # Database dumps
-make db-dump                 # Create a database dump
-make db-dump-data            # Create data-only dump
-make db-dump-compressed      # Create compressed dump (.sql.gz)
-make db-list-dumps           # List available dumps
-make db-restore FILE=docker/postgres/dumps/dump.sql  # Restore from dump
-make db-clean-dumps          # Clean old dumps, keep 5 most recent
+just legacy db-dump                 # Create a database dump
+just legacy db-dump-data            # Create data-only dump
+just legacy db-dump-compressed      # Create compressed dump (.sql.gz)
+just legacy db-list-dumps           # List available dumps
+just legacy db-restore FILE=docker/postgres/dumps/dump.sql  # Restore from dump
+just legacy db-clean-dumps          # Clean old dumps, keep 5 most recent
 ```
 
 ### Local Development
 
 ```bash
-make local-run           # Run server locally
-make local-test          # Run tests locally
-make local-lint          # Lint locally
-make local-celery        # Start Celery locally
+just legacy local-run           # Run server locally
+just legacy local-test          # Run tests locally
+just legacy local-lint          # Lint locally
+just legacy local-celery        # Start Celery locally
 ```
 
-Run `make help` for all available commands.
+Run `just help` for all available commands.
 
 ## Architecture
 
@@ -418,17 +456,30 @@ class MyModelService(CRUDService[MyModel]):
 API endpoints use class-based controllers:
 
 ```python
-from ninja_extra import api_controller, http_get, http_post
-from api.decorators import handle_exceptions, log_api_call
+from ninja_extra import api_controller, http_get
+from ninja_extra.pagination import PageNumberPaginationExtra, paginate
+from ninja_extra.schemas import PaginatedResponseSchema
+from ninja_jwt.authentication import JWTAuth
 
-@api_controller("/items", tags=["Items"])
+from api.decorators import log_api_call
+
+@api_controller("/items", tags=["Items"], auth=JWTAuth())
 class ItemController:
-    @http_get("/", response=list[ItemSchema])
-    @handle_exceptions()
+    def __init__(self) -> None:
+        self.service = ItemService()
+
+    @http_get("/", response={200: PaginatedResponseSchema[ItemSchema]})
     @log_api_call()
+    @paginate(PageNumberPaginationExtra)
     def list_items(self, request):
-        return Item.objects.filter(user=request.user)
+        return self.service.list_for_user(request.user)
 ```
+
+Put `@http_*` first, then `@log_api_call()`, then `@paginate(...)`. The
+controller calls a service and returns a queryset scoped to the user. Do not
+catch errors in the controller: raise an `api.exceptions` error or use
+`get_object_or_404`, and the handlers registered in `api/urls.py` map it to
+the right status.
 
 ## Authentication
 
@@ -439,7 +490,7 @@ The boilerplate provides multiple authentication methods:
 ```bash
 POST /api/auth/signup      # Create account
 POST /api/auth/login       # Login with email/password
-POST /api/auth/logout      # Logout
+POST /api/auth/logout      # Logout (blacklists the refresh token; access stays valid until expiry)
 GET  /api/auth/me          # Get current user
 ```
 
@@ -496,20 +547,21 @@ POST /api/auth/otp/2fa/verify     # Verify 2FA code
 
 ### Rate Limiting
 
-Apply rate limits to endpoints:
+Rate limits use Ninja Extra throttles. Rates are set per scope in
+`NINJA_EXTRA["THROTTLE_RATES"]` in `api/settings/common.py`: `user`
+(1000/day), `anon` (100/day), `anon-auth` (20/min, credential endpoints),
+`anon-email` (5/min, magic-link email), and `tasks` (60/min). A throttled
+request gets 429 with a `Retry-After` header. Set `NINJA_NUM_PROXIES` to the number
+of reverse proxies in front of Django so the client IP is correct.
 
 ```python
-from api.decorators import rate_limit
+from ninja_extra import api_controller, http_post
+from ninja_extra.throttling import DynamicRateThrottle, throttle
 
-@api_controller("/items")
+@api_controller("/items", tags=["Items"], auth=JWTAuth())
 class ItemController:
-    @rate_limit(requests_per_minute=100)
-    @http_get("/")
-    def list_items(self, request):
-        ...
-
-    @rate_limit(requests_per_minute=10)
-    @http_post("/sensitive")
+    @http_post("/sensitive", response={200: dict})
+    @throttle(DynamicRateThrottle, scope="user")
     def sensitive_action(self, request):
         ...
 ```
@@ -519,20 +571,18 @@ class ItemController:
 Use Pydantic for request/response validation:
 
 ```python
-from ninja import Schema
 from pydantic import Field
 
-class CreateItemSchema(Schema):
+from core.schemas.base_schema import CamelCaseSchema
+
+class CreateItemSchema(CamelCaseSchema):
     name: str = Field(..., min_length=1)
     description: str | None = None
 
-class ItemSchema(Schema):
+class ItemSchema(CamelCaseSchema):
     id: str
     name: str
-    created_at: datetime
-
-    class Config:
-        from_attributes = True
+    created_at: str
 ```
 
 ## Feature Generators
@@ -541,16 +591,16 @@ Quickly scaffold complete features:
 
 ```bash
 # Payments with Stripe
-make generate-feature FEATURE=payments PROVIDER=stripe
+just legacy generate-feature FEATURE=payments PROVIDER=stripe
 
 # RBAC (Role-Based Access Control)
-make generate-feature FEATURE=rbac PLATFORM=b2b
+just legacy generate-feature FEATURE=rbac PLATFORM=b2b
 
 # Organization management
-make generate-feature FEATURE=organization
+just legacy generate-feature FEATURE=organization
 
 # Notifications
-make generate-feature FEATURE=notification
+just legacy generate-feature FEATURE=notification
 ```
 
 Available features: `payments`, `rbac`, `organization`, `team`, `subscription`, `notification`, `chat`, `file_storage`, `analytics`, `redis`, `graphql`
@@ -585,7 +635,7 @@ This creates:
   - `mutations.py` - Mutation type with example mutations
   - `types.py` - Strawberry types for models
   - `context.py` - Custom context class with user access
-- `core/graphql.py` - JWT-authenticated GraphQL view
+- `core/graphql_view.py` - JWT-authenticated GraphQL view
 
 3. **Access the GraphQL playground:**
 
@@ -640,9 +690,9 @@ This boilerplate includes comprehensive testing utilities including unit tests, 
 ### Quick Start
 
 ```bash
-make test                    # Run unit tests
-make test-all                # Run all test types
-make test-coverage           # Run with coverage report
+just test                    # Run unit tests
+just test-all                # Alias for `just test`
+just test-coverage           # Run with coverage report
 ```
 
 ### Unit Tests
@@ -671,8 +721,8 @@ def test_create_todo(db, authenticated_client):
 End-to-end tests for complete user journeys:
 
 ```bash
-make test-e2e                # Run E2E tests
-make generate-e2e            # Generate E2E test stubs from YAML
+just legacy test-e2e                # Run E2E tests
+just legacy generate-e2e            # Generate E2E test stubs from YAML
 ```
 
 ### Contract Tests
@@ -684,10 +734,10 @@ API contract tests validate responses against the OpenAPI specification using [S
 uv pip install -e ".[testing]"
 
 # Run contract tests (requires running server)
-make test-contract
+just legacy test-contract
 
 # Run all contract tests including slow schema-based tests
-make test-contract-full
+just legacy test-contract-full
 ```
 
 Contract tests ensure:
@@ -703,19 +753,19 @@ Load testing with [Locust](https://locust.io/) for performance validation:
 
 ```bash
 # Interactive web UI (http://localhost:8089)
-make test-load
+just legacy test-load
 
 # Quick test (10 users, 30 seconds)
-make test-load-quick
+just legacy test-load-quick
 
 # Moderate test (50 users, 2 minutes)
-make test-load-moderate
+just legacy test-load-moderate
 
 # Heavy test (100 users, 5 minutes)
-make test-load-heavy
+just legacy test-load-heavy
 
 # Custom test
-make test-load-custom USERS=50 DURATION=2m
+just legacy test-load-custom USERS=50 DURATION=2m
 ```
 
 See `tests/load/README.md` for detailed load testing documentation.
@@ -1084,14 +1134,15 @@ See [docs/API_KEYS.md](docs/API_KEYS.md) for full documentation.
 
 ## Background Tasks (Pluggable Backends)
 
-Default backend is Celery. Alternatives available via `TASK_BACKEND` env var:
+Celery is the default. Set `TASK_BACKEND` in `.env`, or let `just setup` ask:
 
-| Backend              | Install               | Worker Command       |
-| -------------------- | --------------------- | -------------------- |
-| **Celery** (default) | Built-in              | `make celery-worker` |
-| **Huey**             | `uv add huey`         | `make worker-huey`   |
-| **django-q2**        | `uv add django-q2`    | `make worker-q`      |
-| **django-rq**        | `uv add django-rq rq` | `make worker-rq`     |
+| Backend | Install extra | Start |
+|---|---|---|
+| **Celery** (default) | Base dependency | `just dev` |
+| **Huey** | `uv sync --extra huey` | `just dev` |
+| **django-q2** | `uv sync --extra django-q` | `just dev` |
+| **django-rq** | `uv sync --extra django-rq` | `just dev` |
+| **Dramatiq** | `uv sync --extra dramatiq` | `just dev` |
 
 ```python
 # Backend-agnostic task decorator
@@ -1123,9 +1174,9 @@ send_welcome_email.delay(user.id)
 Start workers:
 
 ```bash
-make celery-worker    # Start worker
-make celery-beat      # Start scheduler
-make celery-flower    # Monitoring at localhost:5555
+just legacy celery-worker    # Start worker
+just legacy celery-beat      # Start scheduler
+just legacy celery-flower    # Monitoring at localhost:5555
 ```
 
 ## Real-Time Messaging (Centrifugo)
@@ -1136,7 +1187,7 @@ The boilerplate includes [Centrifugo](https://centrifugal.dev/) for real-time We
 
 ```bash
 # Start with Centrifugo (runs on port 8800)
-make up-realtime
+just up-realtime
 
 # Admin UI at http://localhost:8800 (password: admin)
 ```
@@ -1361,22 +1412,24 @@ The boilerplate includes a comprehensive observability stack for production moni
 ### Quick Setup
 
 ```bash
-# Install observability dependencies
-uv sync --extra observability
+# 1. In .env, turn tracing on. The Docker images already include the
+#    `observability` extra; for host-side Django run `uv sync --extra observability`.
+OTEL_ENABLED=true
 
-# Start with Jaeger (tracing backend)
-docker compose --profile observability up -d
+# 2. Start the dev stack with Jaeger and Flower
+just up-monitoring
 
-# Access Jaeger UI at http://localhost:16686
-# Access Prometheus metrics at http://localhost:8000/api/metrics
+# Jaeger UI:  http://localhost:16686  (service: django-ninja-app)
+# Metrics:    http://localhost:8000/api/metrics (staff JWT only)
 ```
 
 ### Environment Variables
 
 ```bash
 # OpenTelemetry Configuration
+OTEL_ENABLED=true                     # Start tracing in CoreConfig.ready()
 OTEL_SERVICE_NAME=my-api              # Service name in traces
-OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4317  # OTLP endpoint
+OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4317  # Compose pins this for dev services
 
 # Logging
 USE_STRUCTURED_LOGGING=true           # Enable JSON logging (default in production)
@@ -1385,7 +1438,10 @@ SLOW_REQUEST_THRESHOLD_MS=1000        # Log slow requests above this threshold
 
 ### Tracing
 
-Traces are automatically collected for HTTP requests. Add custom spans:
+With `OTEL_ENABLED=true`, Django, requests, psycopg2, Redis, and Celery calls
+are traced automatically. If the OpenTelemetry packages are missing, startup
+fails with `ImproperlyConfigured` instead of running without traces. Add custom
+spans:
 
 ```python
 from core.observability import trace_span, trace_function
@@ -1403,7 +1459,9 @@ def send_notification(user_id, message):
 
 ### Metrics
 
-Prometheus metrics are exposed at `/api/metrics`:
+Prometheus-format metrics are exposed at `/api/metrics`. The endpoint requires
+a staff user's JWT, and access tokens expire after 60 minutes, so a Prometheus
+scraper cannot use it as shipped. Add a scrape credential before you rely on it.
 
 ```python
 from core.observability.metrics import (
@@ -1454,18 +1512,31 @@ logger.info("Processing order", extra={"order_id": "456"})
 
 ### Health Checks
 
-Enhanced health checks with detailed status:
+Health endpoints live on one controller at `/api/health`. Liveness, basic
+health, and readiness are public; detailed, component, system, and metrics
+endpoints require a staff JWT. Deployment probes (`/`, `/liveness`,
+`/readiness`) are public for orchestrators; everything that reports internal
+state (`/detailed`, `/component/{name}`, `/system`, `/metrics`) is
+network-private and must not be exposed without authentication.
 
 ```bash
-# Basic health check
+# Public — liveness (probes nothing) and basic status (no I/O)
 GET /api/health/
+GET /api/health/liveness
 
-# Detailed status (database, cache, redis)
+# Public — readiness: checks only the traffic-required dependencies
+# (database + cache) and returns 503 when either is unavailable
+GET /api/health/readiness
+
+# Staff JWT required — full component status (database, cache, redis, celery)
 GET /api/health/detailed
 
-# Check specific component
+# Staff JWT required — single component
 GET /api/health/component/database
 GET /api/health/component/redis
+
+# Staff JWT required — Prometheus metrics
+GET /api/metrics
 ```
 
 Register custom health checks:
@@ -1502,8 +1573,8 @@ The `ObservabilityMiddleware` automatically:
 ### Docker Compose (Split Services)
 
 ```bash
-make prod-build
-make prod-up
+just prod-build
+just prod-up
 ```
 
 ### Single Container (PaaS)
@@ -1512,8 +1583,8 @@ For Railway, Render, Fly.io, or any PaaS:
 
 ```bash
 # Build and test locally
-make single-build
-make single-up
+just single-build
+just single-up
 
 # Deploy to Railway
 railway up
@@ -1560,22 +1631,22 @@ Export your API specification and generate client SDKs:
 
 ```bash
 # Export OpenAPI specification
-make openapi
+just legacy openapi
 
 # Generate TypeScript and Python SDK clients
-make sdk
+just legacy sdk
 
 # Export Postman collection
-make postman
+just legacy postman
 
 # Export Insomnia collection
-make insomnia
+just legacy insomnia
 
 # Generate everything (spec, SDKs, collections)
-make openapi-all
+just legacy openapi-all
 
 # Validate OpenAPI specification
-make openapi-validate
+just legacy openapi-validate
 ```
 
 #### SDK Generation
@@ -1599,13 +1670,28 @@ Compare API versions to generate changelogs:
 
 ```bash
 # Generate changelog between two API versions
-make changelog OLD=docs/openapi/openapi-v1.json NEW=docs/openapi/openapi-v2.json
+just legacy changelog OLD=docs/openapi/openapi-v1.json NEW=docs/openapi/openapi-v2.json
 
 # Or use the script directly
 python scripts/openapi/generate_changelog.py old.json new.json -o CHANGELOG.md
 ```
 
 See [docs/openapi/README.md](docs/openapi/README.md) for detailed documentation.
+
+## Skills
+
+`.agents/skills/` holds harness-agnostic Agent Skills. They load on demand. See
+[SKILLS.md](SKILLS.md) for the index.
+
+| Skill | Purpose |
+|---|---|
+| `django-ninja-dev` | Controllers, schemas, services |
+| `docker-compose-profiles` | The Compose file and its profiles |
+| `rtk-ripgrep` | Searching with ripgrep |
+| `system-design-atlas` | The admin architecture map |
+
+The architecture map lives at `/admin/atlas/` (staff only). Regenerate it with
+`just update-architecture`.
 
 ## Contributing
 

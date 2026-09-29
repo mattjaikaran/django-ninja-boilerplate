@@ -16,4 +16,4 @@ RUN mkdir -p /var/log/nginx
 RUN chown -R nginx:nginx /var/log/nginx
 RUN chmod -R 755 /var/log/nginx
 
-EXPOSE 80 443
+EXPOSE 80

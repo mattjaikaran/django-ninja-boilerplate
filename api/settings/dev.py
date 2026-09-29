@@ -39,9 +39,6 @@ CORS_ALLOW_HEADERS = [
     "x-requested-with",
 ]
 
-# Email backend for development (console)
-EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
-
 # Django Debug Toolbar — uncomment INSTALLED_APPS and MIDDLEWARE entries
 # in common.py to activate. These settings are ready when you do.
 INTERNAL_IPS = [
@@ -69,6 +66,13 @@ LOGGING["loggers"].update(  # type: ignore[attr-defined]
         "django.request": {
             "handlers": ["console"],
             "level": "DEBUG",
+            "propagate": False,
+        },
+        # At DEBUG, runserver's StatReloader logs one line for every file it
+        # watches.
+        "django.utils.autoreload": {
+            "handlers": ["console"],
+            "level": "INFO",
             "propagate": False,
         },
     }

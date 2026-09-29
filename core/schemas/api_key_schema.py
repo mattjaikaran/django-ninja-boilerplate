@@ -21,9 +21,6 @@ class APIKeyResponse(CamelCaseSchema):
     revoked: bool
     created_at: datetime
 
-    class Config:
-        from_attributes = True
-
 
 class APIKeyCreatedResponse(CamelCaseSchema):
     """Returned only at creation time — includes the raw key."""

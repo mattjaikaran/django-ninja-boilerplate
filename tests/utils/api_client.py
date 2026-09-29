@@ -268,6 +268,10 @@ class AuthenticatedAPIClient(APITestClient):
     def logout(self, logout_endpoint: str = "/api/auth/logout") -> bool:
         """Log out the current user.
 
+        Sends the refresh token in the request body so the server can blacklist
+        it. The access token remains valid until its own expiry; this client
+        clears its local copy either way.
+
         Args:
             logout_endpoint: Optional custom logout endpoint.
 
@@ -277,7 +281,8 @@ class AuthenticatedAPIClient(APITestClient):
         if not self.auth_token:
             return True
 
-        response = self.post(logout_endpoint)
+        payload = {"refresh": self.refresh_token} if self.refresh_token else None
+        response = self.post(logout_endpoint, data=payload)
         success = response.status_code in [200, 204]
 
         if success:
@@ -287,7 +292,7 @@ class AuthenticatedAPIClient(APITestClient):
 
         return success
 
-    def refresh_auth(self, refresh_endpoint: str = "/api/auth/refresh") -> bool:
+    def refresh_auth(self, refresh_endpoint: str = "/api/token/refresh") -> bool:
         """Refresh the authentication token.
 
         Args:
@@ -311,6 +316,11 @@ class AuthenticatedAPIClient(APITestClient):
         if response.status_code == 200:
             data = response.json()
             self.auth_token = data.get("access") or data.get("token")
+            # With refresh rotation the server returns a new refresh token;
+            # keep it so a subsequent refresh/logout uses the valid token
+            # instead of the rotated (blacklisted) one.
+            if data.get("refresh"):
+                self.refresh_token = data["refresh"]
             return True
 
         # Restore old token if refresh failed

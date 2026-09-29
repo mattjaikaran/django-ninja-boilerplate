@@ -15,8 +15,8 @@ def user():
 
 @pytest.fixture
 def user_with_password():
-    """Create a test user with a known password."""
-    return UserFactory(set_password="testpass123")
+    """Create a staff test user with a known password (user admin requires staff)."""
+    return UserFactory(is_staff=True, set_password="testpass123")
 
 
 @pytest.mark.django_db
@@ -96,7 +96,7 @@ class TestUserAPI:
         response = api_client.get("/api/users/", **auth_headers)
         assert response.status_code == 200
         # auth_headers creates user_with_password, plus the UserFactory user = 2 users
-        assert len(response.json()) == 2
+        assert response.json()["count"] == 2
 
     def test_update_user(self, api_client, user, auth_headers):
         update_data = {

@@ -29,24 +29,29 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
+      # Lock-respecting install so CI matches the committed uv.lock.
       - name: Install dependencies
-        run: |
-          uv pip install --system -e ".[dev]"
+        run: uv sync --extra dev
 
       - name: Run Ruff linter
-        run: ruff check .
+        run: uv run ruff check .
 
       - name: Run Ruff formatter check
-        run: ruff format --check .
+        run: uv run ruff format --check .
 
   test:
     name: Test (Python ${{ matrix.python-version }}, Django ${{ matrix.django-version }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
+      # 3.14 stays out until pydantic-core publishes cp314 wheels: without them
+      # the install builds it from source and fails on a runner with no Rust.
+      # 6.1 is absent because django-celery-beat caps Django at <6.1 and
+      # CELERY_BEAT_SCHEDULER depends on it, so it is not a supported install.
+      # See DEPENDENCIES.md for the measured 6.1 result.
       matrix:
-        python-version: ["3.13", "3.14"]
-        django-version: ["5.2"]
+        python-version: ["3.13"]
+        django-version: ["5.2", "6.0"]
 
     services:
       postgres:
@@ -100,15 +105,22 @@ jobs:
 
       - name: Install dependencies with Django ${{ matrix.django-version }}
         run: |
-          uv pip install --system -e ".[dev]"
-          uv pip install --system "Django~=${{ matrix.django-version }}.0"
+          # Lock-respecting install, then pin the matrix Django version. The
+          # task-backend extras let the task contract tests import every backend.
+          uv sync --locked --extra dev --extra huey --extra django-q --extra django-rq --extra dramatiq
+          uv pip install --python .venv/bin/python "Django~=${{ matrix.django-version }}.0"
+          # --no-sync on every later step too, or uv re-syncs the lock's
+          # Django back over the matrix version.
+          uv run --no-sync python -c "import django; print('Django', django.get_version())"
 
       - name: Run migrations
         run: |
-          python manage.py migrate --noinput
+          # --no-sync: the matrix Django version was pinned into this venv
+          # above, and a plain `uv run` would re-sync it back to the lock.
+          uv run --no-sync python manage.py migrate --noinput
 
       - name: Run tests with coverage
-        run: pytest --timeout=60
+        run: uv run --no-sync pytest --timeout=60
 
       - name: Upload coverage to Codecov
         if: matrix.python-version == '3.13' && matrix.django-version == '5.2'
@@ -177,14 +189,14 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install dependencies
-        run: |
-          uv pip install --system -e ".[dev]"
+        run: uv sync --extra dev
 
       - name: Run bandit security scan
-        run: bandit -c pyproject.toml -r .
+        run: uv run bandit -c pyproject.toml -r .
 
+      # Non-blocking: reports advisories without failing the build.
       - name: Run pip-audit
-        run: pip-audit || true
+        run: uv run pip-audit || true
 
   gauntlet:
     name: Gauntlet (Quality Gate)
@@ -243,7 +255,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          uv sync --extra dev
+          uv sync --locked --extra dev --extra huey --extra django-q --extra django-rq --extra dramatiq
 
       - name: Run migrations
         run: uv run python manage.py migrate --noinput
@@ -283,19 +295,8 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
-      - name: Install CLI
-        run: |
-          cd cli
-          uv pip install --system -e ".[dev]"
+      - name: Install CLI development dependencies
+        run: uv sync --project cli --extra dev
 
-      - name: Test CLI help
-        run: |
-          django-ninja-matt --help
-
-      - name: Test CLI version
-        run: |
-          django-ninja-matt --version
-
-      - name: Test CLI init (dry run check)
-        run: |
-          django-ninja-matt init --help
+      - name: Run CLI tests
+        run: uv run --project cli pytest -q cli/tests -p no:cacheprovider

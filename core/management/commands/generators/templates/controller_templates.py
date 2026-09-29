@@ -26,7 +26,7 @@ class {model_name}Controller:
     @http_post("/", response={{201: {model_name}Schema}})
     def create_{model_name_lower}(self, request, payload: Create{model_name}Schema):
         """Create a new {model_name_lower}."""
-        {model_name_lower} = {model_name}.objects.create(**payload.dict())
+        {model_name_lower} = {model_name}.objects.create(**payload.model_dump())
         return 201, {model_name_lower}
 
     @http_get("/{{str:{model_name_lower}_id}}", response={{200: {model_name}Schema, 404: dict}})
@@ -39,7 +39,7 @@ class {model_name}Controller:
     def update_{model_name_lower}(self, request, {model_name_lower}_id: str, payload: Update{model_name}Schema):
         """Update a specific {model_name_lower} by ID."""
         {model_name_lower} = get_object_or_404({model_name}, id={model_name_lower}_id)
-        for key, value in payload.dict(exclude_unset=True).items():
+        for key, value in payload.model_dump(exclude_unset=True).items():
             setattr({model_name_lower}, key, value)
         {model_name_lower}.save()
         return 200, {model_name_lower}
@@ -118,7 +118,7 @@ class {{model_name}}Controller:
     def create_{{model_name_lower}}(self, request, payload: Create{{model_name}}Schema):
         """Create a new {{model_name_lower}} for the authenticated user."""
         user = request.user
-        {{model_name_lower}} = {{model_name}}.objects.create(user=user, **payload.dict())
+        {{model_name_lower}} = {{model_name}}.objects.create(user=user, **payload.model_dump())
         return 201, {{model_name_lower}}
 
     @detail_endpoint(select_related={{select_related}})
@@ -137,7 +137,7 @@ class {{model_name}}Controller:
         {{model_name_lower}} = get_object_or_404({{model_name}}, id={{model_name_lower}}_id, user=user)
 
         # Apply updates
-        for key, value in payload.dict(exclude_unset=True).items():
+        for key, value in payload.model_dump(exclude_unset=True).items():
             setattr({{model_name_lower}}, key, value)
         {{model_name_lower}}.save()
 

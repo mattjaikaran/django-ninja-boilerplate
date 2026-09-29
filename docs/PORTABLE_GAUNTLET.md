@@ -165,8 +165,8 @@ The convention checker can be in any language — the gauntlet orchestrator just
 ## Exporting
 
 ```bash
-make export-rules              # exports to ./gauntlet-export/
-make export-rules OUT=/tmp/rules  # custom output
+just legacy export-rules              # exports to ./gauntlet-export/
+just legacy export-rules OUT=/tmp/rules  # custom output
 ```
 
 The export bundle includes all four layers and a README with installation instructions.

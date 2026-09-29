@@ -97,9 +97,9 @@ EXPORT_MANIFEST = [
         "File length enforcement checker",
     ),
     (
-        "CLAUDE.md",
-        "CLAUDE.md",
-        "AI agent conventions — gauntlet, architecture rules, definition of done",
+        "AGENTS.md",
+        "AGENTS.md",
+        "Agent conventions — gauntlet, architecture rules, definition of done",
     ),
     (
         ".context/CONVENTIONS.md",
@@ -204,7 +204,7 @@ Adapt the convention checker to your framework — see `docs/PORTABLE_GAUNTLET.m
 
 ```bash
 python scripts/check_conventions.py   # single gate
-make gauntlet-quick                    # all gates
+just gauntlet-quick                    # all gates
 ```
 """)
         print(f"\n  Created: {readme}")

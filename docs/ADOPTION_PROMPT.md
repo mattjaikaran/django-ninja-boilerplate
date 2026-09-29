@@ -16,7 +16,7 @@ First, map this codebase. Identify:
 - What patterns does the codebase consistently follow?
 - What are the top 5-10 things an AI assistant would get wrong in this codebase?
 
-Write these down as a `CLAUDE.md` (or `AGENTS.md`) at the project root.
+Write these down as an `AGENTS.md` at the project root.
 
 ### Step 2: Create the Four-Layer Defense
 
@@ -97,7 +97,7 @@ If using `package.json`:
 After building everything:
 1. Run the convention checker against the codebase
 2. Fix any violations it finds (these are REAL bugs the AI let through)
-3. Run the full gauntlet: `make gauntlet-quick`
+3. Run the full gauntlet: `just gauntlet-quick`
 4. Verify 0 violations
 
 ### Critical Rules

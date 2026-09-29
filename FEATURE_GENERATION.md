@@ -328,7 +328,7 @@ uv run python manage.py generate_feature graphql --app-name=todos
 
 This creates:
 - `app/graphql/` - GraphQL package with schema, queries, mutations, and types
-- `app/graphql.py` - JWT-authenticated GraphQL view
+- `core/graphql_view.py` - JWT-authenticated GraphQL view (always in `core`)
 - Automatic URL configuration for `/graphql/` endpoint
 
 See the main [README.md](README.md#graphql-optional) for usage examples.
@@ -336,5 +336,4 @@ See the main [README.md](README.md#graphql-optional) for usage examples.
 ## Future Enhancements
 
 - Machine learning model integration
-- API versioning support
 - Docker configuration generation

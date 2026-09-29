@@ -72,4 +72,3 @@ DO $$
 BEGIN
     RAISE NOTICE 'Database initialization complete!';
 END $$;
-

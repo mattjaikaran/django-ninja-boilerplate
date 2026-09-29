@@ -3,9 +3,12 @@
 .PHONY: help build up down logs shell migrate createsuperuser test lint format clean install sync doctor quickstart quickstart-minimal quickstart-local quickstart-ci test-contract test-contract-full local-test-contract test-load test-load-quick test-load-moderate test-load-heavy test-load-stress test-load-custom test-all test-ci release
 
 # Variables
-DOCKER_COMPOSE = docker-compose
-DOCKER_COMPOSE_PROD = docker-compose -f docker-compose.prod.yml
-DOCKER_COMPOSE_SINGLE = docker-compose -f docker-compose.single.yml
+# The Makefile is now Makefile.legacy. These variables point at the single
+# profiled docker-compose.yml. Prefer the justfile; use `just legacy <target>`
+# for anything not yet ported.
+DOCKER_COMPOSE = docker compose --profile dev
+DOCKER_COMPOSE_PROD = docker compose --profile prod
+DOCKER_COMPOSE_SINGLE = docker compose --profile single
 DJANGO_SERVICE = django
 DB_SERVICE = db
 VALKEY_SERVICE = valkey
@@ -26,7 +29,7 @@ ALL_PROFILES = --profile celery --profile monitoring --profile realtime
 build: ## Build all Docker images (including profiled services)
 	$(DOCKER_COMPOSE) $(ALL_PROFILES) build
 
-up: ## Start the core stack (db, valkey, django)
+up: ## Start the dev stack (db, valkey, django, mcp, mailhog)
 	$(DOCKER_COMPOSE) up -d
 
 up-build: ## Build all images and start the core stack

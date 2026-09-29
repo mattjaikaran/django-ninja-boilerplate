@@ -13,7 +13,7 @@ Implement the work described by the user.
 3. **Typecheck** — run `mypy` after each file
 4. **Test** — run the single test file after each cycle, full suite at end
 5. **Code Review** — run `/code-review` to verify standards + spec
-6. **Gauntlet** — run `make gauntlet-quick` before declaring done
+6. **Gauntlet** — run `just gauntlet-quick` before declaring done
 
 ## During implementation
 
@@ -27,7 +27,7 @@ Implement the work described by the user.
 
 ## Done when
 
-- [ ] Gauntlet passes (`make gauntlet-quick`)
+- [ ] Gauntlet passes (`just gauntlet-quick`)
 - [ ] Convention checker passes (0 violations)
 - [ ] Tests pass with coverage above threshold
 - [ ] Typecheck passes

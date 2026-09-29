@@ -28,10 +28,10 @@ graph LR
 
 ```bash
 # Start all default services + Centrifugo
-make up-realtime
+just up-realtime
 
 # Or start everything (Celery + monitoring + realtime)
-make up-full
+just up-full
 ```
 
 Centrifugo will be available at `http://localhost:8800`. The admin UI is at `http://localhost:8800/` (password: `admin`).
@@ -47,7 +47,7 @@ CENTRIFUGO_TOKEN_SECRET=your-secure-secret     # JWT signing secret
 CENTRIFUGO_TOKEN_TTL=3600                      # Token lifetime in seconds
 ```
 
-> **Important:** `CENTRIFUGO_TOKEN_SECRET` and `CENTRIFUGO_API_KEY` must match between Django settings and `deploy/centrifugo/config.json`. In Docker, they're passed as environment variables automatically.
+> **Important:** `CENTRIFUGO_TOKEN_SECRET` and `CENTRIFUGO_API_KEY` must reach the Centrifugo process with values that match Django's settings. Centrifugo does not expand `${...}` in its config file; it only reads environment variables whose names match its own config keys. Compose therefore sets `CENTRIFUGO_TOKEN_HMAC_SECRET_KEY` (which maps to `token_hmac_secret_key`) and `CENTRIFUGO_API_KEY`. `deploy/centrifugo/config.json` holds development defaults only.
 
 ### 3. Get a Connection Token
 
@@ -78,20 +78,27 @@ centrifuge.connect();
 
 Channels use namespaces defined in `deploy/centrifugo/config.json`. All channels require subscription tokens (private by default).
 
+Django issues a subscription token only when `subscription_allowed()` in
+`api/centrifugo.py` allows the channel. By default, a user may subscribe only
+to their own `notifications:<user_id>` channel; any other channel returns 403.
+When you add a feature that uses the `chat` or `organization` namespace, add
+its membership check to `subscription_allowed()`.
+
 ```javascript
 // Get subscription token from Django
+const channel = `notifications:${userId}`;
 const subResponse = await fetch('/api/realtime/subscription-token', {
   method: 'POST',
   headers: {
     'Authorization': `Bearer ${accessToken}`,
     'Content-Type': 'application/json',
   },
-  body: JSON.stringify({ channel: 'chat:conversation-uuid' }),
+  body: JSON.stringify({ channel }),
 });
 const { token: subToken } = await subResponse.json();
 
 // Subscribe to the channel
-const sub = centrifuge.newSubscription('chat:conversation-uuid', {
+const sub = centrifuge.newSubscription(channel, {
   token: subToken,
 });
 
@@ -131,8 +138,8 @@ centrifugo_client.broadcast(
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `POST` | `/api/realtime/connection-token` | Get a Centrifugo connection JWT (requires auth) |
-| `POST` | `/api/realtime/subscription-token` | Get a channel subscription JWT (requires auth) |
+| `POST` | `/api/realtime/connection-token` | Get a Centrifugo connection JWT (requires JWT; 401 without it) |
+| `POST` | `/api/realtime/subscription-token` | Get a channel subscription JWT (requires JWT; 403 for a channel the user may not read) |
 
 ### Connection Token Response
 
@@ -146,7 +153,7 @@ centrifugo_client.broadcast(
 
 ```json
 // Request
-{ "channel": "chat:conversation-uuid" }
+{ "channel": "notifications:<your user id>" }
 
 // Response
 { "token": "eyJhbGciOiJIUzI1NiIs..." }
@@ -163,6 +170,11 @@ Configured in `deploy/centrifugo/config.json`:
 | `organization` | `organization:<org_id>` | Yes | 50 msgs / 10 min | Org-wide announcements |
 
 All namespaces have `allow_subscribe_for_client: false` — clients must obtain subscription tokens from Django.
+
+In production, set `CENTRIFUGO_ALLOWED_ORIGINS` (space separated) to the
+browser origins of your frontend. The config file lists only the development
+origins, so `centrifugo-prod` otherwise rejects browser WebSockets with 403.
+It defaults to `http://localhost`, which matches the bundled nginx locally.
 
 ## Django Integration
 
@@ -237,14 +249,14 @@ presence = ChatRealtimeService.get_presence("conv-123")
 
 ### Docker Compose
 
-Centrifugo runs under the `realtime` profile in both `docker-compose.yml` and `docker-compose.prod.yml`:
+Centrifugo runs under the `realtime` profile in development and under `realtime-prod` (service `centrifugo-prod`) in production, both in `docker-compose.yml`:
 
 ```bash
 # Development
 docker compose --profile realtime up -d
 
 # Production
-docker compose -f docker-compose.prod.yml --profile realtime up -d
+docker compose --profile prod --profile realtime-prod up -d
 ```
 
 ### Nginx Proxy
@@ -271,7 +283,7 @@ CENTRIFUGO_API_KEY=$(openssl rand -hex 32)
 CENTRIFUGO_TOKEN_SECRET=$(openssl rand -hex 32)
 ```
 
-Set these in your production `.env` and ensure `deploy/centrifugo/config.json` uses `${CENTRIFUGO_TOKEN_SECRET}` and `${CENTRIFUGO_API_KEY}` (Centrifugo expands env vars in its config).
+Set these in your production `.env`. Compose passes them to the `centrifugo-prod` service as `CENTRIFUGO_TOKEN_HMAC_SECRET_KEY` and `CENTRIFUGO_API_KEY`, which Centrifugo maps onto `token_hmac_secret_key` and `api_key`. Do not put `${...}` placeholders in `deploy/centrifugo/config.json`: Centrifugo does not expand them.
 
 ### Centrifugo Config: `deploy/centrifugo/config.json`
 

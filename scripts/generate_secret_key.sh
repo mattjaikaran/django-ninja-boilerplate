@@ -23,8 +23,10 @@ generate_secret_key() {
 import secrets
 import string
 
-# Generate a 50-character secret key
-alphabet = string.ascii_letters + string.digits + '!@#$%^&*(-_=+)'
+# Generate a 50-character secret key. The alphabet excludes $ and # because
+# Compose interpolates $ in .env values, which would silently replace part of
+# the key inside the containers.
+alphabet = string.ascii_letters + string.digits + '!@%^&*(-_=+)'
 secret_key = ''.join(secrets.choice(alphabet) for i in range(50))
 print(secret_key)
 "
@@ -38,35 +40,35 @@ generate_secret_key_openssl() {
 # Function to update .env file
 update_env_file() {
     local new_key="$1"
-    
-    if [ -f .env ]; then
-        # Check if SECRET_KEY already exists in .env
-        if grep -q "^SECRET_KEY=" .env; then
-            # Replace existing SECRET_KEY
-            if [[ "$OSTYPE" == "darwin"* ]]; then
-                # macOS
-                sed -i '' "s/^SECRET_KEY=.*/SECRET_KEY=$new_key/" .env
-            else
-                # Linux
-                sed -i "s/^SECRET_KEY=.*/SECRET_KEY=$new_key/" .env
-            fi
-            print_success "Updated SECRET_KEY in .env file"
-        else
-            # Add SECRET_KEY to .env
-            echo "SECRET_KEY=$new_key" >> .env
-            print_success "Added SECRET_KEY to .env file"
-        fi
-    else
-        # Create .env file with SECRET_KEY
-        echo "SECRET_KEY=$new_key" > .env
-        print_success "Created .env file with SECRET_KEY"
-    fi
+
+    # Written with Python, not sed: a generated key can contain &, which sed
+    # reads as "the whole match" and would splice the old line into the new
+    # value. The value is single-quoted because Compose treats a single-quoted
+    # .env value as literal, so a $ in the key is never interpolated.
+    python3 - "$new_key" <<'PY'
+import pathlib
+import sys
+
+key = sys.argv[1]
+path = pathlib.Path(".env")
+lines = path.read_text().splitlines() if path.exists() else []
+
+for index, line in enumerate(lines):
+    if line.startswith("SECRET_KEY="):
+        lines[index] = f"SECRET_KEY='{key}'"
+        break
+else:
+    lines.append(f"SECRET_KEY='{key}'")
+
+path.write_text("\n".join(lines) + "\n")
+PY
+    print_success "Wrote SECRET_KEY to .env file"
 }
 
 # Main execution
 main() {
     local update_file=false
-    
+
     # Parse command line arguments
     while [[ $# -gt 0 ]]; do
         case $1 in
@@ -92,9 +94,22 @@ main() {
                 ;;
         esac
     done
-    
+
+    # Never rotate a key that is already set: a new value invalidates existing
+    # sessions and JWTs, and would overwrite one pasted from a secret store.
+    if [ "$update_file" = true ] && [ -f .env ]; then
+        existing_key=$(grep -E '^SECRET_KEY=' .env 2>/dev/null | tail -1 | cut -d= -f2- | tr -d "'")
+        case "$existing_key" in
+            "" | your-secret-key-here-change-in-production) ;;
+            *)
+                print_info "SECRET_KEY is already set in .env; leaving it unchanged."
+                exit 0
+                ;;
+        esac
+    fi
+
     print_info "Generating Django SECRET_KEY..."
-    
+
     # Try to generate secret key with Python first
     if command -v python3 >/dev/null 2>&1; then
         secret_key=$(generate_secret_key)
@@ -105,12 +120,12 @@ main() {
         echo "Error: Neither Python3 nor OpenSSL found. Cannot generate secret key."
         exit 1
     fi
-    
+
     echo ""
     echo "Generated SECRET_KEY:"
     echo "$secret_key"
     echo ""
-    
+
     if [ "$update_file" = true ]; then
         update_env_file "$secret_key"
     else

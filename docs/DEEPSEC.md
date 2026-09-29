@@ -5,19 +5,20 @@ vulnerability scanner from Vercel Labs. It runs as an `npx` CLI in your own
 infrastructure: a fast regex pattern scan finds candidate sites, then a
 coding agent investigates them and writes findings with recommended fixes.
 
-The boilerplate ships the plumbing — Makefile targets, this guide, and a
-CI workflow example — so you can adopt deepsec without wiring anything by
-hand. deepsec is not a Python dependency; it runs from Node on demand.
+The boilerplate ships the plumbing — `Makefile.legacy` recipes (run them as
+`just legacy deepsec-…`), this guide, and a CI workflow you can copy — so you
+can adopt deepsec without wiring anything by hand. deepsec is not a Python
+dependency; it runs from Node on demand.
 
 ## How it works
 
 | Stage | Command | What it does |
 | ----- | ------- | ------------ |
-| Init | `make deepsec-init` | Interactive setup: pick a model and a budget. Creates the `.deepsec/` folder. |
-| Scan | `make deepsec-scan` | Regex matchers find candidate sites. Fast, free, no AI. |
-| Review | `make deepsec-review` | AI investigates candidates and writes findings. |
-| Report | `make deepsec-report` | Export findings as markdown into `./findings`. |
-| Re-check | `make deepsec-revalidate` | Re-check existing findings against git history. |
+| Init | `just legacy deepsec-init` | Interactive setup: pick a model and a budget. Creates the `.deepsec/` folder. |
+| Scan | `just legacy deepsec-scan` | Regex matchers find candidate sites. Fast, free, no AI. |
+| Review | `just legacy deepsec-review` | AI investigates candidates and writes findings. |
+| Report | `just legacy deepsec-report` | Export findings as markdown into `./findings`. |
+| Re-check | `just legacy deepsec-revalidate` | Re-check existing findings against git history. |
 
 The scan state lives in `.deepsec/` at the repo root. If a run is
 interrupted, re-run the same command; it continues where it left off.
@@ -25,11 +26,11 @@ interrupted, re-run the same command; it continues where it left off.
 ## First scan
 
 ```bash
-make deepsec-init          # interactive: model + spending cap
-make deepsec-init -- --max-cost-usd 50 --max-duration 2h   # cap the run
-make deepsec-scan
-make deepsec-review
-make deepsec-report        # findings land in ./findings/
+just legacy deepsec-init          # interactive: model + spending cap
+npx deepsec init --max-cost-usd 50 --max-duration 2h   # cap the run
+just legacy deepsec-scan
+just legacy deepsec-review
+just legacy deepsec-report        # findings land in ./findings/
 ```
 
 `npx deepsec init` asks how to pay for model usage. Use your own
@@ -84,8 +85,8 @@ npx deepsec init --max-cost-usd 100 --max-duration 2h
 ```
 
 The boilerplate already ships complementary static checks that run free in
-CI: `make check-all` runs the gauntlet (ruff, mypy, ty, architecture and
-convention checks), and `make security-check` runs Django's
+CI: `just check-all` runs the gauntlet (ruff, mypy, bandit, architecture and
+convention checks), and `just legacy security-check` runs Django's
 `check --deploy` for production settings misconfigurations. Treat deepsec
 as the deep, occasional audit on top of those.
 

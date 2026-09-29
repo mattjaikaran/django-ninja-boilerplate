@@ -41,8 +41,8 @@
 
 ```bash
 # Example:
-# make test
-# make lint
+# just test
+# just lint
 ```
 
 ### Test Coverage
@@ -101,9 +101,9 @@
 - [ ] No unnecessary debugging code or print statements
 
 ### Testing
-- [ ] Tests pass locally (`make test`)
-- [ ] Linting passes (`make lint`)
-- [ ] Gauntlet passes (`make gauntlet-quick`)
+- [ ] Tests pass locally (`just test`)
+- [ ] Linting passes (`just lint`)
+- [ ] Gauntlet passes (`just gauntlet-quick`)
 - [ ] Type checking passes (if applicable)
 
 ### Documentation

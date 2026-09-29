@@ -1,33 +1,69 @@
-"""django-rq backend adapter.
+"""django-rq adapter for the backend-neutral task contract."""
 
-Install: uv add django-rq rq
-Set: TASK_BACKEND=django_rq
+from __future__ import annotations
 
-Simple Redis Queue wrapper for Django with a built-in dashboard.
+from datetime import timedelta
+from typing import Any
 
-Worker: python manage.py rqworker default
-Dashboard: Add to urls.py:  path("django-rq/", include("django_rq.urls"))
-"""
+import django_rq
 
-import functools
+from api.tasks.contract import TaskHandle, execute_task, register_task, task_name
 
 
-def rq_task(func):
-    """Wrap a function as an RQ job.
+def _execute(
+    name: str,
+    args: tuple[Any, ...],
+    kwargs: dict[str, Any],
+    attempt: int,
+) -> Any:
+    return execute_task(name, args, kwargs, attempt)
 
-    The decorated function can be called normally (sync) or via
-    .delay() to enqueue it on the default RQ queue.
-    """
 
-    @functools.wraps(func)
-    def wrapper(*args, **kwargs):
-        return func(*args, **kwargs)
+def rq_task(
+    func,
+    *,
+    name: str | None = None,
+    bind: bool = False,
+    max_retries: int = 3,
+    **options: Any,
+) -> TaskHandle:
+    """Wrap a function as a django-rq task with the uniform contract."""
+    if options:
+        unknown = ", ".join(sorted(options))
+        raise TypeError(f"Unsupported django-rq task options: {unknown}")
 
-    def delay(*args, **kwargs):
-        import django_rq
+    resolved_name = task_name(func, name)
 
+    def enqueue(
+        args: tuple[Any, ...],
+        kwargs: dict[str, Any],
+        countdown: float,
+        attempt: int,
+    ) -> Any:
         queue = django_rq.get_queue("default")
-        return queue.enqueue(func, *args, **kwargs)
+        call_args = (resolved_name, args, kwargs, attempt)
+        if countdown > 0:
+            return queue.enqueue_in(
+                timedelta(seconds=countdown),
+                _execute,
+                *call_args,
+                description=resolved_name,
+            )
+        return queue.enqueue(
+            _execute,
+            *call_args,
+            description=resolved_name,
+        )
 
-    wrapper.delay = delay
-    return wrapper
+    return register_task(
+        TaskHandle(
+            name=resolved_name,
+            func=func,
+            enqueue=enqueue,
+            bind=bind,
+            max_retries=max_retries,
+        )
+    )
+
+
+__all__ = ["rq_task"]

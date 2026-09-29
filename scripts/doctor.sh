@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Environment validation script for Django Ninja Boilerplate
-# Run with: make doctor or ./scripts/doctor.sh
+# Run with: just doctor or ./scripts/doctor.sh
 
 set -e
 
@@ -22,19 +22,21 @@ print_check() {
     echo -e "${BLUE}[CHECK]${NC} $1"
 }
 
+# Counters use pre-increment: `((X++))` returns the OLD value, which is 0 on
+# the first call, and a 0 exit status aborts the script under `set -e`.
 print_pass() {
     echo -e "${GREEN}[PASS]${NC} $1"
-    ((PASS++))
+    ((++PASS))
 }
 
 print_warn() {
     echo -e "${YELLOW}[WARN]${NC} $1"
-    ((WARN++))
+    ((++WARN))
 }
 
 print_fail() {
     echo -e "${RED}[FAIL]${NC} $1"
-    ((FAIL++))
+    ((++FAIL))
 }
 
 print_info() {
@@ -49,9 +51,15 @@ command_exists() {
 # Check if port is available
 port_available() {
     if command_exists lsof; then
-        ! lsof -i :$1 >/dev/null 2>&1
+        if lsof -i ":$1" >/dev/null 2>&1; then
+            return 1
+        fi
+        return 0
     elif command_exists netstat; then
-        ! netstat -an | grep -q ":$1 "
+        if netstat -an | grep -q ":$1 "; then
+            return 1
+        fi
+        return 0
     else
         # Can't check, assume available
         return 0
@@ -120,12 +128,20 @@ else
     print_fail "Docker Compose not installed"
 fi
 
-# Make
-print_check "Make..."
+# just (primary task runner)
+print_check "just..."
+if command_exists just; then
+    print_pass "just available ($(just --version 2>/dev/null | head -1))"
+else
+    print_warn "just not installed. Install it with: brew install just"
+fi
+
+# Make (legacy task runner)
+print_check "Make (legacy)..."
 if command_exists make; then
     print_pass "Make available"
 else
-    print_warn "Make not installed (optional but recommended)"
+    print_warn "Make not installed (optional; needed for 'just legacy <target>')"
 fi
 
 # Git
@@ -145,20 +161,33 @@ echo ""
 echo "Port Availability"
 echo "-----------------"
 
+# Read the host ports the Docker stack publishes, so the check follows .env
+# instead of assuming the defaults.
+env_value() {
+    if [ -f .env ]; then
+        grep -E "^$1=" .env 2>/dev/null | tail -1 | cut -d= -f2
+    fi
+}
+
+POSTGRES_HOST_PORT=$(env_value POSTGRES_PORT)
+POSTGRES_HOST_PORT=${POSTGRES_HOST_PORT:-5433}
+VALKEY_HOST_PORT=$(env_value VALKEY_PORT)
+VALKEY_HOST_PORT=${VALKEY_HOST_PORT:-6380}
+
 # PostgreSQL port
-print_check "Port 5432 (PostgreSQL)..."
-if port_available 5432; then
-    print_pass "Port 5432 available"
+print_check "Port ${POSTGRES_HOST_PORT} (PostgreSQL)..."
+if port_available "${POSTGRES_HOST_PORT}"; then
+    print_pass "Port ${POSTGRES_HOST_PORT} available"
 else
-    print_warn "Port 5432 in use (may conflict with local PostgreSQL)"
+    print_warn "Port ${POSTGRES_HOST_PORT} in use; set POSTGRES_PORT in .env to a free port"
 fi
 
-# Redis port
-print_check "Port 6379 (Redis)..."
-if port_available 6379; then
-    print_pass "Port 6379 available"
+# Valkey port
+print_check "Port ${VALKEY_HOST_PORT} (Valkey)..."
+if port_available "${VALKEY_HOST_PORT}"; then
+    print_pass "Port ${VALKEY_HOST_PORT} available"
 else
-    print_warn "Port 6379 in use (may conflict with local Redis)"
+    print_warn "Port ${VALKEY_HOST_PORT} in use; set VALKEY_PORT in .env to a free port"
 fi
 
 # Django port
@@ -210,7 +239,7 @@ if [ -f .env ]; then
         print_warn "SECRET_KEY is using default value. Generate a new one for production!"
     fi
 else
-    print_fail ".env file not found. Run: make setup-env or cp .env.example .env"
+    print_fail ".env file not found. Run: just setup-env or cp .env.example .env"
 fi
 
 # .env.example
@@ -254,23 +283,23 @@ echo "Service Connectivity"
 echo "--------------------"
 
 # Check if Docker services are running
-if docker-compose ps 2>/dev/null | grep -q "Up"; then
+if docker compose --profile dev ps 2>/dev/null | grep -q "Up"; then
     print_info "Docker services detected, checking connectivity..."
 
     # Database connection
     print_check "Database connection..."
-    if docker-compose exec -T db pg_isready -U postgres >/dev/null 2>&1; then
+    if docker compose --profile dev exec -T db pg_isready -U postgres >/dev/null 2>&1; then
         print_pass "PostgreSQL is accepting connections"
     else
         print_fail "PostgreSQL not responding"
     fi
 
-    # Redis connection
-    print_check "Redis connection..."
-    if docker-compose exec -T redis redis-cli ping >/dev/null 2>&1; then
-        print_pass "Redis is responding"
+    # Valkey connection (Redis-compatible)
+    print_check "Valkey connection..."
+    if docker compose --profile dev exec -T valkey valkey-cli ping >/dev/null 2>&1; then
+        print_pass "Valkey is responding"
     else
-        print_fail "Redis not responding"
+        print_fail "Valkey not responding"
     fi
 
     # Django health check
@@ -281,7 +310,7 @@ if docker-compose ps 2>/dev/null | grep -q "Up"; then
         print_warn "Django API not responding (may still be starting)"
     fi
 else
-    print_info "Docker services not running. Start with: make up"
+    print_info "Docker services not running. Start with: just up"
 fi
 
 echo ""

@@ -22,9 +22,9 @@ Add a new API endpoint for [RESOURCE_NAME] with the following:
    - UpdateSchema with optional fields
 
 3. Create controller in `[app_name]/controllers/[resource]_controller.py`:
-   - Use @api_controller decorator
+   - Use @api_controller decorator with `auth=JWTAuth()`
    - Add CRUD endpoints (list, get, create, update, delete)
-   - Use @handle_exceptions and @log_api_call decorators
+   - Apply @log_api_call decorator for logging
    - Filter by user for list/get operations
 
 4. Register controller in `api/urls.py`
@@ -150,17 +150,24 @@ The endpoint should:
 
 Example pattern:
 ```python
-@http_get("/", response={200: list[ItemSchema], 401: dict})
-@handle_exceptions()
-@log_api_call()
-def list_items(self, request):
-    if not request.user or not request.user.is_authenticated:
-        return 401, {"error": "Not authenticated"}
-    return 200, Item.objects.filter(user=request.user)
+from ninja_extra import api_controller, http_get
+from ninja_jwt.authentication import JWTAuth
+
+from api.decorators import log_api_call
+
+
+@api_controller("/items", tags=["Items"], auth=JWTAuth())
+class ItemController:
+    @http_get("/", response={200: list[ItemSchema]})
+    @log_api_call()
+    def list_items(self, request):
+        return 200, Item.objects.filter(user=request.user)
 ```
 
-Note: Django Ninja JWT handles authentication automatically when the endpoint
-is registered with the API that has JWT controller.
+Note: Django Ninja JWT handles authentication automatically when the
+controller is declared with `auth=JWTAuth()`. Unauthenticated requests get a
+401 before the endpoint body runs. For public endpoints on an otherwise
+protected controller, pass `auth=None` to the `@http_*` decorator.
 ```
 
 ### Add Permission Check
@@ -175,7 +182,6 @@ Add permission checking to [ENDPOINT_NAME]:
 from api.exceptions import APIPermissionError
 
 @http_post("/admin-action", response={200: dict, 403: dict})
-@handle_exceptions()
 def admin_action(self, request, payload: ActionSchema):
     if not request.user.is_staff:
         raise APIPermissionError("Admin access required")
@@ -189,11 +195,10 @@ def admin_action(self, request, payload: ActionSchema):
 Add rate limiting to [ENDPOINT_NAME]:
 
 ```python
-from api.throttling import rate_limit
+from ninja_extra.throttling import DynamicRateThrottle, throttle
 
 @http_post("/sensitive-action")
-@rate_limit(rate=10, period=60)  # 10 requests per minute
-@handle_exceptions()
+@throttle(DynamicRateThrottle, scope="anon-auth")  # 20 requests per minute
 def sensitive_action(self, request, payload: ActionSchema):
     ...
 ```
@@ -291,9 +296,9 @@ Create a migration for the new [MODEL_NAME] model:
 
 1. Ensure model is properly defined in [app]/models/[model].py
 2. Export model in [app]/models/__init__.py
-3. Run: make makemigrations
+3. Run: just makemigrations
 4. Review the generated migration file
-5. Run: make migrate
+5. Run: just migrate
 
 If adding to an existing model, describe the changes:
 - Adding field: [field_name] ([field_type])
@@ -614,7 +619,7 @@ CMD ["granian", "api.asgi:application", \
 
 Same CMD replacement as Step 2.
 
-### Step 4: Update docker-compose.prod.yml
+### Step 4: Update docker-compose.yml (prod profile)
 
 Replace the gunicorn command in the web service:
 ```yaml
@@ -673,9 +678,9 @@ In core/observability/logging.py, replace the "gunicorn" logger entry:
 },
 ```
 
-### Step 9: Update Makefile
+### Step 9: Update the task runner
 
-Find any make targets that reference gunicorn and update them to granian.
+Find any just targets that reference gunicorn and update them to granian.
 
 ### Step 10: If switching to ASGI mode (optional, enables async views + WebSocket)
 
@@ -701,11 +706,11 @@ application = get_asgi_application()
 ### Step 11: Test the migration
 
 1. Build and run locally:
-   docker compose build && docker compose up
+   docker compose --profile dev build && docker compose --profile dev up -d
 2. Verify health check: curl http://localhost:8000/api/health/
 3. Verify API: curl http://localhost:8000/api/
-4. Run the test suite: make test
-5. Load test to compare performance: make load-test (if available)
+4. Run the test suite: just test
+5. Load test to compare performance: just legacy test-load-quick
 
 ### Key differences from Gunicorn:
 - No --worker-class flag (Granian handles threading natively in Rust)
@@ -721,31 +726,31 @@ application = get_asgi_application()
 
 ```bash
 # Development
-make setup              # Initial project setup
-make up                 # Start Docker services
-make down               # Stop Docker services
-make logs               # View logs
-make shell              # Django shell
+just setup              # Initial project setup
+just up                 # Start Docker services
+just down               # Stop Docker services
+just logs               # View logs
+just shell              # Django shell
 
 # Database
-make makemigrations     # Create migrations
-make migrate            # Apply migrations
-make seed-data          # Seed sample data
+just makemigrations     # Create migrations
+just migrate            # Apply migrations
+just legacy seed-data          # Seed sample data
 
 # Testing
-make test               # Run all tests
-make test-coverage      # Run with coverage
+just test               # Run all tests
+just test-coverage      # Run with coverage
 
 # Code Quality
-make lint               # Run linter
-make format             # Format code
+just lint               # Run linter
+just format             # Format code
 
 # Celery
-make celery-worker      # Start Celery worker
-make celery-beat        # Start scheduler
-make celery-flower      # Start monitoring
+just legacy celery-worker      # Start Celery worker
+just legacy celery-beat        # Start scheduler
+just legacy celery-flower      # Start monitoring
 
 # New features
-make startapp APP=name  # Create new app
-make generate-feature FEATURE=payments PROVIDER=stripe
+just legacy startapp APP=name  # Create new app
+just legacy generate-feature FEATURE=payments PROVIDER=stripe
 ```

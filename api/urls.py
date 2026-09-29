@@ -1,10 +1,20 @@
+import math
+
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.urls import path
+from ninja.errors import Throttled
 from ninja_extra import NinjaExtraAPI
 from ninja_jwt.controller import NinjaJWTDefaultController
 
+from api.exceptions import (
+    BaseAPIException,
+    handle_api_exception,
+    handle_django_validation_error,
+    handle_generic_exception,
+)
 from api.healthcheck import HealthCheckController
 from api.parsers import ORJSONParser
 from api.renderers import ORJSONRenderer
@@ -24,7 +34,7 @@ from core.controllers import (
     UserController,
 )
 from core.observability.admin_views import health_admin_view, metrics_admin_view
-from core.observability.controllers import EnhancedHealthController, MetricsController
+from core.observability.controllers import MetricsController
 from core.sse.views import sse_endpoint
 
 # from files.controllers import FileController
@@ -68,15 +78,35 @@ api = NinjaExtraAPI(
 )
 
 
+# Ninja's handler stub admits exception classes, but runtime supplies instances.
+api.add_exception_handler(BaseAPIException, handle_api_exception)  # type: ignore[arg-type]
+api.add_exception_handler(DjangoValidationError, handle_django_validation_error)  # type: ignore[arg-type]
+api.add_exception_handler(Exception, handle_generic_exception)  # type: ignore[arg-type]
+
+
+def handle_throttled(request, exc: Throttled):
+    """Return 429 with real retry metadata for throttled requests."""
+    retry_after = max(1, math.ceil(exc.wait or 1))
+    response = api.create_response(
+        request,
+        {"detail": str(exc), "retry_after": retry_after},
+        status=429,
+    )
+    response["Retry-After"] = str(retry_after)
+    return response
+
+
+api.add_exception_handler(Throttled, handle_throttled)  # type: ignore[arg-type]
+
+
 # Register controllers
 # The order of the controllers matches the order in the API Docs (Swager or ReDoc)
 # http://localhost:8000/api/docs
 api.register_controllers(
     NinjaJWTDefaultController,  # JWT Auth. If you want to use JWT, you must include this https://github.com/eadwinCode/django-ninja-jwt
     # System controllers
-    HealthCheckController,  # Health Check Controller
-    EnhancedHealthController,  # Enhanced Health Check Controller (detailed status)
-    MetricsController,  # Prometheus Metrics Controller
+    HealthCheckController,  # Health Check Controller (liveness/readiness/detailed/component)
+    MetricsController,  # Prometheus Metrics Controller (staff only)
     # core app
     UserController,  # User Controller
     AuthController,  # Auth Controller (email/password + magic links)
@@ -117,29 +147,6 @@ urlpatterns = [
     # SSE streaming endpoint (outside Ninja so it can use StreamingHttpResponse)
     path("api/events/stream/", sse_endpoint),
 ]
-
-# Conditionally mount versioned API instances
-if getattr(settings, "API_VERSIONING_ENABLED", False):
-    from api.versioning import api_v1, api_v2
-
-    api_v1.register_controllers(
-        NinjaJWTDefaultController,
-        AuthController,
-        UserController,
-        OTPController,
-        # Optional — uncomment to enable:
-        # FileController,
-        # WebhookController,
-        # OrganizationController,
-        # NotificationController,
-        # BillingController,
-        # StripeWebhookController,
-    )
-
-    urlpatterns += [
-        path("api/v1/", api_v1.urls),
-        path("api/v2/", api_v2.urls),
-    ]
 
 # Add debug toolbar URLs if available and in debug mode
 if settings.DEBUG and "debug_toolbar" in settings.INSTALLED_APPS:

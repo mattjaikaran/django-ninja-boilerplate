@@ -332,7 +332,7 @@ setup_provider() {
 
     echo ""
     ok "Setup complete for ${provider}!"
-    info "Next: edit .env.deploy, then run 'make deploy'"
+    info "Next: edit .env.deploy, then run 'just deploy'"
 }
 
 # ---------------------------------------------------------------------------

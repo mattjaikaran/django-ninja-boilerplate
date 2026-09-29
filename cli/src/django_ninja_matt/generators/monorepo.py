@@ -114,7 +114,8 @@ class MonorepoGenerator(BaseGenerator):
     def _create_root_makefile(self) -> None:
         """Create root Makefile for orchestrating both projects."""
         content = f"""# {self.config.display_name} - Monorepo Makefile
-# Orchestrates both backend and frontend services
+# Orchestrates both backend and frontend services.
+# The backend ships a justfile; these targets delegate to it.
 
 .PHONY: help setup up down logs test lint
 
@@ -129,47 +130,47 @@ help: ## Show this help
 
 setup: ## Bootstrap the entire development environment
 	@echo "Setting up {self.config.display_name}..."
-	@cd backend && make setup
+	@cd backend && just setup
 
 up: ## Start all services
-	docker-compose up -d
+	docker compose up -d
 
 down: ## Stop all services
-	docker-compose down
+	docker compose down
 
 logs: ## View logs for all services
-	docker-compose logs -f
+	docker compose logs -f
 
 restart: ## Restart all services
-	docker-compose restart
+	docker compose restart
 
 # ===========================================
 # Backend Commands
 # ===========================================
 
 backend-setup: ## Setup backend only
-	@cd backend && make setup
+	@cd backend && just setup
 
 backend-up: ## Start backend services
-	@cd backend && make up
+	@cd backend && just up
 
 backend-down: ## Stop backend services
-	@cd backend && make down
+	@cd backend && just down
 
 backend-logs: ## View backend logs
-	@cd backend && make logs
+	@cd backend && just logs
 
 backend-shell: ## Open Django shell
-	@cd backend && make shell
+	@cd backend && just shell
 
 backend-test: ## Run backend tests
-	@cd backend && make test
+	@cd backend && just test
 
 backend-lint: ## Lint backend code
-	@cd backend && make lint
+	@cd backend && just lint
 
 backend-migrate: ## Run backend migrations
-	@cd backend && make migrate
+	@cd backend && just migrate
 
 # ===========================================
 # Frontend Commands
@@ -195,7 +196,7 @@ frontend-lint: ## Lint frontend code
 # ===========================================
 
 doctor: ## Check development environment
-	@cd backend && make doctor
+	@cd backend && just doctor
 
 test: backend-test frontend-test ## Run all tests
 
@@ -206,13 +207,13 @@ lint: backend-lint frontend-lint ## Lint all code
 # ===========================================
 
 prod-build: ## Build production images
-	docker-compose -f docker-compose.prod.yml build
+	docker compose -f docker-compose.yml --profile prod build
 
 prod-up: ## Start production environment
-	docker-compose -f docker-compose.prod.yml up -d
+	docker compose -f docker-compose.yml --profile prod up -d
 
 prod-down: ## Stop production environment
-	docker-compose -f docker-compose.prod.yml down
+	docker compose -f docker-compose.yml --profile prod down
 """
         (self.config.path / "Makefile").write_text(content)
 
@@ -315,7 +316,7 @@ volumes:
 
 ```bash
 # Bootstrap everything
-make setup
+just setup
 
 # Or start services individually
 make backend-up    # Start backend services
@@ -328,10 +329,10 @@ make frontend-dev  # Start frontend dev server
 
 ```bash
 cd backend
-make setup         # Initial setup
-make up            # Start services
-make test          # Run tests
-make shell         # Django shell
+just setup         # Initial setup
+just up            # Start services
+just test          # Run tests
+just shell         # Django shell
 ```
 
 - API Docs: http://localhost:8000/api/docs
@@ -351,15 +352,15 @@ npm run build      # Production build
 
 ## Available Commands
 
-Run `make help` to see all available commands.
+Run `just help` to see all available commands.
 
 | Command | Description |
 |---------|-------------|
-| `make setup` | Bootstrap entire project |
-| `make up` | Start all services |
-| `make down` | Stop all services |
-| `make test` | Run all tests |
-| `make lint` | Lint all code |
+| `just setup` | Bootstrap entire project |
+| `just up` | Start all services |
+| `just down` | Stop all services |
+| `just test` | Run all tests |
+| `just lint` | Lint all code |
 
 ---
 

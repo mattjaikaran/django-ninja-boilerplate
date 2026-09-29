@@ -1,4 +1,3 @@
-# file-length-max: 730
 """Django settings for api project - Common settings.
 
 This module contains settings that are common across all environments.
@@ -8,6 +7,7 @@ Environment-specific settings should be defined in dev.py or prod.py.
 import os
 from datetime import timedelta
 from pathlib import Path
+from typing import Any
 
 import environ
 
@@ -36,6 +36,7 @@ env = environ.Env(
     CACHE_BACKEND=(str, "vcache"),
     # Task Queue
     TASK_BACKEND=(str, "celery"),
+    HUEY_IMMEDIATE=(bool, False),
     CELERY_BROKER_URL=(str, "valkey://valkey:6379/0"),
     CELERY_RESULT_BACKEND=(str, "valkey://valkey:6379/0"),
     # Superuser defaults
@@ -93,6 +94,7 @@ INSTALLED_APPS = [
     #####
     "ninja_extra",  # django-ninja-extra
     "ninja_jwt",  # django-ninja-jwt
+    "ninja_jwt.token_blacklist",  # JWT refresh-token blacklist (revocation + rotation)
     #####
     # user created apps
     #####
@@ -114,6 +116,8 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",  # security middleware
+    # Serves collected static files when no nginx sits in front (single, PaaS).
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "csp.middleware.CSPMiddleware",  # Content-Security-Policy headers
     "django.middleware.gzip.GZipMiddleware",  # Performance: Response compression
     "django.contrib.sessions.middleware.SessionMiddleware",  # session middleware
@@ -195,14 +199,24 @@ AUTH_PASSWORD_VALIDATORS = [
 AUTH_USER_MODEL = "core.User"
 
 # Django Ninja JWT settings
+# The JWT signing key is deliberately separate from SECRET_KEY so rotating the
+# Django secret never invalidates outstanding access/refresh tokens, and so
+# production can require a distinct value. Production (api.settings.prod) must
+# reject an unset or SECRET_KEY-equal value; development and tests fall back to
+# SECRET_KEY for zero-config setup.
+NINJA_JWT_SIGNING_KEY = env("NINJA_JWT_SIGNING_KEY", default=SECRET_KEY)
+
+# Access tokens are short-lived (60 minutes) and intentionally left valid until
+# expiry after logout: revoking only the refresh token stops the refresh flow
+# without a per-request blacklist lookup on every access-token use.
 NINJA_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=60),
-    "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
-    "ROTATE_REFRESH_TOKENS": False,
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
+    "ROTATE_REFRESH_TOKENS": True,
     "BLACKLIST_AFTER_ROTATION": True,
     "UPDATE_LAST_LOGIN": False,
     "ALGORITHM": "HS256",
-    "SIGNING_KEY": SECRET_KEY,
+    "SIGNING_KEY": NINJA_JWT_SIGNING_KEY,
     "VERIFYING_KEY": None,
     "AUTH_HEADER_TYPES": ("Bearer",),
     "USER_ID_FIELD": "id",
@@ -216,6 +230,14 @@ NINJA_JWT = {
     "SLIDING_TOKEN_REFRESH_LIFETIME": timedelta(days=1),
 }
 
+# Number of trusted reverse proxies in front of the app. Django Ninja reads
+# ``NINJA_NUM_PROXIES`` and Ninja Extra reads ``NINJA_EXTRA["NUM_PROXIES"]``;
+# keep both in sync so throttles derive the real client IP from
+# X-Forwarded-For without trusting the first hop an attacker controls.
+# Default 0 trusts no proxy (spoof-resistant); set 1 in the single-nginx
+# deployment behind a trusted proxy.
+TRUSTED_PROXY_COUNT = env.int("NINJA_NUM_PROXIES", default=0)
+
 # Django Ninja Extra settings
 NINJA_EXTRA = {
     "PAGINATION_CLASS": "ninja_extra.pagination.PageNumberPaginationExtra",  # included pagination
@@ -226,13 +248,19 @@ NINJA_EXTRA = {
         "ninja_extra.throttling.UserRateThrottle",  # authenticated user throttling
     ],
     "THROTTLE_RATES": {
-        "user": "1000/day",  # 1000 requests per day for authenticated users
-        "anon": "100/day",  # 100 requests per day for anonymous users
+        "user": "1000/day",  # authenticated general API
+        "anon": "100/day",  # anonymous general API
+        "anon-auth": "20/min",  # credential auth endpoints (signup/login/verify)
+        "anon-email": "5/min",  # magic-link request (email sending)
+        "tasks": "60/min",  # task admin endpoints
     },
-    "NUM_PROXIES": None,  # number of proxies
+    "NUM_PROXIES": TRUSTED_PROXY_COUNT,  # trusted reverse proxies
     "ORDERING_CLASS": "ninja_extra.ordering.Ordering",  # included ordering
     "SEARCHING_CLASS": "ninja_extra.searching.Search",  # included searching
 }
+
+# Base Django Ninja reads the same count from the top-level setting.
+NINJA_NUM_PROXIES = TRUSTED_PROXY_COUNT
 
 # Internationalization
 # https://docs.djangoproject.com/en/5.2/topics/i18n/
@@ -243,13 +271,21 @@ USE_TZ = True  # use tz
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
-STATIC_URL = "static/"
-STATIC_ROOT = "static/"
+STATIC_URL = "/static/"
+# Absolute so `collectstatic` writes where the compose static volume is mounted
+# (/app/staticfiles); the nginx image serves that same path.
+STATIC_ROOT = BASE_DIR / "staticfiles"
 
 # Media files configuration
 if ENVIRONMENT == "production" and env("AWS_STORAGE_BUCKET_NAME", default=""):
-    # S3 Storage for production
-    DEFAULT_FILE_STORAGE = "storages.backends.s3boto3.S3Boto3Storage"
+    # S3 Storage for production.
+    # DEFAULT_FILE_STORAGE was removed in Django 5.1; use the STORAGES mapping.
+    STORAGES = {
+        "default": {"BACKEND": "storages.backends.s3boto3.S3Boto3Storage"},
+        "staticfiles": {
+            "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"
+        },
+    }
     AWS_ACCESS_KEY_ID = env("AWS_ACCESS_KEY_ID")
     AWS_SECRET_ACCESS_KEY = env("AWS_SECRET_ACCESS_KEY")
     AWS_STORAGE_BUCKET_NAME = env("AWS_STORAGE_BUCKET_NAME")
@@ -372,14 +408,23 @@ SESSION_CACHE_ALIAS = "default"
 # =============================================================================
 # Celery Configuration
 # =============================================================================
-CELERY_BROKER_URL = env("CELERY_BROKER_URL", default=VALKEY_URL)
-CELERY_RESULT_BACKEND = env("CELERY_RESULT_BACKEND", default=VALKEY_URL)
+# kombu has no valkey transport, so the broker needs the redis:// scheme even
+# when the cache URL uses valkey://. Deriving it keeps a bare settings import
+# (no .env, or a deployment that skipped the template) from producing a broker
+# that cannot connect.
+_BROKER_URL_DEFAULT = VALKEY_URL.replace("valkey://", "redis://", 1)
+CELERY_BROKER_URL = env("CELERY_BROKER_URL", default=_BROKER_URL_DEFAULT)
+CELERY_RESULT_BACKEND = env("CELERY_RESULT_BACKEND", default=_BROKER_URL_DEFAULT)
 CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TASK_SERIALIZER = "json"
 CELERY_RESULT_SERIALIZER = "json"
 CELERY_TIMEZONE = TIME_ZONE
 CELERY_TASK_TRACK_STARTED = True
 CELERY_TASK_TIME_LIMIT = 30 * 60  # 30 minutes
+# django-celery-beat supplies the database scheduler and the admin pages for
+# periodic tasks. It must be installed here or its models do not exist and
+# `celery beat` fails to start.
+INSTALLED_APPS += ["django_celery_beat"]
 CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
 
 # Flower (Celery monitoring UI) — set FLOWER_URL to expose the Flower
@@ -390,8 +435,9 @@ os.environ.setdefault("FLOWER_URL", FLOWER_URL)
 # =============================================================================
 # Pluggable Task Backend
 # =============================================================================
-# Options: celery (default), huey, django_q, django_rq
+# Options: celery (default), huey, django_q, django_rq, dramatiq
 TASK_BACKEND = env("TASK_BACKEND", default="celery")
+_TASK_REDIS_URL = REDIS_URL.replace("valkey://", "redis://", 1)
 
 # Huey configuration (when TASK_BACKEND=huey)
 if TASK_BACKEND == "huey":
@@ -399,8 +445,8 @@ if TASK_BACKEND == "huey":
     HUEY = {
         "huey_class": "huey.RedisHuey",
         "name": "boilerplate",
-        "url": REDIS_URL,
-        "immediate": DEBUG,
+        "url": _TASK_REDIS_URL,
+        "immediate": env("HUEY_IMMEDIATE", default=False),
         "consumer": {
             "workers": 4,
             "worker_type": "thread",
@@ -420,7 +466,7 @@ if TASK_BACKEND == "django_q":
         "queue_limit": 500,
         "cpu_affinity": 1,
         "label": "Django Q2",
-        "redis": REDIS_URL,
+        "redis": _TASK_REDIS_URL,
     }
 
 # django-rq configuration (when TASK_BACKEND=django_rq)
@@ -428,15 +474,15 @@ if TASK_BACKEND == "django_rq":
     INSTALLED_APPS += ["django_rq"]
     RQ_QUEUES = {
         "default": {
-            "URL": REDIS_URL,
+            "URL": _TASK_REDIS_URL,
             "DEFAULT_TIMEOUT": 360,
         },
         "high": {
-            "URL": REDIS_URL,
+            "URL": _TASK_REDIS_URL,
             "DEFAULT_TIMEOUT": 360,
         },
         "low": {
-            "URL": REDIS_URL,
+            "URL": _TASK_REDIS_URL,
             "DEFAULT_TIMEOUT": 360,
         },
     }
@@ -470,7 +516,8 @@ X_FRAME_OPTIONS = "DENY"
 # Development: permissive to allow hot-reload tools, local docs, etc.
 # Production overrides in prod.py should lock this down.
 # =============================================================================
-_csp_directives = {
+# Public so prod.py can build the enforced policy from the same directives.
+CSP_DIRECTIVES = {
     "default-src": ("'self'",),
     "script-src": ("'self'", "'unsafe-inline'", "'unsafe-eval'"),
     "style-src": ("'self'", "'unsafe-inline'"),
@@ -482,10 +529,15 @@ _csp_directives = {
     "form-action": ("'self'",),
 }
 
+# Both names are always defined so api.settings.prod can replace their contents
+# without redefining a star-imported name. django-csp emits the enforced policy
+# and the report-only policy as separate headers.
+CONTENT_SECURITY_POLICY: dict[str, Any] = {}
+CONTENT_SECURITY_POLICY_REPORT_ONLY: dict[str, Any] = {}
 if ENVIRONMENT == "development":
-    CONTENT_SECURITY_POLICY_REPORT_ONLY = {"DIRECTIVES": _csp_directives}
+    CONTENT_SECURITY_POLICY_REPORT_ONLY["DIRECTIVES"] = CSP_DIRECTIVES
 else:
-    CONTENT_SECURITY_POLICY = {"DIRECTIVES": _csp_directives}
+    CONTENT_SECURITY_POLICY["DIRECTIVES"] = CSP_DIRECTIVES
 
 # Production security settings (enabled when not in DEBUG mode)
 # Note: These should be configured in prod.py for production environment
@@ -569,7 +621,7 @@ AUDIT_LOG_EXCLUDE_PATHS = [
     "/api/health/",
     "/api/docs",
     "/api/openapi.json",
-    "/api/metrics/",
+    "/api/metrics",
 ]
 
 # Whether to log request/response bodies (disable for privacy in production)
@@ -594,13 +646,6 @@ AUDIT_EXCLUDED_MODELS = [
 AUDIT_TRACKED_MODELS = None
 
 # =============================================================================
-# API Versioning
-# =============================================================================
-# When True, mounts versioned API instances at /api/v1/, /api/v2/, etc.
-# When False (default), only the unversioned /api/ mount is active.
-API_VERSIONING_ENABLED = env.bool("API_VERSIONING_ENABLED", default=False)
-
-# =============================================================================
 # API Key Authentication
 # =============================================================================
 API_KEY_AUTH_ENABLED = env.bool("API_KEY_AUTH_ENABLED", default=True)
@@ -613,7 +658,9 @@ API_KEY_PREFIX = env("API_KEY_PREFIX", default="bnp")
 # Application version (used in metrics and health checks)
 VERSION = env("APP_VERSION", default="1.11.0")
 
-# OpenTelemetry Configuration
+# OpenTelemetry Configuration. OTEL_ENABLED starts tracing in CoreConfig.ready()
+# and needs the `observability` extra, which the Docker images install.
+OTEL_ENABLED = env.bool("OTEL_ENABLED", default=False)
 OTEL_SERVICE_NAME = env("OTEL_SERVICE_NAME", default="django-ninja-app")
 OTEL_EXPORTER_OTLP_ENDPOINT = env(
     "OTEL_EXPORTER_OTLP_ENDPOINT", default="http://localhost:4317"

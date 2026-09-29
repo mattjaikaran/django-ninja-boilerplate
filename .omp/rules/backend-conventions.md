@@ -40,9 +40,9 @@ alwaysApply: true
 
 ```
 @http_get("/")          # 1st: HTTP method (outermost)
-@handle_exceptions()    # 2nd: error handling
-@log_api_call()         # 3rd: logging
-@validate_request()     # 4th: validation (innermost)
+@log_api_call()         # 2nd: logging
+@validate_request()     # 3rd: optional validation
+@paginate(PageNumberPaginationExtra)  # last, list endpoints only
 def endpoint(self, request):
     ...
 ```

@@ -1,21 +1,17 @@
-"""Celery tasks for the core application.
-
-This module provides background tasks for:
-- OTP cleanup
-- User maintenance
-- Periodic health checks
-"""
+"""Backend-neutral tasks for the core application."""
 
 import logging
+from datetime import timedelta
 
-from celery import shared_task
 from django.utils import timezone
+
+from api.tasks import shared_task
 
 logger = logging.getLogger(__name__)
 
 
 @shared_task(name="core.cleanup_expired_otps")
-def cleanup_expired_otps():
+def cleanup_expired_otps() -> dict[str, int]:
     """Clean up expired and used OTP codes.
 
     This task should run periodically (e.g., every hour) to remove
@@ -29,7 +25,7 @@ def cleanup_expired_otps():
 
     try:
         # Delete OTPs older than 7 days
-        cutoff = timezone.now() - timezone.timedelta(days=7)
+        cutoff = timezone.now() - timedelta(days=7)
         otp_deleted, _ = OneTimePassword.objects.filter(
             created_at__lt=cutoff,
         ).delete()
@@ -54,7 +50,7 @@ def cleanup_expired_otps():
 
 
 @shared_task(name="core.cleanup_inactive_users")
-def cleanup_inactive_users(days_inactive: int = 365):
+def cleanup_inactive_users(days_inactive: int = 365) -> dict[str, int]:
     """Anonymize or flag users who haven't logged in for a long time.
 
     This task helps with GDPR compliance by identifying inactive accounts.
@@ -70,7 +66,7 @@ def cleanup_inactive_users(days_inactive: int = 365):
     User = get_user_model()
 
     try:
-        cutoff = timezone.now() - timezone.timedelta(days=days_inactive)
+        cutoff = timezone.now() - timedelta(days=days_inactive)
 
         # Find inactive users (not logged in, not staff)
         inactive_users = User.objects.filter(
@@ -104,7 +100,7 @@ def cleanup_inactive_users(days_inactive: int = 365):
 
 
 @shared_task(name="core.send_otp_email")
-def send_otp_email(user_id: str, otp_id: str):
+def send_otp_email(user_id: str, otp_id: str) -> dict[str, str | bool]:
     """Send OTP via email asynchronously.
 
     Args:
@@ -139,16 +135,16 @@ This code will expire in {otp.time_until_expiry.seconds // 60} minutes.
 If you didn't request this code, please ignore this email.
 """
 
+        email = str(getattr(user, "email", ""))
         send_mail(
             subject=subject,
             message=message,
             from_email=getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@example.com"),
-            recipient_list=[user.email],
+            recipient_list=[email],
             fail_silently=False,
         )
-
-        logger.info("OTP email sent to %s", user.email)
-        return {"sent": True, "email": user.email}
+        logger.info("OTP email sent to %s", email)
+        return {"sent": True, "email": email}
 
     except User.DoesNotExist:
         logger.error("User %s not found", user_id)
@@ -162,7 +158,7 @@ If you didn't request this code, please ignore this email.
 
 
 @shared_task(name="core.health_check")
-def periodic_health_check():
+def periodic_health_check() -> dict[str, str | bool]:
     """Periodic health check task.
 
     Verifies that essential services are operational.
@@ -173,7 +169,7 @@ def periodic_health_check():
     from django.core.cache import cache
     from django.db import connection
 
-    results = {
+    results: dict[str, str | bool] = {
         "timestamp": timezone.now().isoformat(),
         "database": False,
         "cache": False,
@@ -201,3 +197,28 @@ def periodic_health_check():
         logger.warning("Health check failed: %s", results)
 
     return results
+
+
+@shared_task(name="core.flush_expired_tokens")
+def flush_expired_tokens() -> dict[str, int]:
+    """Delete expired JWT tokens from the blacklist outstanding-token list.
+
+    Mirrors ``ninja_jwt``'s ``flushexpiredtokens`` command. Celery beat runs
+    the task daily; other backends can invoke the portable management command.
+
+    Returns:
+        dict: Number of expired outstanding tokens deleted.
+    """
+    from ninja_jwt.token_blacklist.models import OutstandingToken
+    from ninja_jwt.utils import aware_utcnow
+
+    try:
+        _, deleted_by_model = OutstandingToken.objects.filter(
+            expires_at__lte=aware_utcnow()
+        ).delete()
+        deleted = deleted_by_model.get(OutstandingToken._meta.label, 0)
+        logger.info("Flushed %d expired JWT tokens", deleted)
+        return {"deleted": deleted}
+    except Exception as e:
+        logger.exception("JWT token flush failed: %s", e)
+        raise

@@ -22,17 +22,19 @@ if TYPE_CHECKING:
 class IsAuthenticated(BasePermission):
     """Permission class that requires user to be authenticated."""
 
-    def has_permission(self, request: HttpRequest, view: Any) -> bool:
+    def has_permission(self, request: HttpRequest, controller: Any) -> bool:
         return bool(request.user and request.user.is_authenticated)
 
 
 class IsOwner(BasePermission):
     """Permission class that requires user to be the owner of the object."""
 
-    def has_permission(self, request: HttpRequest, view: Any) -> bool:
+    def has_permission(self, request: HttpRequest, controller: Any) -> bool:
         return bool(request.user and request.user.is_authenticated)
 
-    def has_object_permission(self, request: HttpRequest, view: Any, obj: Any) -> bool:
+    def has_object_permission(
+        self, request: HttpRequest, controller: Any, obj: Any
+    ) -> bool:
         if not request.user or not request.user.is_authenticated:
             return False
 
@@ -48,7 +50,7 @@ class IsOwner(BasePermission):
 class IsAdminUser(BasePermission):
     """Permission class that requires user to be an admin."""
 
-    def has_permission(self, request: HttpRequest, view: Any) -> bool:
+    def has_permission(self, request: HttpRequest, controller: Any) -> bool:
         return bool(
             request.user
             and request.user.is_authenticated
@@ -59,7 +61,7 @@ class IsAdminUser(BasePermission):
 class IsSuperUser(BasePermission):
     """Permission class that requires user to be a superuser."""
 
-    def has_permission(self, request: HttpRequest, view: Any) -> bool:
+    def has_permission(self, request: HttpRequest, controller: Any) -> bool:
         return bool(
             request.user
             and request.user.is_authenticated
@@ -70,10 +72,12 @@ class IsSuperUser(BasePermission):
 class IsOwnerOrAdmin(BasePermission):
     """Permission class that requires user to be owner or admin."""
 
-    def has_permission(self, request: HttpRequest, view: Any) -> bool:
+    def has_permission(self, request: HttpRequest, controller: Any) -> bool:
         return bool(request.user and request.user.is_authenticated)
 
-    def has_object_permission(self, request: HttpRequest, view: Any, obj: Any) -> bool:
+    def has_object_permission(
+        self, request: HttpRequest, controller: Any, obj: Any
+    ) -> bool:
         if not request.user or not request.user.is_authenticated:
             return False
 
@@ -86,7 +90,7 @@ class IsOwnerOrAdmin(BasePermission):
 
         # Check if user is owner
         is_owner = IsOwner()
-        return is_owner.has_object_permission(request, view, obj)
+        return is_owner.has_object_permission(request, controller, obj)
 
 
 # Permission Decorators
@@ -228,43 +232,6 @@ def require_owner_or_admin(obj_param: str = "obj") -> Callable:
             if not is_owner:
                 msg = "Access denied: You are not the owner"
                 raise APIPermissionError(msg)
-
-            return func(request, *args, **kwargs)
-
-        return wrapper
-
-    return decorator
-
-
-def check_rate_limit(
-    limit: int, window: int = 3600, key_func: Callable | None = None
-) -> Callable:
-    """Decorator to implement rate limiting."""
-
-    def decorator(func: Callable) -> Callable:
-        @wraps(func)
-        def wrapper(request: HttpRequest, *args, **kwargs):
-            from django.core.cache import cache
-
-            from .utils import get_client_ip
-
-            # Generate cache key
-            if key_func:
-                key = key_func(request, *args, **kwargs)
-            else:
-                ip = get_client_ip(request)
-                key = f"rate_limit:{ip}:{func.__name__}"
-
-            # Check current count
-            current = cache.get(key, 0)
-            if current >= limit:
-                from .exceptions import RateLimitError
-
-                msg = f"Rate limit exceeded: {limit} requests per {window} seconds"
-                raise RateLimitError(msg)
-
-            # Increment count
-            cache.set(key, current + 1, window)
 
             return func(request, *args, **kwargs)
 

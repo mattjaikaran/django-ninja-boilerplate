@@ -12,9 +12,11 @@ from django.db.models import Count
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from ninja_extra import api_controller, http_get
-from ninja_extra.pagination import paginate
+from ninja_extra.pagination import PageNumberPaginationExtra, paginate
+from ninja_extra.schemas import PaginatedResponseSchema
+from ninja_jwt.authentication import JWTAuth
 
-from api.decorators import handle_exceptions, log_api_call
+from api.decorators import log_api_call
 from api.permissions import IsAdminUser
 from core.audit.models import AuditAction, AuditLog
 from core.audit.schemas import (
@@ -26,7 +28,9 @@ from core.audit.schemas import (
 logger = logging.getLogger(__name__)
 
 
-@api_controller("/audit", tags=["Audit Logs"], permissions=[IsAdminUser])
+@api_controller(
+    "/audit", tags=["Audit Logs"], auth=JWTAuth(), permissions=[IsAdminUser]
+)
 class AuditLogController:
     """Controller for managing audit logs.
 
@@ -34,10 +38,9 @@ class AuditLogController:
     Audit logs are read-only to maintain integrity.
     """
 
-    @paginate
-    @http_get("/", response=list[AuditLogListSchema])
-    @handle_exceptions()
+    @http_get("/", response={200: PaginatedResponseSchema[AuditLogListSchema]})
     @log_api_call()
+    @paginate(PageNumberPaginationExtra)
     def list_audit_logs(
         self,
         action: str | None = None,
@@ -117,7 +120,6 @@ class AuditLogController:
         return queryset
 
     @http_get("/{audit_log_id}", response={200: AuditLogSchema, 404: dict})
-    @handle_exceptions()
     @log_api_call()
     def get_audit_log(self, audit_log_id: UUID):
         """Get a specific audit log entry by ID.
@@ -126,10 +128,9 @@ class AuditLogController:
             audit_log_id: UUID of the audit log entry
         """
         audit_log = get_object_or_404(AuditLog, id=audit_log_id)
-        return 200, AuditLogSchema.from_orm(audit_log)
+        return 200, AuditLogSchema.model_validate(audit_log)
 
     @http_get("/stats/summary", response={200: AuditLogStatsSchema})
-    @handle_exceptions()
     @log_api_call()
     def get_audit_stats(
         self,
@@ -210,7 +211,6 @@ class AuditLogController:
         )
 
     @http_get("/object/{model_name}/{object_id}", response=list[AuditLogListSchema])
-    @handle_exceptions()
     @log_api_call()
     def get_object_history(self, model_name: str, object_id: str):
         """Get the complete audit history for a specific object.
@@ -224,10 +224,9 @@ class AuditLogController:
             object_id=object_id,
         ).order_by("-timestamp")
 
-        return [AuditLogListSchema.from_orm(log) for log in queryset]
+        return [AuditLogListSchema.model_validate(log) for log in queryset]
 
     @http_get("/user/{user_email}", response=list[AuditLogListSchema])
-    @handle_exceptions()
     @log_api_call()
     def get_user_activity(self, user_email: str, limit: int = 100):
         """Get audit logs for a specific user.
@@ -240,10 +239,9 @@ class AuditLogController:
             "-timestamp"
         )[:limit]
 
-        return [AuditLogListSchema.from_orm(log) for log in queryset]
+        return [AuditLogListSchema.model_validate(log) for log in queryset]
 
     @http_get("/ip/{ip_address}", response=list[AuditLogListSchema])
-    @handle_exceptions()
     @log_api_call()
     def get_ip_activity(self, ip_address: str, limit: int = 100):
         """Get audit logs from a specific IP address.
@@ -256,10 +254,9 @@ class AuditLogController:
             "-timestamp"
         )[:limit]
 
-        return [AuditLogListSchema.from_orm(log) for log in queryset]
+        return [AuditLogListSchema.model_validate(log) for log in queryset]
 
     @http_get("/actions", response={200: list[dict]})
-    @handle_exceptions()
     @log_api_call()
     def list_action_types(self):
         """List all available audit action types."""
@@ -268,7 +265,6 @@ class AuditLogController:
         ]
 
     @http_get("/models", response={200: list[str]})
-    @handle_exceptions()
     @log_api_call()
     def list_audited_models(self):
         """List all models that have audit log entries."""
@@ -281,7 +277,6 @@ class AuditLogController:
         return 200, list(models)
 
     @http_get("/failed-logins", response=list[AuditLogListSchema])
-    @handle_exceptions()
     @log_api_call()
     def get_failed_logins(self, hours: int = 24, limit: int = 100):
         """Get recent failed login attempts.
@@ -298,4 +293,4 @@ class AuditLogController:
             timestamp__gte=since,
         ).order_by("-timestamp")[:limit]
 
-        return [AuditLogListSchema.from_orm(log) for log in queryset]
+        return [AuditLogListSchema.model_validate(log) for log in queryset]

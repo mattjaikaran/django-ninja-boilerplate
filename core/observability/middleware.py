@@ -39,16 +39,18 @@ class ObservabilityMiddleware:
     4. Adds observability headers to responses
     """
 
-    # Paths to exclude from detailed tracing
-    EXCLUDED_PATHS = {
-        "/health/",
-        "/health/liveness",
-        "/health/readiness",
-        "/metrics",
+    # Paths to exclude from detailed tracing and metrics. These use the real
+    # /api/* prefixes so probes and scrapes do not pollute traces, counters,
+    # or logs.
+    EXCLUDED_PATHS = (
+        "/api/health/",
+        "/api/metrics",
+        "/api/docs",
+        "/api/openapi.json",
         "/favicon.ico",
         "/static/",
         "/media/",
-    }
+    )
 
     def __init__(self, get_response):
         self.get_response = get_response

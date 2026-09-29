@@ -17,6 +17,8 @@ import httpx
 import jwt
 from django.conf import settings
 
+from api.exceptions import ExternalServiceError
+
 logger = logging.getLogger(__name__)
 
 
@@ -89,6 +91,17 @@ def generate_subscription_token(
     )
 
 
+def subscription_allowed(user_id: str, channel: str) -> bool:
+    """Return whether *user_id* may receive a subscription token for *channel*.
+
+    Deny by default: a token for any channel would let one user read another
+    user's private stream. The boilerplate allows only the user's own
+    ``notifications:<user id>`` channel. When you add a feature that uses the
+    ``chat`` or ``organization`` namespace, add its membership check here.
+    """
+    return channel == f"notifications:{user_id}"
+
+
 class CentrifugoClient:
     """HTTP client for Centrifugo server API.
 
@@ -115,7 +128,13 @@ class CentrifugoClient:
         }
 
     def _request(self, method: str, data: dict[str, Any]) -> dict[str, Any]:
-        """Send a request to Centrifugo's HTTP API."""
+        """Send a request to Centrifugo's HTTP API.
+
+        Raises:
+            httpx.HTTPError: If the request fails at the HTTP level.
+            ExternalServiceError: If Centrifugo answers 200 with an ``error``
+                payload, for example an unknown namespace or a bad API key.
+        """
         payload = {"method": method, "params": data}
         try:
             response = httpx.post(
@@ -125,13 +144,18 @@ class CentrifugoClient:
                 timeout=self.timeout,
             )
             response.raise_for_status()
-            result = response.json()
-            if result.get("error"):
-                logger.error("Centrifugo API error: %s", result["error"])
-            return result
         except httpx.HTTPError:
             logger.exception("Centrifugo request failed: %s", method)
             raise
+        result = response.json()
+        error = result.get("error")
+        if error:
+            raise ExternalServiceError(
+                f"Centrifugo rejected {method}: {error}",
+                code="centrifugo_error",
+                details={"method": method, "error": error},
+            )
+        return result
 
     def publish(self, channel: str, data: dict[str, Any]) -> dict[str, Any]:
         """Publish a message to a channel."""

@@ -1,7 +1,7 @@
 """Partial decorator Todo controller — selective use of custom decorators.
 
-This controller applies ``handle_exceptions`` and ``log_api_call`` only
-where they add the most value: mutating operations (POST/PUT/DELETE).
+This controller applies ``log_api_call`` only where it adds the most value:
+mutating operations (POST/PUT/DELETE).
 Read endpoints are left undecorated to show that you can mix and match
 rather than applying decorators uniformly across all methods.
 
@@ -13,10 +13,11 @@ import logging
 from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from ninja_extra import api_controller, http_delete, http_get, http_post, http_put
-from ninja_extra.pagination import paginate
+from ninja_extra.pagination import PageNumberPaginationExtra, paginate
+from ninja_extra.schemas import PaginatedResponseSchema
 from ninja_jwt.authentication import JWTAuth
 
-from api.decorators import handle_exceptions, log_api_call
+from api.decorators import log_api_call
 from todos.models import Todo
 from todos.schemas import CreateTodoSchema, TodoSchema, UpdateTodoSchema
 
@@ -33,17 +34,17 @@ class TodoControllerPartial:
 
     Read endpoints (GET) are kept plain — they rely on Django Ninja to
     surface errors naturally. Write endpoints (POST/PUT/DELETE) use
-    ``handle_exceptions`` for structured error responses and
-    ``log_api_call`` for observability. This is a practical middle ground
-    between zero-decorator and full-decorator patterns.
+    ``log_api_call`` for observability. Exceptions are handled by the
+    shared API handlers. This is a practical middle ground between
+    zero-decorator and full-decorator patterns.
     """
 
     # ------------------------------------------------------------------
     # Read endpoints — no custom decorators
     # ------------------------------------------------------------------
 
-    @paginate
-    @http_get("/", response={200: list[TodoSchema]})
+    @http_get("/", response={200: PaginatedResponseSchema[TodoSchema]})
+    @paginate(PageNumberPaginationExtra)
     def list_todos(
         self,
         request,
@@ -108,8 +109,8 @@ class TodoControllerPartial:
             Todo.objects.select_related("user"), id=todo_id, user=request.user
         )
 
-    @paginate
-    @http_get("/completed", response={200: list[TodoSchema]})
+    @http_get("/completed", response={200: PaginatedResponseSchema[TodoSchema]})
+    @paginate(PageNumberPaginationExtra)
     def list_completed_todos(self, request):
         """List completed todos for the authenticated user.
 
@@ -123,8 +124,8 @@ class TodoControllerPartial:
             "-updated_at"
         )
 
-    @paginate
-    @http_get("/pending", response={200: list[TodoSchema]})
+    @http_get("/pending", response={200: PaginatedResponseSchema[TodoSchema]})
+    @paginate(PageNumberPaginationExtra)
     def list_pending_todos(self, request):
         """List pending (incomplete) todos for the authenticated user.
 
@@ -138,8 +139,8 @@ class TodoControllerPartial:
             "-created_at"
         )
 
-    @paginate
-    @http_get("/search", response={200: list[TodoSchema]})
+    @http_get("/search", response={200: PaginatedResponseSchema[TodoSchema]})
+    @paginate(PageNumberPaginationExtra)
     def search_todos(
         self,
         request,
@@ -179,13 +180,11 @@ class TodoControllerPartial:
 
     @http_post("/", response={201: TodoSchema, 400: dict, 500: dict})
     @log_api_call(include_payload=True, include_response=False)
-    @handle_exceptions(return_500_on_error=True, log_errors=True)
     def create_todo(self, request, payload: CreateTodoSchema):
         """Create a new todo for the authenticated user.
 
-        Decorated with ``log_api_call`` for audit visibility and
-        ``handle_exceptions`` so any DB or validation error returns a
-        structured 500 response instead of an unhandled exception.
+        Decorated with ``log_api_call`` for audit visibility. Any DB or
+        validation error is surfaced by the shared API exception handlers.
 
         Args:
             request: The HTTP request object.
@@ -202,7 +201,6 @@ class TodoControllerPartial:
 
     @http_put("/{todo_id}", response={200: TodoSchema, 404: dict, 500: dict})
     @log_api_call(include_payload=True)
-    @handle_exceptions()
     def update_todo(self, request, todo_id: str, payload: UpdateTodoSchema):
         """Apply partial updates to an existing todo.
 
@@ -223,7 +221,6 @@ class TodoControllerPartial:
         return 200, todo
 
     @http_delete("/{todo_id}", response={204: None, 404: dict, 500: dict})
-    @handle_exceptions()
     @log_api_call()
     def delete_todo(self, request, todo_id: str):
         """Delete a todo owned by the authenticated user.

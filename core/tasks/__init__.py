@@ -1,15 +1,14 @@
-"""Task management package for Celery task improvements.
-
-This package provides:
-- Enhanced base task class with progress tracking
-- Task progress tracking and storage
-- Periodic task management utilities
-- Dead letter queue handling for failed tasks
-- API endpoints for task status and management
-"""
+"""Task management helpers and backend-neutral core jobs."""
 
 from core.tasks.base import ProgressTask
 from core.tasks.dlq import DeadLetterQueue
+from core.tasks.jobs import (
+    cleanup_expired_otps,
+    cleanup_inactive_users,
+    flush_expired_tokens,
+    periodic_health_check,
+    send_otp_email,
+)
 from core.tasks.progress import TaskProgressTracker
 from core.tasks.scheduler import PeriodicTaskManager
 
@@ -18,4 +17,9 @@ __all__ = [
     "PeriodicTaskManager",
     "ProgressTask",
     "TaskProgressTracker",
+    "cleanup_expired_otps",
+    "cleanup_inactive_users",
+    "flush_expired_tokens",
+    "periodic_health_check",
+    "send_otp_email",
 ]

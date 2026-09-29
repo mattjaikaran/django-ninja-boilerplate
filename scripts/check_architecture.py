@@ -46,7 +46,6 @@ KNOWN_APPS = {
 ALLOWED_CROSS_IMPORTS = {
     "api.permissions",
     "api.schemas",
-    "api.pagination",
     "api.throttling",
     "api.decorators",
     "api.tasks",

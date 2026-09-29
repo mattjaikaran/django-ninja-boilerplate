@@ -40,8 +40,8 @@ dnm init my-app
   - Render
   - Kubernetes (Helm charts)
 - Professional DX tooling:
-  - One-command setup (`make setup`)
-  - Environment doctor (`make doctor`)
+  - One-command setup (`just setup`)
+  - Environment doctor (`just doctor`)
   - VSCode configurations
   - CI/CD workflows
 
@@ -66,16 +66,16 @@ After creating a project, navigate to it and use:
 cd my-project
 
 # Bootstrap the development environment
-make setup
+just setup
 
 # Validate your environment
-make doctor
+just doctor
 
 # Start development services
-make up
+just up
 
 # Run tests
-make test
+just test
 ```
 
 ### Available Commands
@@ -90,7 +90,6 @@ dnm --help
 | `dnm init <name>` | Create a new project |
 | `dnm doctor` | Validate development environment |
 | `dnm setup` | Bootstrap current project |
-
 ### Init Options
 
 | Option | Description | Default |
@@ -118,7 +117,7 @@ my-app/
 ├── docker/           # Docker configs
 ├── scripts/          # Setup scripts
 ├── docker-compose.yml
-├── Makefile
+├── justfile
 └── ...
 ```
 

@@ -20,18 +20,28 @@ Run through this before every production deploy. Each item maps to a real attack
 
 ## Security Headers
 
-Run `make security-check` (calls `manage.py check --deploy`) before each deploy.
+Run `just legacy security-check` (calls `manage.py check --deploy`) before each deploy.
 
 - [ ] `X-Frame-Options: DENY` — prevents clickjacking (`X_FRAME_OPTIONS = "DENY"` ✓ in common.py)
 - [ ] `X-Content-Type-Options: nosniff` — stops MIME sniffing (`SECURE_CONTENT_TYPE_NOSNIFF = True` ✓)
-- [ ] `Strict-Transport-Security` — forces HTTPS for 1 year (`SECURE_HSTS_SECONDS = 31536000` ✓ in prod.py)
+- [ ] Enable HSTS for HTTPS only. Set `USE_TLS=true` for the 1-year Django policy.
+  If a proxy terminates TLS, configure HSTS at that proxy.
 - [ ] `Referrer-Policy: strict-origin-when-cross-origin` ✓ in prod.py
 - [ ] `Content-Security-Policy` — configured via django-csp ✓
   - Dev: report-only mode, permissive (won't block your local tools)
   - Prod: enforced, no `unsafe-inline` or `unsafe-eval`
-  - Tighten `CSP_SCRIPT_SRC` / `CSP_STYLE_SRC` in `prod.py` as your frontend stabilises
-- [ ] `SESSION_COOKIE_HTTPONLY = True` and `SESSION_COOKIE_SECURE = True` (prod.py ✓)
+  - Tighten the `script-src` / `style-src` directives in `CONTENT_SECURITY_POLICY["DIRECTIVES"]` (`prod.py`) as your frontend stabilises
+- [ ] Keep `SESSION_COOKIE_HTTPONLY = True`. Set `USE_TLS=true` to enable
+  `SESSION_COOKIE_SECURE` and `CSRF_COOKIE_SECURE` in prod.py.
 - [ ] `CSRF_COOKIE_HTTPONLY = True` (prod.py ✓)
+
+The bundled nginx profile listens on HTTP port 80 and sets
+`X-Forwarded-Proto: http`. Do not set `USE_TLS=true` behind that nginx
+configuration: Django will redirect in a loop, even if an upstream proxy
+terminates TLS. Terminate TLS at a trusted proxy that forwards the original
+scheme directly to Django, or configure a trusted-proxy nginx deployment
+separately. At the TLS edge, enforce HTTPS and HSTS and verify that session
+and CSRF cookies carry `Secure`.
 
 Verify headers on a live deployment:
 
@@ -47,13 +57,14 @@ curl -I https://yourdomain.com/api/health/
   input into raw SQL. If you add `raw()` or `cursor.execute()`, use `%s` placeholders only.
 - [ ] **XSS** — API returns JSON, not HTML, so XSS surface is small. Admin uses Django templates
   (auto-escaped). If you add any template rendering, never use `mark_safe()` on user input.
-- [ ] **Broken Auth** — JWT tokens expire (60 min access, 1 day refresh). Brute force lockout
-  fires after 5 failed attempts, 15-minute lockout (`core/security/brute_force.py`).
+- [ ] **Broken Auth** — Access tokens expire after 60 minutes. Refresh tokens
+  expire after 7 days; rotation and logout revoke refresh tokens. Brute force
+  lockout fires after 5 failed attempts for 15 minutes (`core/security/brute_force.py`).
 - [ ] **Sensitive Data Exposure** — `UserSchema` does not expose `password`. Check any new schema
   you add: no `password`, `token`, or key fields in response schemas.
 - [ ] **Security Misconfiguration** — `DEBUG=False` in prod. `ALLOWED_HOSTS` set. `SECRET_KEY`
   is a real secret, not the default. Run `manage.py check --deploy` to catch common misconfigs.
-- [ ] **Insecure Dependencies** — `pip-audit` runs on pre-push. Also run `make ci-security` in CI.
+- [ ] **Insecure Dependencies** — `pip-audit` runs on pre-push. Also run `just legacy ci-security` in CI.
 
 ---
 
@@ -127,17 +138,18 @@ Rate limiting is configured at two levels in this boilerplate:
 - Authenticated users: 1000 req/day
 - Anonymous: 100 req/day
 
-**Per-endpoint** (`@rate_limit` decorator):
-- `POST /auth/signup` — 10 req/min
-- `POST /auth/login` — 20 req/min
-- `POST /auth/passwordless/login/request` — 5 req/min
+**Per-endpoint** (Ninja Extra `@throttle` with a scope):
+- `anon-auth`, 20 req/min: signup, both login endpoints, and passwordless verify
+- `anon-email`, 5 req/min: `POST /auth/passwordless/login/request`
+- `tasks`, 60 req/min: task admin endpoints
 
 **Brute force lockout** (`core/security/brute_force.py`):
 - Login locked after 5 failed attempts for 15 minutes
 
 Before launching:
 - [ ] Confirm Valkey/Redis is running and cache backend is connected (rate limits degrade gracefully if the cache is down, but won't protect you)
-- [ ] Add `@rate_limit` to any endpoint that sends email, creates a resource, or calls a paid external API
+- [ ] Add `@throttle(DynamicRateThrottle, scope=...)` to any endpoint that sends email, creates a resource, or calls a paid external API
+- [ ] Set `NINJA_NUM_PROXIES` to the number of reverse proxies, so throttles see the real client IP
 - [ ] Consider tightening `THROTTLE_RATES["anon"]` for public-facing APIs
 
 ---
@@ -146,9 +158,9 @@ Before launching:
 
 ```bash
 # Static analysis + security scan
-make lint
-make security-check        # manage.py check --deploy
-make ci-security           # pip-audit for known CVEs
+just lint
+just legacy security-check        # manage.py check --deploy
+just legacy ci-security           # pip-audit for known CVEs
 
 # Verify headers on staging
 curl -I https://staging.yourdomain.com/api/health/

@@ -13,7 +13,8 @@ import logging
 
 from django.db.models import Q
 from ninja_extra import api_controller, http_delete, http_get, http_post, http_put
-from ninja_extra.pagination import paginate
+from ninja_extra.pagination import PageNumberPaginationExtra, paginate
+from ninja_extra.schemas import PaginatedResponseSchema
 from ninja_jwt.authentication import JWTAuth
 
 from todos.models import Todo
@@ -45,8 +46,8 @@ class TodoControllerDeclarative:
     happening at every step without relying on decorator abstractions.
     """
 
-    @paginate
-    @http_get("/", response={200: list[TodoSchema], 400: dict, 500: dict})
+    @http_get("/", response={200: PaginatedResponseSchema[TodoSchema]})
+    @paginate(PageNumberPaginationExtra)
     def list_todos(
         self,
         request,
@@ -65,34 +66,25 @@ class TodoControllerDeclarative:
             ordering: Sort field (title, created_at, updated_at, priority; prefix with - for desc).
 
         Returns:
-            Tuple of (200, queryset) on success or (500, error_dict) on failure.
+            QuerySet of matching todos for the authenticated user.
         """
-        try:
-            queryset = Todo.objects.select_related("user").filter(user=request.user)
+        queryset = Todo.objects.select_related("user").filter(user=request.user)
 
-            if search:
-                queryset = queryset.filter(
-                    Q(title__icontains=search) | Q(description__icontains=search)
-                )
+        if search:
+            queryset = queryset.filter(
+                Q(title__icontains=search) | Q(description__icontains=search)
+            )
 
-            if completed is not None:
-                queryset = queryset.filter(completed=completed)
+        if completed is not None:
+            queryset = queryset.filter(completed=completed)
 
-            if priority:
-                queryset = queryset.filter(priority__icontains=priority)
+        if priority:
+            queryset = queryset.filter(priority__icontains=priority)
 
-            if ordering and ordering in VALID_ORDERINGS:
-                queryset = queryset.order_by(ordering)
+        if ordering and ordering in VALID_ORDERINGS:
+            queryset = queryset.order_by(ordering)
 
-            return 200, queryset
-
-        except Exception as exc:
-            logger.exception("Failed to list todos for user %s", request.user.id)
-            return 500, {
-                "error": "Internal server error",
-                "message": "Could not retrieve todos",
-                "detail": str(exc),
-            }
+        return queryset
 
     @http_get("/{todo_id}", response={200: TodoSchema, 404: dict, 500: dict})
     def get_todo(self, request, todo_id: str):
@@ -117,13 +109,6 @@ class TodoControllerDeclarative:
                 "error": "Not found",
                 "message": f"Todo with id '{todo_id}' does not exist",
             }
-        except Exception as exc:
-            logger.exception("Failed to fetch todo %s", todo_id)
-            return 500, {
-                "error": "Internal server error",
-                "message": "Could not retrieve todo",
-                "detail": str(exc),
-            }
 
     @http_post("/", response={201: TodoSchema, 400: dict, 500: dict})
     def create_todo(self, request, payload: CreateTodoSchema):
@@ -137,33 +122,24 @@ class TodoControllerDeclarative:
             Tuple of (201, todo) on success, (400, error) on bad input,
             or (500, error) on unexpected failure.
         """
-        try:
-            if not payload.title or not payload.title.strip():
-                return 400, {
-                    "error": "Validation error",
-                    "message": "Title is required and cannot be blank",
-                }
-
-            todo_data = payload.model_dump()
-            todo_data["user"] = request.user
-            todo = Todo.objects.create(**todo_data)
-
-            logger.info(
-                "Created todo '%s' (id=%s) for user %s",
-                todo.title,
-                todo.id,
-                request.user.id,
-            )
-
-            return 201, todo
-
-        except Exception as exc:
-            logger.exception("Failed to create todo for user %s", request.user.id)
-            return 500, {
-                "error": "Internal server error",
-                "message": "Could not create todo",
-                "detail": str(exc),
+        if not payload.title or not payload.title.strip():
+            return 400, {
+                "error": "Validation error",
+                "message": "Title is required and cannot be blank",
             }
+
+        todo_data = payload.model_dump()
+        todo_data["user"] = request.user
+        todo = Todo.objects.create(**todo_data)
+
+        logger.info(
+            "Created todo '%s' (id=%s) for user %s",
+            todo.title,
+            todo.id,
+            request.user.id,
+        )
+
+        return 201, todo
 
     @http_put("/{todo_id}", response={200: TodoSchema, 404: dict, 500: dict})
     def update_todo(self, request, todo_id: str, payload: UpdateTodoSchema):
@@ -186,27 +162,18 @@ class TodoControllerDeclarative:
                 "message": f"Todo with id '{todo_id}' does not exist",
             }
 
-        try:
-            for attr, value in payload.model_dump(exclude_unset=True).items():
-                setattr(todo, attr, value)
-            todo.save()
+        for attr, value in payload.model_dump(exclude_unset=True).items():
+            setattr(todo, attr, value)
+        todo.save()
 
-            logger.info(
-                "Updated todo '%s' (id=%s) for user %s",
-                todo.title,
-                todo.id,
-                request.user.id,
-            )
+        logger.info(
+            "Updated todo '%s' (id=%s) for user %s",
+            todo.title,
+            todo.id,
+            request.user.id,
+        )
 
-            return 200, todo
-
-        except Exception as exc:
-            logger.exception("Failed to update todo %s", todo_id)
-            return 500, {
-                "error": "Internal server error",
-                "message": "Could not update todo",
-                "detail": str(exc),
-            }
+        return 200, todo
 
     @http_delete("/{todo_id}", response={204: None, 404: dict, 500: dict})
     def delete_todo(self, request, todo_id: str):
@@ -228,20 +195,12 @@ class TodoControllerDeclarative:
                 "message": f"Todo with id '{todo_id}' does not exist",
             }
 
-        try:
-            todo.delete()
-            logger.info("Deleted todo %s for user %s", todo_id, request.user.id)
-            return 204, None
-        except Exception as exc:
-            logger.exception("Failed to delete todo %s", todo_id)
-            return 500, {
-                "error": "Internal server error",
-                "message": "Could not delete todo",
-                "detail": str(exc),
-            }
+        todo.delete()
+        logger.info("Deleted todo %s for user %s", todo_id, request.user.id)
+        return 204, None
 
-    @paginate
-    @http_get("/completed", response={200: list[TodoSchema], 500: dict})
+    @http_get("/completed", response={200: PaginatedResponseSchema[TodoSchema]})
+    @paginate(PageNumberPaginationExtra)
     def list_completed_todos(self, request):
         """List completed todos for the authenticated user.
 
@@ -249,25 +208,14 @@ class TodoControllerDeclarative:
             request: The HTTP request object.
 
         Returns:
-            Tuple of (200, queryset) on success or (500, error) on failure.
+            QuerySet of completed todos for the authenticated user.
         """
-        try:
-            queryset = Todo.objects.filter(user=request.user, completed=True).order_by(
-                "-updated_at"
-            )
-            return 200, queryset
-        except Exception as exc:
-            logger.exception(
-                "Failed to list completed todos for user %s", request.user.id
-            )
-            return 500, {
-                "error": "Internal server error",
-                "message": "Could not retrieve completed todos",
-                "detail": str(exc),
-            }
+        return Todo.objects.filter(user=request.user, completed=True).order_by(
+            "-updated_at"
+        )
 
-    @paginate
-    @http_get("/pending", response={200: list[TodoSchema], 500: dict})
+    @http_get("/pending", response={200: PaginatedResponseSchema[TodoSchema]})
+    @paginate(PageNumberPaginationExtra)
     def list_pending_todos(self, request):
         """List pending (incomplete) todos for the authenticated user.
 
@@ -275,25 +223,14 @@ class TodoControllerDeclarative:
             request: The HTTP request object.
 
         Returns:
-            Tuple of (200, queryset) on success or (500, error) on failure.
+            QuerySet of pending todos for the authenticated user.
         """
-        try:
-            queryset = Todo.objects.filter(user=request.user, completed=False).order_by(
-                "-created_at"
-            )
-            return 200, queryset
-        except Exception as exc:
-            logger.exception(
-                "Failed to list pending todos for user %s", request.user.id
-            )
-            return 500, {
-                "error": "Internal server error",
-                "message": "Could not retrieve pending todos",
-                "detail": str(exc),
-            }
+        return Todo.objects.filter(user=request.user, completed=False).order_by(
+            "-created_at"
+        )
 
-    @paginate
-    @http_get("/search", response={200: list[TodoSchema], 500: dict})
+    @http_get("/search", response={200: PaginatedResponseSchema[TodoSchema]})
+    @paginate(PageNumberPaginationExtra)
     def search_todos(
         self,
         request,
@@ -310,28 +247,19 @@ class TodoControllerDeclarative:
             completed: Filter by completion status.
 
         Returns:
-            Tuple of (200, queryset) on success or (500, error) on failure.
+            QuerySet of matching todos ordered by most recent.
         """
-        try:
-            queryset = Todo.objects.select_related("user").filter(user=request.user)
+        queryset = Todo.objects.select_related("user").filter(user=request.user)
 
-            if q:
-                queryset = queryset.filter(
-                    Q(title__icontains=q) | Q(description__icontains=q)
-                )
+        if q:
+            queryset = queryset.filter(
+                Q(title__icontains=q) | Q(description__icontains=q)
+            )
 
-            if priority:
-                queryset = queryset.filter(priority__icontains=priority)
+        if priority:
+            queryset = queryset.filter(priority__icontains=priority)
 
-            if completed is not None:
-                queryset = queryset.filter(completed=completed)
+        if completed is not None:
+            queryset = queryset.filter(completed=completed)
 
-            return 200, queryset.order_by("-created_at")
-
-        except Exception as exc:
-            logger.exception("Search failed for user %s", request.user.id)
-            return 500, {
-                "error": "Internal server error",
-                "message": "Search could not be completed",
-                "detail": str(exc),
-            }
+        return queryset.order_by("-created_at")

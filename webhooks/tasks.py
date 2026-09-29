@@ -5,14 +5,15 @@ import logging
 from datetime import timedelta
 
 import httpx
-from celery import shared_task
 from django.utils import timezone
+
+from api.tasks import shared_task
 
 logger = logging.getLogger(__name__)
 
 
-@shared_task(bind=True, max_retries=5)
-def deliver_webhook(self, delivery_id: str) -> None:
+@shared_task(max_retries=5)
+def deliver_webhook(delivery_id: str) -> None:
     from webhooks.models import WebhookDelivery
 
     try:
@@ -72,4 +73,8 @@ def deliver_webhook(self, delivery_id: str) -> None:
             delivery.attempt_count,
             exc,
         )
-        raise self.retry(exc=exc, countdown=countdown)
+        raise deliver_webhook.retry(
+            delivery_id,
+            exc=exc,
+            countdown=countdown,
+        )

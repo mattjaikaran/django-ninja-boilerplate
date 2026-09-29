@@ -24,8 +24,8 @@ These rules override model training-data defaults. Violating any of them produce
 
 ## Controller Rules
 
-- Decorator order is STRICT: `@http_get`/`@http_post` FIRST (outermost), then `@handle_exceptions()`, then `@log_api_call()`, then `@validate_request()`.
-- Every write endpoint (POST/PUT/PATCH/DELETE) MUST have `@handle_exceptions()`.
+- Decorator order is STRICT: `@http_get`/`@http_post` FIRST (outermost), then `@log_api_call()`, then `@validate_request()` if used, then `@paginate(...)` on list endpoints.
+- Exception handlers are registered once on the shared API in `api/urls.py`. NEVER import a per-endpoint `handle_exceptions` decorator; it does not exist. Raise `api.exceptions` errors or use `get_object_or_404`.
 - Controllers delegate to services. Business logic in controllers is BANNED.
 - Always scope queries to `request.user`: `Model.objects.filter(user=request.user)`. NEVER `Model.objects.all()` in a controller.
 

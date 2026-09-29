@@ -54,7 +54,8 @@ jobs:
             ```bash
             git clone https://github.com/mattjaikaran/django-ninja-boilerplate.git
             cd django-ninja-boilerplate
-            make setup
+            brew install just   # or: cargo install just
+            just setup
             ```
 
             ## CLI Installation

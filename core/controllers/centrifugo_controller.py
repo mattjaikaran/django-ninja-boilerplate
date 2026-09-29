@@ -8,9 +8,16 @@ Provides JWT tokens that clients use to authenticate with Centrifugo:
 import logging
 
 from ninja_extra import api_controller, http_post
+from ninja_extra.throttling import UserRateThrottle, throttle
+from ninja_jwt.authentication import JWTAuth
 
-from api.centrifugo import generate_connection_token, generate_subscription_token
-from api.decorators import handle_exceptions, log_api_call, rate_limit
+from api.centrifugo import (
+    generate_connection_token,
+    generate_subscription_token,
+    subscription_allowed,
+)
+from api.decorators import log_api_call
+from api.exceptions import APIPermissionError
 from core.schemas.base_schema import CamelCaseSchema
 
 logger = logging.getLogger(__name__)
@@ -28,14 +35,13 @@ class SubscriptionTokenResponse(CamelCaseSchema):
     token: str
 
 
-@api_controller("/realtime", tags=["Realtime"])
+@api_controller("/realtime", tags=["Realtime"], auth=JWTAuth())
 class CentrifugoTokenController:
     """Token endpoints for Centrifugo real-time connections."""
 
     @http_post("/connection-token", response={200: ConnectionTokenResponse})
-    @handle_exceptions()
     @log_api_call()
-    @rate_limit(requests_per_minute=30)
+    @throttle(UserRateThrottle)
     def get_connection_token(self, request):
         """Generate a connection token for the authenticated user.
 
@@ -48,16 +54,21 @@ class CentrifugoTokenController:
         )
         return 200, {"token": token}
 
-    @http_post("/subscription-token", response={200: SubscriptionTokenResponse})
-    @handle_exceptions()
+    @http_post(
+        "/subscription-token",
+        response={200: SubscriptionTokenResponse, 403: dict},
+    )
     @log_api_call()
-    @rate_limit(requests_per_minute=60)
+    @throttle(UserRateThrottle)
     def get_subscription_token(self, request, payload: SubscriptionTokenRequest):
         """Generate a subscription token for a specific channel.
 
         Required for private channels where `allow_subscribe_for_client` is false.
+        A user may subscribe only to their own `notifications:<user id>` channel.
         """
         user = request.user
+        if not subscription_allowed(str(user.id), payload.channel):
+            raise APIPermissionError("You cannot subscribe to this channel.")
         token = generate_subscription_token(
             user_id=str(user.id),
             channel=payload.channel,

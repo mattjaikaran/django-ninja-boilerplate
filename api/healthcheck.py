@@ -1,16 +1,46 @@
-"""Health check endpoints for monitoring system status."""
+"""Health check endpoints for liveness, readiness, and detailed status.
+
+Endpoints (mounted at /api/health by the API router):
+
+    GET /health/                    — public, no I/O (liveness-style)
+    GET /health/liveness            — public, probes nothing
+    GET /health/readiness           — public, checks database + cache only
+    GET /health/detailed            — staff JWT, full component checks
+    GET /health/component/{name}    — staff JWT, single component check
+    GET /health/system              — staff JWT, host resource stats
+"""
 
 import logging
-from typing import Any
+from datetime import UTC, datetime
 
 from django.conf import settings
-from django.core.cache import cache
-from django.db import connection
 from ninja_extra import api_controller, http_get
+from ninja_jwt.authentication import JWTAuth
 
 from core.monitoring.performance import system_stats
+from core.observability.health import (
+    HealthStatus,
+    get_health_checker,
+    run_health_checks,
+)
 
 logger = logging.getLogger(__name__)
+
+# Traffic-required dependencies checked by the readiness probe. These are the
+# only components that must be up for the instance to serve traffic; optional
+# or slow checks (redis, celery, external services) are deliberately excluded.
+READINESS_CHECKS = ("database", "cache")
+
+
+def _now() -> str:
+    """Return the current UTC timestamp in ISO 8601 format."""
+    return datetime.now(UTC).isoformat()
+
+
+def _is_staff(request) -> bool:
+    """Return True when the request user is an authenticated staff member."""
+    user = getattr(request, "user", None)
+    return bool(user and user.is_authenticated and user.is_staff)
 
 
 @api_controller("/health", tags=["Health"])
@@ -19,84 +49,98 @@ class HealthCheckController:
 
     @http_get("/", response={200: dict})
     def basic_health_check(self, request):
-        """Basic health check endpoint."""
+        """Public liveness-style check. Performs no I/O."""
         return 200, {
             "status": "healthy",
-            "timestamp": self._get_timestamp(),
+            "timestamp": _now(),
             "version": getattr(settings, "VERSION", "unknown"),
         }
 
-    @http_get("/detailed", response={200: dict})
+    @http_get("/liveness", response={200: dict})
+    def liveness_check(self, request):
+        """Kubernetes liveness probe. Probes nothing."""
+        return 200, {"alive": True, "timestamp": _now()}
+
+    @http_get("/readiness", response={200: dict, 503: dict})
+    def readiness_check(self, request):
+        """Kubernetes readiness probe.
+
+        Checks only the traffic-required dependencies (database and cache) and
+        returns 503 when either is unavailable.
+        """
+        result = get_health_checker().run_checks(list(READINESS_CHECKS))
+        ready = result.status == HealthStatus.HEALTHY
+        status_code = 200 if ready else 503
+        return status_code, {
+            "ready": ready,
+            "status": result.status.value,
+            "timestamp": result.timestamp.isoformat(),
+            "checks": {check.name: check.status.value for check in result.checks},
+        }
+
+    @http_get(
+        "/detailed",
+        response={200: dict, 403: dict, 503: dict},
+        auth=JWTAuth(),
+    )
     def detailed_health_check(self, request):
-        """Detailed health check with database and cache status."""
-        health_data: dict[str, Any] = {
-            "status": "healthy",
-            "timestamp": self._get_timestamp(),
-            "version": getattr(settings, "VERSION", "unknown"),
-            "checks": {},
+        """Staff-only detailed health check across all components."""
+        if not _is_staff(request):
+            return 403, {"detail": "Staff credentials required"}
+
+        result = run_health_checks()
+        status_code = (
+            200
+            if result.status in (HealthStatus.HEALTHY, HealthStatus.DEGRADED)
+            else 503
+        )
+        return status_code, result.to_dict()
+
+    @http_get(
+        "/component/{component}",
+        response={200: dict, 403: dict, 503: dict},
+        auth=JWTAuth(),
+    )
+    def component_health(self, request, component: str):
+        """Staff-only health check for a single named component."""
+        if not _is_staff(request):
+            return 403, {"detail": "Staff credentials required"}
+
+        result = get_health_checker().run_check(component)
+        status_code = (
+            200
+            if result.status in (HealthStatus.HEALTHY, HealthStatus.DEGRADED)
+            else 503
+        )
+        return status_code, {
+            "name": result.name,
+            "status": result.status.value,
+            "message": result.message,
+            "response_time_ms": result.response_time_ms,
+            "details": result.details,
+            "timestamp": result.timestamp.isoformat(),
         }
 
-        # Database check
-        try:
-            with connection.cursor() as cursor:
-                cursor.execute("SELECT 1")
-                health_data["checks"]["database"] = {"status": "healthy"}
-        except Exception as e:
-            logger.error("Database health check failed: %s", e)
-            health_data["checks"]["database"] = {
-                "status": "unhealthy",
-                "error": str(e),
-            }
-            health_data["status"] = "unhealthy"
-
-        # Cache check
-        try:
-            test_key = "health_check_test"
-            cache.set(test_key, "test_value", 30)
-            cached_value = cache.get(test_key)
-            if cached_value == "test_value":
-                health_data["checks"]["cache"] = {"status": "healthy"}
-                cache.delete(test_key)
-            else:
-                health_data["checks"]["cache"] = {
-                    "status": "unhealthy",
-                    "error": "Cache test failed",
-                }
-                health_data["status"] = "unhealthy"
-        except Exception as e:
-            logger.error("Cache health check failed: %s", e)
-            health_data["checks"]["cache"] = {
-                "status": "unhealthy",
-                "error": str(e),
-            }
-            health_data["status"] = "unhealthy"
-
-        # Email service check (if configured)
-        health_data["checks"]["email"] = self._check_email_service()
-
-        return 200, health_data
-
-    @http_get("/system", response={200: dict})
+    @http_get("/system", response={200: dict, 403: dict}, auth=JWTAuth())
     def system_health_check(self, request):
-        """System performance and resource usage check."""
+        """Staff-only host resource usage check."""
+        if not _is_staff(request):
+            return 403, {"detail": "Staff credentials required"}
+
         try:
             stats = system_stats()
 
-            # Determine health based on resource usage
             status = "healthy"
             warnings = []
 
-            # Check memory usage
             if stats.get("memory", {}).get("percent", 0) > 90:
                 status = "degraded"
                 warnings.append("High memory usage")
 
-            # Check CPU usage
             if stats.get("cpu", {}).get("percent", 0) > 90:
                 status = "degraded"
                 warnings.append("High CPU usage")
 
-            # Check disk usage
             if stats.get("disk", {}).get("percent", 0) > 90:
                 status = "degraded"
                 warnings.append("High disk usage")
@@ -104,7 +148,7 @@ class HealthCheckController:
             return 200, {
                 "status": status,
                 "warnings": warnings,
-                "timestamp": self._get_timestamp(),
+                "timestamp": _now(),
                 "system_stats": stats,
             }
         except Exception as e:
@@ -112,65 +156,5 @@ class HealthCheckController:
             return 200, {
                 "status": "unhealthy",
                 "error": str(e),
-                "timestamp": self._get_timestamp(),
-            }
-
-    @http_get("/readiness", response={200: dict})
-    def readiness_check(self, request):
-        """Kubernetes readiness probe endpoint."""
-        checks = {}
-        ready = True
-
-        # Check database connection
-        try:
-            with connection.cursor() as cursor:
-                cursor.execute("SELECT 1")
-            checks["database"] = True
-        except Exception:
-            checks["database"] = False
-            ready = False
-
-        # Check cache
-        try:
-            cache.get("test")
-            checks["cache"] = True
-        except Exception:
-            checks["cache"] = False
-            ready = False
-
-        return 200, {
-            "ready": ready,
-            "checks": checks,
-            "timestamp": self._get_timestamp(),
-        }
-
-    @http_get("/liveness", response={200: dict})
-    def liveness_check(self, request):
-        """Kubernetes liveness probe endpoint."""
-        return 200, {
-            "alive": True,
-            "timestamp": self._get_timestamp(),
-        }
-
-    def _get_timestamp(self) -> str:
-        """Get current timestamp in ISO format."""
-        from datetime import datetime
-
-        return datetime.now().isoformat()
-
-    def _check_email_service(self) -> dict[str, Any]:
-        """Check email service health."""
-        try:
-            from django.core.mail import get_connection
-
-            connection = get_connection()
-            connection.open()
-            connection.close()
-
-            return {"status": "healthy"}
-        except Exception as e:
-            logger.warning("Email service check failed: %s", e)
-            return {
-                "status": "degraded",
-                "error": "Email service not available",
+                "timestamp": _now(),
             }

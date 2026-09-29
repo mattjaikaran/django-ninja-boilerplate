@@ -153,25 +153,20 @@ def exponential_backoff(retries: int, base: int = 2, max_delay: int = 600) -> in
 # Beat Schedule (Periodic Tasks)
 # =============================================================================
 
-# Note: When using django_celery_beat, periodic tasks are managed in the database.
-# This schedule provides sensible defaults that can be overridden via the admin.
-#
-# from celery.schedules import crontab
-#
-# app.conf.beat_schedule = {
-#     "cleanup-expired-tokens-daily": {
-#         "task": "core.tasks.cleanup_expired_tokens",
-#         "schedule": crontab(hour=2, minute=0),
-#     },
-#     "send-daily-digest": {
-#         "task": "core.tasks.send_daily_digest",
-#         "schedule": crontab(hour=8, minute=0),
-#     },
-#     "cleanup-old-audit-logs-weekly": {
-#         "task": "core.tasks.cleanup_old_audit_logs",
-#         "schedule": crontab(hour=3, minute=0, day_of_week=0),
-#     },
-# }
+# With django_celery_beat's DatabaseScheduler, periodic tasks are normally
+# managed in the database, but the scheduler merges these static defaults into
+# the DB schedule on startup (DatabaseScheduler.setup_schedule ->
+# update_from_dict), so each entry runs even on a fresh deployment and can
+# still be overridden or disabled from the admin. Every task name below must
+# resolve to a registered shared task.
+from celery.schedules import crontab
+
+app.conf.beat_schedule = {
+    "flush-expired-jwt-tokens-daily": {
+        "task": "core.flush_expired_tokens",
+        "schedule": crontab(hour=3, minute=0),
+    },
+}
 
 
 # =============================================================================

@@ -5,21 +5,21 @@ echo "🚀 Running migrations for Django Ninja Boilerplate..."
 
 # Make migrations for the new priority field
 echo "📝 Creating migrations..."
-docker-compose run --rm django python manage.py makemigrations
+docker compose --profile dev run --rm django python manage.py makemigrations
 
 # Apply migrations
 echo "⚡ Applying migrations..."
-docker-compose run --rm django python manage.py migrate
+docker compose --profile dev run --rm django python manage.py migrate
 
 echo "✅ Migrations completed!"
 
 # Optional: Create superuser if needed
 echo "👤 Creating superuser (optional)..."
-docker-compose run --rm django python manage.py createsuperuser --noinput || echo "Superuser creation skipped"
+docker compose --profile dev run --rm django python manage.py createsuperuser --noinput || echo "Superuser creation skipped"
 
 echo "🎉 Setup complete! Your Django Ninja Boilerplate is ready with:"
 echo "   ✓ PostgreSQL 17"
-echo "   ✓ Professional decorators (@handle_exceptions, @log_api_call, etc.)"
+echo "   ✓ Centralized exception handling and @log_api_call logging"
 echo "   ✓ Advanced search & filtering"
 echo "   ✓ Pagination support"
 echo "   ✓ Query optimizations"

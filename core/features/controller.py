@@ -14,10 +14,11 @@ from ninja_extra import (
     http_post,
     http_put,
 )
-from ninja_extra.pagination import paginate
+from ninja_extra.pagination import PageNumberPaginationExtra, paginate
+from ninja_extra.schemas import PaginatedResponseSchema
 from ninja_jwt.authentication import JWTAuth
 
-from api.decorators import handle_exceptions, log_api_call
+from api.decorators import log_api_call
 
 from .models import FeatureFlag, FeatureFlagAuditLog
 from .schemas import (
@@ -53,7 +54,6 @@ class FeatureFlagAdminController:
     """
 
     @http_post("/", response={201: FeatureFlagSchema, 400: dict, 500: dict})
-    @handle_exceptions()
     @log_api_call(include_payload=True)
     def create_flag(self, request, payload: FeatureFlagCreateSchema):
         """Create a new feature flag."""
@@ -77,10 +77,9 @@ class FeatureFlagAdminController:
         )
         return 201, flag
 
-    @paginate
-    @http_get("/", response=list[FeatureFlagListSchema])
-    @handle_exceptions()
+    @http_get("/", response={200: PaginatedResponseSchema[FeatureFlagListSchema]})
     @log_api_call()
+    @paginate(PageNumberPaginationExtra)
     def list_flags(
         self,
         request,
@@ -109,7 +108,6 @@ class FeatureFlagAdminController:
         return queryset.order_by("name")
 
     @http_get("/{flag_id}", response={200: FeatureFlagWithAuditSchema, 404: dict})
-    @handle_exceptions()
     @log_api_call()
     def get_flag(self, request, flag_id: UUID):
         """Get a feature flag by ID with audit logs."""
@@ -121,15 +119,14 @@ class FeatureFlagAdminController:
         )[:20]
 
         # Build response with audit logs
-        response_data = FeatureFlagSchema.from_orm(flag).model_dump()
+        response_data = FeatureFlagSchema.model_validate(flag).model_dump()
         response_data["audit_logs"] = [
-            FlagAuditLogSchema.from_orm(log).model_dump() for log in audit_logs
+            FlagAuditLogSchema.model_validate(log).model_dump() for log in audit_logs
         ]
 
         return 200, response_data
 
     @http_get("/name/{flag_name}", response={200: FeatureFlagSchema, 404: dict})
-    @handle_exceptions()
     @log_api_call()
     def get_flag_by_name(self, request, flag_name: str):
         """Get a feature flag by name."""
@@ -142,7 +139,6 @@ class FeatureFlagAdminController:
         return 200, flag
 
     @http_put("/{flag_id}", response={200: FeatureFlagSchema, 400: dict, 404: dict})
-    @handle_exceptions()
     @log_api_call(include_payload=True)
     def update_flag(self, request, flag_id: UUID, payload: FeatureFlagUpdateSchema):
         """Update a feature flag."""
@@ -156,7 +152,6 @@ class FeatureFlagAdminController:
         return 200, flag
 
     @http_patch("/{flag_id}/toggle", response={200: FeatureFlagSchema, 404: dict})
-    @handle_exceptions()
     @log_api_call()
     def toggle_flag(self, request, flag_id: UUID, enabled: bool | None = None):
         """Toggle a feature flag on or off."""
@@ -167,7 +162,6 @@ class FeatureFlagAdminController:
     @http_patch(
         "/{flag_id}/rollout", response={200: FeatureFlagSchema, 400: dict, 404: dict}
     )
-    @handle_exceptions()
     @log_api_call(include_payload=True)
     def update_rollout(self, request, flag_id: UUID, payload: RolloutUpdateSchema):
         """Update rollout percentage for a feature flag."""
@@ -178,7 +172,6 @@ class FeatureFlagAdminController:
         return 200, flag
 
     @http_post("/{flag_id}/users", response={200: FeatureFlagSchema, 404: dict})
-    @handle_exceptions()
     @log_api_call(include_payload=True)
     def add_user_to_flag(self, request, flag_id: UUID, payload: UserFlagSchema):
         """Add a user to a feature flag's enabled list."""
@@ -191,7 +184,6 @@ class FeatureFlagAdminController:
     @http_delete(
         "/{flag_id}/users/{user_id}", response={200: FeatureFlagSchema, 404: dict}
     )
-    @handle_exceptions()
     @log_api_call()
     def remove_user_from_flag(self, request, flag_id: UUID, user_id: str):
         """Remove a user from a feature flag's enabled list."""
@@ -202,7 +194,6 @@ class FeatureFlagAdminController:
         return 200, flag
 
     @http_delete("/{flag_id}", response={204: None, 404: dict})
-    @handle_exceptions()
     @log_api_call()
     def delete_flag(self, request, flag_id: UUID):
         """Delete a feature flag."""
@@ -210,7 +201,6 @@ class FeatureFlagAdminController:
         return 204, None
 
     @http_post("/bulk/toggle", response={200: BulkFlagResponseSchema, 400: dict})
-    @handle_exceptions()
     @log_api_call(include_payload=True)
     def bulk_toggle_flags(self, request, payload: BulkFlagToggleSchema):
         """Bulk toggle multiple feature flags."""
@@ -249,7 +239,6 @@ class FeatureFlagController:
     """
 
     @http_post("/check", response={200: FlagStatusSchema, 404: dict}, auth=None)
-    @handle_exceptions()
     @log_api_call(include_payload=True)
     def check_flag(self, request, payload: CheckFlagSchema):
         """Check if a feature flag is enabled.
@@ -286,7 +275,6 @@ class FeatureFlagController:
         )
 
     @http_get("/me", response={200: UserFlagsSchema}, auth=JWTAuth())
-    @handle_exceptions()
     @log_api_call()
     def get_my_flags(self, request):
         """Get all feature flags for the authenticated user.
@@ -298,7 +286,6 @@ class FeatureFlagController:
         return 200, UserFlagsSchema(flags=flags)
 
     @http_get("/{flag_name}", response={200: FlagStatusSchema, 404: dict}, auth=None)
-    @handle_exceptions()
     @log_api_call()
     def get_flag_status(self, request, flag_name: str):
         """Get the status of a specific feature flag.

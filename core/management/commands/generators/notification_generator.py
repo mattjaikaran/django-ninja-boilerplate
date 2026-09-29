@@ -509,7 +509,7 @@ class NotificationController:
         """Update user's notification preferences."""
         preferences, _ = NotificationPreference.objects.get_or_create(user=request.user)
 
-        for key, value in payload.dict(exclude_unset=True).items():
+        for key, value in payload.model_dump(exclude_unset=True).items():
             setattr(preferences, key, value)
         preferences.save()
 

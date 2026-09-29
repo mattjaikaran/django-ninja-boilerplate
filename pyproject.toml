@@ -23,7 +23,10 @@ classifiers = [
 ]
 
 dependencies = [
-    # Core Django (5.2 LTS default; 6.0 tested, blocked by django-celery-beat<6.0 cap)
+    # Core Django. 5.2 LTS is the default; 6.0 is installable because
+    # django-celery-beat 2.9.0 raised its cap to <6.1. Packages without Django 6
+    # support are optional extras (see DEPENDENCIES.md), so they can be omitted
+    # on Django 6 instead of pinning the whole project to 5.2.
     "Django>=5.2,<7.0",
     "django-environ>=0.13.0",
     "psycopg2-binary>=2.9.10",
@@ -42,9 +45,13 @@ dependencies = [
     "django-ninja>=1.5.3",
     "django-ninja-extra>=0.31.3",
     "django-ninja-jwt>=5.4.3",
-    # Task Queue (Celery)
+    # Task Queue (Celery). Required: Celery is the default TASK_BACKEND and
+    # CELERY_BEAT_SCHEDULER names django-celery-beat's database scheduler, so
+    # making it optional would silently drop periodic tasks from a default
+    # install. 2.9.0 is the newest release and caps Django at <6.1, which is
+    # why Django 6.1 is not a supported configuration (see DEPENDENCIES.md).
     "celery>=5.5.2",
-    "django-celery-beat>=2.7.0",
+    "django-celery-beat>=2.9.0",
     "redis>=7.4.0",
     "flower>=2.0.1",
     # Authentication & Security
@@ -52,7 +59,6 @@ dependencies = [
     "bcrypt>=4.2.1",
     "cryptography>=43.0.1",
     "PyJWT>=2.9.0",
-    "python-jose>=3.3.0",
     "passlib>=1.7.4",
     # Email (Resend via Anymail)
     "django-anymail[resend]>=14.0",
@@ -94,6 +100,7 @@ dependencies = [
     "resend>=2.23.0",
     "stripe>=15.1.0",
     "msgpack>=1.2.1",
+    "whitenoise>=6.9",
 ]
 
 [project.optional-dependencies]
@@ -118,6 +125,8 @@ dev = [
     "bandit[toml]>=1.8.0",
     # Gauntlet: commit message linting
     "commitizen>=4.1.0",
+    # MCP server for the dev-profile `mcp` compose service
+    "django-ai-boost>=0.9.0",
 ]
 testing = [
     # Load testing
@@ -155,6 +164,9 @@ django-rq = [
     "django-rq>=2.10.0",
     "rq>=1.16.0",
 ]
+dramatiq = [
+    "dramatiq[redis]>=1.17.0",
+]
 
 [project.urls]
 homepage = "https://github.com/mattjaikaran/django-ninja-boilerplate"
@@ -166,7 +178,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["api", "core", "todos", "billing", "files", "webhooks", "organizations", "notifications"]
+packages = ["api", "atlas", "core", "todos", "billing", "files", "webhooks", "organizations", "notifications"]
 
 [tool.ruff]
 target-version = "py313"
@@ -360,7 +372,9 @@ exclude = [
 "cli/*" = 800
 "tests/*" = 600
 "*/management/commands/*.py" = 800
-"api/settings/common.py" = 710
+# Settings modules hold only flat assignments and grow with the app; the
+# per-class/per-function limits that motivate max-lines do not apply here.
+"api/settings/*" = 1000
 "api/decorators.py" = 500
 "*/services/*.py" = 700
 "*/tasks/*.py" = 600
@@ -463,7 +477,6 @@ disable_error_code = ["var-annotated"]
 # Manager.create_user/create_superuser and HttpRequest dynamic attrs also hit this.
 module = [
     "api.permissions",
-    "api.pagination.offset",
     "api.utils.http_client",
     "core.observability.middleware",
     "core.observability.health",
