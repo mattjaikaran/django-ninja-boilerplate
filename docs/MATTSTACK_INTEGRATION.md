@@ -48,6 +48,9 @@ The source's audit hook runs `python -m pip_audit` in that project environment
 without syncing. It skips the editable application, not third-party
 packages, and does not scan a pre-commit tool environment or ignore its
 advisories.
+The test gate provisions the four alternate worker extras because its
+subprocess tests import every supported worker profile. This requirement
+does not add all optional application features to runtime installations.
 
 ## When to Use What
 

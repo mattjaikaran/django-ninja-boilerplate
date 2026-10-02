@@ -189,7 +189,7 @@ repos:
     hooks:
       - id: pytest
         name: Run tests
-        entry: env DJANGO_SETTINGS_MODULE=api.settings.test uv run pytest --no-header -q
+        entry: env DJANGO_SETTINGS_MODULE=api.settings.test uv run --extra dev --extra huey --extra django-q --extra django-rq --extra dramatiq pytest --no-header -q
         language: system
         types: [python]
         pass_filenames: false
