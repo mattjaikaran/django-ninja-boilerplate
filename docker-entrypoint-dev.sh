@@ -26,11 +26,11 @@ if [ "$1" = "python" ] && [[ "$2" == *"manage.py"* ]]; then
         done
         echo "Database is ready!"
     fi
-    
+
     if [ "$REDIS_URL" ]; then
         REDIS_HOST=$(echo "$REDIS_URL" | sed -n 's/.*:\/\/\([^:]*\):.*/\1/p')
         REDIS_PORT=$(echo "$REDIS_URL" | sed -n 's/.*:\([0-9]*\)\/.*/\1/p')
-        
+
         if [ "$REDIS_HOST" ] && [ "$REDIS_PORT" ]; then
             while ! nc -z "$REDIS_HOST" "$REDIS_PORT"; do
                 sleep 1

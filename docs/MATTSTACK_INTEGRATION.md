@@ -52,6 +52,12 @@ The test gate provisions the four alternate worker extras because its
 subprocess tests import every supported worker profile. This requirement
 does not add all optional application features to runtime installations.
 
+Test settings use an isolated JWT signing key, distinct from the fixed
+Django test key. Blank values in a generated `.env` do not disable test
+tokens. Production settings still require your independent real secrets.
+The quick deployment check runs with a warning failure threshold so its
+development-only security warnings remain nonblocking warnings.
+
 ## When to Use What
 
 ### Use the Gauntlet for:

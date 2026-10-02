@@ -317,7 +317,16 @@ class GauntletRunner:
     def _gate_deploy_check(self) -> GateResult:
         return self.run_gate(
             "DEPLOY-CHECK",
-            ["uv", "run", "python", "manage.py", "check", "--deploy"],
+            [
+                "uv",
+                "run",
+                "python",
+                "manage.py",
+                "check",
+                "--deploy",
+                "--fail-level",
+                "WARNING",
+            ],
             env_override={
                 "DJANGO_SETTINGS_MODULE": "api.settings.test",
                 "SECRET_KEY": "gauntlet-check-key-not-for-production",

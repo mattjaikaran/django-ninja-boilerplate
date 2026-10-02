@@ -15,6 +15,10 @@ TESTING = True
 # Use a fixed secret key for tests
 SECRET_KEY = "test-secret-key-not-for-production"
 
+# Test tokens must not depend on blank or production keys from a local .env.
+NINJA_JWT_SIGNING_KEY = "test-jwt-signing-key-not-for-production"
+NINJA_JWT = {**NINJA_JWT, "SIGNING_KEY": NINJA_JWT_SIGNING_KEY}
+
 ALLOWED_HOSTS = ["*"]
 
 # Database: Use PostgreSQL in CI, SQLite locally
