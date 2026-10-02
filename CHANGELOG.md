@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+- Install locked development tools for quality and gauntlet recipes.
+- Report sibling cross-stack paths without a traceback and exclude installed dependencies and caches from project scans.
+- Keep nonblocking findings visible as warnings, with separate JSON pass and warning fields.
+
 ## [1.12.0] - 2026-09-29
 
 ### Added

@@ -262,46 +262,48 @@ search pattern *paths='.':
 # ---------------------------------------------------------------------------
 # Quality
 # ---------------------------------------------------------------------------
+# `--extra dev` installs the locked quality tools; plain `uv run` in a fresh
+# clone would fall back to whatever ruff/mypy/bandit is on PATH.
 
 # Lint with Ruff
 lint:
-    {{ uv }} run ruff check .
+    {{ uv }} run --extra dev ruff check .
 
 # Lint and apply safe fixes
 lint-fix:
-    {{ uv }} run ruff check . --fix
+    {{ uv }} run --extra dev ruff check . --fix
 
 # Format with Ruff
 fmt:
-    {{ uv }} run ruff format .
+    {{ uv }} run --extra dev ruff format .
 
 # Check formatting without writing
 format-check:
-    {{ uv }} run ruff format --check .
+    {{ uv }} run --extra dev ruff format --check .
 
 # Type-check with mypy
 typecheck:
-    {{ uv }} run mypy .
+    {{ uv }} run --extra dev mypy .
 
 # Run the quick gauntlet (skips mutation testing and audit)
 check-all:
-    {{ uv }} run python scripts/gauntlet.py --quick --verbose
+    {{ uv }} run --extra dev python scripts/gauntlet.py --quick --verbose
 
 # Run the quick gauntlet
 gauntlet-quick:
-    {{ uv }} run python scripts/gauntlet.py --quick --verbose
+    {{ uv }} run --extra dev python scripts/gauntlet.py --quick --verbose
 
 # Run every gauntlet gate
 gauntlet:
-    {{ uv }} run python scripts/gauntlet.py --verbose
+    {{ uv }} run --extra dev python scripts/gauntlet.py --verbose
 
 # Run the gauntlet in CI mode with a JSON report
 gauntlet-ci:
-    {{ uv }} run python scripts/gauntlet.py --ci --report
+    {{ uv }} run --extra dev python scripts/gauntlet.py --ci --report
 
 # Run one gauntlet gate (for example: just gauntlet-gate lint)
 gauntlet-gate gate:
-    {{ uv }} run python scripts/gauntlet.py --gate {{ gate }} --verbose
+    {{ uv }} run --extra dev python scripts/gauntlet.py --gate {{ gate }} --verbose
 
 # Check code conventions
 check-conventions:
@@ -317,11 +319,11 @@ check-arch:
 
 # Run mutation testing
 mutation-test:
-    {{ uv }} run mutmut run
+    {{ uv }} run --extra dev mutmut run
 
 # Run the security scan
 security-scan:
-    {{ uv }} run bandit -c pyproject.toml -r .
+    {{ uv }} run --extra dev bandit -c pyproject.toml -r .
 
 # ---------------------------------------------------------------------------
 # Setup

@@ -17,6 +17,32 @@ How the four-layer gauntlet defense works alongside `mattstack audit`.
 | **File length** | `check_file_length.py` | — |
 | **Framework identity** | TTSR rules + APPEND_SYSTEM.md | — |
 
+## Generated mattstack projects
+
+Run `mattstack init`, then `make setup` from the generated project root.
+Install `uv`, `just`, and the selected frontend package manager before you
+install hooks. The CLI refuses missing prerequisites before it writes hooks.
+
+The root `.pre-commit-config.yaml` replaces component hook configuration.
+For this backend, its commit hook runs locked Ruff in `backend/`; its
+pre-push hook runs `cd backend && just gauntlet-quick`. Run
+`mattstack hooks install` at the project root to install every declared stage.
+Do not install the source's standalone hooks over the generated root hooks.
+
+Consolidation retains `justfile`, `scripts/`, `AGENTS.md`, `SKILLS.md`,
+`.agents/skills/`, `.omp/`, and `.context/` in each component. The root
+`CLAUDE.md` points at those canonical files. It replaces component
+`CLAUDE.md`, `.cursorrules`, and harness adapters; it does not duplicate
+the component's canonical rules. Keep rule exports based on `.omp/`.
+
+Cross-stack paths can name a sibling as `../frontend/...`. The scanner
+excludes installed dependencies and caches. Nonblocking findings remain
+warnings: JSON distinguishes `all_passed`, `blocking_passed`, and
+`has_warnings`. A zero exit with warnings is not an all-clear.
+
+Keep Gauntlet PR #1 separate. These source scripts and hooks do not require
+or establish the availability of that PR's binary.
+
 ## When to Use What
 
 ### Use the Gauntlet for:

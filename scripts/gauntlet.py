@@ -27,7 +27,7 @@ Usage:
     python scripts/gauntlet.py --gate lint  # single gate
     python scripts/gauntlet.py --list       # list available gates
 
-Exit codes: 0 = all passed, 1 = one or more failed
+Exit codes: 0 = no blocking failures (warnings remain visible), 1 = blocking failure
 """
 
 from __future__ import annotations
@@ -55,6 +55,7 @@ class GateResult:
     output: str = ""
     skipped: bool = False
     skip_reason: str = ""
+    warning: bool = False
 
 
 @dataclass
@@ -83,6 +84,7 @@ class GauntletRunner:
 
         start = time.monotonic()
         env = {**os.environ, **(env_override or {})}
+        warning = False
 
         try:
             result = subprocess.run(  # noqa: PLW1510
@@ -103,7 +105,7 @@ class GauntletRunner:
                 print(f"  PASSED ({duration:.1f}s)")
             elif allow_fail:
                 print(f"  WARNING ({duration:.1f}s) -- non-blocking")
-                passed = True
+                warning = True
             else:
                 print(f"  FAILED ({duration:.1f}s)")
                 if not self.verbose and output:
@@ -123,7 +125,11 @@ class GauntletRunner:
             passed = False
 
         gate_result = GateResult(
-            name=name, passed=passed, duration_s=duration, output=output
+            name=name,
+            passed=passed,
+            duration_s=duration,
+            output=output,
+            warning=warning,
         )
         self.results.append(gate_result)
         return gate_result
@@ -142,7 +148,7 @@ class GauntletRunner:
         return gate_result
 
     def run_all(self, single_gate: str | None = None) -> bool:
-        """Run all gates (or a single named gate). Returns True if all pass."""
+        """Run all gates; return True when no blocking gate fails."""
         gates = self._build_gate_list()
 
         if single_gate:
@@ -155,7 +161,7 @@ class GauntletRunner:
 
         print("\n" + "=" * 60)
         print("  THE GAUNTLET")
-        print("  Every gate must pass. No exceptions.")
+        print("  Every blocking gate must pass. Report warnings separately.")
         print("=" * 60)
         mode = "CI" if self.ci else "quick" if self.quick else "full"
         print(f"  Mode: {mode}")
@@ -167,7 +173,12 @@ class GauntletRunner:
 
         for gate_fn in gates.values():
             gate_fn()
-            if self.fail_fast and self.results and not self.results[-1].passed:
+            if (
+                self.fail_fast
+                and self.results
+                and not self.results[-1].passed
+                and not self.results[-1].warning
+            ):
                 self._stopped_early = True
                 break
 
@@ -307,7 +318,7 @@ class GauntletRunner:
     # ── Summary ───────────────────────────────────────────────────────────
 
     def _print_summary(self, total_duration: float) -> bool:
-        """Print summary and return True if all passed."""
+        """Print truthful statuses; return True when no blocking gate fails."""
         print("\n" + "=" * 60)
         print("  GAUNTLET RESULTS")
         print("=" * 60)
@@ -316,13 +327,23 @@ class GauntletRunner:
         for r in self.results:
             if r.skipped:
                 status = f"SKIPPED ({r.skip_reason})"
+            elif r.warning:
+                status = f"WARNING ({r.duration_s:.1f}s) -- non-blocking"
             elif r.passed:
                 status = f"PASSED ({r.duration_s:.1f}s)"
             else:
                 status = f"FAILED ({r.duration_s:.1f}s)"
                 all_passed = False
 
-            marker = "SKIP" if r.skipped else ("OK" if r.passed else "FAIL")
+            marker = (
+                "SKIP"
+                if r.skipped
+                else "WARN"
+                if r.warning
+                else "OK"
+                if r.passed
+                else "FAIL"
+            )
             print(f"  [{marker:>4}] {r.name:<16} {status}")
 
         if self._stopped_early:
@@ -330,10 +351,14 @@ class GauntletRunner:
 
         print(f"\n  Total time: {total_duration:.1f}s")
 
-        if all_passed:
-            print("\n  ALL GATES PASSED -- code is gauntlet-certified")
+        warnings = [r.name for r in self.results if r.warning]
+        if all_passed and warnings:
+            print(f"\n  BLOCKING GATES PASSED; WARNINGS: {', '.join(warnings)}")
+            print("  Review the warnings; this is not an all-clear result.")
+        elif all_passed:
+            print("\n  ALL SELECTED GATES PASSED")
         else:
-            failed = [r.name for r in self.results if not r.passed]
+            failed = [r.name for r in self.results if not r.passed and not r.warning]
             print(f"\n  FAILED GATES: {', '.join(failed)}")
             print("  Fix all failures before merging.")
 
@@ -347,12 +372,15 @@ class GauntletRunner:
             "mode": "ci" if self.ci else "quick" if self.quick else "full",
             "coverage_threshold": self.coverage_threshold,
             "all_passed": all(r.passed for r in self.results),
+            "blocking_passed": all(r.passed or r.warning for r in self.results),
+            "has_warnings": any(r.warning for r in self.results),
             "stopped_early": self._stopped_early,
             "gates": [
                 {
                     "name": r.name,
                     "passed": r.passed,
                     "duration_s": round(r.duration_s, 2),
+                    "warning": r.warning,
                     "skipped": r.skipped,
                     "skip_reason": r.skip_reason,
                 }

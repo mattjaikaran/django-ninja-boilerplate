@@ -21,6 +21,7 @@ from __future__ import annotations
 import argparse
 import ast
 import json
+import os
 import re
 import sys
 from collections.abc import Iterator
@@ -28,6 +29,26 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
+
+# Installed packages and caches are not project code; scanning .venv reports
+# Django's and every dependency's classes as backend models and schemas.
+EXCLUDE_DIRS = {".venv", "venv", "env", "node_modules", ".git", "__pycache__", "cli"}
+
+
+def _display_path(path: Path) -> str:
+    """Return *path* relative to PROJECT_ROOT.
+
+    In a monorepo PROJECT_ROOT is ``backend/``, so the frontend is a sibling
+    and shows as ``../frontend/...``; ``Path.relative_to`` rejects that.
+    """
+    return os.path.relpath(path.resolve(), PROJECT_ROOT)
+
+
+def _project_files(root: Path, pattern: str) -> Iterator[Path]:
+    """Yield files under *root* matching *pattern*, outside EXCLUDE_DIRS."""
+    for path in root.rglob(pattern):
+        if not EXCLUDE_DIRS.intersection(path.relative_to(root).parts):
+            yield path
 
 
 @dataclass
@@ -76,8 +97,7 @@ class CrossStackChecker:
 
         # Collect backend model names
         backend_models: set[str] = set()
-        models_dir = self.backend_root
-        for py_file in models_dir.rglob("models/*.py"):
+        for py_file in _project_files(self.backend_root, "models/*.py"):
             if py_file.name in {"__init__.py", "base.py"}:
                 continue
             try:
@@ -150,7 +170,7 @@ class CrossStackChecker:
 
         # Collect backend schemas
         backend_schemas: dict[str, Path] = {}
-        for py_file in self.backend_root.rglob("schemas/*.py"):
+        for py_file in _project_files(self.backend_root, "schemas/*.py"):
             if py_file.name == "__init__.py":
                 continue
             try:
@@ -211,7 +231,7 @@ class CrossStackChecker:
             if "pip" in be_text and "uv" not in be_text:
                 yield Violation(
                     "TOOLING_CONSISTENCY",
-                    str(be_pyproject.relative_to(PROJECT_ROOT)),
+                    _display_path(be_pyproject),
                     0,
                     "Backend uses pip — should use uv for consistency",
                 )
@@ -221,7 +241,7 @@ class CrossStackChecker:
             if re.search(r'"(npm|yarn)"', fe_text) and "bun" not in fe_text:
                 yield Violation(
                     "TOOLING_CONSISTENCY",
-                    str(fe_package.relative_to(PROJECT_ROOT)),
+                    _display_path(fe_package),
                     0,
                     "Frontend uses npm/yarn — should use bun for consistency",
                 )
@@ -237,11 +257,7 @@ class CrossStackChecker:
         if not be_rules.is_dir() or not any(be_rules.iterdir()):
             yield Violation(
                 "RULES_CONSISTENCY",
-                str(
-                    (self.backend_root / ".omp").relative_to(PROJECT_ROOT)
-                    if self.backend_root
-                    else ""
-                ),
+                _display_path(self.backend_root / ".omp"),
                 0,
                 "Backend missing .omp/rules/ — add convention rules",
             )
@@ -249,11 +265,7 @@ class CrossStackChecker:
         if not fe_rules.is_dir() or not any(fe_rules.iterdir()):
             yield Violation(
                 "RULES_CONSISTENCY",
-                str(
-                    (self.frontend_root / ".omp").relative_to(PROJECT_ROOT)
-                    if self.frontend_root
-                    else ""
-                ),
+                _display_path(self.frontend_root / ".omp"),
                 0,
                 "Frontend missing .omp/rules/ — add convention rules",
             )
