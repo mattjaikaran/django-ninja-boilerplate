@@ -58,6 +58,12 @@ tokens. Production settings still require your independent real secrets.
 The quick deployment check runs with a warning failure threshold so its
 development-only security warnings remain nonblocking warnings.
 
+With production TLS enabled, platform HTTP probes can use `/api/health/`,
+`/api/health/liveness`, and `/api/health/readiness` without a redirect.
+Host validation and TLS redirects still protect admin and detailed health
+routes. This local settings contract does not verify a live provider,
+Flycast/IAM access, public realtime routing, or bucket provisioning.
+
 ## When to Use What
 
 ### Use the Gauntlet for:

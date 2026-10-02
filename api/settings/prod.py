@@ -84,6 +84,16 @@ if USE_TLS:
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD = True
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    # Platform health checks call the container over plain HTTP without
+    # X-Forwarded-Proto, so a redirect would mark the deployment unhealthy.
+    # Exempt only the public, I/O-free and readiness routes of
+    # api.healthcheck; staff-only detail routes still redirect. Patterns match
+    # request.path without its leading slash.
+    SECURE_REDIRECT_EXEMPT = [
+        r"^api/health/$",
+        r"^api/health/liveness$",
+        r"^api/health/readiness$",
+    ]
 else:
     # Plain-HTTP deployment: keep HSTS, SSL redirect, and secure cookies off so
     # requests reach the port-80 listener unchanged.

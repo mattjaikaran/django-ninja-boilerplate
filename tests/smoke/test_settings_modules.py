@@ -206,6 +206,78 @@ class TestProductionSettings:
         )
         assert data["ssl_redirect"] is True
 
+    def test_tls_redirect_exempts_only_the_public_health_routes(self) -> None:
+        """Platform probes call plain HTTP; only the public health routes skip
+        the HTTPS redirect, and a forwarded https request is never redirected."""
+        script = """
+import json
+
+import django
+
+django.setup()
+
+from django.middleware.security import SecurityMiddleware
+from django.test import RequestFactory
+from django.urls import Resolver404, resolve
+
+middleware = SecurityMiddleware(lambda request: None)
+factory = RequestFactory()
+
+
+def status(path: str, **headers: str) -> int:
+    request = factory.get(path, HTTP_HOST="api.example.com", **headers)
+    response = middleware.process_request(request)
+    return response.status_code if response else 200
+
+
+def routable(path: str) -> bool:
+    try:
+        resolve(path)
+    except Resolver404:
+        return False
+    return True
+
+
+exempt = ["/api/health/", "/api/health/liveness", "/api/health/readiness"]
+paths = [*exempt, "/api/health/detailed", "/api/health/x", "/admin/"]
+print("PROBE:" + json.dumps({
+    "http": {path: status(path) for path in paths},
+    "forwarded": status("/admin/", HTTP_X_FORWARDED_PROTO="https"),
+    # The exemption is only useful while these are the real route paths.
+    "routable": {path: routable(path) for path in exempt},
+}))
+"""
+        env = {
+            **os.environ,
+            **BASE_ENV,
+            "DJANGO_SETTINGS_MODULE": "api.settings.prod",
+            "ENVIRONMENT": "production",
+            "DEBUG": "0",
+            "USE_TLS": "true",
+            "ALLOWED_HOSTS": "api.example.com",
+        }
+        result = subprocess.run(
+            [sys.executable, "-c", script],
+            capture_output=True,
+            encoding="utf-8",
+            env=env,
+            cwd=PROJECT_ROOT,
+            check=False,
+        )
+        assert result.returncode == 0, result.stderr
+        line = next(x for x in result.stdout.splitlines() if "PROBE:" in x)
+        data = json.loads(line.split("PROBE:", 1)[1])
+        assert data["http"] == {
+            "/api/health/": 200,
+            "/api/health/liveness": 200,
+            "/api/health/readiness": 200,
+            "/api/health/detailed": 301,
+            "/api/health/x": 301,
+            "/admin/": 301,
+        }
+        assert data["forwarded"] == 200
+        assert all(data["routable"].values()), data["routable"]
+
     def test_rejects_the_development_realtime_secret(self):
         result = _run_probe(
             "api.settings.prod",

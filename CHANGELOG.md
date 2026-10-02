@@ -8,11 +8,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- Exempt only the public health, liveness, and readiness routes from TLS redirects. Keep Host validation and redirects for admin and staff detail routes.
 - Isolate test JWT signing from local environment keys, remove source hook whitespace failures, and report development deployment-check findings as nonblocking warnings.
 - Audit the actual project environment in the standalone pre-push hook, without advisory ignores. Update locked MCP and virtualenv dependencies to patched releases.
 - Install locked development tools for quality and gauntlet recipes.
 - Report sibling cross-stack paths without a traceback and exclude installed dependencies and caches from project scans.
 - Keep nonblocking findings visible as warnings, with separate JSON pass and warning fields.
+
+### Removed
+- `test_prod_django_behind_nginx_trusts_one_proxy` read `docker-compose.yml` as text instead of testing behaviour. The trusted-proxy behaviour tests in `core/tests/test_throttling.py` remain.
 
 ## [1.12.0] - 2026-09-29
 
