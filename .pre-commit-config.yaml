@@ -95,21 +95,14 @@ repos:
         exclude: ^(tests/|cli/tests/)
         stages: [pre-push]
 
-  - repo: https://github.com/pypa/pip-audit
-    rev: v2.7.3
+  - repo: local
     hooks:
       - id: pip-audit
-        args:
-          - --ignore-vuln
-          - GHSA-58qw-9mgm-455v # pip self-CVE, not a runtime dep
-          - --ignore-vuln
-          - GHSA-jp4c-xjxw-mgf9 # pip self-CVE, fix = upgrade pip itself
-          - --ignore-vuln
-          - PYSEC-2026-196 # pip transient, not a runtime dep
-          - --ignore-vuln
-          - PYSEC-2026-3721 # pip bundled in this hook's venv, not a runtime dep
-          - --ignore-vuln
-          - GHSA-6v7p-g79w-8964 # msgpack, fixed in our deps (>=1.2.1)
+        name: Audit the project environment
+        entry: uv run --no-sync python -m pip_audit --skip-editable
+        language: system
+        pass_filenames: false
+        always_run: true
         stages: [pre-push]
 
   # ===========================================

@@ -43,6 +43,12 @@ warnings: JSON distinguishes `all_passed`, `blocking_passed`, and
 Keep Gauntlet PR #1 separate. These source scripts and hooks do not require
 or establish the availability of that PR's binary.
 
+For standalone source hooks, run `uv sync --extra dev` before installation.
+The source's audit hook runs `python -m pip_audit` in that project environment
+without syncing. It skips the editable application, not third-party
+packages, and does not scan a pre-commit tool environment or ignore its
+advisories.
+
 ## When to Use What
 
 ### Use the Gauntlet for:

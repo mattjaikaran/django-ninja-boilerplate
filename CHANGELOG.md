@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- Audit the actual project environment in the standalone pre-push hook, without advisory ignores. Update locked MCP and virtualenv dependencies to patched releases.
 - Install locked development tools for quality and gauntlet recipes.
 - Report sibling cross-stack paths without a traceback and exclude installed dependencies and caches from project scans.
 - Keep nonblocking findings visible as warnings, with separate JSON pass and warning fields.
