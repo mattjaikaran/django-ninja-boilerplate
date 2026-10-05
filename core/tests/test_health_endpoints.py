@@ -22,7 +22,7 @@ from core.observability.health import (
 def _auth_headers(user) -> dict[str, str]:
     """Return a Bearer JWT header for the given user."""
     refresh = RefreshToken.for_user(user)
-    return {"HTTP_AUTHORIZATION": f"Bearer {refresh.access_token}"}
+    return {"HTTP_COOKIE": f"access_token={refresh.access_token}"}
 
 
 @pytest.fixture

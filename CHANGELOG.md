@@ -7,7 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Application authentication is cookie-only: typed user login responses, secure
+  HttpOnly access/refresh cookies, bodyless refresh rotation and logout
+  revocation, cookie-based SSE, and Django CSRF enforcement for browser mutations.
+- Removed the default bearer token pair/refresh/verify controller and obsolete
+  token response/request schemas.
+
 ### Fixed
+- Return 401, not 500, for malformed, expired, or revoked refresh cookies.
+- Export stable operation IDs without random controller UUID suffixes so the
+  generated frontend contract is deterministic.
 - Exempt only the public health, liveness, and readiness routes from TLS redirects. Keep Host validation and redirects for admin and staff detail routes.
 - Isolate test JWT signing from local environment keys, remove source hook whitespace failures, and report development deployment-check findings as nonblocking warnings.
 - Audit the actual project environment in the standalone pre-push hook, without advisory ignores. Update locked MCP and virtualenv dependencies to patched releases.

@@ -30,20 +30,6 @@ class LoginSchema(CamelCaseSchema):
     password: str
 
 
-class TokenSchema(CamelCaseSchema):
-    """Schema for authentication token response."""
-
-    token: str
-    refresh: str
-    user: dict
-
-
-class RefreshTokenSchema(CamelCaseSchema):
-    """Schema for token refresh request."""
-
-    refresh: str
-
-
 class PasswordResetRequestSchema(CamelCaseSchema):
     """Schema for password reset request."""
 

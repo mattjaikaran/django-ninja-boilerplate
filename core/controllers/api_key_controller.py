@@ -2,7 +2,7 @@
 
 from django.http import HttpRequest
 from ninja_extra import api_controller, http_delete, http_get, http_post
-from ninja_jwt.authentication import JWTAuth
+from core.security.cookie_auth import CookieJWTAuth
 
 from api.decorators import log_api_call
 from core.schemas.api_key_schema import (
@@ -14,7 +14,9 @@ from core.schemas.api_key_schema import (
 from core.services.api_key_service import APIKeyService
 
 
-@api_controller("/api-keys", tags=["API Keys"], auth=JWTAuth())
+@api_controller(
+    "/api-keys", tags=["API Keys"], auth=CookieJWTAuth(), use_unique_op_id=False
+)
 class APIKeyController:
     """Manage API keys for programmatic access."""
 

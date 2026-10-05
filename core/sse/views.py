@@ -9,16 +9,16 @@ Mount in urls.py:
         path("api/events/stream/", sse_endpoint),
     ]
 
-Clients connect with a JWT token in the query string because browsers
-can't set Authorization headers on EventSource connections:
+Clients authenticate with the HttpOnly access cookie:
 
-    const es = new EventSource("/api/events/stream/?token=<jwt>");
+    const es = new EventSource("/api/events/stream/", {withCredentials: true});
 """
 
 import logging
 
-from django.http import StreamingHttpResponse
-from ninja_jwt.tokens import AccessToken
+from django.http import HttpResponse, StreamingHttpResponse
+from ninja_jwt.exceptions import AuthenticationFailed, InvalidToken
+from core.security.cookie_auth import CookieJWTAuth
 
 from core.sse.events import sse_stream
 
@@ -28,26 +28,17 @@ logger = logging.getLogger(__name__)
 def sse_endpoint(request):
     """Stream SSE events for the authenticated user.
 
-    Accepts ?token=<jwt> because browsers cannot set Authorization headers
-    on native EventSource connections.
+    Uses the same cookie-only JWT verification as application controllers.
 
     Returns a StreamingHttpResponse with Content-Type text/event-stream.
     """
-    token_str = request.GET.get("token", "")
-    if not token_str:
-        from django.http import HttpResponse
-
-        return HttpResponse("Missing token", status=401)
-
     try:
-        token = AccessToken(token_str)
-        user_id = token.get("user_id")
-    except Exception:
-        from django.http import HttpResponse
-
-        return HttpResponse("Invalid token", status=401)
-
-    channel = f"user:{user_id}"
+        user = CookieJWTAuth()(request)
+    except (AuthenticationFailed, InvalidToken):
+        return HttpResponse("Invalid authentication cookie", status=401)
+    if not user:
+        return HttpResponse("Missing authentication cookie", status=401)
+    channel = f"user:{user.id}"
 
     response = StreamingHttpResponse(
         sse_stream(channel),

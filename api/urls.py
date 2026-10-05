@@ -7,7 +7,7 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 from django.urls import path
 from ninja.errors import Throttled
 from ninja_extra import NinjaExtraAPI
-from ninja_jwt.controller import NinjaJWTDefaultController
+
 
 from api.exceptions import (
     BaseAPIException,
@@ -103,7 +103,6 @@ api.add_exception_handler(Throttled, handle_throttled)  # type: ignore[arg-type]
 # The order of the controllers matches the order in the API Docs (Swager or ReDoc)
 # http://localhost:8000/api/docs
 api.register_controllers(
-    NinjaJWTDefaultController,  # JWT Auth. If you want to use JWT, you must include this https://github.com/eadwinCode/django-ninja-jwt
     # System controllers
     HealthCheckController,  # Health Check Controller (liveness/readiness/detailed/component)
     MetricsController,  # Prometheus Metrics Controller (staff only)

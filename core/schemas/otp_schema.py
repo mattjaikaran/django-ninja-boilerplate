@@ -9,6 +9,7 @@ from datetime import datetime
 from pydantic import EmailStr, Field, field_validator
 
 from core.schemas.base_schema import CamelCaseSchema
+from core.schemas.user_schema import UserSchema
 
 
 class OTPRequestSchema(CamelCaseSchema):
@@ -93,13 +94,11 @@ class OTPResponseSchema(CamelCaseSchema):
 
 
 class OTPVerifyResponseSchema(CamelCaseSchema):
-    """Schema for OTP verification response with tokens."""
+    """OTP verification result; authentication is carried only by cookies."""
 
     success: bool
     message: str
-    access: str | None = None
-    refresh: str | None = None
-    user: dict | None = None
+    user: UserSchema | None = None
 
 
 class OTPStatusSchema(CamelCaseSchema):

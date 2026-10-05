@@ -124,6 +124,7 @@ MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",  # django-cors-headers
     "django.middleware.common.CommonMiddleware",  # common middleware
     "django.middleware.csrf.CsrfViewMiddleware",  # csrf view middleware
+    "core.security.cookie_auth.CookieCSRFMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",  # authentication middleware
     "django.contrib.messages.middleware.MessageMiddleware",  # message middleware
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
@@ -136,6 +137,12 @@ MIDDLEWARE = [
 
 # Performance: Compress responses larger than 1KB
 GZIP_MIN_LENGTH = 1024
+
+# Deployment defaults are secure; only explicit local settings disable Secure.
+AUTH_COOKIE_SECURE = True
+CSRF_COOKIE_SECURE = True
+CSRF_COOKIE_HTTPONLY = False
+CSRF_COOKIE_SAMESITE = "Lax"
 
 ROOT_URLCONF = "api.urls"
 

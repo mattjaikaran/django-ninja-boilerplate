@@ -11,6 +11,16 @@ from .common import *
 # Test mode
 DEBUG = False
 TESTING = True
+AUTH_COOKIE_SECURE = False
+CSRF_COOKIE_SECURE = False
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
+CSRF_TRUSTED_ORIGINS = CORS_ALLOWED_ORIGINS
+CORS_ALLOW_CREDENTIALS = True
 
 # Use a fixed secret key for tests
 SECRET_KEY = "test-secret-key-not-for-production"

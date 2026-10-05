@@ -35,51 +35,37 @@ def api_docs_url(base_url):
 
 
 @pytest.fixture
-def auth_token_for_contract(base_url):
-    """Get an authentication token for contract testing.
-
-    This fixture creates a test user and returns a valid JWT token.
-    For contract tests that require authentication.
-    """
+def auth_headers_for_contract(base_url):
+    """Create a real cookie session for network contract testing."""
     import httpx
 
-    # Try to login with test credentials or create a user
-    test_email = "contract_test@example.com"
-    test_password = "ContractTest123!"
-
-    # First try to signup
-    signup_response = httpx.post(
-        f"{base_url}/api/auth/signup",
-        json={
-            "email": test_email,
-            "password": test_password,
-            "first_name": "Contract",
-            "last_name": "Tester",
-        },
-        timeout=10,
-    )
-
-    # Then login (whether signup succeeded or user already exists)
-    login_response = httpx.post(
-        f"{base_url}/api/auth/login",
-        json={"email": test_email, "password": test_password},
-        timeout=10,
-    )
-
-    if login_response.status_code == 200:
-        data = login_response.json()
-        return data.get("access") or data.get("token")
-
-    # Return None if we couldn't get a token
-    return None
-
-
-@pytest.fixture
-def auth_headers_for_contract(auth_token_for_contract):
-    """Get authorization headers for contract testing."""
-    if auth_token_for_contract:
-        return {"Authorization": f"Bearer {auth_token_for_contract}"}
-    return {}
+    with httpx.Client(base_url=base_url, timeout=10) as client:
+        csrf = client.get("/api/auth/csrf").json()["csrfToken"]
+        client.post(
+            "/api/auth/signup",
+            json={
+                "email": "contract_test@example.com",
+                "username": "contract_test",
+                "password": "ContractTest123!",
+            },
+            headers={"X-CSRFToken": csrf},
+        )
+        login = client.post(
+            "/api/auth/login",
+            json={
+                "email": "contract_test@example.com",
+                "password": "ContractTest123!",
+            },
+            headers={"X-CSRFToken": csrf},
+        )
+        login.raise_for_status()
+        csrf = client.get("/api/auth/csrf").json()["csrfToken"]
+        return {
+            "Cookie": "; ".join(
+                f"{key}={value}" for key, value in client.cookies.items()
+            ),
+            "X-CSRFToken": csrf,
+        }
 
 
 @pytest.fixture(scope="session")
@@ -87,9 +73,9 @@ def public_endpoints():
     """Routes reachable without credentials, as ``{"method", "path"}`` specs.
 
     Deployment probes (liveness/readiness/basic health) stay public so
-    orchestrators can reach them with plain GET requests. Auth operations,
-    OTP flows, token issuance/refresh, and Centrifugo real-time token minting
-    are public because they run before a JWT exists.
+    orchestrators can reach them with plain GET requests. Login, signup and
+    passwordless/OTP issuance run before a cookie session exists; unsafe auth
+    requests still require CSRF. Refresh and real-time token minting are protected.
 
     Paths use the exact OpenAPI path templates (``{param}`` placeholders
     included) so they can be compared against the generated schema.
@@ -113,23 +99,18 @@ def public_endpoints():
         {"method": "POST", "path": "/api/auth/otp/email/verify"},
         {"method": "POST", "path": "/api/auth/otp/password-reset/request"},
         {"method": "POST", "path": "/api/auth/otp/password-reset/confirm"},
-        # Real-time token minting — authenticated via token request, not JWT.
-        {"method": "POST", "path": "/api/realtime/connection-token"},
-        {"method": "POST", "path": "/api/realtime/subscription-token"},
-        # JWT issuance/refresh/verify — the endpoints that mint tokens.
-        {"method": "POST", "path": "/api/token/pair"},
-        {"method": "POST", "path": "/api/token/refresh"},
-        {"method": "POST", "path": "/api/token/verify"},
+        {"method": "GET", "path": "/api/auth/csrf"},
+        {"method": "POST", "path": "/api/auth/logout"},
     ]
 
 
 @pytest.fixture(scope="session")
 def protected_endpoints():
-    """Routes that require a JWT, as ``{"method", "path"}`` specs.
+    """Routes that require cookie credentials, as ``{"method", "path"}`` specs.
 
-    These are network-private: observability detail/metrics, auth
-    profile/status/logout, user administration, task internals, audit logs,
-    API-key management and todo data. Several additionally require
+    These are network-private: observability detail/metrics, authenticated
+    profile/status, real-time token minting, user administration, task internals,
+    audit logs, API-key management and Todo data. Several additionally require
     a staff account (checked by the controller's permission classes).
     """
     return [
@@ -140,7 +121,10 @@ def protected_endpoints():
         # Authenticated session/profile.
         {"method": "GET", "path": "/api/auth/me"},
         {"method": "GET", "path": "/api/auth/status"},
-        {"method": "POST", "path": "/api/auth/logout"},
+        {"method": "POST", "path": "/api/auth/refresh"},
+        # Real-time credentials are minted only for an authenticated user.
+        {"method": "POST", "path": "/api/realtime/connection-token"},
+        {"method": "POST", "path": "/api/realtime/subscription-token"},
         # Two-factor operations require JWT authentication.
         {"method": "POST", "path": "/api/auth/otp/2fa/request"},
         {"method": "POST", "path": "/api/auth/otp/2fa/verify"},

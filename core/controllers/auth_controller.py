@@ -12,11 +12,20 @@ from django.conf import settings
 from django.contrib.auth import authenticate, get_user_model
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
+from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from ninja_extra import api_controller, http_get, http_post
 from ninja_extra.throttling import DynamicRateThrottle, throttle
-from ninja_jwt.authentication import JWTAuth
+from core.security.cookie_auth import CookieJWTAuth
+from core.security.cookie_auth import (
+    RefreshCookieAuth,
+    delete_auth_cookies,
+    issue_auth_cookies,
+    set_auth_cookies,
+)
+from django.middleware.csrf import get_token
+from core.schemas.base_schema import CamelCaseSchema
 from ninja_jwt.exceptions import TokenError
 from ninja_jwt.tokens import RefreshToken
 
@@ -28,7 +37,6 @@ from core.schemas import (
     MessageResponse,
     PasswordlessLoginRequest,
     PasswordlessLoginVerify,
-    RefreshTokenSchema,
     UserLoginSchema,
     UserSchema,
     UserSignupSchema,
@@ -45,7 +53,11 @@ User = get_user_model()
 logger = logging.getLogger(__name__)
 
 
-@api_controller("/auth", tags=["Auth"], auth=JWTAuth())
+class CSRFResponseSchema(CamelCaseSchema):
+    csrfToken: str
+
+
+@api_controller("/auth", tags=["Auth"], auth=CookieJWTAuth(), use_unique_op_id=False)
 class AuthController:
     """HTTP controller for authentication and session management.
 
@@ -53,20 +65,24 @@ class AuthController:
     (legacy), logout, current-user profile retrieval, auth-status checks, and
     passwordless magic-link login.
 
-    Public endpoints (no JWT required):
+    Public endpoints use Django CSRF protection for unsafe requests.
         POST /auth/signup                      — create a new account
         POST /auth/login                       — email + password login
         POST /auth/login/username              — username + password login (legacy)
         POST /auth/passwordless/login/request  — request a magic link
         POST /auth/passwordless/login/verify   — verify a magic link token
+        GET  /auth/csrf                        — bootstrap Django CSRF
+        POST /auth/logout                      — revoke cookie session
 
-    Protected endpoints (JWT required):
-        POST /auth/logout                      — blacklist the refresh token
+    Protected endpoints (JWT cookies required):
+        POST /auth/refresh                     — rotate the refresh cookie
         GET  /auth/me                          — current user profile
         GET  /auth/status                      — authentication status check
     """
 
-    @http_post("/signup", response={201: UserSchema, 400: dict}, auth=None)
+    @http_post(
+        "/signup", response={201: UserSchema, 400: dict}, auth=None, by_alias=True
+    )
     @throttle(DynamicRateThrottle, scope="anon-auth")
     @log_api_call(include_payload=True)
     def signup(self, request, payload: UserSignupSchema):
@@ -117,24 +133,31 @@ class AuthController:
         logger.info("Created new user: %s", user.email)
         return 201, UserSchema.model_validate(user)
 
-    @http_post("/login", response={200: dict, 400: dict, 429: dict}, auth=None)
+    @http_get("/csrf", response=CSRFResponseSchema, auth=None)
+    def csrf(self, request):
+        return {"csrfToken": get_token(request)}
+
+    @http_post(
+        "/login",
+        response={200: UserSchema, 400: dict, 429: dict},
+        auth=None,
+        by_alias=True,
+    )
     @throttle(DynamicRateThrottle, scope="anon-auth")
     @log_api_call(include_payload=True)
-    def login(self, request, payload: LoginSchema):
+    def login(self, request, response: HttpResponse, payload: LoginSchema):
         """Authenticate a user with email and password.
 
         Looks up the user by email, delegates to Django's ``authenticate``
         (which verifies the password), checks the account is active, then
-        issues a JWT access/refresh token pair.
+        issues HttpOnly access/refresh cookies.
 
         Args:
             request: The HTTP request object.
             payload: Validated login data with ``email`` and ``password`` fields.
 
         Returns:
-            Tuple of (200, token_dict) containing ``token``, ``refresh``, and
-            ``user`` keys on success, or (400, error_dict) on invalid
-            credentials or inactive account.
+            UserSchema on success, or an error on invalid credentials.
 
         Raises:
             ValidationError: If credentials are invalid or the account is
@@ -167,21 +190,19 @@ class AuthController:
         # Update last login
         user.save(update_fields=["last_login"])
 
-        # Generate tokens
-        refresh = RefreshToken.for_user(user)  # type: ignore[misc]  # simplejwt stub types for_user as instance method
+        issue_auth_cookies(request, response, user)
+        logger.info("User logged in: %s", user.email)
+        return 200, UserSchema.model_validate(user)
 
-        logger.info("User logged in: %s", user.email)  # type: ignore[attr-defined]
-
-        return 200, {
-            "token": str(refresh.access_token),  # type: ignore[attr-defined]
-            "refresh": str(refresh),
-            "user": UserSchema.model_validate(user).model_dump(),
-        }
-
-    @http_post("/login/username", response={200: dict, 400: dict, 429: dict}, auth=None)
+    @http_post(
+        "/login/username",
+        response={200: UserSchema, 400: dict, 429: dict},
+        auth=None,
+        by_alias=True,
+    )
     @throttle(DynamicRateThrottle, scope="anon-auth")
     @log_api_call(include_payload=True)
-    def login_username(self, request, payload: UserLoginSchema):
+    def login_username(self, request, response: HttpResponse, payload: UserLoginSchema):
         """Authenticate a user with username and password (legacy).
 
         Provided for backwards compatibility with clients that send a username
@@ -193,9 +214,7 @@ class AuthController:
             payload: Validated login data with ``username`` and ``password`` fields.
 
         Returns:
-            Tuple of (200, token_dict) containing ``token``, ``refresh``, and
-            ``user`` keys on success, or (400, error_dict) on invalid
-            credentials or inactive account.
+            UserSchema on success, or an error on invalid credentials.
 
         Raises:
             ValidationError: If credentials are invalid or the account is
@@ -226,47 +245,29 @@ class AuthController:
         # Update last login
         user.save(update_fields=["last_login"])
 
-        # Generate tokens
-        refresh = RefreshToken.for_user(user)  # type: ignore[misc]  # simplejwt stub types for_user as instance method
+        issue_auth_cookies(request, response, user)
+        return 200, UserSchema.model_validate(user)
 
-        return 200, {
-            "token": str(refresh.access_token),  # type: ignore[attr-defined]
-            "refresh": str(refresh),
-            "user": UserSchema.model_validate(user).model_dump(),
-        }
+    @http_post(
+        "/refresh", response={200: MessageResponse, 401: dict}, auth=RefreshCookieAuth()
+    )
+    def refresh(self, request, response: HttpResponse):
+        """Rotate and revoke the refresh cookie without a request body."""
+        request.refresh_token.blacklist()
+        set_auth_cookies(response, RefreshToken.for_user(request.user))
+        return 200, {"message": "Session refreshed", "success": True}
 
-    @http_post("/logout", response={200: MessageResponse, 400: dict, 401: dict})
-    @log_api_call()
-    def logout(self, request, payload: RefreshTokenSchema):
-        """Log out the current user by blacklisting their refresh token.
-
-        The client sends its refresh token; blacklisting it revokes the
-        ability to mint new access tokens. The access token is intentionally
-        left valid until its own expiry, so no per-request blacklist lookup is
-        needed on access-token use.
-
-        Logout is idempotent: an invalid, expired, or already-blacklisted
-        refresh token still returns success because that token is already
-        unusable.
-
-        Args:
-            request: The HTTP request object (JWT-authenticated).
-            payload: Validated refresh token to revoke.
-
-        Returns:
-            Tuple of (200, MessageResponse) confirming the logout.
-        """
+    @http_post("/logout", response={200: MessageResponse}, auth=None)
+    def logout(self, request, response: HttpResponse):
+        """Revoke the browser refresh cookie and clear both auth cookies."""
         try:
-            token = RefreshToken(payload.refresh)
-            if str(token["user_id"]) != str(request.user.id):
-                return 400, {"error": "Refresh token belongs to another user"}
-            token.blacklist()
+            RefreshToken(request.COOKIES.get("refresh_token", "")).blacklist()
         except TokenError:
-            # Idempotent logout: an unusable refresh token is already revoked.
-            logger.info("Logout received an unusable refresh token; ignoring")
+            pass
+        delete_auth_cookies(response)
         return 200, {"message": "Successfully logged out", "success": True}
 
-    @http_get("/me", response={200: UserSchema, 401: dict})
+    @http_get("/me", response={200: UserSchema, 401: dict}, by_alias=True)
     @log_api_call()
     def get_current_user(self, request):
         """Retrieve the currently authenticated user's profile.
@@ -363,14 +364,18 @@ class AuthController:
         # Always return success for security (prevent email enumeration)
         return 200, {"detail": "If registered, you'll receive a magic link"}
 
-    @http_post("/passwordless/login/verify", response={200: dict, 404: dict}, auth=None)
+    @http_post(
+        "/passwordless/login/verify",
+        response={200: UserSchema, 404: dict},
+        auth=None,
+        by_alias=True,
+    )
     @throttle(DynamicRateThrottle, scope="anon-auth")
     @log_api_call()
-    def verify_passwordless_login(self, request, payload: PasswordlessLoginVerify):
-        """Verify passwordless login token and return JWT tokens.
-
-        Validates the magic link token and returns access/refresh tokens.
-        """
+    def verify_passwordless_login(
+        self, request, response: HttpResponse, payload: PasswordlessLoginVerify
+    ):
+        """Verify a magic link and issue HttpOnly authentication cookies."""
         otp = get_object_or_404(
             OneTimePassword.objects.select_related("user"),
             token=payload.token,
@@ -384,12 +389,6 @@ class AuthController:
         # Update last login
         otp.user.save(update_fields=["last_login"])
 
-        refresh = RefreshToken.for_user(otp.user)  # type: ignore[misc]  # simplejwt stub types for_user as instance method
-
+        issue_auth_cookies(request, response, otp.user)
         logger.info("Magic link verified for: %s", otp.user.email)
-
-        return 200, {
-            "access": str(refresh.access_token),  # type: ignore[attr-defined]
-            "refresh": str(refresh),
-            "user": UserSchema.model_validate(otp.user).model_dump(),
-        }
+        return 200, UserSchema.model_validate(otp.user)

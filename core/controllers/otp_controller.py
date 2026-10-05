@@ -11,9 +11,10 @@ This module provides API endpoints for:
 import logging
 
 from django.contrib.auth import get_user_model
+from django.http import HttpResponse
 from ninja_extra import api_controller, http_post
-from ninja_jwt.authentication import JWTAuth
-from ninja_jwt.tokens import RefreshToken
+from core.security.cookie_auth import CookieJWTAuth
+from core.security.cookie_auth import issue_auth_cookies
 
 from api.decorators import log_api_call
 from api.utils.http import get_client_ip, get_user_agent
@@ -36,7 +37,7 @@ User = get_user_model()
 logger = logging.getLogger(__name__)
 
 
-@api_controller("/auth/otp", tags=["OTP Authentication"])
+@api_controller("/auth/otp", tags=["OTP Authentication"], use_unique_op_id=False)
 class OTPController:
     """OTP authentication controller for mobile/iOS apps.
 
@@ -85,15 +86,16 @@ class OTPController:
             expires_in_seconds=expires_in,
         )
 
-    @http_post("/verify", response={200: OTPVerifyResponseSchema, 400: dict, 401: dict})
+    @http_post(
+        "/verify",
+        response={200: OTPVerifyResponseSchema, 400: dict, 401: dict},
+        by_alias=True,
+    )
     @log_api_call(include_payload=True)
-    def verify_otp(self, request, payload: OTPVerifySchema):
+    def verify_otp(self, request, response: HttpResponse, payload: OTPVerifySchema):
         """Verify a 6-digit OTP code.
 
-        Validates the OTP code and returns authentication tokens on success.
-        Can be used for login, password reset confirmation, or other purposes.
-
-        Returns JWT access and refresh tokens along with user data.
+        Validates the code and issues authentication cookies for LOGIN.
         """
         success, message, user = otp_service.verify_otp(
             email=payload.email,
@@ -107,15 +109,13 @@ class OTPController:
 
         # Generate tokens for LOGIN purpose
         if payload.purpose == "LOGIN":
-            refresh = RefreshToken.for_user(user)  # type: ignore[misc]  # simplejwt stub types for_user as instance method
+            issue_auth_cookies(request, response, user)
 
             logger.info("User logged in via OTP: %s", user.email)
 
             return 200, OTPVerifyResponseSchema(
                 success=True,
                 message="Login successful",
-                access=str(refresh.access_token),  # type: ignore[attr-defined]
-                refresh=str(refresh),
                 user=UserSchema.model_validate(user).model_dump(),
             )
 
@@ -126,29 +126,31 @@ class OTPController:
         )
 
     @http_post(
-        "/verify-token", response={200: OTPVerifyResponseSchema, 400: dict, 401: dict}
+        "/verify-token",
+        response={200: OTPVerifyResponseSchema, 400: dict, 401: dict},
+        by_alias=True,
     )
     @log_api_call(include_payload=True)
-    def verify_token(self, request, payload: OTPTokenVerifySchema):
+    def verify_token(
+        self, request, response: HttpResponse, payload: OTPTokenVerifySchema
+    ):
         """Verify a magic link token.
 
         Used for passwordless authentication via email magic links.
-        Returns JWT access and refresh tokens along with user data.
+        Issues HttpOnly authentication cookies and returns user data.
         """
         success, message, user = otp_service.verify_token(token=payload.token)
 
         if not success or not user:
             return 401, {"error": message, "success": False}
 
-        refresh = RefreshToken.for_user(user)  # type: ignore[misc]  # simplejwt stub types for_user as instance method
+        issue_auth_cookies(request, response, user)
 
         logger.info("User logged in via magic link: %s", user.email)
 
         return 200, OTPVerifyResponseSchema(
             success=True,
             message="Login successful",
-            access=str(refresh.access_token),  # type: ignore[attr-defined]
-            refresh=str(refresh),
             user=UserSchema.model_validate(user).model_dump(),
         )
 
@@ -248,7 +250,7 @@ class OTPController:
     @http_post(
         "/2fa/request",
         response={200: OTPResponseSchema, 400: dict, 401: dict, 429: dict},
-        auth=JWTAuth(),
+        auth=CookieJWTAuth(),
     )
     @log_api_call()
     def request_two_factor(self, request, payload: TwoFactorSetupSchema):
@@ -278,7 +280,7 @@ class OTPController:
     @http_post(
         "/2fa/verify",
         response={200: MessageResponse, 400: dict, 401: dict},
-        auth=JWTAuth(),
+        auth=CookieJWTAuth(),
     )
     @log_api_call(include_payload=True)
     def verify_two_factor(self, request, payload: TwoFactorVerifySchema):

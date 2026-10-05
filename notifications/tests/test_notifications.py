@@ -38,7 +38,7 @@ def auth_headers(user):
     from ninja_jwt.tokens import RefreshToken
 
     refresh = RefreshToken.for_user(user)
-    return {"HTTP_AUTHORIZATION": f"Bearer {refresh.access_token}"}
+    return {"HTTP_COOKIE": f"access_token={refresh.access_token}"}
 
 
 @pytest.mark.django_db
@@ -190,12 +190,12 @@ class TestNotificationAPI:
             other_user, "in_app", "Secret", "body"
         )
         refresh = RefreshToken.for_user(other_user)
-        other_headers = {"HTTP_AUTHORIZATION": f"Bearer {refresh.access_token}"}
+        other_headers = {"HTTP_COOKIE": f"access_token={refresh.access_token}"}
 
         attacker = UserFactory()
         attacker_refresh = RefreshToken.for_user(attacker)
         attacker_headers = {
-            "HTTP_AUTHORIZATION": f"Bearer {attacker_refresh.access_token}"
+            "HTTP_COOKIE": f"access_token={attacker_refresh.access_token}"
         }
 
         response = api_client.get(

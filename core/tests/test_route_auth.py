@@ -23,7 +23,7 @@ User = pytest.importorskip("django.contrib.auth").get_user_model()
 
 
 def bearer_for(user) -> dict:
-    return {"HTTP_AUTHORIZATION": f"Bearer {AccessToken.for_user(user)}"}
+    return {"HTTP_COOKIE": f"access_token={AccessToken.for_user(user)}"}
 
 
 def post_json(client: Client, path: str, data: dict, **headers) -> HttpResponseBase:
@@ -50,7 +50,6 @@ class TestAnonymousRouteContract:
         [
             ("get", "/api/auth/me", None),
             ("get", "/api/auth/status", None),
-            ("post", "/api/auth/logout", {}),
             ("get", "/api/users/", None),
             ("post", "/api/users/superuser", {}),
             ("get", "/api/tasks/stats", None),
@@ -198,7 +197,7 @@ class TestOpenAPISecurity:
         [
             ("get", "/api/auth/me"),
             ("get", "/api/auth/status"),
-            ("post", "/api/auth/logout"),
+            ("post", "/api/auth/refresh"),
             ("get", "/api/users/"),
             ("post", "/api/users/superuser"),
             ("get", "/api/tasks/stats"),
@@ -242,9 +241,8 @@ class TestOpenAPISecurity:
             ("get", "/api/health/"),
             ("get", "/api/health/liveness"),
             ("get", "/api/health/readiness"),
-            ("post", "/api/token/pair"),
-            ("post", "/api/token/refresh"),
-            ("post", "/api/token/verify"),
+            ("get", "/api/auth/csrf"),
+            ("post", "/api/auth/logout"),
         }
     )
 
@@ -257,7 +255,6 @@ class TestOpenAPISecurity:
         }
         assert unprotected - self.PUBLIC_OPERATIONS == set()
 
-    def test_bearer_scheme_is_declared(self, schema):
-        schemes = schema.get("components", {}).get("securitySchemes", {})
-        assert "JWTAuth" in schemes
-        assert schemes["JWTAuth"]["scheme"] == "bearer"
+    def test_cookie_scheme_is_declared(self, schema):
+        scheme = schema["components"]["securitySchemes"]["CookieJWTAuth"]
+        assert scheme == {"type": "apiKey", "in": "cookie", "name": "access_token"}

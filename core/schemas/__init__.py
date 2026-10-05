@@ -18,8 +18,6 @@ from core.schemas.auth_schema import (
     PasswordlessLoginVerify,
     PasswordResetConfirmSchema,
     PasswordResetRequestSchema,
-    RefreshTokenSchema,
-    TokenSchema,
     UserLoginSchema,
 )
 from core.schemas.base_schema import (
@@ -80,8 +78,6 @@ __all__ = [
     "PasswordlessLoginVerify",
     "PasswordResetConfirmSchema",
     "PasswordResetRequestSchema",
-    "RefreshTokenSchema",
-    "TokenSchema",
     "UserLoginSchema",
     # OTP schemas
     "OTPRequestSchema",

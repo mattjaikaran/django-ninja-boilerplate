@@ -1,7 +1,7 @@
 import logging
 
 from ninja_extra import api_controller, http_delete, http_get, http_post, http_put
-from ninja_jwt.authentication import JWTAuth
+from core.security.cookie_auth import CookieJWTAuth
 
 from api.decorators import log_api_call
 from webhooks.schemas import (
@@ -15,7 +15,9 @@ from webhooks.services import WebhookService
 logger = logging.getLogger(__name__)
 
 
-@api_controller("/webhooks", tags=["Webhooks"], auth=JWTAuth())
+@api_controller(
+    "/webhooks", tags=["Webhooks"], auth=CookieJWTAuth(), use_unique_op_id=False
+)
 class WebhookController:
     def __init__(self):
         self.service = WebhookService()

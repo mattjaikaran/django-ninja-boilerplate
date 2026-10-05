@@ -2,6 +2,47 @@
 
 The core app provides essential functionality for user management, authentication, and base structures for the entire project.
 
+## Browser authentication
+
+Application APIs use cookie-only JWT authentication (no bearer fallback). Bootstrap
+with `GET /api/auth/csrf`, retain its `csrfToken`, and send it as `X-CSRFToken`
+with credentials included on unsafe browser requests, including login, refresh,
+logout, signup, and passwordless/OTP authentication. Login returns the typed user,
+not tokens. Signup returns a user and does not automatically log in.
+
+`POST /api/auth/refresh` and `POST /api/auth/logout` require no request body.
+Refresh rotates the refresh token and blacklists the old token. Logout revokes the
+refresh cookie and clears both authentication cookies, even after access expiry.
+An already-issued access JWT remains valid until expiry if copied outside the
+browser; logout does not maintain an access-token blacklist.
+
+`access_token` is HttpOnly with Path `/api/`; `refresh_token` is HttpOnly with
+Path `/api/auth/`. Both use SameSite=Lax and the configured JWT lifetimes
+(60 minutes access, seven days refresh). Production requires HTTPS and Secure
+cookies. Only development/test settings explicitly disable Secure for local HTTP.
+`csrftoken` is readable, SameSite=Lax, and managed by Django CSRF middleware;
+login rotates it, so bootstrap again after login before subsequent mutations.
+
+Local trusted frontend origins are localhost/127.0.0.1 on ports 3000 and 5173.
+Use the same hostname for frontend and backend; SameSite=Lax is not suitable for
+cross-site frontend hosting. Production must explicitly configure
+`CORS_ALLOWED_ORIGINS` and `CSRF_TRUSTED_ORIGINS`, credentials-enabled CORS,
+HTTPS termination, and Django's secure proxy settings. Never use test settings
+outside local testing (their keys and password hashing are intentionally unsafe).
+
+Ninja's dispatch is CSRF-exempt at Django's middleware level. The application
+middleware therefore invokes Ninja's Django-backed `check_csrf` with a
+non-exempt callback on unsafe authentication requests and cookie-bearing API
+requests, protecting public login/refresh/logout as well as private mutations.
+The former `/api/token/pair`, `/refresh`, and `/verify` controller is removed.
+
+User response operations explicitly serialize aliases to preserve camelCase
+(`firstName`, `isActive`); todo responses preserve snake_case timestamps
+(`created_at`, `updated_at`). OpenAPI declares these actual wire shapes.
+Controllers use `use_unique_op_id=False`: Ninja Extra's default UUID suffixes
+are intentionally disabled so independent producer exports yield stable SDK names.
+
+
 ## Folder Structure
 
 ```

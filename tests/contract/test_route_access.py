@@ -157,9 +157,8 @@ class TestRouteAccessContract:
                 {"email": "x@example.com"},
             ),
             ("POST", "/api/auth/otp/request", {"email": "x@example.com"}),
-            ("POST", "/api/token/pair", {}),
-            ("POST", "/api/token/refresh", {}),
-            ("POST", "/api/token/verify", {}),
+            ("GET", "/api/auth/csrf", None),
+            ("POST", "/api/auth/logout", None),
         ],
     )
     def test_public_routes_reach_handler(self, client, method, path, body):
@@ -172,7 +171,7 @@ class TestRouteAccessContract:
         ("method", "path", "body"),
         [
             ("GET", "/api/auth/me", None),
-            ("POST", "/api/auth/logout", None),
+            ("POST", "/api/auth/refresh", None),
             ("POST", "/api/auth/otp/2fa/request", {}),
             ("POST", "/api/auth/otp/2fa/verify", {"code": "123456"}),
             ("GET", "/api/users/", None),

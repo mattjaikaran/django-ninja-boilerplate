@@ -1,7 +1,7 @@
 import logging
 
 from ninja_extra import api_controller, http_delete, http_get, http_post
-from ninja_jwt.authentication import JWTAuth
+from core.security.cookie_auth import CookieJWTAuth
 
 from api.decorators import log_api_call
 from notifications.schemas import NotificationListSchema, NotificationSchema
@@ -10,7 +10,12 @@ from notifications.services import NotificationService
 logger = logging.getLogger(__name__)
 
 
-@api_controller("/notifications", tags=["Notifications"], auth=JWTAuth())
+@api_controller(
+    "/notifications",
+    tags=["Notifications"],
+    auth=CookieJWTAuth(),
+    use_unique_op_id=False,
+)
 class NotificationController:
     def __init__(self):
         self.service = NotificationService()

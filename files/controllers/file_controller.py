@@ -2,7 +2,7 @@ import logging
 
 from ninja import File, UploadedFile
 from ninja_extra import api_controller, http_delete, http_get, http_post
-from ninja_jwt.authentication import JWTAuth
+from core.security.cookie_auth import CookieJWTAuth
 
 from files.schemas import (
     ConfirmUploadSchema,
@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 _FILE_REQUIRED = File(...)  # module-level to satisfy B008 (no function call in default)
 
 
-@api_controller("/files", tags=["Files"], auth=JWTAuth())
+@api_controller("/files", tags=["Files"], auth=CookieJWTAuth(), use_unique_op_id=False)
 class FileController:
     def __init__(self) -> None:
         self.service = FileService()
