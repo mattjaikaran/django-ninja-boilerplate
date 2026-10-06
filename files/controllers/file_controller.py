@@ -12,6 +12,7 @@ from files.schemas import (
     PresignedUrlResponseSchema,
 )
 from files.services import FileService
+from files.services.file_service import max_upload_bytes
 
 logger = logging.getLogger(__name__)
 
@@ -50,11 +51,10 @@ class FileController:
         file_id: str,
         file: UploadedFile = _FILE_REQUIRED,
     ):
-        file_data = file.read()
-        content_type = file.content_type or "application/octet-stream"
-        file_upload = self.service.handle_local_upload(
-            file_id, request.user, file_data, content_type
-        )
+        # Read one byte past the cap so the service can reject oversize files
+        # without loading all of them into memory.
+        file_data = file.read(max_upload_bytes() + 1)
+        file_upload = self.service.handle_local_upload(file_id, request.user, file_data)
         return 200, file_upload
 
     @http_delete("/{file_id}", response={204: None})

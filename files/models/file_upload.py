@@ -10,13 +10,17 @@ class FileUpload(TimestampedModel):
         on_delete=models.CASCADE,
         related_name="file_uploads",
     )
+    # Server-generated storage key. No part comes from the client filename.
     key = models.CharField(max_length=500)
+    # Sanitized display name. The raw client name is in metadata only.
     filename = models.CharField(max_length=255)
     content_type = models.CharField(max_length=100)
     size = models.BigIntegerField(null=True, blank=True)
     is_confirmed = models.BooleanField(default=False, db_index=True)
     confirmed_at = models.DateTimeField(null=True, blank=True)
     is_public = models.BooleanField(default=False)
+    # Free-form metadata. Holds the raw client name as "original_filename".
+    metadata = models.JSONField(default=dict, blank=True)
     expires_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:

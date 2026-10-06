@@ -2,12 +2,16 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from django.contrib.auth import get_user_model
+from django.db import IntegrityError, transaction
 from django.test import Client
 
 from billing.models import Plan, Subscription
 from core.tests.factories import UserFactory
 
 User = get_user_model()
+
+# Billing is optional, so the project URLconf does not mount its routes.
+pytestmark = pytest.mark.urls("billing.tests.urls")
 
 
 @pytest.fixture
@@ -81,6 +85,15 @@ class TestPlanModel:
         assert plan in active
         assert inactive_plan not in active
 
+    def test_stripe_price_id_unique_only_when_set(self, db):
+        Plan.objects.create(name="Free A", amount="0.00")
+        Plan.objects.create(name="Free B", amount="0.00")
+        Plan.objects.create(name="Pro", stripe_price_id="price_dup", amount="9.00")
+        with pytest.raises(IntegrityError), transaction.atomic():
+            Plan.objects.create(
+                name="Pro 2", stripe_price_id="price_dup", amount="9.00"
+            )
+
 
 @pytest.mark.django_db
 class TestSubscriptionModel:
@@ -110,7 +123,7 @@ class TestListPlansEndpoint:
         assert response.status_code == 200
         data = response.json()
         assert isinstance(data, list)
-        ids = [p["stripe_price_id"] for p in data]
+        ids = [p["stripePriceId"] for p in data]
         assert "price_test_123" in ids
         assert "price_legacy_456" not in ids
 
@@ -119,7 +132,7 @@ class TestListPlansEndpoint:
         response = client.get("/api/billing/plans")
         assert response.status_code == 200
         data = response.json()
-        assert all(p["is_active"] for p in data)
+        assert all(p["isActive"] for p in data)
 
     def test_plan_schema_includes_is_free(self, plan):
         client = Client()
@@ -127,7 +140,7 @@ class TestListPlansEndpoint:
         assert response.status_code == 200
         data = response.json()
         assert len(data) >= 1
-        assert "is_free" in data[0]
+        assert "isFree" in data[0]
 
 
 @pytest.mark.django_db
@@ -142,7 +155,7 @@ class TestGetSubscriptionEndpoint:
         response = client.get("/api/billing/subscription", **auth_headers)
         assert response.status_code == 200
         data = response.json()
-        assert data["stripe_subscription_id"] == "sub_test_123"
+        assert data["stripeSubscriptionId"] == "sub_test_123"
         assert data["status"] == "active"
         assert "plan" in data
         assert data["plan"]["name"] == "Pro"
@@ -225,14 +238,15 @@ class TestCheckoutEndpoint:
         )
         assert response.status_code == 200
         data = response.json()
-        assert data["session_id"] == "cs_test_123"
-        assert "checkout_url" in data
+        assert data["sessionId"] == "cs_test_123"
+        assert "checkoutUrl" in data
 
 
 @pytest.mark.django_db
 class TestWebhookController:
     def test_webhook_endpoint_exists(self):
-        client = Client()
+        # Stripe sends no CSRF cookie or header: the signed prefix is exempt.
+        client = Client(enforce_csrf_checks=True)
         response = client.post(
             "/api/billing/webhooks/stripe",
             data=b"{}",

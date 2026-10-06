@@ -14,9 +14,9 @@ class Plan(SoftDeleteModel):
 
     name = models.CharField(max_length=100)
     description = models.TextField(blank=True, default="")
-    stripe_price_id = models.CharField(
-        max_length=100, unique=True, blank=True, default=""
-    )
+    # Unique only when set (see Meta): a free plan has no Stripe price, and a
+    # plain unique=True would let only one plan keep the empty default.
+    stripe_price_id = models.CharField(max_length=100, blank=True, default="")
     stripe_product_id = models.CharField(max_length=100, blank=True, default="")
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     currency = models.CharField(max_length=3, default="usd")
@@ -27,6 +27,13 @@ class Plan(SoftDeleteModel):
 
     class Meta:
         ordering = ["amount"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["stripe_price_id"],
+                condition=~models.Q(stripe_price_id=""),
+                name="billing_plan_unique_stripe_price_id",
+            ),
+        ]
 
     @property
     def is_free(self) -> bool:
@@ -58,9 +65,9 @@ class Subscription(TimestampedModel):
         on_delete=models.PROTECT,
         related_name="subscriptions",
     )
-    stripe_subscription_id = models.CharField(
-        max_length=100, unique=True, blank=True, default=""
-    )
+    # Unique only when set (see Meta): incomplete subscriptions have no Stripe
+    # id yet, and a plain unique=True would allow only one of them.
+    stripe_subscription_id = models.CharField(max_length=100, blank=True, default="")
     stripe_customer_id = models.CharField(
         max_length=100, blank=True, default="", db_index=True
     )
@@ -74,10 +81,19 @@ class Subscription(TimestampedModel):
     trial_start = models.DateTimeField(null=True, blank=True)
     trial_end = models.DateTimeField(null=True, blank=True)
 
+    # default=dict: an empty value is {}, never NULL.
+    # nosemgrep: python.django.correctness.nontext-field-must-set-null-true
     metadata = models.JSONField(default=dict, blank=True)
 
     class Meta:
         ordering = ["-created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["stripe_subscription_id"],
+                condition=~models.Q(stripe_subscription_id=""),
+                name="billing_subscription_unique_stripe_subscription_id",
+            ),
+        ]
 
     @property
     def is_active(self) -> bool:

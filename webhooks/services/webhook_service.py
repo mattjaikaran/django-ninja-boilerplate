@@ -4,10 +4,20 @@ from typing import Any
 from django.db.models import QuerySet
 from django.http import Http404
 
+from api.exceptions import ValidationError
 from webhooks.models import Webhook, WebhookDelivery
 from webhooks.schemas import CreateWebhookSchema, UpdateWebhookSchema
+from webhooks.ssrf import UnsafeWebhookURLError, validate_webhook_url
 
 logger = logging.getLogger(__name__)
+
+
+def _check_url(url: str) -> None:
+    """Reject URLs that delivery would block (scheme, non-public address)."""
+    try:
+        validate_webhook_url(url)
+    except UnsafeWebhookURLError as exc:
+        raise ValidationError(str(exc), details={"field": "url"}) from exc
 
 
 class WebhookService:
@@ -21,6 +31,7 @@ class WebhookService:
             raise Http404(f"Webhook {webhook_id} not found") from err
 
     def create_webhook(self, user: Any, data: CreateWebhookSchema) -> Webhook:
+        _check_url(data.url)
         webhook = Webhook.objects.create(
             created_by=user,
             **data.model_dump(),
@@ -32,7 +43,10 @@ class WebhookService:
         self, webhook_id: str, user: Any, data: UpdateWebhookSchema
     ) -> Webhook:
         webhook = self.get_webhook(webhook_id, user)
-        for attr, value in data.model_dump(exclude_unset=True).items():
+        changes = data.model_dump(exclude_unset=True)
+        if changes.get("url") is not None:
+            _check_url(changes["url"])
+        for attr, value in changes.items():
             setattr(webhook, attr, value)
         webhook.save()
         logger.info("Updated webhook: %s (id=%s)", webhook.name, webhook.id)
