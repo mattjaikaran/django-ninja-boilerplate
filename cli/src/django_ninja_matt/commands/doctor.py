@@ -133,7 +133,7 @@ def check_env_file() -> tuple[bool, str]:
     if Path(".env").exists():
         return True, ".env file exists"
     if Path(".env.example").exists():
-        return False, ".env missing (run: cp .env.example .env)"
+        return False, ".env missing (run: just setup-env)"
     return False, ".env file not found"
 
 

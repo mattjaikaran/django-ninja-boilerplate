@@ -18,6 +18,7 @@ from django_ninja_matt.utils.git import (
     init_repo,
     remove_git_history,
 )
+from django_ninja_matt.utils.project_env import create_project_env
 
 
 class BaseGenerator:
@@ -177,6 +178,30 @@ class BaseGenerator:
                     shutil.rmtree(file_path)
                 else:
                     file_path.unlink()
+
+    def create_env_file(
+        self,
+        project_root: Path,
+        overrides: dict[str, str] | None = None,
+    ) -> None:
+        """Write ``project_root/.env`` with generated secrets; never replace one.
+
+        Prints the names of the generated secrets, never their values. Exits
+        with status 1 when the project has no ``scripts/env_secrets.py``: a
+        project without generated secrets must not look created.
+        """
+        try:
+            names = create_project_env(project_root, overrides)
+        except FileExistsError:
+            print_info(f"{project_root / '.env'} exists; leaving it unchanged.")
+            return
+        except FileNotFoundError as exc:
+            print_error(f"{exc}. The template is too old to generate secrets.")
+            raise SystemExit(1) from exc
+        print_success(
+            f"Created {project_root.name}/.env (mode 600) with {len(names)} "
+            f"generated secrets: {', '.join(names)}"
+        )
 
     def run(self) -> bool:
         """Run the generator. Override in subclasses."""

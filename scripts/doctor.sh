@@ -234,12 +234,15 @@ if [ -f .env ]; then
         print_warn "Missing variables:$MISSING_VARS"
     fi
 
-    # Check if SECRET_KEY is default
-    if grep -q "^SECRET_KEY=your-secret-key" .env 2>/dev/null || grep -q "^SECRET_KEY=$" .env 2>/dev/null; then
-        print_warn "SECRET_KEY is using default value. Generate a new one for production!"
+    # Secrets: names only, never values (scripts/env_secrets.py)
+    print_check "Generated secrets..."
+    if secrets_report=$(python3 scripts/env_secrets.py check 2>&1); then
+        print_pass "$secrets_report"
+    else
+        print_warn "$secrets_report. Run: python3 scripts/env_secrets.py fill"
     fi
 else
-    print_fail ".env file not found. Run: just setup-env or cp .env.example .env"
+    print_fail ".env file not found. Run: just setup-env"
 fi
 
 # .env.example

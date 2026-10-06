@@ -37,9 +37,13 @@ def clone_repo(
             branch,
             "--depth",
             str(depth),
+            # "--" ends options, so a URL that starts with "-" is not a flag.
+            "--",
             url,
             str(destination),
         ]
+        # Argument list, no shell, options ended before the operator's URL.
+        # nosemgrep: python.lang.security.audit.dangerous-subprocess-use-audit
         subprocess.run(cmd, check=True, capture_output=True, text=True)
         print_success(f"Cloned {url}")
         return True

@@ -242,10 +242,10 @@ def run_init(
         console.print()
         print_header(f"Creating {config.display_name}")
 
-        if config.is_monorepo:
-            generate_monorepo(config)
-        else:
-            generate_standalone(config)
+        generate = generate_monorepo if config.is_monorepo else generate_standalone
+        if not generate(config):
+            print_error(f"Project creation failed: {project_path}")
+            raise SystemExit(1)
 
         # Success message
         console.print()

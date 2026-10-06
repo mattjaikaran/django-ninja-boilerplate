@@ -149,6 +149,9 @@ Created with [Django Ninja Boilerplate](https://github.com/mattjaikaran/django-n
         # Configure email backend in .env / .env.example
         self._configure_email_backend()
 
+        # Write .env with generated secrets, after .env.example is final
+        self.create_env_file(self.config.path)
+
     def _remove_celery_config(self) -> None:
         """Remove Celery configuration from the project."""
         # Remove Celery from pyproject.toml dependencies

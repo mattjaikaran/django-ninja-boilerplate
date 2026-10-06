@@ -21,7 +21,13 @@
 #   monitoring Flower + Jaeger
 #   observability  Jaeger traces only
 #   mail       Mailhog email capture
-#   mcp        Development MCP server
+#   mcp        Development MCP server (django-ai-boost, not the app MCP server)
+#   ai         Qdrant vector database (optional; pgvector is the default)
+#   graph      Neo4j graph database (optional; Postgres recursive CTEs are
+#              the default)
+#
+# POSTGRES_IMAGE swaps the Postgres image of db, db-prod and db-single. Set
+# POSTGRES_IMAGE=pgvector/pgvector:pg17 for the AI layer (docs/AI_LAYER.md).
 #
 # Production services carry a -prod suffix because Docker Compose allows only
 # one definition per service name, and the dev and production variants differ
@@ -52,7 +58,7 @@ services:
 
   # PostgreSQL 17 Database
   db:
-    image: postgres:17-alpine
+    image: ${POSTGRES_IMAGE:-postgres:17-alpine}
     profiles:
       - dev
       - test
@@ -71,7 +77,7 @@ services:
     environment:
       - POSTGRES_DB=${DB_NAME:-boilerplate_db}
       - POSTGRES_USER=${DB_USER:-postgres}
-      - POSTGRES_PASSWORD=${DB_PASSWORD:-postgres}
+      - POSTGRES_PASSWORD=${DB_PASSWORD:?DB_PASSWORD must be set, run just setup-env}
       # Performance tuning for development
       - POSTGRES_INITDB_ARGS=--encoding=UTF-8
     # Dev ports bind to loopback. Set DEV_BIND_ADDRESS=0.0.0.0 in .env to reach
@@ -80,6 +86,8 @@ services:
       - "${DEV_BIND_ADDRESS:-127.0.0.1}:${POSTGRES_PORT:-5433}:5432"
     networks:
       - app-network
+      # Shared with the dev `mcp` service only.
+      - mcp-network
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 30s
@@ -121,6 +129,7 @@ services:
       --save 60 1000
     networks:
       - app-network
+      - mcp-network
     healthcheck:
       test: ["CMD", "valkey-cli", "ping"]
       interval: 30s
@@ -144,6 +153,9 @@ services:
       context: .
       dockerfile: Dockerfile
       target: development
+      args:
+        # Space-separated optional extras, for example UV_EXTRAS="sentry".
+        UV_EXTRAS: ${UV_EXTRAS:-}
     entrypoint: ["/usr/local/bin/docker-entrypoint-dev.sh"]
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/api/health/"]
@@ -172,7 +184,7 @@ services:
       - SECRET_KEY=${SECRET_KEY:?SECRET_KEY must be set}
       - DB_NAME=${DB_NAME:-boilerplate_db}
       - DB_USER=${DB_USER:-postgres}
-      - DB_PASSWORD=${DB_PASSWORD:-postgres}
+      - DB_PASSWORD=${DB_PASSWORD:?DB_PASSWORD must be set, run just setup-env}
       - DB_HOST=db
       - DB_PORT=${DB_PORT:-5432}
       - VALKEY_URL=valkey://valkey:6379/0
@@ -230,15 +242,24 @@ services:
     command: centrifugo -c config.json
     volumes:
       - ./deploy/centrifugo/config.json:/centrifugo/config.json:ro
+    # Pinned to 127.0.0.1, not DEV_BIND_ADDRESS: this service keeps known
+    # development credentials (see below).
     ports:
-      - "${DEV_BIND_ADDRESS:-127.0.0.1}:8800:8000"
+      - "127.0.0.1:8800:8000"
     environment:
       # Centrifugo does NOT expand ${...} in its config file; it only reads
       # env vars whose names match its own config keys. So the hmac key must
       # be set as CENTRIFUGO_TOKEN_HMAC_SECRET_KEY, because Django signs JWTs
       # with settings.CENTRIFUGO_TOKEN_SECRET and both sides must agree.
-      - CENTRIFUGO_TOKEN_HMAC_SECRET_KEY=${CENTRIFUGO_TOKEN_SECRET:-centrifugo-token-secret}
-      - CENTRIFUGO_API_KEY=${CENTRIFUGO_API_KEY:-centrifugo-api-key}
+      # Every value below must come from .env (`just setup-env` generates
+      # them; scripts/env_secrets.py). The admin UI is acceptable only because
+      # the port is pinned to 127.0.0.1 regardless of DEV_BIND_ADDRESS.
+      # config.json holds no secrets; centrifugo-prod disables the admin UI.
+      - CENTRIFUGO_TOKEN_HMAC_SECRET_KEY=${CENTRIFUGO_TOKEN_SECRET:?CENTRIFUGO_TOKEN_SECRET must be set, run just setup-env}
+      - CENTRIFUGO_API_KEY=${CENTRIFUGO_API_KEY:?CENTRIFUGO_API_KEY must be set, run just setup-env}
+      - CENTRIFUGO_ADMIN=true
+      - CENTRIFUGO_ADMIN_PASSWORD=${CENTRIFUGO_ADMIN_PASSWORD:?CENTRIFUGO_ADMIN_PASSWORD must be set, run just setup-env}
+      - CENTRIFUGO_ADMIN_SECRET=${CENTRIFUGO_ADMIN_SECRET:?CENTRIFUGO_ADMIN_SECRET must be set, run just setup-env}
       # Overrides redis_address from config.json. It must name a host that
       # resolves in this profile (valkey, not the single-profile redis).
       - CENTRIFUGO_REDIS_ADDRESS=redis://valkey:6379/1
@@ -276,6 +297,8 @@ services:
       context: .
       dockerfile: Dockerfile
       target: production
+      args:
+        UV_EXTRAS: ${UV_EXTRAS:-}
     command: celery -A api worker -l info --concurrency=2 --max-tasks-per-child=100
     healthcheck:
       disable: true
@@ -286,11 +309,14 @@ services:
       # The dev stack's trace collector (`just up-monitoring`).
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4317
       - DJANGO_SETTINGS_MODULE=${DJANGO_SETTINGS_MODULE:-api.settings}
+      # Task workers fork after Django loads; an inherited pool would share
+      # sockets. See "Database connection pool" in docs/ARCHITECTURE.md.
+      - DB_POOL_ENABLED=false
       - DEBUG=${DEBUG:-1}
       - SECRET_KEY=${SECRET_KEY:?SECRET_KEY must be set}
       - DB_NAME=${DB_NAME:-boilerplate_db}
       - DB_USER=${DB_USER:-postgres}
-      - DB_PASSWORD=${DB_PASSWORD:-postgres}
+      - DB_PASSWORD=${DB_PASSWORD:?DB_PASSWORD must be set, run just setup-env}
       - DB_HOST=db
       - DB_PORT=${DB_PORT:-5432}
       - VALKEY_URL=valkey://valkey:6379/0
@@ -328,6 +354,8 @@ services:
       context: .
       dockerfile: Dockerfile
       target: production
+      args:
+        UV_EXTRAS: ${UV_EXTRAS:-}
     command: celery -A api beat -l info --scheduler django_celery_beat.schedulers:DatabaseScheduler
     healthcheck:
       disable: true
@@ -338,11 +366,12 @@ services:
       # The dev stack's trace collector (`just up-monitoring`).
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4317
       - DJANGO_SETTINGS_MODULE=${DJANGO_SETTINGS_MODULE:-api.settings}
+      - DB_POOL_ENABLED=false
       - DEBUG=${DEBUG:-1}
       - SECRET_KEY=${SECRET_KEY:?SECRET_KEY must be set}
       - DB_NAME=${DB_NAME:-boilerplate_db}
       - DB_USER=${DB_USER:-postgres}
-      - DB_PASSWORD=${DB_PASSWORD:-postgres}
+      - DB_PASSWORD=${DB_PASSWORD:?DB_PASSWORD must be set, run just setup-env}
       - DB_HOST=db
       - DB_PORT=${DB_PORT:-5432}
       - VALKEY_URL=valkey://valkey:6379/0
@@ -382,6 +411,8 @@ services:
       context: .
       dockerfile: Dockerfile
       target: production
+      args:
+        UV_EXTRAS: ${UV_EXTRAS:-}
     command: python manage.py run_huey
     healthcheck:
       disable: true
@@ -392,11 +423,12 @@ services:
       # The dev stack's trace collector (`just up-monitoring`).
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4317
       - DJANGO_SETTINGS_MODULE=${DJANGO_SETTINGS_MODULE:-api.settings}
+      - DB_POOL_ENABLED=false
       - DEBUG=${DEBUG:-1}
       - SECRET_KEY=${SECRET_KEY:?SECRET_KEY must be set}
       - DB_NAME=${DB_NAME:-boilerplate_db}
       - DB_USER=${DB_USER:-postgres}
-      - DB_PASSWORD=${DB_PASSWORD:-postgres}
+      - DB_PASSWORD=${DB_PASSWORD:?DB_PASSWORD must be set, run just setup-env}
       - DB_HOST=db
       - DB_PORT=${DB_PORT:-5432}
       - VALKEY_URL=valkey://valkey:6379/0
@@ -434,6 +466,8 @@ services:
       context: .
       dockerfile: Dockerfile
       target: production
+      args:
+        UV_EXTRAS: ${UV_EXTRAS:-}
     command: python manage.py qcluster
     healthcheck:
       disable: true
@@ -444,11 +478,12 @@ services:
       # The dev stack's trace collector (`just up-monitoring`).
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4317
       - DJANGO_SETTINGS_MODULE=${DJANGO_SETTINGS_MODULE:-api.settings}
+      - DB_POOL_ENABLED=false
       - DEBUG=${DEBUG:-1}
       - SECRET_KEY=${SECRET_KEY:?SECRET_KEY must be set}
       - DB_NAME=${DB_NAME:-boilerplate_db}
       - DB_USER=${DB_USER:-postgres}
-      - DB_PASSWORD=${DB_PASSWORD:-postgres}
+      - DB_PASSWORD=${DB_PASSWORD:?DB_PASSWORD must be set, run just setup-env}
       - DB_HOST=db
       - DB_PORT=${DB_PORT:-5432}
       - VALKEY_URL=valkey://valkey:6379/0
@@ -486,6 +521,8 @@ services:
       context: .
       dockerfile: Dockerfile
       target: production
+      args:
+        UV_EXTRAS: ${UV_EXTRAS:-}
     command: python manage.py rqworker default high low
     healthcheck:
       disable: true
@@ -496,11 +533,12 @@ services:
       # The dev stack's trace collector (`just up-monitoring`).
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4317
       - DJANGO_SETTINGS_MODULE=${DJANGO_SETTINGS_MODULE:-api.settings}
+      - DB_POOL_ENABLED=false
       - DEBUG=${DEBUG:-1}
       - SECRET_KEY=${SECRET_KEY:?SECRET_KEY must be set}
       - DB_NAME=${DB_NAME:-boilerplate_db}
       - DB_USER=${DB_USER:-postgres}
-      - DB_PASSWORD=${DB_PASSWORD:-postgres}
+      - DB_PASSWORD=${DB_PASSWORD:?DB_PASSWORD must be set, run just setup-env}
       - DB_HOST=db
       - DB_PORT=${DB_PORT:-5432}
       - VALKEY_URL=valkey://valkey:6379/0
@@ -538,6 +576,8 @@ services:
       context: .
       dockerfile: Dockerfile
       target: production
+      args:
+        UV_EXTRAS: ${UV_EXTRAS:-}
     command: dramatiq api.tasks.dramatiq_worker --processes 1 --threads 4
     healthcheck:
       disable: true
@@ -548,11 +588,12 @@ services:
       # The dev stack's trace collector (`just up-monitoring`).
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4317
       - DJANGO_SETTINGS_MODULE=${DJANGO_SETTINGS_MODULE:-api.settings}
+      - DB_POOL_ENABLED=false
       - DEBUG=${DEBUG:-1}
       - SECRET_KEY=${SECRET_KEY:?SECRET_KEY must be set}
       - DB_NAME=${DB_NAME:-boilerplate_db}
       - DB_USER=${DB_USER:-postgres}
-      - DB_PASSWORD=${DB_PASSWORD:-postgres}
+      - DB_PASSWORD=${DB_PASSWORD:?DB_PASSWORD must be set, run just setup-env}
       - DB_HOST=db
       - DB_PORT=${DB_PORT:-5432}
       - VALKEY_URL=valkey://valkey:6379/0
@@ -631,6 +672,8 @@ services:
       context: .
       dockerfile: Dockerfile
       target: production
+      args:
+        UV_EXTRAS: ${UV_EXTRAS:-}
     command: celery -A api flower --port=5555 --broker=redis://valkey:6379/0
     # The image healthcheck probes Django on 8000; Flower listens on 5555.
     healthcheck:
@@ -639,13 +682,18 @@ services:
       timeout: 5s
       retries: 5
       start_period: 20s
+    # Pinned to 127.0.0.1, not DEV_BIND_ADDRESS, because of the fallback login.
     ports:
-      - "${DEV_BIND_ADDRESS:-127.0.0.1}:5555:5555"
+      - "127.0.0.1:5555:5555"
     environment:
       - DJANGO_SETTINGS_MODULE=${DJANGO_SETTINGS_MODULE:-api.settings}
       - SECRET_KEY=${SECRET_KEY:?SECRET_KEY must be set}
       - REDIS_URL=redis://valkey:6379/0
-      - FLOWER_BASIC_AUTH=${FLOWER_BASIC_AUTH:-admin:password}
+      # DEV ONLY: the monitoring profile has no production counterpart and the
+      # port is pinned to 127.0.0.1. Compose interpolates every service, so
+      # this guard applies to every profile: `just setup-env` generates the
+      # value (admin:<random>) before the first `docker compose` call.
+      - FLOWER_BASIC_AUTH=${FLOWER_BASIC_AUTH:?FLOWER_BASIC_AUTH must be set, run just setup-env}
       - PYTHONDONTWRITEBYTECODE=1
       - PYTHONUNBUFFERED=1
     depends_on:
@@ -668,23 +716,41 @@ services:
   # Development-only tooling (profile: dev)
   # ===========================================
 
-  # Django AI Boost MCP server (SSE). Needs the `dev` extra.
+  # Django AI Boost MCP server (SSE). Needs the `dev` extra. Development only:
+  # its tools read settings and database rows. scripts/run_dev_mcp.py refuses
+  # to start unless the settings are api.settings.dev, DEBUG is true, and .env
+  # sets DJANGO_MCP_AUTH_TOKEN (32+ characters). Clients send it as
+  # `Authorization: Bearer <token>`; Host must be localhost or 127.0.0.1.
+  # See docs/AI_LAYER.md.
   mcp:
     <<: *app-env
     build:
       context: .
       dockerfile: Dockerfile
       target: development
+      args:
+        UV_EXTRAS: ${UV_EXTRAS:-}
     # Optional: `just up-mcp`. Not part of the default stack.
     profiles:
       - mcp
-    command: >
-      sh -c "uv run django-ai-boost --settings api.settings.dev --transport sse --host 0.0.0.0 --port 8001"
+    # 0.0.0.0 inside the container only, so the published port can reach it.
+    command:
+      [
+        "uv",
+        "run",
+        "python",
+        "scripts/run_dev_mcp.py",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "8001",
+      ]
     volumes:
       - .:/app
       - /app/.venv
     ports:
-      # Loopback only: the MCP tools read the database and settings.
+      # Hard-coded loopback, deliberately not DEV_BIND_ADDRESS: never publish
+      # this port on another interface.
       - "127.0.0.1:8001:8001"
     environment:
       - DJANGO_SETTINGS_MODULE=api.settings.dev
@@ -693,26 +759,27 @@ services:
       # inside the bind mount, which the app user cannot write, and the
       # container exits.
       - UV_PROJECT_ENVIRONMENT=/opt/venv
-      - DATABASE_URL=postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@db:5432/${DB_NAME:-boilerplate_db}
+      - DATABASE_URL=postgresql://${DB_USER:-postgres}:${DB_PASSWORD:?DB_PASSWORD must be set, run just setup-env}@db:5432/${DB_NAME:-boilerplate_db}
       # Settings read the DB_* variables, not DATABASE_URL, so pin them: .env
       # holds the host values.
       - DB_HOST=db
       - DB_PORT=${DB_PORT:-5432}
       - DB_NAME=${DB_NAME:-boilerplate_db}
       - DB_USER=${DB_USER:-postgres}
-      - DB_PASSWORD=${DB_PASSWORD:-postgres}
+      - DB_PASSWORD=${DB_PASSWORD:?DB_PASSWORD must be set, run just setup-env}
       - VALKEY_URL=valkey://valkey:6379/0
       - REDIS_URL=valkey://valkey:6379/0
       - CELERY_BROKER_URL=redis://valkey:6379/0
       - CELERY_RESULT_BACKEND=redis://valkey:6379/0
       - SECRET_KEY=${SECRET_KEY:?SECRET_KEY must be set}
-      # The dev stack's trace collector (`just up-monitoring`).
-      - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4317
+      # No OTEL endpoint: mcp-network has no route to jaeger.
     depends_on:
       db:
         condition: service_healthy
+    # Own network: only db and valkey share it, so other containers cannot
+    # reach this server.
     networks:
-      - app-network
+      - mcp-network
     healthcheck:
       # The image healthcheck probes port 8000; this server listens on 8001.
       # SSE holds the connection open, so probe the port instead of a path.
@@ -735,13 +802,62 @@ services:
       - app-network
 
   # ===========================================
+  # AI and data layer (profiles: ai, graph). docs/AI_LAYER.md
+  # ===========================================
+
+  # Qdrant vector database. Optional: pgvector in Postgres is the default
+  # vector store. Start with `docker compose --profile ai up -d qdrant`.
+  qdrant:
+    image: qdrant/qdrant:v1.19.2
+    profiles:
+      - ai
+    ports:
+      - "${DEV_BIND_ADDRESS:-127.0.0.1}:6333:6333" # HTTP API and dashboard
+      - "${DEV_BIND_ADDRESS:-127.0.0.1}:6334:6334" # gRPC
+    volumes:
+      - qdrant_data:/qdrant/storage
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c ':> /dev/tcp/127.0.0.1/6333'"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  # Neo4j graph database (5.26 LTS). Optional: core/ai/services/graph_service.py
+  # walks graphs with Postgres recursive CTEs and needs no extra service.
+  # Start with `docker compose --profile graph up -d neo4j`.
+  neo4j:
+    image: neo4j:5.26.31-community
+    profiles:
+      - graph
+    environment:
+      # DEV ONLY: the graph profile has no production counterpart and the ports
+      # are pinned to 127.0.0.1 (not DEV_BIND_ADDRESS). `just setup-env`
+      # generates NEO4J_PASSWORD; the data volume keeps the first one.
+      - NEO4J_AUTH=neo4j/${NEO4J_PASSWORD:?NEO4J_PASSWORD must be set, run just setup-env}
+    ports:
+      - "127.0.0.1:7474:7474" # Browser
+      - "127.0.0.1:7687:7687" # Bolt
+    volumes:
+      - neo4j_data:/data
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:7474 || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  # ===========================================
   # Production stack (profile: prod)
   # Renamed with a -prod suffix so it can coexist with the dev services.
   # ===========================================
 
   # PostgreSQL Database (production tuning, no port exposure)
   db-prod:
-    image: postgres:17-alpine
+    image: ${POSTGRES_IMAGE:-postgres:17-alpine}
     profiles:
       - prod
       - realtime-prod
@@ -812,33 +928,25 @@ services:
           cpus: "0.25"
           memory: 256M
 
-  # Django Application Server (Gunicorn, production target)
+  # Django Application Server (Gunicorn + uvicorn ASGI workers, production target)
   django-prod:
     <<: *app-env
     build:
       context: .
       dockerfile: Dockerfile
       target: production
+      args:
+        # The justfile exports APP_VERSION from the VERSION file.
+        APP_VERSION: ${APP_VERSION:-unknown}
+        # Space-separated optional extras, for example UV_EXTRAS="sentry".
+        UV_EXTRAS: ${UV_EXTRAS:-}
     profiles:
       - prod
-    # Keep every line at one indent: in a folded scalar, deeper lines keep
-    # their newlines, and `sh -c` then runs each gunicorn flag as a command.
+    # gunicorn.conf.py holds the server settings (worker class, bind, timeouts).
     command: >
       sh -c "python manage.py migrate --noinput &&
       python manage.py collectstatic --noinput &&
-      gunicorn api.wsgi:application
-      --bind 0.0.0.0:8000
-      --workers ${GUNICORN_WORKERS:-4}
-      --threads 2
-      --worker-class gthread
-      --worker-tmp-dir /dev/shm
-      --timeout 120
-      --keep-alive 5
-      --max-requests 1000
-      --max-requests-jitter 50
-      --access-logfile -
-      --error-logfile -
-      --capture-output"
+      gunicorn api.asgi:application"
     volumes:
       - static_volume:/app/staticfiles
       - media_volume:/app/media
@@ -847,10 +955,14 @@ services:
       - "8000"
     environment:
       - DJANGO_SETTINGS_MODULE=api.settings.prod
-      # The bundled nginx is one proxy hop. Throttles read the client IP from
-      # X-Forwarded-For; with 0 every client shares nginx's IP. Add one per
-      # extra proxy (for example an external TLS proxy).
-      - NINJA_NUM_PROXIES=${NINJA_NUM_PROXIES:-1}
+      # Peak DB connections = GUNICORN_WORKERS x DB_POOL_MAX_SIZE. Keep it
+      # below Postgres max_connections (100) with the workers' connections.
+      - GUNICORN_WORKERS=${GUNICORN_WORKERS:-4}
+      # Production runs behind a TLS proxy plus the bundled nginx: two hops
+      # that append to X-Forwarded-For. Throttles and the login lockout read
+      # the client IP from it; a count that is too low makes every client
+      # share the proxy's IP (one lockout for the whole site).
+      - NINJA_NUM_PROXIES=${NINJA_NUM_PROXIES:-2}
       # ENVIRONMENT drives structured logging and the S3 storage branch in
       # api/settings/common.py. Without it the reused dev .env leaks
       # "development" into production.
@@ -877,9 +989,9 @@ services:
       - ALLOWED_HOSTS=${ALLOWED_HOSTS}
       - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS}
       - CSRF_TRUSTED_ORIGINS=${CSRF_TRUSTED_ORIGINS}
-      # Bundled nginx listens on HTTP port 80 and sets X-Forwarded-Proto=http.
-      # Enable TLS only when Django receives the original scheme from a trusted proxy.
-      - USE_TLS=${USE_TLS:-false}
+      # Production requires TLS in front (api/settings/prod.py refuses
+      # USE_TLS=false): nginx passes the outer proxy's X-Forwarded-Proto through.
+      - USE_TLS=${USE_TLS:-true}
       # Centrifugo settings
       - CENTRIFUGO_URL=${CENTRIFUGO_URL:-http://centrifugo-prod:8000}
       - CENTRIFUGO_API_KEY=${CENTRIFUGO_API_KEY}
@@ -913,6 +1025,9 @@ services:
       context: .
       dockerfile: Dockerfile
       target: production
+      args:
+        APP_VERSION: ${APP_VERSION:-unknown}
+        UV_EXTRAS: ${UV_EXTRAS:-}
     profiles:
       - prod
     # No -Q: the worker consumes every queue in app.conf.task_queues
@@ -938,6 +1053,7 @@ services:
       - logs_volume:/app/logs
     environment:
       - DJANGO_SETTINGS_MODULE=api.settings.prod
+      - DB_POOL_ENABLED=false
       # ENVIRONMENT drives structured logging and the S3 storage branch in
       # api/settings/common.py. Without it the reused dev .env leaks
       # "development" into production.
@@ -983,6 +1099,9 @@ services:
       context: .
       dockerfile: Dockerfile
       target: production
+      args:
+        APP_VERSION: ${APP_VERSION:-unknown}
+        UV_EXTRAS: ${UV_EXTRAS:-}
     profiles:
       - prod
     command: celery -A api beat -l info --scheduler django_celery_beat.schedulers:DatabaseScheduler
@@ -993,6 +1112,7 @@ services:
       - logs_volume:/app/logs
     environment:
       - DJANGO_SETTINGS_MODULE=api.settings.prod
+      - DB_POOL_ENABLED=false
       # ENVIRONMENT drives structured logging and the S3 storage branch in
       # api/settings/common.py. Without it the reused dev .env leaks
       # "development" into production.
@@ -1048,7 +1168,9 @@ services:
       # Required: an empty hmac key would silently reject every client token
       # while Django keeps signing with its own default.
       - CENTRIFUGO_TOKEN_HMAC_SECRET_KEY=${CENTRIFUGO_TOKEN_SECRET:?CENTRIFUGO_TOKEN_SECRET must be set for realtime}
-      - CENTRIFUGO_API_KEY=${CENTRIFUGO_API_KEY}
+      # Required: config.json holds no API key, and Centrifugo treats an empty
+      # env var as unset. api/settings/prod.py rejects the known dev keys.
+      - CENTRIFUGO_API_KEY=${CENTRIFUGO_API_KEY:?CENTRIFUGO_API_KEY must be set for realtime}
       - CENTRIFUGO_ADMIN=false
       # Browser origins allowed to open a WebSocket, space separated. The
       # config file lists only the dev origins, so without this Centrifugo
@@ -1113,7 +1235,7 @@ services:
 
   # PostgreSQL Database (single-container stack)
   db-single:
-    image: postgres:17-alpine
+    image: ${POSTGRES_IMAGE:-postgres:17-alpine}
     profiles:
       - single
     volumes:
@@ -1121,7 +1243,7 @@ services:
     environment:
       - POSTGRES_DB=${DB_NAME:-boilerplate_db}
       - POSTGRES_USER=${DB_USER:-postgres}
-      - POSTGRES_PASSWORD=${DB_PASSWORD:-postgres}
+      - POSTGRES_PASSWORD=${DB_PASSWORD:?DB_PASSWORD must be set, run just setup-env}
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 30s
@@ -1132,14 +1254,16 @@ services:
 
   # Redis (single-container stack)
   redis:
-    image: redis:7.2-alpine
+    # Valkey, like the other stacks. The service keeps the `redis` name so the
+    # app's REDIS_URL/VALKEY_URL stay unchanged.
+    image: valkey/valkey:8-alpine
     profiles:
       - single
     volumes:
       - redis_data:/data
-    command: redis-server --appendonly yes
+    command: valkey-server --appendonly yes
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "valkey-cli", "ping"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -1152,6 +1276,9 @@ services:
     build:
       context: .
       dockerfile: deploy/docker/Dockerfile.single
+      args:
+        APP_VERSION: ${APP_VERSION:-unknown}
+        UV_EXTRAS: ${UV_EXTRAS:-}
     profiles:
       - single
     environment:
@@ -1162,13 +1289,13 @@ services:
       - ENVIRONMENT=production
       # JSON logging: .env carries the development value, so pin it here.
       - USE_STRUCTURED_LOGGING=true
-      - USE_TLS=${USE_TLS:-false}
+      - USE_TLS=${USE_TLS:-true}
       - DEBUG=0
       - SECRET_KEY=${SECRET_KEY}
       - NINJA_JWT_SIGNING_KEY=${NINJA_JWT_SIGNING_KEY:-}
       - DB_NAME=${DB_NAME:-boilerplate_db}
       - DB_USER=${DB_USER:-postgres}
-      - DB_PASSWORD=${DB_PASSWORD:-postgres}
+      - DB_PASSWORD=${DB_PASSWORD:?DB_PASSWORD must be set, run just setup-env}
       - DB_HOST=db-single
       - DB_PORT=5432
       - REDIS_URL=redis://redis:6379/0
@@ -1194,6 +1321,9 @@ networks:
     driver: bridge
     driver_opts:
       com.docker.network.driver.mtu: 1500
+  # Isolates the dev `mcp` service: only db and valkey join it.
+  mcp-network:
+    driver: bridge
 
 volumes:
   postgres_data:
@@ -1211,4 +1341,8 @@ volumes:
   logs_volume:
     driver: local
   redis_data:
+    driver: local
+  qdrant_data:
+    driver: local
+  neo4j_data:
     driver: local

@@ -1,5 +1,7 @@
 """Tests for CLI-driven project setup."""
 
+import shutil
+import stat
 from pathlib import Path
 
 import questionary
@@ -12,21 +14,36 @@ from django_ninja_matt.commands.setup import (
     run_setup,
 )
 
+# The project's own generator; the CLI loads it from the project it sets up.
+ENV_SECRETS = Path(__file__).resolve().parents[2] / "scripts" / "env_secrets.py"
+
 
 def write_example(path: Path) -> None:
     (path / ".env.example").write_text(
         "SECRET_KEY=example\nTASK_BACKEND=celery\nCUSTOM=value\n"
     )
+    (path / "scripts").mkdir()
+    shutil.copy(ENV_SECRETS, path / "scripts" / "env_secrets.py")
 
 
-def test_configure_environment_creates_env_from_example(tmp_path: Path) -> None:
+def test_configure_environment_creates_env_with_generated_secrets(
+    tmp_path: Path,
+) -> None:
     write_example(tmp_path)
 
     env_path = configure_environment(tmp_path, TaskBackend.DRAMATIQ)
 
-    assert env_path.read_text() == (
-        "SECRET_KEY=example\nTASK_BACKEND=dramatiq\nCUSTOM=value\n"
+    values = dict(
+        line.split("=", 1)
+        for line in env_path.read_text().splitlines()
+        if line and not line.startswith("#")
     )
+    assert values["TASK_BACKEND"] == "dramatiq"
+    assert values["CUSTOM"] == "value"
+    assert values["SECRET_KEY"] != "example"
+    assert len(values["SECRET_KEY"]) >= 50
+    assert values["NINJA_JWT_SIGNING_KEY"] != values["SECRET_KEY"]
+    assert stat.S_IMODE(env_path.stat().st_mode) == 0o600
 
 
 def test_configure_environment_preserves_existing_values(tmp_path: Path) -> None:

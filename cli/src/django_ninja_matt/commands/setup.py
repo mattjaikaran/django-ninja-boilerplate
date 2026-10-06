@@ -15,6 +15,7 @@ from django_ninja_matt.utils.console import (
     print_info,
     print_success,
 )
+from django_ninja_matt.utils.project_env import create_project_env
 
 DEFAULT_TASK_BACKEND = "celery"
 
@@ -50,14 +51,22 @@ def configure_environment(
     project_root: Path,
     backend: TaskBackend,
 ) -> Path:
-    """Create or update the project environment file."""
+    """Create the environment file with generated secrets, or update it.
+
+    A new ``.env`` comes from ``scripts/env_secrets.py``. An existing one keeps
+    every value except ``TASK_BACKEND``.
+    """
     example_path = project_root / ".env.example"
     env_path = project_root / ".env"
     if not example_path.exists():
         raise FileNotFoundError(f"Environment template not found: {example_path}")
 
-    source = env_path if env_path.exists() else example_path
-    lines = source.read_text().splitlines()
+    if not env_path.exists():
+        names = create_project_env(project_root, {"TASK_BACKEND": backend.value})
+        print_info(f"Created {env_path.name} with {len(names)} generated secrets.")
+        return env_path
+
+    lines = env_path.read_text().splitlines()
     setting = f"TASK_BACKEND={backend.value}"
     for index, line in enumerate(lines):
         if line.startswith("TASK_BACKEND="):

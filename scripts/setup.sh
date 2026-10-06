@@ -100,18 +100,6 @@ command_exists() {
     command -v "$1" >/dev/null 2>&1
 }
 
-generate_secret_key() {
-    # Generate a Django-compatible secret key
-    if command_exists python3; then
-        python3 -c "import secrets; print(secrets.token_urlsafe(50))"
-    elif command_exists openssl; then
-        openssl rand -base64 50 | tr -d '\n/+=' | head -c 50
-    else
-        # Fallback to urandom
-        tr -dc 'a-zA-Z0-9' < /dev/urandom | fold -w 50 | head -n 1
-    fi
-}
-
 wait_for_service() {
     local service=$1
     local max_attempts=${2:-30}
@@ -207,69 +195,15 @@ check_requirements() {
 setup_env_file() {
     print_step "Setting up environment file..."
 
+    # scripts/env_secrets.py holds the one list of generated secrets. It
+    # never replaces .env and never prints a secret value.
     if [ -f .env ]; then
-        print_info ".env file already exists"
-
-        # Check if SECRET_KEY needs to be generated
-        if grep -q "^SECRET_KEY=your-secret-key" .env 2>/dev/null || \
-           grep -q "^SECRET_KEY=development-secret-key" .env 2>/dev/null || \
-           grep -q "^SECRET_KEY=$" .env 2>/dev/null; then
-            print_info "Generating new SECRET_KEY..."
-            NEW_SECRET=$(generate_secret_key)
-
-            # Use sed to replace the SECRET_KEY line
-            if [[ "$OSTYPE" == "darwin"* ]]; then
-                sed -i '' "s|^SECRET_KEY=.*|SECRET_KEY=$NEW_SECRET|" .env
-            else
-                sed -i "s|^SECRET_KEY=.*|SECRET_KEY=$NEW_SECRET|" .env
-            fi
-            print_success "SECRET_KEY generated"
-        fi
+        print_info ".env file already exists; generating only unset secrets"
+        python3 scripts/env_secrets.py fill
+    elif [ -f .env.development ]; then
+        python3 scripts/env_secrets.py create --template .env.development
     else
-        print_info "Creating .env file..."
-
-        # Copy from .env.development or .env.example
-        if [ -f .env.development ]; then
-            cp .env.development .env
-            print_info "Copied from .env.development"
-        elif [ -f .env.example ]; then
-            cp .env.example .env
-            print_info "Copied from .env.example"
-        else
-            # Create minimal .env
-            cat > .env << 'EOF'
-# Django Ninja Boilerplate - Environment Variables
-DEBUG=1
-DJANGO_SETTINGS_MODULE=api.settings
-SECRET_KEY=PLACEHOLDER
-ALLOWED_HOSTS=localhost,127.0.0.1,0.0.0.0,django
-
-# Database
-DB_NAME=boilerplate_db
-DB_USER=postgres
-DB_PASSWORD=postgres
-DB_HOST=db
-DB_PORT=5432
-
-# Valkey (wire-compatible with Redis; the compose service is named valkey)
-VALKEY_URL=valkey://valkey:6379/0
-REDIS_URL=valkey://valkey:6379/0
-
-# Frontend
-FRONTEND_URL=http://localhost:3000
-EOF
-            print_info "Created minimal .env file"
-        fi
-
-        # Generate SECRET_KEY
-        print_info "Generating SECRET_KEY..."
-        NEW_SECRET=$(generate_secret_key)
-        if [[ "$OSTYPE" == "darwin"* ]]; then
-            sed -i '' "s|^SECRET_KEY=.*|SECRET_KEY=$NEW_SECRET|" .env
-        else
-            sed -i "s|^SECRET_KEY=.*|SECRET_KEY=$NEW_SECRET|" .env
-        fi
-        print_success ".env file created with generated SECRET_KEY"
+        python3 scripts/env_secrets.py create
     fi
 }
 
@@ -419,18 +353,10 @@ show_summary() {
     echo -e "  ${CYAN}just up-full${NC}         Start all services"
     echo ""
 
-    if [ "$AUTO_MODE" = true ]; then
-        echo "Superuser credentials (from .env):"
-        if [ -f .env ]; then
-            local email
-            email=$(grep "^SUPERUSER_EMAIL=" .env | cut -d'=' -f2)
-            local password
-            password=$(grep "^SUPERUSER_PASSWORD=" .env | cut -d'=' -f2)
-            if [ -n "$email" ] && [ -n "$password" ]; then
-                echo -e "  Email:    ${YELLOW}$email${NC}"
-                echo -e "  Password: ${YELLOW}$password${NC}"
-            fi
-        fi
+    if [ "$AUTO_MODE" = true ] && [ -f .env ]; then
+        local email
+        email=$(grep "^SUPERUSER_EMAIL=" .env | cut -d'=' -f2)
+        echo "Superuser: ${email:-see SUPERUSER_EMAIL} (password: SUPERUSER_PASSWORD in .env)"
         echo ""
     fi
 

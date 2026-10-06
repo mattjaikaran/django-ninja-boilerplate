@@ -8,6 +8,7 @@ from django_ninja_matt.utils.console import (
     print_success,
 )
 from django_ninja_matt.utils.git import clone_repo, git_available, remove_git_history
+from django_ninja_matt.utils.project_env import load_env_secrets
 
 
 class MonorepoGenerator(BaseGenerator):
@@ -177,19 +178,19 @@ backend-migrate: ## Run backend migrations
 # ===========================================
 
 frontend-setup: ## Setup frontend only
-	@cd frontend && npm install
+	@cd frontend && bun install
 
 frontend-dev: ## Start frontend dev server
-	@cd frontend && npm run dev
+	@cd frontend && bun run dev
 
 frontend-build: ## Build frontend for production
-	@cd frontend && npm run build
+	@cd frontend && bun run build
 
 frontend-test: ## Run frontend tests
-	@cd frontend && npm test
+	@cd frontend && bun run test
 
 frontend-lint: ## Lint frontend code
-	@cd frontend && npm run lint
+	@cd frontend && bun run lint
 
 # ===========================================
 # Development
@@ -342,10 +343,10 @@ just shell         # Django shell
 
 ```bash
 cd frontend
-npm install        # Install dependencies
-npm run dev        # Start dev server
-npm test           # Run tests
-npm run build      # Production build
+bun install        # Install dependencies
+bun run dev        # Start dev server
+bun run test       # Run tests
+bun run build      # Production build
 ```
 
 - Dev server: http://localhost:3000
@@ -369,29 +370,44 @@ Created with [Django Ninja Boilerplate](https://github.com/mattjaikaran/django-n
         (self.config.path / "README.md").write_text(content)
 
     def _create_root_env(self) -> None:
-        """Create root environment files."""
-        content = f"""# {self.config.display_name} - Environment Variables
+        """Create backend/.env with generated secrets, then the root env files.
+
+        The root docker-compose.yml reads DB_* from the root .env; Django reads
+        backend/.env. The root file copies the backend's generated database
+        password, so both sides agree.
+        """
+        backend = self.config.path / "backend"
+        db_name = f"{self.config.python_package_name}_db"
+        self.create_env_file(backend, {"DB_NAME": db_name})
+
+        def render(db_password: str) -> str:
+            return f"""# {self.config.display_name} - Environment Variables
+# The root docker-compose.yml reads this file. Django reads backend/.env,
+# which holds the same DB_* values and the other generated secrets.
 
 # Database
-DB_NAME={self.config.python_package_name}_db
+DB_NAME={db_name}
 DB_USER=postgres
-DB_PASSWORD=postgres
+DB_PASSWORD={db_password}
 DB_HOST=db
 DB_PORT=5432
 
 # Redis
 REDIS_URL=redis://redis:6379/0
 
-# Django
-DEBUG=1
-SECRET_KEY=development-secret-change-in-production
-ALLOWED_HOSTS=localhost,127.0.0.1,0.0.0.0
-
 # Frontend
 VITE_API_URL=http://localhost:8000/api
 """
-        (self.config.path / ".env.example").write_text(content)
-        (self.config.path / ".env").write_text(content)
+
+        (self.config.path / ".env.example").write_text(render(""))
+        backend_env = backend / ".env"
+        secrets_module = load_env_secrets(backend)
+        db_password = secrets_module.read_env(backend_env)["DB_PASSWORD"]
+        root_env = self.config.path / ".env"
+        secrets_module.write_private(
+            root_env, secrets_module.HEADER + render(db_password)
+        )
+        secrets_module.ensure_gitignored(root_env)
 
     def _customize_projects(self) -> None:
         """Customize both backend and frontend projects."""

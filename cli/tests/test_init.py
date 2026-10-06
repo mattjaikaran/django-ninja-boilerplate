@@ -18,7 +18,11 @@ def test_run_init_yes_uses_standalone_default(
         "prompt_project_type",
         lambda: (_ for _ in ()).throw(AssertionError("prompt opened")),
     )
-    monkeypatch.setattr(init_command, "generate_standalone", generated.append)
+    monkeypatch.setattr(
+        init_command,
+        "generate_standalone",
+        lambda config: generated.append(config) or True,
+    )
 
     init_command.run_init(
         name="example-api",

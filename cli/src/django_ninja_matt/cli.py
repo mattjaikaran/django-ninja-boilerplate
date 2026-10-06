@@ -343,6 +343,8 @@ def test(
     env = {**os.environ, "DJANGO_SETTINGS_MODULE": "api.settings.test"}
 
     try:
+        # Argument list, no shell; the operator runs this local dev CLI.
+        # nosemgrep: python.lang.security.audit.dangerous-subprocess-use-audit
         result = subprocess.run(cmd, check=False, env=env)
         if result.returncode == 0:
             print_success("All tests passed!")
@@ -402,6 +404,8 @@ def lint(
         check_cmd.append("--fix")
 
     try:
+        # Argument list, no shell; the operator runs this local dev CLI.
+        # nosemgrep: python.lang.security.audit.dangerous-subprocess-use-audit
         result = subprocess.run(check_cmd, check=False)
         check_passed = result.returncode == 0
 
@@ -409,11 +413,13 @@ def lint(
         if not check_only:
             print_step("Running formatter...")
             format_cmd = ["ruff", "format", "."]
+            # nosemgrep: python.lang.security.audit.dangerous-subprocess-use-audit
             format_result = subprocess.run(format_cmd, check=False)
             format_passed = format_result.returncode == 0
         else:
             print_step("Checking format...")
             format_cmd = ["ruff", "format", ".", "--check"]
+            # nosemgrep: python.lang.security.audit.dangerous-subprocess-use-audit
             format_result = subprocess.run(format_cmd, check=False)
             format_passed = format_result.returncode == 0
 
@@ -475,6 +481,8 @@ def migrate(
             cmd.append(app_label)
 
         try:
+            # Argument list, no shell; the operator runs this local dev CLI.
+            # nosemgrep: python.lang.security.audit.dangerous-subprocess-use-audit
             result = subprocess.run(cmd, check=False)
             if result.returncode != 0:
                 print_error("Failed to create migrations")
@@ -490,6 +498,8 @@ def migrate(
         cmd.append(app_label)
 
     try:
+        # Argument list, no shell; the operator runs this local dev CLI.
+        # nosemgrep: python.lang.security.audit.dangerous-subprocess-use-audit
         result = subprocess.run(cmd, check=False)
         if result.returncode == 0:
             print_success("Migrations applied successfully!")
@@ -536,6 +546,8 @@ def shell(
         cmd = ["python", "manage.py", "shell"]
 
     try:
+        # Argument list, no shell; the operator runs this local dev CLI.
+        # nosemgrep: python.lang.security.audit.dangerous-subprocess-use-audit
         result = subprocess.run(cmd, check=False)
         if result.returncode != 0:
             print_error(f"Shell exited with code {result.returncode}")
@@ -604,6 +616,8 @@ def logs(
         cmd.append(service)
 
     try:
+        # Argument list, no shell; the operator runs this local dev CLI.
+        # nosemgrep: python.lang.security.audit.dangerous-subprocess-use-audit
         result = subprocess.run(cmd, check=False)
         if result.returncode != 0:
             print_error(f"Failed to fetch logs (exit code {result.returncode})")
