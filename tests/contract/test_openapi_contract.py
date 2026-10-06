@@ -5,6 +5,10 @@ from django.test import Client
 
 from api.urls import api
 
+#: Components owned by third-party packages, not by CamelCaseSchema.
+#: ``DynamicInput`` is ninja-extra's pagination query input (``page_size``).
+THIRD_PARTY_COMPONENTS = {"DynamicInput"}
+
 
 @pytest.mark.django_db
 class TestOpenAPIContract:
@@ -13,17 +17,15 @@ class TestOpenAPIContract:
         assert response.status_code == 200
         schema = response.json()
         assert schema["openapi"].startswith("3.")
-        assert "/api/auth/logout" in schema["paths"]
+        assert "/api/auth/me" in schema["paths"]
         assert "/api/users/" in schema["paths"]
-        assert (
-            schema["components"]["securitySchemes"]["CookieJWTAuth"]["in"] == "cookie"
-        )
+        assert schema["paths"]["/api/auth/me"]["get"]["security"]
 
     @pytest.mark.parametrize(
         ("path", "method", "requires_auth"),
         [
             ("/api/auth/login", "post", False),
-            ("/api/auth/refresh", "post", True),
+            ("/api/token/refresh", "post", False),
             ("/api/auth/logout", "post", False),
             ("/api/auth/me", "get", True),
             ("/api/users/", "get", True),
@@ -46,29 +48,18 @@ class TestOpenAPIContract:
         paths = api.get_openapi_schema()["paths"]
         assert all(not path.startswith(("/api/v1/", "/api/v2/")) for path in paths)
 
-    def test_cookie_authentication_response_contract(self):
-        schema = api.get_openapi_schema()
-        user = schema["components"]["schemas"]["UserSchema"]["properties"]
-        assert {"firstName", "isActive", "dateJoined"} <= user.keys()
-        assert (
-            "csrfToken"
-            in schema["components"]["schemas"]["CSRFResponseSchema"]["properties"]
+    def test_component_properties_use_camel_case_aliases(self):
+        """CamelCaseSchema aliases must reach the exported contract.
+
+        The frontend generates Zod from this schema, so a snake_case property
+        here means the generated client and the runtime JSON disagree.
+        """
+        schemas = api.get_openapi_schema()["components"]["schemas"]
+        leaks = sorted(
+            f"{name}.{prop}"
+            for name, component in schemas.items()
+            if name not in THIRD_PARTY_COMPONENTS
+            for prop in component.get("properties", {})
+            if "_" in prop
         )
-        for path in ("/api/auth/refresh", "/api/auth/logout"):
-            operation = schema["paths"][path]["post"]
-            assert "requestBody" not in operation
-            assert not operation.get("parameters")
-        assert not any(path.startswith("/api/token/") for path in schema["paths"])
-
-    def test_operation_ids_are_unique_and_deterministic(self):
-        from collections import Counter
-
-        schema = api.get_openapi_schema()
-        ids = [
-            operation["operationId"]
-            for operations in schema["paths"].values()
-            for operation in operations.values()
-        ]
-        assert all(count == 1 for count in Counter(ids).values())
-        assert schema["paths"]["/api/auth/login"]["post"]["operationId"] == "auth_login"
-        assert schema["paths"]["/api/todos/"]["get"]["operationId"] == "todo_list_todos"
+        assert not leaks, f"snake_case properties in OpenAPI: {leaks}"

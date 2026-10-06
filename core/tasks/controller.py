@@ -10,6 +10,7 @@ This module provides API endpoints for:
 import logging
 
 from celery import current_app
+from ninja import Query
 from ninja_extra import api_controller, http_delete, http_get, http_post, http_put
 from ninja_extra.throttling import DynamicRateThrottle
 from core.security.cookie_auth import CookieJWTAuth
@@ -42,10 +43,13 @@ from core.tasks.schemas import (
 logger = logging.getLogger(__name__)
 
 
+# Staff-only: TaskResult has no owner, so these routes act on every user's
+# tasks (results, errors, revoke/terminate, bulk delete).
 @api_controller(
     "/tasks",
     tags=["Tasks"],
-    auth=CookieJWTAuth(),
+    auth=JWTAuth(),
+    permissions=[IsAdminUser],
     throttle=DynamicRateThrottle(scope="tasks"),
     use_unique_op_id=False,
 )
@@ -148,7 +152,7 @@ class TaskController:
 
     @http_post("/cleanup", response={200: CleanupResponseSchema})
     @log_api_call()
-    def cleanup_old_tasks(self, days: int = 30):
+    def cleanup_old_tasks(self, days: int = Query(30, ge=1)):  # type: ignore[assignment]
         """Clean up old task results.
 
         Args:

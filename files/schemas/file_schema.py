@@ -1,9 +1,15 @@
 from datetime import datetime
+from typing import Any
 from uuid import UUID
 
-from pydantic import field_validator
+from pydantic import Field, field_validator
 
 from core.schemas.base_schema import CamelCaseSchema
+
+# A MIME type such as "image/png" or "application/vnd.ms-excel".
+CONTENT_TYPE_PATTERN = r"^[A-Za-z0-9_.+-]+/[A-Za-z0-9_.+-]+$"
+# One or more safe path segments. The folder becomes the S3 key prefix.
+FOLDER_PATTERN = r"^[A-Za-z0-9_-]+(/[A-Za-z0-9_-]+)*$"
 
 
 class FileUploadSchema(CamelCaseSchema):
@@ -16,7 +22,7 @@ class FileUploadSchema(CamelCaseSchema):
     is_confirmed: bool
     confirmed_at: datetime | None
     is_public: bool
-    metadata: dict
+    metadata: dict[str, Any]  # schema-ok: free-form file metadata
     expires_at: datetime | None
     created_at: datetime
     updated_at: datetime
@@ -33,23 +39,24 @@ class FileUploadSchema(CamelCaseSchema):
 
 
 class GeneratePresignedUrlSchema(CamelCaseSchema):
-    filename: str
-    content_type: str
-    size: int | None = None
+    filename: str = Field(..., min_length=1, max_length=255)
+    content_type: str = Field(..., max_length=100, pattern=CONTENT_TYPE_PATTERN)
+    size: int | None = Field(None, ge=0)
     is_public: bool = False
-    folder: str = "uploads"
+    # 100 keeps "<folder>/<user uuid>/<uuid>/<filename>" under the 500-char key.
+    folder: str = Field("uploads", max_length=100, pattern=FOLDER_PATTERN)
 
 
 class PresignedUrlResponseSchema(CamelCaseSchema):
     upload_url: str
-    upload_fields: dict
+    upload_fields: dict[str, str]
     file_id: str
     key: str
     expires_in: int
 
 
 class ConfirmUploadSchema(CamelCaseSchema):
-    size: int | None = None
+    size: int | None = Field(None, ge=0)
 
 
 class DownloadUrlResponseSchema(CamelCaseSchema):

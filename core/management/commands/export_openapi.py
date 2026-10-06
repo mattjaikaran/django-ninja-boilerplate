@@ -104,12 +104,23 @@ class Command(BaseCommand):
             help="Skip validation even if openapi-spec-validator is installed",
         )
 
+        parser.add_argument(
+            "--check",
+            action="store_true",
+            help="Fail when the committed openapi.json differs from the generated one",
+        )
+
     def handle(self, *args, **options):
         # Get API instance
         api = self._get_api_instance(options.get("api"))
+        output_dir = Path(options["output"])
+        schema = api.get_openapi_schema()
+
+        if options["check"]:
+            self._check_schema(schema, output_dir, options["indent"])
+            return
 
         # Create output directory
-        output_dir = Path(options["output"])
         output_dir.mkdir(parents=True, exist_ok=True)
 
         self.stdout.write("")
@@ -120,7 +131,6 @@ class Command(BaseCommand):
         self.stdout.write("")
 
         # Export OpenAPI schema
-        schema = api.get_openapi_schema()
         api_title = schema.get("info", {}).get("title", "API")
         api_version = schema.get("info", {}).get("version", "1.0.0")
 
@@ -202,6 +212,21 @@ class Command(BaseCommand):
             "Please specify it with --api, e.g., --api api.urls.api"
         )
 
+    @staticmethod
+    def _render_json(schema, indent):
+        """Render the schema deterministically: sorted keys, trailing newline."""
+        return json.dumps(schema, indent=indent, sort_keys=True, default=str) + "\n"
+
+    def _check_schema(self, schema, output_dir, indent):
+        """Raise CommandError when the committed openapi.json is stale."""
+        json_path = output_dir / "openapi.json"
+        expected = self._render_json(schema, indent)
+        if not json_path.exists() or json_path.read_text() != expected:
+            raise CommandError(
+                f"{json_path} is stale or missing. Run `just openapi` and commit it."
+            )
+        self.stdout.write(self.style.SUCCESS(f"  Up to date: {json_path}"))
+
     def _save_schema(self, schema, output_dir, options):
         """Save the OpenAPI schema to file(s)."""
         output_format = options.get("format", "json")
@@ -211,8 +236,7 @@ class Command(BaseCommand):
         yaml_path = output_dir / "openapi.yaml"
 
         if output_format in ("json", "both"):
-            with open(json_path, "w") as f:
-                json.dump(schema, f, indent=indent, default=str)
+            json_path.write_text(self._render_json(schema, indent))
             self.stdout.write(self.style.SUCCESS(f"  Exported: {json_path}"))
 
         if output_format in ("yaml", "both"):

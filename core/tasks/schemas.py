@@ -8,11 +8,18 @@ This module provides request/response schemas for:
 
 from datetime import datetime
 from enum import Enum
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import Field
 
 from core.schemas.base_schema import CamelCaseSchema
+
+# Periods a client may pick. scheduler.PeriodicTaskManager maps these four.
+IntervalPeriod = Literal["seconds", "minutes", "hours", "days"]
+# django_celery_beat.models.IntervalSchedule.PERIOD_CHOICES.
+StoredIntervalPeriod = Literal["days", "hours", "minutes", "seconds", "microseconds"]
+# Characters celery's crontab parser accepts: digits, names, *, ranges, steps.
+CRONTAB_FIELD_PATTERN = r"^[0-9A-Za-z*,/-]+$"
 
 # =============================================================================
 # Task Status Schemas
@@ -37,7 +44,9 @@ class TaskProgressSchema(CamelCaseSchema):
     task_id: str
     progress: int = Field(..., ge=0, le=100)
     message: str = ""
-    meta: dict[str, Any] = Field(default_factory=dict)
+    meta: dict[str, Any] = Field(  # schema-ok: free-form task progress meta
+        default_factory=dict,
+    )
 
 
 class TaskStatusSchema(CamelCaseSchema):
@@ -45,10 +54,10 @@ class TaskStatusSchema(CamelCaseSchema):
 
     task_id: str
     celery_state: str | None = None
-    database_status: str | None = None
+    database_status: TaskStatusEnum | None = None
     progress: int = 0
     message: str = ""
-    result: dict[str, Any] | None = None
+    result: dict[str, Any] | None = None  # schema-ok: free-form task result
     error: str | None = None
     started_at: datetime | None = None
     completed_at: datetime | None = None
@@ -64,7 +73,7 @@ class TaskResultSchema(CamelCaseSchema):
     status: TaskStatusEnum
     progress: int
     message: str = ""
-    result: dict[str, Any] | None = None
+    result: dict[str, Any] | None = None  # schema-ok: free-form task result
     error: str | None = None
     created_at: datetime
     started_at: datetime | None = None
@@ -105,26 +114,34 @@ class ScheduleTypeEnum(str, Enum):
     INTERVAL = "interval"
     CRONTAB = "crontab"
     CLOCKED = "clocked"
+    UNKNOWN = "unknown"
 
 
 class IntervalScheduleSchema(CamelCaseSchema):
     """Schema for interval-based schedule."""
 
     every: int = Field(..., gt=0)
-    period: str = Field(
-        ...,
-        description="Period type: seconds, minutes, hours, days",
-    )
+    period: StoredIntervalPeriod
 
 
 class CrontabScheduleSchema(CamelCaseSchema):
-    """Schema for crontab-based schedule."""
+    """Schema for crontab-based schedule.
 
-    minute: str = "*"
-    hour: str = "*"
-    day_of_week: str = "*"
-    day_of_month: str = "*"
-    month_of_year: str = "*"
+    All fields are required so a periodic task's ``schedule`` union cannot
+    mistake an interval or clocked schedule for a crontab one.
+    """
+
+    minute: str
+    hour: str
+    day_of_week: str
+    day_of_month: str
+    month_of_year: str
+
+
+class ClockedScheduleSchema(CamelCaseSchema):
+    """Schema for a one-time clocked schedule."""
+
+    clocked_time: datetime
 
 
 class PeriodicTaskSchema(CamelCaseSchema):
@@ -135,9 +152,13 @@ class PeriodicTaskSchema(CamelCaseSchema):
     task: str
     enabled: bool
     schedule_type: ScheduleTypeEnum
-    schedule: IntervalScheduleSchema | CrontabScheduleSchema | dict | None = None
-    args: list[Any] = Field(default_factory=list)
-    kwargs: dict[str, Any] = Field(default_factory=dict)
+    schedule: (
+        IntervalScheduleSchema | CrontabScheduleSchema | ClockedScheduleSchema | None
+    ) = None
+    args: list[Any] = Field(default_factory=list)  # schema-ok: free-form task args
+    kwargs: dict[str, Any] = Field(  # schema-ok: free-form task kwargs
+        default_factory=dict,
+    )
     one_off: bool = False
     start_time: datetime | None = None
     expires: datetime | None = None
@@ -153,12 +174,11 @@ class CreateIntervalTaskSchema(CamelCaseSchema):
     name: str = Field(..., min_length=1, max_length=200)
     task: str = Field(..., min_length=1, max_length=200)
     every: int = Field(..., gt=0)
-    period: str = Field(
-        default="seconds",
-        description="Period type: seconds, minutes, hours, days",
+    period: IntervalPeriod = "seconds"
+    args: list[Any] = Field(default_factory=list)  # schema-ok: free-form task args
+    kwargs: dict[str, Any] = Field(  # schema-ok: free-form task kwargs
+        default_factory=dict,
     )
-    args: list[Any] = Field(default_factory=list)
-    kwargs: dict[str, Any] = Field(default_factory=dict)
     enabled: bool = True
     one_off: bool = False
     start_time: datetime | None = None
@@ -171,13 +191,15 @@ class CreateCrontabTaskSchema(CamelCaseSchema):
 
     name: str = Field(..., min_length=1, max_length=200)
     task: str = Field(..., min_length=1, max_length=200)
-    minute: str = "*"
-    hour: str = "*"
-    day_of_week: str = "*"
-    day_of_month: str = "*"
-    month_of_year: str = "*"
-    args: list[Any] = Field(default_factory=list)
-    kwargs: dict[str, Any] = Field(default_factory=dict)
+    minute: str = Field("*", max_length=240, pattern=CRONTAB_FIELD_PATTERN)
+    hour: str = Field("*", max_length=96, pattern=CRONTAB_FIELD_PATTERN)
+    day_of_week: str = Field("*", max_length=64, pattern=CRONTAB_FIELD_PATTERN)
+    day_of_month: str = Field("*", max_length=124, pattern=CRONTAB_FIELD_PATTERN)
+    month_of_year: str = Field("*", max_length=64, pattern=CRONTAB_FIELD_PATTERN)
+    args: list[Any] = Field(default_factory=list)  # schema-ok: free-form task args
+    kwargs: dict[str, Any] = Field(  # schema-ok: free-form task kwargs
+        default_factory=dict,
+    )
     enabled: bool = True
     one_off: bool = False
     start_time: datetime | None = None
@@ -188,10 +210,10 @@ class CreateCrontabTaskSchema(CamelCaseSchema):
 class UpdatePeriodicTaskSchema(CamelCaseSchema):
     """Schema for updating a periodic task."""
 
-    name: str | None = None
+    name: str | None = Field(None, min_length=1, max_length=200)
     enabled: bool | None = None
-    args: list[Any] | None = None
-    kwargs: dict[str, Any] | None = None
+    args: list[Any] | None = None  # schema-ok: free-form task args
+    kwargs: dict[str, Any] | None = None  # schema-ok: free-form task kwargs
     one_off: bool | None = None
     start_time: datetime | None = None
     expires: datetime | None = None
@@ -231,8 +253,10 @@ class DLQEntrySchema(CamelCaseSchema):
     id: str
     task_id: str
     task_name: str
-    args: list[Any] = Field(default_factory=list)
-    kwargs: dict[str, Any] = Field(default_factory=dict)
+    args: list[Any] = Field(default_factory=list)  # schema-ok: free-form task args
+    kwargs: dict[str, Any] = Field(  # schema-ok: free-form task kwargs
+        default_factory=dict,
+    )
     exception_type: str
     exception_message: str
     traceback: str = ""
@@ -278,9 +302,16 @@ class DLQRetryResponseSchema(CamelCaseSchema):
 class DLQBulkRetrySchema(CamelCaseSchema):
     """Schema for bulk retry request."""
 
-    task_name: str | None = None
+    task_name: str | None = Field(None, max_length=255)
     priority: DLQPriorityEnum | None = None
-    limit: int = Field(default=10, le=100)
+    limit: int = Field(default=10, ge=1, le=100)
+
+
+class DLQRetryErrorSchema(CamelCaseSchema):
+    """One failed retry in a bulk DLQ retry."""
+
+    entry_id: str | None = None
+    error: str
 
 
 class DLQBulkRetryResponseSchema(CamelCaseSchema):
@@ -290,7 +321,14 @@ class DLQBulkRetryResponseSchema(CamelCaseSchema):
     succeeded: int
     failed: int
     task_ids: list[str] = Field(default_factory=list)
-    errors: list[dict[str, Any]] = Field(default_factory=list)
+    errors: list[DLQRetryErrorSchema] = Field(default_factory=list)
+
+
+class DLQFailedTaskCountSchema(CamelCaseSchema):
+    """Unresolved DLQ entry count for one task name."""
+
+    task_name: str
+    count: int
 
 
 class DLQStatsSchema(CamelCaseSchema):
@@ -305,7 +343,7 @@ class DLQStatsSchema(CamelCaseSchema):
     critical_priority: int = 0
     can_retry: int = 0
     exhausted_retries: int = 0
-    top_failed_tasks: list[dict[str, Any]] = Field(default_factory=list)
+    top_failed_tasks: list[DLQFailedTaskCountSchema] = Field(default_factory=list)
 
 
 # =============================================================================

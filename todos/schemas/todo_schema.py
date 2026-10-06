@@ -11,11 +11,15 @@ Routes that use these schemas:
 """
 
 from datetime import datetime
+from typing import Literal
 from uuid import UUID
 
 from pydantic import AliasPath, Field, field_validator
 
 from core.schemas.base_schema import CamelCaseSchema
+
+# Values match todos.models.Todo.PRIORITY_CHOICES.
+TodoPriority = Literal["low", "medium", "high"]
 
 
 class TodoSchema(CamelCaseSchema):
@@ -40,7 +44,7 @@ class TodoSchema(CamelCaseSchema):
     title: str
     description: str
     completed: bool
-    priority: str
+    priority: TodoPriority
     created_at: str
     updated_at: str
 
@@ -73,10 +77,10 @@ class CreateTodoSchema(CamelCaseSchema):
         priority: Priority label. Defaults to ``"medium"``.
     """
 
-    title: str
+    title: str = Field(..., min_length=1, max_length=255)
     description: str = ""
     completed: bool = False
-    priority: str = "medium"
+    priority: TodoPriority = "medium"
 
 
 class UpdateTodoSchema(CamelCaseSchema):
@@ -92,7 +96,7 @@ class UpdateTodoSchema(CamelCaseSchema):
         priority: New priority label, or ``None`` to leave unchanged.
     """
 
-    title: str | None = None
+    title: str | None = Field(None, min_length=1, max_length=255)
     description: str | None = None
     completed: bool | None = None
-    priority: str | None = None
+    priority: TodoPriority | None = None

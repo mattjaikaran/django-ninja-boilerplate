@@ -20,6 +20,7 @@ from api.decorators import log_api_call
 from api.permissions import IsAdminUser
 from core.audit.models import AuditAction, AuditLog
 from core.audit.schemas import (
+    AuditLogDateRangeSchema,
     AuditLogListSchema,
     AuditLogSchema,
     AuditLogStatsSchema,
@@ -207,11 +208,11 @@ class AuditLogController:
             recent_failed_logins=recent_failed_logins,
             unique_users=unique_users,
             unique_ips=unique_ips,
-            date_range={
-                "start": start_date.isoformat(),
-                "end": end_date.isoformat(),
-                "days": days,
-            },
+            date_range=AuditLogDateRangeSchema(
+                start=start_date.isoformat(),
+                end=end_date.isoformat(),
+                days=days,
+            ),
         )
 
     @http_get("/object/{model_name}/{object_id}", response=list[AuditLogListSchema])

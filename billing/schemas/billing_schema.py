@@ -1,10 +1,20 @@
 from datetime import datetime
 from decimal import Decimal
+from typing import Any, Literal
 from uuid import UUID
 
-from pydantic import field_validator
+from pydantic import Field, field_validator
 
 from core.schemas.base_schema import CamelCaseSchema
+
+# Values match billing.models.Plan.INTERVAL_CHOICES.
+PlanInterval = Literal["month", "year", "week", "day"]
+# Values match billing.models.Subscription.STATUS_CHOICES.
+SubscriptionStatus = Literal[
+    "active", "canceled", "past_due", "trialing", "incomplete", "paused"
+]
+# Stripe redirects to these URLs, so only http(s) is useful.
+REDIRECT_URL_PATTERN = r"^https?://\S+$"
 
 
 class PlanSchema(CamelCaseSchema):
@@ -15,15 +25,12 @@ class PlanSchema(CamelCaseSchema):
     stripe_product_id: str
     amount: Decimal
     currency: str
-    interval: str
-    features: list
+    interval: PlanInterval
+    features: list[str]
     is_active: bool
     is_free: bool
     created_at: str
     updated_at: str
-
-    class Config:
-        from_attributes = True
 
     @field_validator("id", mode="before")
     @classmethod
@@ -46,20 +53,17 @@ class SubscriptionSchema(CamelCaseSchema):
     plan: PlanSchema
     stripe_subscription_id: str
     stripe_customer_id: str
-    status: str
+    status: SubscriptionStatus
     current_period_start: str | None
     current_period_end: str | None
     cancel_at_period_end: bool
     canceled_at: str | None
     trial_start: str | None
     trial_end: str | None
-    metadata: dict
+    metadata: dict[str, Any]  # schema-ok: free-form Stripe metadata
     is_active: bool
     created_at: str
     updated_at: str
-
-    class Config:
-        from_attributes = True
 
     @field_validator("id", "user_id", mode="before")
     @classmethod
@@ -86,9 +90,9 @@ class SubscriptionSchema(CamelCaseSchema):
 
 
 class CreateCheckoutSessionSchema(CamelCaseSchema):
-    plan_id: str
-    success_url: str
-    cancel_url: str
+    plan_id: str = Field(..., min_length=1)
+    success_url: str = Field(..., pattern=REDIRECT_URL_PATTERN)
+    cancel_url: str = Field(..., pattern=REDIRECT_URL_PATTERN)
 
 
 class CheckoutSessionResponseSchema(CamelCaseSchema):
@@ -97,7 +101,7 @@ class CheckoutSessionResponseSchema(CamelCaseSchema):
 
 
 class CustomerPortalSchema(CamelCaseSchema):
-    return_url: str
+    return_url: str = Field(..., pattern=REDIRECT_URL_PATTERN)
 
 
 class CustomerPortalResponseSchema(CamelCaseSchema):

@@ -19,6 +19,7 @@ from ninja_extra.schemas import PaginatedResponseSchema
 from core.security.cookie_auth import CookieJWTAuth
 
 from api.decorators import log_api_call
+from api.permissions import IsAdminUser
 
 from .models import FeatureFlag, FeatureFlagAuditLog
 from .schemas import (
@@ -49,8 +50,8 @@ logger = logging.getLogger(__name__)
 @api_controller(
     "/admin/feature-flags",
     tags=["Feature Flags (Admin)"],
-    auth=CookieJWTAuth(),
-    use_unique_op_id=False,
+    auth=JWTAuth(),
+    permissions=[IsAdminUser],
 )
 class FeatureFlagAdminController:
     """Admin controller for managing feature flags.

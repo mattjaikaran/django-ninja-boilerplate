@@ -70,9 +70,10 @@ class FeatureFlagCreateSchema(CamelCaseSchema):
     )
     default_variant: str = Field(
         default="control",
+        max_length=50,
         description="Default variant for A/B tests",
     )
-    conditions: dict[str, Any] = Field(
+    conditions: dict[str, Any] = Field(  # schema-ok: free-form evaluation rules
         default_factory=dict,
         description="Advanced conditions for flag evaluation",
     )
@@ -92,7 +93,7 @@ class FeatureFlagCreateSchema(CamelCaseSchema):
         default_factory=list,
         description="Tags for organizing flags",
     )
-    metadata: dict[str, Any] = Field(
+    metadata: dict[str, Any] = Field(  # schema-ok: free-form flag metadata
         default_factory=dict,
         description="Additional metadata",
     )
@@ -109,20 +110,20 @@ class FeatureFlagCreateSchema(CamelCaseSchema):
 class FeatureFlagUpdateSchema(CamelCaseSchema):
     """Schema for updating a feature flag."""
 
-    description: str | None = None
+    description: str | None = Field(None, max_length=500)
     flag_type: FlagTypeEnum | None = None
     enabled: bool | None = None
     rollout_percentage: int | None = Field(default=None, ge=0, le=100)
     user_ids: list[str] | None = None
     excluded_user_ids: list[str] | None = None
     variants: dict[str, int] | None = None
-    default_variant: str | None = None
-    conditions: dict[str, Any] | None = None
+    default_variant: str | None = Field(None, max_length=50)
+    conditions: dict[str, Any] | None = None  # schema-ok: free-form evaluation rules
     environments: list[str] | None = None
     starts_at: datetime | None = None
     ends_at: datetime | None = None
     tags: list[str] | None = None
-    metadata: dict[str, Any] | None = None
+    metadata: dict[str, Any] | None = None  # schema-ok: free-form flag metadata
 
     @field_validator("variants")
     @classmethod
@@ -159,8 +160,10 @@ class UserFlagSchema(CamelCaseSchema):
 class CheckFlagSchema(CamelCaseSchema):
     """Schema for checking flag status."""
 
-    flag_name: str = Field(..., description="Name of the flag to check")
-    context: dict[str, Any] = Field(
+    flag_name: str = Field(
+        ..., min_length=1, max_length=100, description="Name of the flag to check"
+    )
+    context: dict[str, Any] = Field(  # schema-ok: free-form evaluation context
         default_factory=dict,
         description="Additional context for evaluation",
     )
@@ -177,19 +180,19 @@ class FeatureFlagSchema(CamelCaseSchema):
     id: UUID
     name: str
     description: str
-    flag_type: str
+    flag_type: FlagTypeEnum
     enabled: bool
     rollout_percentage: int
     user_ids: list[str]
     excluded_user_ids: list[str]
     variants: dict[str, int]
     default_variant: str
-    conditions: dict[str, Any]
+    conditions: dict[str, Any]  # schema-ok: free-form evaluation rules
     environments: list[str]
     starts_at: datetime | None
     ends_at: datetime | None
     tags: list[str]
-    metadata: dict[str, Any]
+    metadata: dict[str, Any]  # schema-ok: free-form flag metadata
     created_at: datetime
     updated_at: datetime
 
@@ -200,7 +203,7 @@ class FeatureFlagListSchema(CamelCaseSchema):
     id: UUID
     name: str
     description: str
-    flag_type: str
+    flag_type: FlagTypeEnum
     enabled: bool
     rollout_percentage: int
     tags: list[str]
@@ -227,7 +230,7 @@ class FlagAuditLogSchema(CamelCaseSchema):
 
     id: UUID
     action: str
-    changes: dict[str, Any]
+    changes: dict[str, Any]  # schema-ok: free-form audit diff
     user_id: UUID | None = None
     created_at: datetime
 

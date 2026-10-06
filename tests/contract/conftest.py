@@ -86,8 +86,13 @@ def public_endpoints():
         {"method": "GET", "path": "/api/health/liveness"},
         {"method": "GET", "path": "/api/health/readiness"},
         # Authentication operations — reachable before a token exists.
+        # /auth/csrf sets the CSRF cookie; /auth/refresh needs a refresh token.
+        {"method": "GET", "path": "/api/auth/csrf"},
         {"method": "POST", "path": "/api/auth/login"},
         {"method": "POST", "path": "/api/auth/login/username"},
+        {"method": "POST", "path": "/api/auth/refresh"},
+        # Logout needs only the refresh token: the access cookie may be gone.
+        {"method": "POST", "path": "/api/auth/logout"},
         {"method": "POST", "path": "/api/auth/signup"},
         {"method": "POST", "path": "/api/auth/passwordless/login/request"},
         {"method": "POST", "path": "/api/auth/passwordless/login/verify"},
@@ -99,8 +104,10 @@ def public_endpoints():
         {"method": "POST", "path": "/api/auth/otp/email/verify"},
         {"method": "POST", "path": "/api/auth/otp/password-reset/request"},
         {"method": "POST", "path": "/api/auth/otp/password-reset/confirm"},
-        {"method": "GET", "path": "/api/auth/csrf"},
-        {"method": "POST", "path": "/api/auth/logout"},
+        # JWT issuance/refresh/verify — the endpoints that mint tokens.
+        {"method": "POST", "path": "/api/token/pair"},
+        {"method": "POST", "path": "/api/token/refresh"},
+        {"method": "POST", "path": "/api/token/verify"},
     ]
 
 
@@ -121,13 +128,12 @@ def protected_endpoints():
         # Authenticated session/profile.
         {"method": "GET", "path": "/api/auth/me"},
         {"method": "GET", "path": "/api/auth/status"},
-        {"method": "POST", "path": "/api/auth/refresh"},
-        # Real-time credentials are minted only for an authenticated user.
-        {"method": "POST", "path": "/api/realtime/connection-token"},
-        {"method": "POST", "path": "/api/realtime/subscription-token"},
         # Two-factor operations require JWT authentication.
         {"method": "POST", "path": "/api/auth/otp/2fa/request"},
         {"method": "POST", "path": "/api/auth/otp/2fa/verify"},
+        # Real-time token minting requires JWT (CentrifugoTokenController).
+        {"method": "POST", "path": "/api/realtime/connection-token"},
+        {"method": "POST", "path": "/api/realtime/subscription-token"},
         # User administration.
         {"method": "GET", "path": "/api/users/"},
         {"method": "GET", "path": "/api/users/active"},

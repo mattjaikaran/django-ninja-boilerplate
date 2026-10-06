@@ -1,4 +1,13 @@
+from typing import Any, Literal
+
+from pydantic import Field
+
 from core.schemas.base_schema import CamelCaseSchema
+
+# Values match organizations.models.OrganizationMembership.ROLE_CHOICES.
+MemberRole = Literal["owner", "admin", "member"]
+# Django's validate_slug, which Organization.slug (SlugField) uses.
+SLUG_PATTERN = r"^[-a-zA-Z0-9_]+$"
 
 
 class OrganizationSchema(CamelCaseSchema):
@@ -8,7 +17,7 @@ class OrganizationSchema(CamelCaseSchema):
     description: str
     logo_url: str
     website: str
-    metadata: dict
+    metadata: dict[str, Any]  # schema-ok: free-form organization metadata
     is_active: bool
     owner_id: str | None
     member_count: int = 0
@@ -27,31 +36,28 @@ class OrganizationSchema(CamelCaseSchema):
             return obj.member_count
         return obj.memberships.filter(is_active=True).count()
 
-    class Config:
-        from_attributes = True
-
 
 class CreateOrganizationSchema(CamelCaseSchema):
-    name: str
-    slug: str | None = None
+    name: str = Field(..., min_length=1, max_length=150)
+    slug: str | None = Field(None, max_length=150, pattern=SLUG_PATTERN)
     description: str | None = None
-    website: str | None = None
+    website: str | None = Field(None, max_length=200)
 
 
 class UpdateOrganizationSchema(CamelCaseSchema):
-    name: str | None = None
-    slug: str | None = None
+    name: str | None = Field(None, min_length=1, max_length=150)
+    slug: str | None = Field(None, max_length=150, pattern=SLUG_PATTERN)
     description: str | None = None
-    logo_url: str | None = None
-    website: str | None = None
-    metadata: dict | None = None
+    logo_url: str | None = Field(None, max_length=200)
+    website: str | None = Field(None, max_length=200)
+    metadata: dict[str, Any] | None = None  # schema-ok: free-form organization metadata
 
 
 class OrganizationMembershipSchema(CamelCaseSchema):
     id: str
     organization_id: str
     user_id: str
-    role: str
+    role: MemberRole
     is_active: bool
     joined_at: str
 
@@ -71,14 +77,11 @@ class OrganizationMembershipSchema(CamelCaseSchema):
     def resolve_joined_at(obj) -> str:
         return obj.created_at.isoformat()
 
-    class Config:
-        from_attributes = True
-
 
 class InviteMemberSchema(CamelCaseSchema):
     user_id: str
-    role: str = "member"
+    role: MemberRole = "member"
 
 
 class UpdateMemberRoleSchema(CamelCaseSchema):
-    role: str
+    role: MemberRole

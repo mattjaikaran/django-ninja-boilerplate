@@ -23,12 +23,11 @@ from typing import Any
 
 def generate_id(prefix: str = "req") -> str:
     """Generate a unique ID for Insomnia resources."""
-    import hashlib
-    import time
+    import secrets
 
-    unique = f"{time.time()}-{id(object())}"
-    hash_val = hashlib.md5(unique.encode()).hexdigest()[:24]
-    return f"{prefix}_{hash_val}"
+    # 24 random hex characters. The old md5 of time.time() and id(object())
+    # could repeat within one export: CPython reuses ids of freed objects.
+    return f"{prefix}_{secrets.token_hex(12)}"
 
 
 class InsomniaExporter:

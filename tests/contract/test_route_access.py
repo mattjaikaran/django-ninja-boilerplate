@@ -171,7 +171,6 @@ class TestRouteAccessContract:
         ("method", "path", "body"),
         [
             ("GET", "/api/auth/me", None),
-            ("POST", "/api/auth/refresh", None),
             ("POST", "/api/auth/otp/2fa/request", {}),
             ("POST", "/api/auth/otp/2fa/verify", {"code": "123456"}),
             ("GET", "/api/users/", None),
@@ -285,3 +284,124 @@ class TestSingleUnversionedApi:
         assert response.status_code == 200, (
             f"unversioned API unreachable: /api/health/ -> {response.status_code}"
         )
+
+
+_PASSWORD = "Pw-contract-123456"
+
+
+@pytest.mark.django_db
+class TestCookieCsrfContract:
+    """The browser cookie + CSRF contract in ``docs/COOKIE_AUTH.md``.
+
+    Unsafe ``/api/`` requests need ``X-CSRFToken`` unless they carry only
+    header credentials. Login and refresh are not exempt.
+    """
+
+    @pytest.fixture
+    def user(self, django_user_model):
+        return django_user_model.objects.create_user(
+            username="cookie", email="cookie@example.com", password=_PASSWORD
+        )
+
+    @pytest.fixture
+    def browser(self):
+        return Client(enforce_csrf_checks=True)
+
+    @staticmethod
+    def _post(client: Client, path: str, body: dict, **headers: str):
+        return client.post(
+            path, data=json.dumps(body), content_type="application/json", **headers
+        )
+
+    def _login(self, browser: Client) -> str:
+        token = browser.get("/api/auth/csrf").json()["csrfToken"]
+        response = self._post(
+            browser,
+            "/api/auth/login",
+            {"email": "cookie@example.com", "password": _PASSWORD},
+            HTTP_X_CSRFTOKEN=token,
+        )
+        assert response.status_code == 200, response.content
+        return token
+
+    def test_csrf_endpoint_sets_readable_cookie(self, browser):
+        response = browser.get("/api/auth/csrf")
+        assert response.status_code == 200
+        cookie = response.cookies["csrftoken"]
+        assert not cookie["httponly"]
+        assert cookie["samesite"] == "Lax"
+        assert response.json()["csrfToken"]
+
+    def test_login_without_csrf_token_is_rejected(self, browser, user):
+        browser.get("/api/auth/csrf")
+        response = self._post(
+            browser,
+            "/api/auth/login",
+            {"email": "cookie@example.com", "password": _PASSWORD},
+        )
+        assert response.status_code == 403
+        assert response.json()["code"] == "csrf_failed"
+
+    def test_login_sets_httponly_auth_cookies(self, browser, user):
+        self._login(browser)
+        access = browser.cookies["access_token"]
+        refresh = browser.cookies["refresh_token"]
+        assert access["httponly"]
+        assert refresh["httponly"]
+        assert access["samesite"] == refresh["samesite"] == "Lax"
+        assert refresh["path"] == "/api/auth/"
+        assert browser.get("/api/auth/me").status_code == 200
+
+    @pytest.mark.parametrize("headers", [{}, {"HTTP_AUTHORIZATION": "garbage"}])
+    def test_cookie_requests_need_csrf_even_with_auth_header(
+        self, browser, user, headers
+    ):
+        """A header must not let a cookie-carrying request skip CSRF."""
+        self._login(browser)
+        response = self._post(browser, "/api/auth/refresh", {}, **headers)
+        assert response.status_code == 403
+        assert response.json()["code"] == "csrf_failed"
+
+    def test_refresh_rotates_cookies_and_revokes_old_token(self, browser, user):
+        token = self._login(browser)
+        old_refresh = browser.cookies["refresh_token"].value
+        response = self._post(browser, "/api/auth/refresh", {}, HTTP_X_CSRFTOKEN=token)
+        assert response.status_code == 200
+        assert response.json() == {"access": None, "refresh": None}
+        assert browser.cookies["refresh_token"].value != old_refresh
+
+        replay = self._post(
+            browser,
+            "/api/auth/refresh",
+            {"refresh": old_refresh},
+            HTTP_X_CSRFTOKEN=token,
+        )
+        assert replay.status_code == 401
+
+    def test_logout_after_access_cookie_expiry_revokes_refresh(self, browser, user):
+        """The access cookie expires after an hour; logout must still revoke
+        the 7-day refresh token and clear the cookies."""
+        token = self._login(browser)
+        old_refresh = browser.cookies["refresh_token"].value
+        del browser.cookies["access_token"]
+        response = self._post(browser, "/api/auth/logout", {}, HTTP_X_CSRFTOKEN=token)
+        assert response.status_code == 200
+        assert response.cookies["refresh_token"].value == ""
+        replay = self._post(Client(), "/api/token/refresh", {"refresh": old_refresh})
+        assert replay.status_code == 401
+
+    def test_bearer_requests_without_cookies_skip_csrf(self, user):
+        client = Client(enforce_csrf_checks=True)
+        pair = self._post(
+            client,
+            "/api/token/pair",
+            {"email": "cookie@example.com", "password": _PASSWORD},
+        )
+        assert pair.status_code == 200
+        response = self._post(
+            client,
+            "/api/auth/logout",
+            {"refresh": pair.json()["refresh"]},
+            HTTP_AUTHORIZATION=f"Bearer {pair.json()['access']}",
+        )
+        assert response.status_code == 200

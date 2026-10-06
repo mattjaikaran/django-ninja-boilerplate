@@ -2,11 +2,46 @@
 
 This directory contains OpenAPI-related files and tools for API documentation, SDK generation, and API client collection exports.
 
+## The committed contract
+
+`openapi.json` is committed. It is the single type contract for frontends:
+the frontend generates its Zod schemas and client from it with
+`@hey-api/openapi-ts`.
+
+```bash
+just openapi        # regenerate docs/openapi/openapi.json
+just openapi-check  # fail if it is stale, then run scripts/check_schema_parity.py
+```
+
+`just gauntlet-quick` runs both as the OPENAPI and SCHEMA-PARITY gates.
+Regenerate and commit the file in the same change as any schema, route, or
+response change.
+
+Rules the export follows:
+
+- Keys are sorted and the file ends with a newline, so the same code always
+  gives the same bytes. ninja-extra's random operationId suffix is stripped
+  in `api/urls.py`.
+- Property names are the `CamelCaseSchema` aliases (`firstName`, not
+  `first_name`). Every operation serialises by alias, so runtime JSON and the
+  file agree. `tests/contract/test_openapi_contract.py` fails on a snake_case
+  property.
+- Constraints reach Zod only through OpenAPI. Put them on the field:
+  `Field(min_length=..., max_length=..., ge=..., le=..., pattern=...)`,
+  `Literal[...]`, or an `Enum`. A check inside a `@field_validator` body is
+  invisible to the frontend.
+- `Any`, a bare `dict`, `dict[..., Any]`, or `Json` in a schema field needs an
+  inline `# schema-ok: <reason>` (the `SCHEMA_ANY` convention check).
+
+`scripts/check_schema_parity.py` checks the file itself: camelCase property
+names, a declared type on every property, no default on a required property,
+nullable when the default is null, and no dangling `$ref`.
+
 ## Quick Start
 
 ```bash
 # Export OpenAPI spec only
-just legacy openapi
+just openapi
 
 # Generate SDK clients (TypeScript + Python)
 just legacy sdk
