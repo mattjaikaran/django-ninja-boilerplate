@@ -10,6 +10,8 @@ def autodiscover_tasks() -> None:
     """Import each installed application's task module when present."""
     for app_config in apps.get_app_configs():
         if module_has_submodule(app_config.module, "tasks"):
+            # The name comes from INSTALLED_APPS, not from request data.
+            # nosemgrep: python.lang.security.audit.non-literal-import
             import_module(f"{app_config.name}.tasks")
 
 

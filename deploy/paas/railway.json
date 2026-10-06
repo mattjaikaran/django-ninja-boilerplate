@@ -6,7 +6,7 @@
   },
   "deploy": {
     "numReplicas": 1,
-    "startCommand": "python manage.py migrate --noinput && gunicorn api.wsgi:application --bind 0.0.0.0:$PORT --workers 2 --threads 4 --worker-class gthread",
+    "startCommand": "python manage.py migrate --noinput && gunicorn api.asgi:application",
     "healthcheckPath": "/api/health/",
     "healthcheckTimeout": 300,
     "restartPolicyType": "ON_FAILURE",

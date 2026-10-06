@@ -63,6 +63,8 @@ spec:
               value: {{ include "django-ninja-stack.redisUrl" . | quote }}
             - name: CELERY_RESULT_BACKEND
               value: {{ include "django-ninja-stack.redisUrl" . | quote }}
+            - name: DB_POOL_ENABLED
+              value: "false"
           resources:
             {{- toYaml .Values.celeryBeat.resources | nindent 12 }}
           # Liveness probe

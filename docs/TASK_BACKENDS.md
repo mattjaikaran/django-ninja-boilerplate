@@ -1,8 +1,8 @@
 # Task queue backends
 
-The project supports five task backends through one `api.tasks` contract. Set
-`TASK_BACKEND` in `.env`, then run `just dev`. The selected profile starts with
-Django, Postgres, and Valkey.
+The project supports five task backends through one `api.tasks` contract, plus
+a `none` mode that runs no worker. Set `TASK_BACKEND` in `.env`, then run
+`just dev`. The selected profile starts with Django, Postgres, and Valkey.
 
 ## Backend comparison
 
@@ -26,6 +26,22 @@ uv sync --extra dramatiq
 
 The loader raises `ImproperlyConfigured` when the selected backend package is
 missing. It never falls back to another backend.
+
+## Run without a worker
+
+Set `TASK_BACKEND=none` when the project must not run a task worker:
+
+```env
+TASK_BACKEND=none
+```
+
+`just dev` then starts only the `dev` profile. Tasks still register, and a
+direct call such as `send_welcome(user_id)` runs in the current process.
+`task.delay()` and a retry dispatch raise `TaskDispatchDisabled`, because no
+worker would consume the message. The mode never drops a job and never runs
+it in the request process instead. Catch `TaskDispatchDisabled` from
+`api.tasks` only where the caller has a real alternative. Celery beat does not
+run, so periodic jobs such as `core.flush_expired_tokens` do not run either.
 
 ## Configure the stack
 

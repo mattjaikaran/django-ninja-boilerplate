@@ -40,6 +40,13 @@ _BACKENDS: dict[str, tuple[str, str, str]] = {
         "dramatiq_task",
         "dramatiq[redis]",
     ),
+    # No worker: tasks run only when called directly; .delay() raises
+    # TaskDispatchDisabled instead of queueing a job nothing consumes.
+    "none": (
+        "api.tasks.backends.disabled_backend",
+        "disabled_task",
+        "api",
+    ),
 }
 
 
@@ -54,6 +61,8 @@ def _load_backend() -> BackendDecorator:
         ) from exc
 
     try:
+        # module_name comes from the fixed _BACKENDS table above.
+        # nosemgrep: python.lang.security.audit.non-literal-import
         module = import_module(module_name)
     except ModuleNotFoundError as exc:
         missing = exc.name or package

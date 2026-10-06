@@ -42,6 +42,14 @@ class TaskMaxRetriesExceeded(RuntimeError):
     """Raised when a task exceeds its declared retry limit."""
 
 
+class TaskDispatchDisabled(RuntimeError):
+    """Raised when code enqueues a task while ``TASK_BACKEND=none``.
+
+    The disabled mode runs no worker, so an accepted message would never run.
+    Dispatch fails instead of dropping the job.
+    """
+
+
 @dataclass(frozen=True, slots=True)
 class TaskContext:
     """Portable context passed to tasks declared with ``bind=True``."""
@@ -181,6 +189,7 @@ def task_name(func: TaskFunction, explicit_name: str | None) -> str:
 
 __all__ = [
     "TaskContext",
+    "TaskDispatchDisabled",
     "TaskHandle",
     "TaskMaxRetriesExceeded",
     "TaskRetry",

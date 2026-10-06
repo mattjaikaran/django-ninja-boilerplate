@@ -1,8 +1,8 @@
 # Django Ninja Boilerplate - Unified Multi-Stage Dockerfile
 # ============================================================
 # This Dockerfile uses multi-stage builds with named targets that can be
-# selected via the --target flag. This eliminates the need for multiple
-# Dockerfile variants (e.g., Dockerfile.uv).
+# selected via the --target flag, so there is one Dockerfile for every
+# environment (deploy/docker/Dockerfile.single is the PaaS image).
 #
 # Available targets:
 #   - base:        Common base with system dependencies (internal use)
@@ -19,18 +19,30 @@
 #
 # ============================================================
 
+# Python base image, pinned for every stage. Bump PYTHON_VERSION and
+# PYTHON_IMAGE_DIGEST together (`docker buildx imagetools inspect
+# python:<version>-slim-trixie`), in this file and in
+# deploy/docker/Dockerfile.single; scripts/check_version_drift.py compares them
+# with pyproject.toml requires-python.
+ARG PYTHON_VERSION=3.13.15
+ARG PYTHON_IMAGE_DIGEST=sha256:7c61056e61ac89e852de05f3dc6fa51a6dd2181797bceed46aa725dd7cb2cd3b
 
 # ===========================================
 # Stage 1: BASE - Common system dependencies
 # ===========================================
 # This stage sets up the foundational system packages and environment
 # variables that are shared across all other stages.
-FROM python:3.13-slim AS base
+FROM python:${PYTHON_VERSION}-slim-trixie@${PYTHON_IMAGE_DIGEST} AS base
 
-# Metadata labels for container identification
+# Metadata labels. APP_VERSION comes from the VERSION file: the justfile
+# exports it and Compose passes it as a build arg. A bare `docker build`
+# without --build-arg APP_VERSION labels the image "unknown".
+ARG APP_VERSION=unknown
 LABEL maintainer="Matt Jaikaran <info@mattjaikaran.com>" \
-      version="1.0.0" \
       description="Django Ninja API Boilerplate" \
+      org.opencontainers.image.title="django-ninja-boilerplate" \
+      org.opencontainers.image.version="${APP_VERSION}" \
+      org.opencontainers.image.licenses="MIT" \
       org.opencontainers.image.source="https://github.com/mattjaikaran/django-ninja-boilerplate"
 
 # Common environment variables for all stages
@@ -48,13 +60,14 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-# Install common runtime dependencies needed by all stages
-# - libpq5: PostgreSQL client library for psycopg2
+# Install common runtime dependencies needed by all stages. psycopg[binary]
+# bundles libpq, so the image needs no system libpq. `apt-get upgrade` pulls
+# Debian security fixes (for example openssl) that the base tag lags behind.
 # - curl: HTTP client for health checks
 # - netcat-openbsd: Network utility for service readiness checks
 RUN apt-get update \
+    && apt-get upgrade -y \
     && apt-get install -y --no-install-recommends \
-        libpq5 \
         curl \
         netcat-openbsd \
     && rm -rf /var/lib/apt/lists/* \
@@ -78,38 +91,46 @@ ENV UV_COMPILE_BYTECODE=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1
 
 # Install build dependencies (these won't be in final runtime images)
-# - build-essential: C compiler and related tools
-# - libpq-dev: PostgreSQL headers for psycopg2 compilation
+# - build-essential: C compiler for any dependency without a wheel
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         build-essential \
-        libpq-dev \
-    && curl -LsSf https://astral.sh/uv/install.sh -o /tmp/uv-install.sh \
-    && sh /tmp/uv-install.sh \
-    && rm -f /tmp/uv-install.sh \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
 
-# Add uv to PATH
-ENV PATH="/root/.local/bin:$PATH"
+# uv, pinned. Keep this tag equal in deploy/docker/Dockerfile.single;
+# scripts/check_version_drift.py compares them.
+COPY --from=ghcr.io/astral-sh/uv:0.12.1 /uv /uvx /bin/
+
+# Optional extras, space-separated (for example UV_EXTRAS="sentry ai"). Compose
+# and the justfile pass UV_EXTRAS through; each name becomes `--extra <name>`.
+ARG UV_EXTRAS=""
 
 # Copy only dependency files first for better layer caching
 # Changes to application code won't invalidate dependency cache
-COPY pyproject.toml uv.lock* README.md ./
+COPY pyproject.toml uv.lock* README.md LICENSE ./
 
 # Install production dependencies from the lock so the image matches uv.lock
 # instead of resolving fresh (a fresh resolve can pick a different Django).
 # Every task backend is installed so TASK_BACKEND can be switched without a
 # rebuild: celery is in the base dependencies, the rest are extras. The
 # observability extra lets OTEL_ENABLED=true export traces without a rebuild.
-RUN UV_PROJECT_ENVIRONMENT=/opt/venv uv sync --locked --no-dev \
+# Both sync steps take the same flags: `uv sync` removes anything the flags
+# do not select, so a mismatch would drop packages in the second step.
+RUN extras=""; for name in ${UV_EXTRAS}; do extras="${extras} --extra ${name}"; done \
+    && UV_PROJECT_ENVIRONMENT=/opt/venv uv sync --locked --no-dev \
     --extra huey --extra django-q --extra django-rq --extra dramatiq \
-    --extra observability \
+    --extra observability ${extras} \
     --no-install-project
 
-# Install the project itself. --no-deps keeps the locked set intact; the
-# application source is copied into /app in a later layer.
-RUN uv pip install --no-cache --no-deps -e .
+# Install the project itself as a regular (non-editable) package. The source
+# is needed to build it; only /opt/venv leaves this stage.
+COPY . .
+RUN extras=""; for name in ${UV_EXTRAS}; do extras="${extras} --extra ${name}"; done \
+    && UV_PROJECT_ENVIRONMENT=/opt/venv uv sync --locked --no-dev \
+    --extra huey --extra django-q --extra django-rq --extra dramatiq \
+    --extra observability ${extras} \
+    --no-editable
 
 
 # ===========================================
@@ -138,14 +159,17 @@ RUN apt-get update \
 # Copy virtual environment from builder
 COPY --from=builder /opt/venv /opt/venv
 
-# Copy uv from builder for installing dev dependencies
-COPY --from=builder /root/.local/bin/uv /usr/local/bin/uv
+# Copy the pinned uv from builder for installing dev dependencies
+COPY --from=builder /bin/uv /usr/local/bin/uv
 
 # Install dev dependencies from the lock (reproducible), then the project.
-COPY pyproject.toml uv.lock* README.md ./
-RUN UV_PROJECT_ENVIRONMENT=/opt/venv uv sync --locked --extra dev \
+# The same UV_EXTRAS as the builder, so this sync keeps those packages.
+ARG UV_EXTRAS=""
+COPY pyproject.toml uv.lock* README.md LICENSE ./
+RUN extras=""; for name in ${UV_EXTRAS}; do extras="${extras} --extra ${name}"; done \
+    && UV_PROJECT_ENVIRONMENT=/opt/venv uv sync --locked --extra dev \
     --extra huey --extra django-q --extra django-rq --extra dramatiq \
-    --extra observability \
+    --extra observability ${extras} \
     --no-install-project
 RUN uv pip install --no-cache --no-deps -e .
 
@@ -184,24 +208,31 @@ CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
 # This stage creates the smallest possible production image with:
 # - Only runtime dependencies
 # - Non-root user for security
-# - Optimized Gunicorn configuration
+# - Gunicorn with uvicorn ASGI workers (settings in gunicorn.conf.py)
 # - Pre-compiled static files
 FROM base AS production
 
 # Production-specific environment
-# Keep docstrings: Transformers builds model docs at import time.
+# PYTHONOPTIMIZE=1 strips asserts only. Level 2 would also strip docstrings,
+# which Django Ninja reads for OpenAPI operation descriptions.
 # The base stage defaults DJANGO_SETTINGS_MODULE to the bare "api.settings",
 # which the settings selector resolves to dev. Pin production explicitly so the
 # image is correct even without compose-supplied environment.
+# USE_TLS=true: api.settings.prod refuses to start without TLS in front.
 ENV PYTHONOPTIMIZE=1 \
     DJANGO_SETTINGS_MODULE=api.settings.prod \
-    ENVIRONMENT=production
+    ENVIRONMENT=production \
+    USE_TLS=true
 
 # Copy virtual environment from builder (no dev dependencies)
 COPY --from=builder /opt/venv /opt/venv
 
-# Create non-root user for security
-RUN useradd --create-home --shell /bin/bash --uid 1000 app \
+# Create non-root user for security. Remove the base image's pip: uv does
+# every install, and pip's vendored msgpack, urllib3 and setuptools carry
+# advisories that trivy reports. Call the system Python: PATH puts the
+# pip-less /opt/venv first.
+RUN /usr/local/bin/python -m pip uninstall -y pip \
+    && useradd --create-home --shell /bin/bash --uid 1000 app \
     && mkdir -p /app/logs /app/staticfiles /app/media \
     && chown -R app:app /app
 
@@ -223,35 +254,24 @@ USER app
 RUN SECRET_KEY=build-time-placeholder \
     NINJA_JWT_SIGNING_KEY=build-time-jwt-placeholder \
     CENTRIFUGO_TOKEN_SECRET=build-time-placeholder \
-    DJANGO_SETTINGS_MODULE=api.settings.prod \
+    CENTRIFUGO_API_KEY=build-time-placeholder \
+    DJANGO_SETTINGS_MODULE=api.settings.prod USE_TLS=true \
     DB_NAME=build DB_USER=build DB_PASSWORD=build DB_HOST=build DB_PORT=5432 \
     python manage.py collectstatic --noinput
 
 # Expose port
 EXPOSE 8000
 
-# Production health check
+# Production health check. Gunicorn binds $PORT (gunicorn.conf.py), so probe
+# the same port.
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
-    CMD ["curl", "-f", "http://localhost:8000/api/health/"]
+    CMD curl -fsS "http://localhost:${PORT}/api/health/" || exit 1
 
-# Default command - Production Gunicorn with optimized settings
-# Workers = (2 * CPU cores) + 1, adjust based on your needs
-# --worker-tmp-dir /dev/shm: Uses RAM for worker heartbeat files (faster)
-# --max-requests: Recycle workers after N requests to prevent memory leaks
-CMD ["gunicorn", "api.wsgi:application", \
-    "--bind", "0.0.0.0:8000", \
-    "--workers", "3", \
-    "--threads", "2", \
-    "--worker-class", "gthread", \
-    "--worker-tmp-dir", "/dev/shm", \
-    "--timeout", "120", \
-    "--keep-alive", "5", \
-    "--max-requests", "1000", \
-    "--max-requests-jitter", "50", \
-    "--access-logfile", "-", \
-    "--error-logfile", "-", \
-    "--capture-output", \
-    "--enable-stdio-inheritance"]
+# Gunicorn manages the processes; each worker serves ASGI through uvicorn.
+# gunicorn.conf.py (loaded from /app) sets the worker class, bind address,
+# timeouts and recycling. Tune it with GUNICORN_WORKERS, GUNICORN_TIMEOUT and
+# the DB_POOL_* variables.
+CMD ["gunicorn", "api.asgi:application"]
 
 
 # ===========================================
@@ -271,14 +291,17 @@ ENV CI=1 \
 # Copy virtual environment from builder
 COPY --from=builder /opt/venv /opt/venv
 
-# Copy uv from builder for installing test dependencies
-COPY --from=builder /root/.local/bin/uv /usr/local/bin/uv
+# Copy the pinned uv from builder for installing test dependencies
+COPY --from=builder /bin/uv /usr/local/bin/uv
 
 # Install test/dev dependencies from the lock (reproducible), then the project.
-COPY pyproject.toml uv.lock* README.md ./
-RUN UV_PROJECT_ENVIRONMENT=/opt/venv uv sync --locked --extra dev \
+# The same UV_EXTRAS as the builder, so this sync keeps those packages.
+ARG UV_EXTRAS=""
+COPY pyproject.toml uv.lock* README.md LICENSE ./
+RUN extras=""; for name in ${UV_EXTRAS}; do extras="${extras} --extra ${name}"; done \
+    && UV_PROJECT_ENVIRONMENT=/opt/venv uv sync --locked --extra dev \
     --extra huey --extra django-q --extra django-rq --extra dramatiq \
-    --extra observability \
+    --extra observability ${extras} \
     --no-install-project
 RUN uv pip install --no-cache --no-deps -e .
 

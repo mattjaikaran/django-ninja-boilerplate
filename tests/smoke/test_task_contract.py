@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import subprocess
 import sys
 from typing import Any
@@ -163,6 +164,25 @@ def test_missing_backend_package_fails_loud(monkeypatch: pytest.MonkeyPatch) -> 
     )
     with pytest.raises(ImproperlyConfigured, match="requires the 'missing-package'"):
         get_task_decorator()
+
+
+@override_settings(TASK_BACKEND="none")
+def test_disabled_backend_rejects_dispatch_and_runs_direct_calls() -> None:
+    from api.tasks import TaskDispatchDisabled
+
+    executions: list[tuple[int, int]] = []
+
+    @get_task_decorator()(name="tests.backend.none")
+    def add(left: int, right: int) -> int:
+        executions.append((left, right))
+        return left + right
+
+    assert add(2, 3) == 5
+    with pytest.raises(TaskDispatchDisabled, match="TASK_BACKEND='none'"):
+        add.delay(4, right=5)
+    with pytest.raises(TaskDispatchDisabled, match=re.escape("tests.backend.none")):
+        add.redispatch((4, 5), {}, 10, 1)
+    assert executions == [(2, 3)]
 
 
 @pytest.mark.parametrize(

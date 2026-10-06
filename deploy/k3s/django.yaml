@@ -50,19 +50,11 @@ spec:
       containers:
         - name: django
           image: your-registry/django-ninja-stack:latest
+          # ASGI via uvicorn workers; gunicorn.conf.py in /app sets the rest.
+          # Tune with GUNICORN_WORKERS and DB_POOL_* in django-config.
           command:
             - gunicorn
-            - api.wsgi:application
-            - --bind
-            - "0.0.0.0:8000"
-            - --workers
-            - "3"
-            - --timeout
-            - "120"
-            - --access-logfile
-            - "-"
-            - --error-logfile
-            - "-"
+            - api.asgi:application
           ports:
             - containerPort: 8000
               name: http

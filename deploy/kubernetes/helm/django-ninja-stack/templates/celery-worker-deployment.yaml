@@ -65,6 +65,9 @@ spec:
               value: {{ include "django-ninja-stack.redisUrl" . | quote }}
             - name: CELERY_RESULT_BACKEND
               value: {{ include "django-ninja-stack.redisUrl" . | quote }}
+            # Prefork workers: see "Database connection pool" in docs/ARCHITECTURE.md.
+            - name: DB_POOL_ENABLED
+              value: "false"
           resources:
             {{- toYaml .Values.celeryWorker.resources | nindent 12 }}
           # Liveness probe - check if worker is responsive

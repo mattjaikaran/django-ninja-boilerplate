@@ -59,6 +59,9 @@ spec:
               value: "redis://:$(REDIS_PASSWORD)@redis:6379/0"
             - name: CELERY_RESULT_BACKEND
               value: "redis://:$(REDIS_PASSWORD)@redis:6379/1"
+            # Prefork workers: see "Database connection pool" in docs/ARCHITECTURE.md.
+            - name: DB_POOL_ENABLED
+              value: "false"
           resources:
             limits:
               cpu: 500m
@@ -139,6 +142,8 @@ spec:
               value: "redis://:$(REDIS_PASSWORD)@redis:6379/0"
             - name: CELERY_RESULT_BACKEND
               value: "redis://:$(REDIS_PASSWORD)@redis:6379/1"
+            - name: DB_POOL_ENABLED
+              value: "false"
           resources:
             limits:
               cpu: 200m

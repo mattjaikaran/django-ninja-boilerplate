@@ -4,7 +4,8 @@ version = "1.12.0"
 description = "A production-ready Django boilerplate using Django Ninja for building modern APIs"
 authors = [{ name = "Matt Jaikaran", email = "info@mattjaikaran.com" }]
 readme = "README.md"
-license = { text = "Proprietary" }
+license = "MIT"
+license-files = ["LICENSE"]
 requires-python = ">=3.13"
 keywords = ["django", "ninja", "api", "boilerplate"]
 classifiers = [
@@ -23,13 +24,12 @@ classifiers = [
 ]
 
 dependencies = [
-    # Core Django. 5.2 LTS is the default; 6.0 is installable because
-    # django-celery-beat 2.9.0 raised its cap to <6.1. Packages without Django 6
-    # support are optional extras (see DEPENDENCIES.md), so they can be omitted
-    # on Django 6 instead of pinning the whole project to 5.2.
-    "Django>=5.2,<7.0",
+    # Core Django: 5.2 LTS. Django 6 is blocked; see DEPENDENCIES.md.
+    "Django>=5.2,<6",
     "django-environ>=0.13.0",
-    "psycopg2-binary>=2.9.10",
+    # psycopg 3: Django's native pool (DATABASES OPTIONS["pool"]) needs it;
+    # psycopg2 ignores the pool option.
+    "psycopg[binary,pool]>=3.2.0",
     # Django Extensions
     "django-cors-headers>=4.7.0",
     "django-debug-toolbar>=5.2.0",
@@ -50,7 +50,9 @@ dependencies = [
     # making it optional would silently drop periodic tasks from a default
     # install. 2.9.0 is the newest release and caps Django at <6.1, which is
     # why Django 6.1 is not a supported configuration (see DEPENDENCIES.md).
-    "celery>=5.5.2",
+    # 5.6.1+ closes Django connection pools in prefork children (see
+    # "Database connection pool" in docs/ARCHITECTURE.md).
+    "celery>=5.6.1",
     "django-celery-beat>=2.9.0",
     "redis>=7.4.0",
     "flower>=2.0.1",
@@ -66,7 +68,9 @@ dependencies = [
     "httpx>=0.27.0",
     "httpcore>=1.0.9",
     "uvloop>=0.22.1",
+    # ASGI server: Gunicorn manages processes, uvicorn-worker serves ASGI.
     "gunicorn>=25.3.0",
+    "uvicorn-worker>=0.4.0",
     # AWS S3 Storage
     "boto3>=1.34.0",
     # Data Validation & Serialization
@@ -146,7 +150,7 @@ observability = [
     "opentelemetry-exporter-otlp>=1.20.0",
     "opentelemetry-instrumentation-django>=0.41b0",
     "opentelemetry-instrumentation-requests>=0.41b0",
-    "opentelemetry-instrumentation-psycopg2>=0.41b0",
+    "opentelemetry-instrumentation-psycopg>=0.41b0",
     "opentelemetry-instrumentation-redis>=0.41b0",
     "opentelemetry-instrumentation-celery>=0.41b0",
     # Prometheus metrics (optional - we have a pure Python implementation)
@@ -166,6 +170,18 @@ django-rq = [
 ]
 dramatiq = [
     "dramatiq[redis]>=1.17.0",
+]
+# AI and data layer (docs/AI_LAYER.md). The LLM client speaks the
+# OpenAI-compatible HTTP API through httpx (a core dependency), so no LLM SDK.
+ai = [
+    "pgvector>=0.5.0",
+    # App-level MCP server. <2: the dev extra's django-ai-boost needs
+    # fastmcp<4, which needs mcp<2.
+    "mcp>=1.28.1,<2",
+]
+# Sentry or GlitchTip error reporting (core/observability/sentry.py).
+sentry = [
+    "sentry-sdk[django]>=2.71.0,<3",
 ]
 
 [project.urls]
@@ -395,7 +411,7 @@ addopts = [
     "--cov-report=xml",
     "--cov-fail-under=30",
 ]
-testpaths = ["core", "todos", "tests/smoke"]
+testpaths = ["core", "todos", "billing", "tests/smoke", "tests/contract"]
 filterwarnings = [
     "error",
     "ignore::UserWarning",

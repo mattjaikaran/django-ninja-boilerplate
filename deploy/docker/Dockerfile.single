@@ -1,71 +1,96 @@
 # Django Ninja Boilerplate - Single Container Production Dockerfile
-# Combines Django backend serving via Gunicorn
+# Serves the Django backend with Gunicorn + uvicorn ASGI workers
 # Suitable for PaaS deployments (Railway, Render, Fly.io)
+
+# Python base image, pinned for both stages. Keep these equal to the root
+# Dockerfile; scripts/check_version_drift.py compares them.
+ARG PYTHON_VERSION=3.13.15
+ARG PYTHON_IMAGE_DIGEST=sha256:7c61056e61ac89e852de05f3dc6fa51a6dd2181797bceed46aa725dd7cb2cd3b
 
 # ===========================================
 # Stage 1: Build Stage
 # ===========================================
-FROM python:3.13-slim AS builder
+FROM python:${PYTHON_VERSION}-slim-trixie@${PYTHON_IMAGE_DIGEST} AS builder
 
-# Install build dependencies
+# Install build dependencies. psycopg[binary] bundles libpq.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
-    libpq-dev \
-    curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Install UV. Download then run, so no pipe is involved.
-RUN curl -LsSf https://astral.sh/uv/install.sh -o /tmp/uv-install.sh \
-    && sh /tmp/uv-install.sh \
-    && rm -f /tmp/uv-install.sh
-ENV PATH="/root/.local/bin:$PATH"
+# uv, pinned. Keep this tag equal to the one in the root Dockerfile;
+# scripts/check_version_drift.py compares them.
+COPY --from=ghcr.io/astral-sh/uv:0.12.1 /uv /uvx /bin/
 
 # Set working directory
 WORKDIR /app
 
+# Optional extras, space-separated (for example UV_EXTRAS="sentry ai"). Compose
+# and the justfile pass UV_EXTRAS through; each name becomes `--extra <name>`.
+ARG UV_EXTRAS=""
+
 # Copy dependency files
-COPY pyproject.toml uv.lock* README.md ./
+COPY pyproject.toml uv.lock* README.md LICENSE ./
 
 # Install production dependencies from the lock so the image matches uv.lock
 # instead of resolving fresh (a fresh resolve can pick a different Django).
 # Every task backend ships in the image so TASK_BACKEND can be switched
-# without rebuilding.
-RUN UV_PROJECT_ENVIRONMENT=/opt/venv uv sync --locked --no-dev \
+# without rebuilding. Both sync steps take the same flags: `uv sync` removes
+# anything the flags do not select.
+RUN extras=""; for name in ${UV_EXTRAS}; do extras="${extras} --extra ${name}"; done \
+    && UV_PROJECT_ENVIRONMENT=/opt/venv uv sync --locked --no-dev \
     --extra huey --extra django-q --extra django-rq --extra dramatiq \
-    --extra observability \
+    --extra observability ${extras} \
     --no-install-project
 
-# Install the project itself. --no-deps keeps the locked set intact; the
-# application source is copied into /app in a later layer.
-ENV VIRTUAL_ENV=/opt/venv \
-    PATH="/opt/venv/bin:/root/.local/bin:$PATH"
-RUN uv pip install --no-cache --no-deps -e .
+# Install the project itself as a regular (non-editable) package. The source
+# is needed to build it; only /opt/venv leaves this stage.
+COPY . .
+RUN extras=""; for name in ${UV_EXTRAS}; do extras="${extras} --extra ${name}"; done \
+    && UV_PROJECT_ENVIRONMENT=/opt/venv uv sync --locked --no-dev \
+    --extra huey --extra django-q --extra django-rq --extra dramatiq \
+    --extra observability ${extras} \
+    --no-editable
 
 # ===========================================
 # Stage 2: Production Stage
 # ===========================================
-FROM python:3.13-slim AS production
+FROM python:${PYTHON_VERSION}-slim-trixie@${PYTHON_IMAGE_DIGEST} AS production
+
+ARG APP_VERSION=unknown
+LABEL org.opencontainers.image.title="django-ninja-boilerplate" \
+      org.opencontainers.image.version="${APP_VERSION}" \
+      org.opencontainers.image.licenses="MIT" \
+      org.opencontainers.image.source="https://github.com/mattjaikaran/django-ninja-boilerplate"
 
 # Install runtime dependencies only. netcat is required by
 # docker-entrypoint.sh, which waits for the database before migrating.
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    libpq5 \
+# `apt-get upgrade` pulls Debian security fixes the base tag lags behind.
+RUN apt-get update && apt-get upgrade -y \
+    && apt-get install -y --no-install-recommends \
     curl \
     netcat-openbsd \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
 
-# Create non-root user
-RUN useradd --create-home --shell /bin/bash app
+# Remove the base image's pip (uv does every install; pip's vendored msgpack,
+# urllib3 and setuptools carry advisories), then create the non-root user.
+RUN python -m pip uninstall -y pip \
+    && useradd --create-home --shell /bin/bash app
 
 # Set environment variables.
 # ENVIRONMENT=production drives the JSON logging and S3 storage branches in
 # api/settings/common.py, so it must match the DJANGO_SETTINGS_MODULE here.
+# USE_TLS=true: PaaS platforms terminate TLS and send X-Forwarded-Proto, and
+# api/settings/prod.py refuses to start without TLS. NINJA_NUM_PROXIES=1: one
+# platform router appends the client IP to X-Forwarded-For (Heroku does); set
+# your platform's real count (docs/COOKIE_AUTH.md).
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PYTHONPATH=/app \
     DJANGO_SETTINGS_MODULE=api.settings.prod \
     ENVIRONMENT=production \
+    USE_TLS=true \
+    NINJA_NUM_PROXIES=1 \
     PATH="/opt/venv/bin:$PATH" \
     PORT=8000
 
@@ -88,15 +113,16 @@ USER app
 RUN SECRET_KEY=build-time-placeholder \
     NINJA_JWT_SIGNING_KEY=build-time-jwt-placeholder \
     CENTRIFUGO_TOKEN_SECRET=build-time-placeholder \
+    CENTRIFUGO_API_KEY=build-time-placeholder \
     DB_NAME=build DB_USER=build DB_PASSWORD=build DB_HOST=build DB_PORT=5432 \
     python manage.py collectstatic --noinput
 
 # Expose port
 EXPOSE 8000
 
-# Health check
+# Health check on the port Gunicorn binds ($PORT, see gunicorn.conf.py)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD ["curl", "-f", "http://localhost:8000/api/health/"]
+    CMD curl -fsS "http://localhost:${PORT}/api/health/" || exit 1
 
 # The entrypoint waits for the database, migrates, creates the superuser when
 # SUPERUSER_* is set, and collects static files. It lives in the image, not in
@@ -105,14 +131,6 @@ COPY --chown=app:app docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 
-# Default command: Gunicorn. PaaS platforms may override it.
-CMD ["gunicorn", "api.wsgi:application", \
-    "--bind", "0.0.0.0:8000", \
-    "--workers", "2", \
-    "--threads", "4", \
-    "--worker-class", "gthread", \
-    "--worker-tmp-dir", "/dev/shm", \
-    "--access-logfile", "-", \
-    "--error-logfile", "-", \
-    "--capture-output", \
-    "--enable-stdio-inheritance"]
+# Default command: Gunicorn with uvicorn ASGI workers. gunicorn.conf.py sets
+# the worker class and binds $PORT. PaaS platforms may override it.
+CMD ["gunicorn", "api.asgi:application"]

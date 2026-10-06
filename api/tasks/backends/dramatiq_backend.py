@@ -9,8 +9,9 @@ from django.conf import settings
 from dramatiq.brokers.redis import RedisBroker
 
 from api.tasks.contract import TaskHandle, execute_task, register_task, task_name
+from api.utils.redis_url import normalize_redis_url
 
-_broker_url = settings.REDIS_URL.replace("valkey://", "redis://", 1)
+_broker_url = normalize_redis_url(settings.REDIS_URL)
 dramatiq.set_broker(RedisBroker(url=_broker_url))
 
 

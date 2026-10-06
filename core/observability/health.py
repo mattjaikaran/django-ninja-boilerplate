@@ -11,12 +11,15 @@ from __future__ import annotations
 
 import logging
 import time
+import uuid
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import Enum
 from typing import TYPE_CHECKING, Any
 
 from django.conf import settings
+
+from api.utils.redis_url import normalize_redis_url
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -209,7 +212,9 @@ class DetailedHealthChecker:
         try:
             from django.core.cache import cache
 
-            test_key = "_health_check_test"
+            # A key per probe: concurrent probes sharing one key delete each
+            # other's value and report a false "read/write mismatch".
+            test_key = f"_health_check_test:{uuid.uuid4().hex}"
             test_value = "health_check"
 
             cache.set(test_key, test_value, timeout=30)
@@ -241,7 +246,7 @@ class DetailedHealthChecker:
         try:
             import redis  # type: ignore[import-untyped]
 
-            redis_url = _normalize_redis_url(
+            redis_url = normalize_redis_url(
                 getattr(settings, "REDIS_URL", "redis://localhost:6379/0")
             )
             client = redis.from_url(
@@ -274,20 +279,6 @@ class DetailedHealthChecker:
                 status=HealthStatus.UNHEALTHY,
                 message=f"Redis connection failed: {e}",
             )
-
-
-def _normalize_redis_url(url: str) -> str:
-    """Rewrite valkey:// to redis:// so redis-py accepts the URL.
-
-    redis-py rejects any scheme other than redis://, rediss:// and unix://.
-    Valkey is wire-compatible with Redis, so the scheme rewrite is safe and
-    keeps the health probe working on the shipped ``valkey://`` defaults.
-    """
-    if url.startswith("valkeys://"):
-        return "rediss://" + url[len("valkeys://") :]
-    if url.startswith("valkey://"):
-        return "redis://" + url[len("valkey://") :]
-    return url
 
 
 def check_celery() -> HealthCheckResult:

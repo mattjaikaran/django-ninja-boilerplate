@@ -2,6 +2,7 @@
 
 from api.tasks.contract import (
     TaskContext,
+    TaskDispatchDisabled,
     TaskHandle,
     TaskMaxRetriesExceeded,
     TaskRetry,
@@ -12,6 +13,7 @@ shared_task = get_task_decorator()
 
 __all__ = [
     "TaskContext",
+    "TaskDispatchDisabled",
     "TaskHandle",
     "TaskMaxRetriesExceeded",
     "TaskRetry",

@@ -106,12 +106,11 @@ dmypy.json
 .pytype/
 
 # ===========================================
-# Documentation (keep README for build)
+# Documentation (keep README and LICENSE: the package build reads both)
 # ===========================================
 docs/
 *.md
 !README.md
-LICENSE
 CHANGELOG*
 CONTRIBUTING*
 
