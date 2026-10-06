@@ -109,7 +109,7 @@ Best for: Teams that want observability on writes but don't need it on simple re
 Controller is a thin HTTP adapter. All business logic lives in `TodoService`, injected via `__init__`. Methods are one-liners. The service is trivially swappable in tests.
 
 ```python
-@api_controller("/todos", tags=["Todos"], auth=CookieJWTAuth(), use_unique_op_id=False)
+@api_controller("/todos", tags=["Todos"], auth=JWTAuth())
 class TodoController:
     def __init__(self):
         self.service = TodoService()
@@ -188,27 +188,24 @@ Query parameters for list/search endpoints:
 
 ## Example API Usage
 
-Use a cookie jar established by login and the latest CSRF bootstrap token
-(`GET /api/auth/csrf`); see [browser authentication](../core/README.md#browser-authentication).
-
 ```bash
 # Create a todo
 curl -X POST http://localhost:8000/api/todos/ \
-  -b cookies.txt -H "X-CSRFToken: <csrfToken>" \
+  -H "Authorization: Bearer <token>" \
   -H "Content-Type: application/json" \
   -d '{"title": "New Todo", "description": "Description", "completed": false}'
 
 # List todos with filter
 curl "http://localhost:8000/api/todos/?completed=false&ordering=-created_at" \
-  -b cookies.txt
+  -H "Authorization: Bearer <token>"
 
 # Search
 curl "http://localhost:8000/api/todos/search?q=meeting&priority=high" \
-  -b cookies.txt
+  -H "Authorization: Bearer <token>"
 
 # Update
 curl -X PUT http://localhost:8000/api/todos/<todo-id> \
-  -b cookies.txt -H "X-CSRFToken: <csrfToken>" \
+  -H "Authorization: Bearer <token>" \
   -H "Content-Type: application/json" \
   -d '{"completed": true}'
 ```

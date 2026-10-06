@@ -9,7 +9,7 @@ import logging
 
 from ninja_extra import api_controller, http_post
 from ninja_extra.throttling import UserRateThrottle, throttle
-from core.security.cookie_auth import CookieJWTAuth
+from ninja_jwt.authentication import JWTAuth
 
 from api.centrifugo import (
     generate_connection_token,
@@ -35,9 +35,7 @@ class SubscriptionTokenResponse(CamelCaseSchema):
     token: str
 
 
-@api_controller(
-    "/realtime", tags=["Realtime"], auth=CookieJWTAuth(), use_unique_op_id=False
-)
+@api_controller("/realtime", tags=["Realtime"], auth=JWTAuth())
 class CentrifugoTokenController:
     """Token endpoints for Centrifugo real-time connections."""
 

@@ -26,6 +26,7 @@ affects, and what to do. `CHANGELOG.md` has the full list.
 | Password logins lock an (account, client IP) pair after 5 failures and a client IP after 20, for 15 minutes. Locked requests get `429`, even with the right password. | Show the `429` message. Do not retry automatically. |
 | `POST /api/auth/logout` needs no access token. | Call it even when the access cookie has expired. |
 | `DELETE /api/api-keys/{key_id}` and `POST /api/api-keys/{key_id}/rotate` take a UUID and return `404` for a missing key or another user's key (they returned `500`). A malformed id returns `422`. | Handle `404`. |
+| This release supersedes the cookie-only auth change in commit `619422e`. The bearer routes `/api/token/pair`, `/api/token/refresh` and `/api/token/verify` stay and are throttled with the other credential endpoints. Login responses keep the tokens in the body as well as the cookies. | If you built on `619422e`, follow `docs/COOKIE_AUTH.md`: browsers use cookies and CSRF, other clients use `/api/token/*` or `Authorization: Bearer`. |
 
 ## Production configuration
 

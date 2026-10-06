@@ -47,7 +47,7 @@ def user(db):
 @pytest.fixture
 def auth_headers(user):
     refresh = RefreshToken.for_user(user)
-    return {"HTTP_COOKIE": f"access_token={refresh.access_token}"}
+    return {"HTTP_AUTHORIZATION": f"Bearer {refresh.access_token}"}
 
 
 @pytest.fixture

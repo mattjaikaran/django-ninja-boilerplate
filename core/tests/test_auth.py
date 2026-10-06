@@ -208,10 +208,8 @@ class TestAuthAPI:
             content_type="application/json",
         )
         assert response.status_code == 200
-        assert response.json()["id"] == str(user.id)
-        assert not {"access", "refresh"} & response.json().keys()
-        assert response.cookies["access_token"]["httponly"]
-        assert response.cookies["refresh_token"]["httponly"]
+        assert "access" in response.json()
+        assert "refresh" in response.json()
 
         # Check that OTP was marked as used
         otp.refresh_from_db()

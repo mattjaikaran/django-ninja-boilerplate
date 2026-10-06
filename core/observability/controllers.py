@@ -12,7 +12,7 @@ import logging
 
 from django.http import HttpResponse
 from ninja_extra import api_controller, http_get
-from core.security.cookie_auth import CookieJWTAuth
+from ninja_jwt.authentication import JWTAuth
 
 from .metrics import get_metrics_text, set_app_info
 
@@ -25,7 +25,7 @@ def _is_staff(request) -> bool:
     return bool(user and user.is_authenticated and user.is_staff)
 
 
-@api_controller("/metrics", tags=["Observability"], use_unique_op_id=False)
+@api_controller("/metrics", tags=["Observability"])
 class MetricsController:
     """Prometheus metrics endpoint for scraping (staff only)."""
 
@@ -35,7 +35,7 @@ class MetricsController:
         summary="Prometheus Metrics",
         description="Returns metrics in Prometheus exposition format for scraping.",
         include_in_schema=False,  # Hide from OpenAPI docs
-        auth=CookieJWTAuth(),
+        auth=JWTAuth(),
     )
     def get_metrics(self, request) -> HttpResponse | tuple[int, dict]:
         """Return Prometheus metrics in text format (staff only)."""

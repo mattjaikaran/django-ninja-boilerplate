@@ -14,7 +14,7 @@ Browser clients on the cookie contract (docs/COOKIE_AUTH.md) connect with
 httpOnly access cookie authenticates them. Other clients pass the JWT in the
 query string because EventSource cannot set an Authorization header:
 
-    const es = new EventSource("/api/events/stream/", {withCredentials: true});
+    const es = new EventSource("/api/events/stream/?token=<jwt>");
 """
 
 import logging
@@ -47,12 +47,14 @@ def sse_endpoint(request):
         return HttpResponse("Missing token", status=401)
 
     try:
-        user = CookieJWTAuth()(request)
-    except (AuthenticationFailed, InvalidToken):
-        return HttpResponse("Invalid authentication cookie", status=401)
-    if not user:
-        return HttpResponse("Missing authentication cookie", status=401)
-    channel = f"user:{user.id}"
+        token = AccessToken(token_str)
+        user_id = token.get("user_id")
+    except Exception:
+        from django.http import HttpResponse
+
+        return HttpResponse("Invalid token", status=401)
+
+    channel = f"user:{user_id}"
 
     # Production serves ASGI (Gunicorn + uvicorn workers), which needs an async
     # iterator; the WSGI dev server needs a sync one.

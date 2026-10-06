@@ -1,7 +1,7 @@
 import logging
 
 from ninja_extra import api_controller, http_delete, http_get, http_post, http_put
-from core.security.cookie_auth import CookieJWTAuth
+from ninja_jwt.authentication import JWTAuth
 
 from api.decorators import log_api_call
 from organizations.schemas import (
@@ -17,12 +17,7 @@ from organizations.services import OrganizationService
 logger = logging.getLogger(__name__)
 
 
-@api_controller(
-    "/organizations",
-    tags=["Organizations"],
-    auth=CookieJWTAuth(),
-    use_unique_op_id=False,
-)
+@api_controller("/organizations", tags=["Organizations"], auth=JWTAuth())
 class OrganizationController:
     def __init__(self):
         self.service = OrganizationService()

@@ -17,7 +17,7 @@ class TestAdminListPagination:
         staff = UserFactory(is_staff=True)
         users = UserFactory.create_batch(3)
         token = AccessToken.for_user(cast("AbstractBaseUser", staff))
-        client = Client(HTTP_COOKIE=f"access_token={token}")
+        client = Client(HTTP_AUTHORIZATION=f"Bearer {token}")
 
         first = client.get("/api/users/?page_size=2")
         second = client.get("/api/users/?page_size=2&page=2")
@@ -44,7 +44,7 @@ class TestAdminListPagination:
         UserFactory.create_batch(2, is_staff=staff_only)
         UserFactory(is_active=False, is_staff=False)
         token = AccessToken.for_user(cast("AbstractBaseUser", staff))
-        client = Client(HTTP_COOKIE=f"access_token={token}")
+        client = Client(HTTP_AUTHORIZATION=f"Bearer {token}")
 
         first = client.get(f"{path}?page_size=2")
         second = client.get(f"{path}?page_size=2&page=2")
@@ -66,7 +66,7 @@ class TestAdminListPagination:
             for _ in range(3)
         ]
         token = AccessToken.for_user(cast("AbstractBaseUser", staff))
-        client = Client(HTTP_COOKIE=f"access_token={token}")
+        client = Client(HTTP_AUTHORIZATION=f"Bearer {token}")
 
         first = client.get("/api/audit/?action=CUSTOM&page_size=2")
         second = client.get("/api/audit/?action=CUSTOM&page_size=2&page=2")

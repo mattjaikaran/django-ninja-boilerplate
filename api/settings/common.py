@@ -158,12 +158,6 @@ MIDDLEWARE = [
 # Performance: Compress responses larger than 1KB
 GZIP_MIN_LENGTH = 1024
 
-# Deployment defaults are secure; only explicit local settings disable Secure.
-AUTH_COOKIE_SECURE = True
-CSRF_COOKIE_SECURE = True
-CSRF_COOKIE_HTTPONLY = False
-CSRF_COOKIE_SAMESITE = "Lax"
-
 ROOT_URLCONF = "api.urls"
 
 TEMPLATES = [

@@ -23,7 +23,7 @@ User = pytest.importorskip("django.contrib.auth").get_user_model()
 
 
 def bearer_for(user) -> dict:
-    return {"HTTP_COOKIE": f"access_token={AccessToken.for_user(user)}"}
+    return {"HTTP_AUTHORIZATION": f"Bearer {AccessToken.for_user(user)}"}
 
 
 # Any well-formed id: staff checks must answer 403 before any lookup.
@@ -328,8 +328,9 @@ class TestOpenAPISecurity:
             ("get", "/api/health/"),
             ("get", "/api/health/liveness"),
             ("get", "/api/health/readiness"),
-            ("get", "/api/auth/csrf"),
-            ("post", "/api/auth/logout"),
+            ("post", "/api/token/pair"),
+            ("post", "/api/token/refresh"),
+            ("post", "/api/token/verify"),
         }
     )
 
@@ -342,6 +343,7 @@ class TestOpenAPISecurity:
         }
         assert unprotected - self.PUBLIC_OPERATIONS == set()
 
-    def test_cookie_scheme_is_declared(self, schema):
-        scheme = schema["components"]["securitySchemes"]["CookieJWTAuth"]
-        assert scheme == {"type": "apiKey", "in": "cookie", "name": "access_token"}
+    def test_bearer_scheme_is_declared(self, schema):
+        schemes = schema.get("components", {}).get("securitySchemes", {})
+        assert "JWTAuth" in schemes
+        assert schemes["JWTAuth"]["scheme"] == "bearer"

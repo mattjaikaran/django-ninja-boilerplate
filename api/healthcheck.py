@@ -15,7 +15,7 @@ from datetime import UTC, datetime
 
 from django.conf import settings
 from ninja_extra import api_controller, http_get
-from core.security.cookie_auth import CookieJWTAuth
+from ninja_jwt.authentication import JWTAuth
 
 from core.monitoring.performance import system_stats
 from core.observability.health import (
@@ -43,7 +43,7 @@ def _is_staff(request) -> bool:
     return bool(user and user.is_authenticated and user.is_staff)
 
 
-@api_controller("/health", tags=["Health"], use_unique_op_id=False)
+@api_controller("/health", tags=["Health"])
 class HealthCheckController:
     """Health check endpoints for system monitoring."""
 
@@ -81,7 +81,7 @@ class HealthCheckController:
     @http_get(
         "/detailed",
         response={200: dict, 403: dict, 503: dict},
-        auth=CookieJWTAuth(),
+        auth=JWTAuth(),
     )
     def detailed_health_check(self, request):
         """Staff-only detailed health check across all components."""
@@ -99,7 +99,7 @@ class HealthCheckController:
     @http_get(
         "/component/{component}",
         response={200: dict, 403: dict, 503: dict},
-        auth=CookieJWTAuth(),
+        auth=JWTAuth(),
     )
     def component_health(self, request, component: str):
         """Staff-only health check for a single named component."""
@@ -121,7 +121,7 @@ class HealthCheckController:
             "timestamp": result.timestamp.isoformat(),
         }
 
-    @http_get("/system", response={200: dict, 403: dict}, auth=CookieJWTAuth())
+    @http_get("/system", response={200: dict, 403: dict}, auth=JWTAuth())
     def system_health_check(self, request):
         """Staff-only host resource usage check."""
         if not _is_staff(request):

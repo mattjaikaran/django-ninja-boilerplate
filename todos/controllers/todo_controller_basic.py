@@ -15,7 +15,7 @@ from django.shortcuts import get_object_or_404
 from ninja_extra import api_controller, http_delete, http_get, http_post, http_put
 from ninja_extra.pagination import PageNumberPaginationExtra, paginate
 from ninja_extra.schemas import PaginatedResponseSchema
-from core.security.cookie_auth import CookieJWTAuth
+from ninja_jwt.authentication import JWTAuth
 
 from todos.models import Todo
 from todos.schemas import CreateTodoSchema, TodoSchema, UpdateTodoSchema
@@ -23,12 +23,7 @@ from todos.schemas import CreateTodoSchema, TodoSchema, UpdateTodoSchema
 logger = logging.getLogger(__name__)
 
 
-@api_controller(
-    "/todos-basic",
-    tags=["Todos — Basic (no decorators)"],
-    auth=CookieJWTAuth(),
-    use_unique_op_id=False,
-)
+@api_controller("/todos-basic", tags=["Todos — Basic (no decorators)"], auth=JWTAuth())
 class TodoControllerBasic:
     """Minimal todo controller with no custom decorators.
 

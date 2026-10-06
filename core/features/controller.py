@@ -16,7 +16,7 @@ from ninja_extra import (
 )
 from ninja_extra.pagination import PageNumberPaginationExtra, paginate
 from ninja_extra.schemas import PaginatedResponseSchema
-from core.security.cookie_auth import CookieJWTAuth
+from ninja_jwt.authentication import JWTAuth
 
 from api.decorators import log_api_call
 from api.permissions import IsAdminUser
@@ -237,7 +237,7 @@ class FeatureFlagAdminController:
 # =============================================================================
 
 
-@api_controller("/feature-flags", tags=["Feature Flags"], use_unique_op_id=False)
+@api_controller("/feature-flags", tags=["Feature Flags"])
 class FeatureFlagController:
     """Controller for checking feature flag status.
 
@@ -280,7 +280,7 @@ class FeatureFlagController:
             variant=variant,
         )
 
-    @http_get("/me", response={200: UserFlagsSchema}, auth=CookieJWTAuth())
+    @http_get("/me", response={200: UserFlagsSchema}, auth=JWTAuth())
     @log_api_call()
     def get_my_flags(self, request):
         """Get all feature flags for the authenticated user.

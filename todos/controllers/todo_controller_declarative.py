@@ -15,7 +15,7 @@ from django.db.models import Q
 from ninja_extra import api_controller, http_delete, http_get, http_post, http_put
 from ninja_extra.pagination import PageNumberPaginationExtra, paginate
 from ninja_extra.schemas import PaginatedResponseSchema
-from core.security.cookie_auth import CookieJWTAuth
+from ninja_jwt.authentication import JWTAuth
 
 from todos.models import Todo
 from todos.schemas import CreateTodoSchema, TodoSchema, UpdateTodoSchema
@@ -35,10 +35,7 @@ VALID_ORDERINGS = [
 
 
 @api_controller(
-    "/todos-declarative",
-    tags=["Todos — Declarative (try/except)"],
-    auth=CookieJWTAuth(),
-    use_unique_op_id=False,
+    "/todos-declarative", tags=["Todos — Declarative (try/except)"], auth=JWTAuth()
 )
 class TodoControllerDeclarative:
     """Todo controller using explicit try/except blocks instead of decorators.

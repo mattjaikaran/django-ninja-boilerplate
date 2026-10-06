@@ -13,7 +13,7 @@ from celery import current_app
 from ninja import Query
 from ninja_extra import api_controller, http_delete, http_get, http_post, http_put
 from ninja_extra.throttling import DynamicRateThrottle
-from core.security.cookie_auth import CookieJWTAuth
+from ninja_jwt.authentication import JWTAuth
 
 from api.decorators import log_api_call
 from api.permissions import IsAdminUser
@@ -51,7 +51,6 @@ logger = logging.getLogger(__name__)
     auth=JWTAuth(),
     permissions=[IsAdminUser],
     throttle=DynamicRateThrottle(scope="tasks"),
-    use_unique_op_id=False,
 )
 class TaskController:
     """Controller for task status and monitoring endpoints."""
@@ -172,10 +171,9 @@ class TaskController:
 @api_controller(
     "/tasks/scheduler",
     tags=["Task Scheduler"],
-    auth=CookieJWTAuth(),
+    auth=JWTAuth(),
     permissions=[IsAdminUser],
     throttle=DynamicRateThrottle(scope="tasks"),
-    use_unique_op_id=False,
 )
 class TaskSchedulerController:
     """Controller for periodic task management endpoints."""
@@ -328,10 +326,9 @@ class TaskSchedulerController:
 @api_controller(
     "/tasks/dlq",
     tags=["Dead Letter Queue"],
-    auth=CookieJWTAuth(),
+    auth=JWTAuth(),
     permissions=[IsAdminUser],
     throttle=DynamicRateThrottle(scope="tasks"),
-    use_unique_op_id=False,
 )
 class DeadLetterQueueController:
     """Controller for dead letter queue operations."""

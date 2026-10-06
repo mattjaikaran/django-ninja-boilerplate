@@ -22,7 +22,7 @@ from django.shortcuts import get_object_or_404
 from ninja_extra import api_controller, http_delete, http_get, http_post, http_put
 from ninja_extra.pagination import PageNumberPaginationExtra, paginate
 from ninja_extra.schemas import PaginatedResponseSchema
-from core.security.cookie_auth import CookieJWTAuth
+from ninja_jwt.authentication import JWTAuth
 
 from api.decorators import log_api_call
 from api.permissions import IsAdminUser, IsSuperUser
@@ -39,13 +39,7 @@ logger = logging.getLogger(__name__)
 
 # the tag customizes Swagger or else it will be default lowercase
 # ie - users
-@api_controller(
-    "/users",
-    tags=["Users"],
-    auth=CookieJWTAuth(),
-    permissions=[IsAdminUser],
-    use_unique_op_id=False,
-)
+@api_controller("/users", tags=["Users"], auth=JWTAuth(), permissions=[IsAdminUser])
 class UserController:
     """HTTP controller for admin-level user management.
 
@@ -57,7 +51,6 @@ class UserController:
     @http_post(
         "/superuser",
         response={201: UserSchema, 400: dict, 500: dict},
-        by_alias=True,
         permissions=[IsSuperUser],
     )
     @log_api_call(include_payload=True)
@@ -94,9 +87,7 @@ class UserController:
         )
         return 201, UserSchema.model_validate(user)
 
-    @http_get(
-        "/staff", response={200: PaginatedResponseSchema[UserSchema]}, by_alias=True
-    )
+    @http_get("/staff", response={200: PaginatedResponseSchema[UserSchema]})
     @log_api_call()
     @paginate(PageNumberPaginationExtra)
     def list_staff_users(self):
@@ -108,9 +99,7 @@ class UserController:
         """
         return User.objects.filter(is_staff=True).order_by("-date_joined")
 
-    @http_get(
-        "/active", response={200: PaginatedResponseSchema[UserSchema]}, by_alias=True
-    )
+    @http_get("/active", response={200: PaginatedResponseSchema[UserSchema]})
     @log_api_call()
     @paginate(PageNumberPaginationExtra)
     def list_active_users(self):
@@ -122,7 +111,7 @@ class UserController:
         """
         return User.objects.filter(is_active=True).order_by("-last_login")
 
-    @http_get("/{user_id}", response={200: UserSchema, 404: dict}, by_alias=True)
+    @http_get("/{user_id}", response={200: UserSchema, 404: dict})
     @log_api_call()
     def get_user(self, user_id: UUID):
         """Retrieve a single user by UUID.
@@ -137,7 +126,7 @@ class UserController:
         user = get_object_or_404(User, id=user_id)
         return 200, UserSchema.model_validate(user)
 
-    @http_get("/", response={200: PaginatedResponseSchema[UserSchema]}, by_alias=True)
+    @http_get("/", response={200: PaginatedResponseSchema[UserSchema]})
     @log_api_call()
     @paginate(PageNumberPaginationExtra)
     def list_users(

@@ -27,7 +27,7 @@ def auth_headers(user):
 
     refresh = RefreshToken.for_user(user)
     access_token = refresh.access_token
-    return {"HTTP_COOKIE": f"access_token={access_token}"}
+    return {"HTTP_AUTHORIZATION": f"Bearer {access_token}"}
 
 
 @pytest.mark.django_db

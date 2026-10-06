@@ -70,7 +70,7 @@ class TestUserAPI:
 
         refresh = RefreshToken.for_user(user_with_password)
         access_token = refresh.access_token
-        return {"HTTP_COOKIE": f"access_token={access_token}"}
+        return {"HTTP_AUTHORIZATION": f"Bearer {access_token}"}
 
     def test_signup(self, api_client):
         user_data = {

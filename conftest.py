@@ -104,11 +104,11 @@ class APITestClient:
         self._headers: dict = {}
 
     def authenticate(self, user):
-        """Set the access cookie for the given user."""
+        """Set JWT auth headers for the given user."""
         from ninja_jwt.tokens import RefreshToken
 
         refresh = RefreshToken.for_user(user)
-        self.client.cookies["access_token"] = str(refresh.access_token)
+        self._headers["HTTP_AUTHORIZATION"] = f"Bearer {refresh.access_token}"
         return self
 
     def _url(self, path: str) -> str:
@@ -229,7 +229,7 @@ def auth_headers(user):
     from ninja_jwt.tokens import RefreshToken
 
     refresh = RefreshToken.for_user(user)
-    return {"HTTP_COOKIE": f"access_token={refresh.access_token}"}
+    return {"HTTP_AUTHORIZATION": f"Bearer {refresh.access_token}"}
 
 
 @pytest.fixture
@@ -253,7 +253,7 @@ def authenticated_ninja_client(ninja_client, user):
     from ninja_jwt.tokens import RefreshToken
 
     refresh = RefreshToken.for_user(user)
-    ninja_client.headers = {"Cookie": f"access_token={refresh.access_token}"}
+    ninja_client.headers = {"Authorization": f"Bearer {refresh.access_token}"}
     return ninja_client, user
 
 

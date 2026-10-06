@@ -10,6 +10,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Upgrading a platform from 1.12.0? Follow [UPGRADING.md](UPGRADING.md): several
 changes refuse to start the app until you set new configuration.
 
+This release supersedes the cookie-only auth change in commit `619422e`
+("switch application auth to cookies"). Browsers authenticate with httpOnly
+cookies and CSRF as described in `docs/COOKIE_AUTH.md`, and the bearer routes
+`/api/token/pair`, `/api/token/refresh` and `/api/token/verify` stay, now
+throttled. Local frontend origins on ports 3000 and 5173 are trusted in
+development.
+
 ### Added
 - **Generated `.env` secrets** (`scripts/env_secrets.py`, `docs/ENV_SECRETS.md`): `dnm init`, `dnm setup`, `just setup-env`, `scripts/setup.sh` and `scripts/quickstart.sh` write `.env` with mode 0600 and generate `SECRET_KEY`, a distinct `NINJA_JWT_SIGNING_KEY`, the Centrifugo token secret, API key and admin password/secret, `DJANGO_MCP_AUTH_TOKEN`, and the DB, Valkey, Flower, Neo4j and superuser passwords. They never replace an existing `.env`, never print a value, and add `.env` to `.gitignore` when no entry covers it. `just setup-env` on an existing `.env`, `just setup-services` and `generate_secret_key.sh --update-env` fill only missing, empty or placeholder values, and keep a placeholder `DB_PASSWORD` or `NEO4J_PASSWORD` because the data volume stores it; `scripts/doctor.sh` names weak secrets. `scripts/generate_realtime_secret.sh` is removed. `quickstart.sh` no longer writes or prints the `admin123` superuser password, and `setup.sh --auto` no longer prints `SUPERUSER_PASSWORD`. A `dnm init` monorepo's root `.env` reuses the backend's generated `DB_PASSWORD`.
 - **`TASK_BACKEND=none`**: runs no task worker. Direct task calls still run in process; `.delay()` and retry dispatch raise `TaskDispatchDisabled` instead of queueing a job that nothing consumes. `just dev` starts only the `dev` profile in this mode.
@@ -47,9 +54,8 @@ changes refuse to start the app until you set new configuration.
 - Production images install the project with `uv sync --locked --no-dev --no-editable` instead of an editable `uv pip install -e .`.
 
 ### Fixed
-- Return 401, not 500, for malformed, expired, or revoked refresh cookies.
-- Export stable operation IDs without random controller UUID suffixes so the
-  generated frontend contract is deterministic.
+- Return 401, not 500, for a malformed, expired or revoked refresh cookie.
+- Export stable operationIds without ninja-extra's random suffix, so the generated frontend contract is deterministic.
 - Exempt only the public health, liveness, and readiness routes from TLS redirects. Keep Host validation and redirects for admin and staff detail routes.
 - `SENTRY_DSN` set without `sentry-sdk` installed crashed startup with `ImproperlyConfigured`. It now logs an error and the app runs without error reporting.
 - `billing`: `Plan.stripe_price_id` and `Subscription.stripe_subscription_id` were `unique=True` with an empty default, so a second free plan or a second incomplete subscription raised `IntegrityError`. Uniqueness now applies only to non-empty values (migration `0003`).

@@ -2,7 +2,7 @@ import logging
 
 from django.http import HttpRequest
 from ninja_extra import api_controller, http_get, http_post
-from core.security.cookie_auth import CookieJWTAuth
+from ninja_jwt.authentication import JWTAuth
 
 from billing.schemas import (
     CheckoutSessionResponseSchema,
@@ -18,9 +18,7 @@ from billing.webhooks import handle_stripe_webhook
 logger = logging.getLogger(__name__)
 
 
-@api_controller(
-    "/billing", tags=["Billing"], auth=CookieJWTAuth(), use_unique_op_id=False
-)
+@api_controller("/billing", tags=["Billing"], auth=JWTAuth())
 class BillingController:
     def __init__(self):
         self.service = BillingService()
@@ -62,7 +60,7 @@ class BillingController:
         return 200, CustomerPortalResponseSchema(portal_url=result["portal_url"])
 
 
-@api_controller("/billing/webhooks", tags=["Billing"], use_unique_op_id=False)
+@api_controller("/billing/webhooks", tags=["Billing"])
 class StripeWebhookController:
     @http_post("/stripe", response={200: dict, 400: dict}, auth=None)
     def stripe_webhook(self, request: HttpRequest):

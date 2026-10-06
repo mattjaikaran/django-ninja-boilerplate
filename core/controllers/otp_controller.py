@@ -92,11 +92,7 @@ class OTPController:
             expires_in_seconds=expires_in,
         )
 
-    @http_post(
-        "/verify",
-        response={200: OTPVerifyResponseSchema, 400: dict, 401: dict},
-        by_alias=True,
-    )
+    @http_post("/verify", response={200: OTPVerifyResponseSchema, 400: dict, 401: dict})
     @log_api_call(include_payload=True)
     def verify_otp(self, request, response: HttpResponse, payload: OTPVerifySchema):
         """Verify a 6-digit OTP code.
@@ -139,9 +135,7 @@ class OTPController:
         )
 
     @http_post(
-        "/verify-token",
-        response={200: OTPVerifyResponseSchema, 400: dict, 401: dict},
-        by_alias=True,
+        "/verify-token", response={200: OTPVerifyResponseSchema, 400: dict, 401: dict}
     )
     @log_api_call(include_payload=True)
     def verify_token(
@@ -267,7 +261,7 @@ class OTPController:
     @http_post(
         "/2fa/request",
         response={200: OTPResponseSchema, 400: dict, 401: dict, 429: dict},
-        auth=CookieJWTAuth(),
+        auth=JWTAuth(),
     )
     @log_api_call()
     def request_two_factor(self, request, payload: TwoFactorSetupSchema):
@@ -297,7 +291,7 @@ class OTPController:
     @http_post(
         "/2fa/verify",
         response={200: MessageResponse, 400: dict, 401: dict},
-        auth=CookieJWTAuth(),
+        auth=JWTAuth(),
     )
     @log_api_call(include_payload=True)
     def verify_two_factor(self, request, payload: TwoFactorVerifySchema):

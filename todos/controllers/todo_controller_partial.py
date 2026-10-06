@@ -15,7 +15,7 @@ from django.shortcuts import get_object_or_404
 from ninja_extra import api_controller, http_delete, http_get, http_post, http_put
 from ninja_extra.pagination import PageNumberPaginationExtra, paginate
 from ninja_extra.schemas import PaginatedResponseSchema
-from core.security.cookie_auth import CookieJWTAuth
+from ninja_jwt.authentication import JWTAuth
 
 from api.decorators import log_api_call
 from todos.models import Todo
@@ -27,8 +27,7 @@ logger = logging.getLogger(__name__)
 @api_controller(
     "/todos-partial",
     tags=["Todos — Partial (selective decorators)"],
-    auth=CookieJWTAuth(),
-    use_unique_op_id=False,
+    auth=JWTAuth(),
 )
 class TodoControllerPartial:
     """Todo controller demonstrating selective decorator usage.

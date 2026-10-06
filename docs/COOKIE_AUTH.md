@@ -189,3 +189,6 @@ the same site. `localhost:3000` and `localhost:8000` are the same site;
 (for example Vite `server.proxy` for `/api`) so the browser sees one origin.
 Keep `FRONTEND_URL` equal to the origin in the browser address bar, because
 Django checks the `Origin` header against `CSRF_TRUSTED_ORIGINS`.
+The development settings default `CORS_ALLOWED_ORIGINS` and
+`CSRF_TRUSTED_ORIGINS` to `FRONTEND_URL` plus the `localhost` and `127.0.0.1`
+origins on ports 3000 and 5173 (Vite). A value in `.env` replaces the default.

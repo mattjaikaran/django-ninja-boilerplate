@@ -15,7 +15,7 @@ SECRET = "test-realtime-secret"
 def _post(client, path, data, user=None):
     headers = {}
     if user is not None:
-        client.cookies["access_token"] = str(AccessToken.for_user(user))
+        headers["HTTP_AUTHORIZATION"] = f"Bearer {AccessToken.for_user(user)}"
     return client.post(
         path, json.dumps(data), content_type="application/json", **headers
     )

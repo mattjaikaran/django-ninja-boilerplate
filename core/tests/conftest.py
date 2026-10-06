@@ -12,4 +12,4 @@ def auth_token(test_user):
 @pytest.fixture
 def auth_headers(auth_token):
     """Get headers with JWT token"""
-    return {"HTTP_COOKIE": f"access_token={auth_token}"}
+    return {"HTTP_AUTHORIZATION": f"Bearer {auth_token}"}

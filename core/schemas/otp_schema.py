@@ -91,7 +91,7 @@ class OTPResponseSchema(CamelCaseSchema):
 
 
 class OTPVerifyResponseSchema(CamelCaseSchema):
-    """OTP verification result; authentication is carried only by cookies."""
+    """Schema for OTP verification response with tokens."""
 
     success: bool
     message: str

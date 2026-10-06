@@ -54,11 +54,7 @@ logger = logging.getLogger(__name__)
 SIGNUP_ACCEPTED_MESSAGE = "Check your email to finish signing up."
 
 
-class CSRFResponseSchema(CamelCaseSchema):
-    csrfToken: str
-
-
-@api_controller("/auth", tags=["Auth"], auth=CookieJWTAuth(), use_unique_op_id=False)
+@api_controller("/auth", tags=["Auth"], auth=JWTAuth())
 class AuthController:
     """HTTP controller for authentication.
 
@@ -67,14 +63,12 @@ class AuthController:
     passwordless magic-link login. Login endpoints also set the httpOnly auth
     cookies; CSRF, refresh, and logout live in ``SessionController``.
 
-    Public endpoints use Django CSRF protection for unsafe requests.
+    Public endpoints (no JWT required):
         POST /auth/signup                      — create a new account
         POST /auth/login                       — email + password login
         POST /auth/login/username              — username + password login (legacy)
         POST /auth/passwordless/login/request  — request a magic link
         POST /auth/passwordless/login/verify   — verify a magic link token
-        GET  /auth/csrf                        — bootstrap Django CSRF
-        POST /auth/logout                      — revoke cookie session
 
     Protected endpoints (JWT required):
         GET  /auth/me                          — current user profile
@@ -252,7 +246,7 @@ class AuthController:
             token=access, refresh=refresh, user=UserSchema.model_validate(user)
         )
 
-    @http_get("/me", response={200: UserSchema, 401: dict}, by_alias=True)
+    @http_get("/me", response={200: UserSchema, 401: dict})
     @log_api_call()
     def get_current_user(self, request):
         """Retrieve the currently authenticated user's profile.

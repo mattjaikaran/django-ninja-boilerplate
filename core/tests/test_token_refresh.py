@@ -30,8 +30,10 @@ from core.tests.factories import UserFactory
 pytestmark = pytest.mark.django_db
 
 
-def csrf_headers(client):
-    return {"HTTP_X_CSRFTOKEN": client.get("/api/auth/csrf").json()["csrfToken"]}
+def tokens_for(user) -> dict:
+    """Issue an access/refresh pair for *user* (what a real login returns)."""
+    refresh = RefreshToken.for_user(user)
+    return {"token": str(refresh.access_token), "refresh": str(refresh)}
 
 
 def _age_blacklist_past_grace() -> None:
@@ -54,62 +56,39 @@ def refresh(client: Client, refresh_token: str):
     )
 
 
-@pytest.mark.django_db
-class TestCookieAuthentication:
+def logout(client: Client, access: str, refresh_token: str):
+    """POST /api/auth/logout with the refresh token and access auth."""
+    return client.post(
+        "/api/auth/logout",
+        json.dumps({"refresh": refresh_token}),
+        content_type="application/json",
+        HTTP_AUTHORIZATION=f"Bearer {access}",
+    )
+
+
+class TestLoginRefreshFlow:
     @pytest.mark.parametrize(
         ("path", "field"),
         [("/api/auth/login", "email"), ("/api/auth/login/username", "username")],
     )
-    def test_login_rotation_logout(self, path, field):
-        client = Client(enforce_csrf_checks=True)
+    def test_login_tokens_rotate_and_logout(self, client, path, field):
         user = UserFactory(set_password="testpass123")
         response = client.post(
             path,
             json.dumps({field: getattr(user, field), "password": "testpass123"}),
             content_type="application/json",
-            **csrf_headers(client),
         )
         assert response.status_code == 200, response.content
-        assert response.json()["id"] == str(user.id)
-        assert not {"token", "access", "refresh"} & response.json().keys()
-        assert response.cookies["access_token"]["httponly"]
-        assert response.cookies["access_token"]["path"] == "/api/"
-        assert response.cookies["refresh_token"]["path"] == "/api/auth/"
-        assert response.cookies["refresh_token"]["samesite"] == "Lax"
-        assert client.get("/api/auth/me").status_code == 200
-        old = client.cookies["refresh_token"].value
-        rotated = refresh(client)
+        tokens = response.json()
+        rotated = refresh(client, tokens["refresh"])
         assert rotated.status_code == 200
-        new = client.cookies["refresh_token"].value
-        assert new != old
-        assert refresh(client, old).status_code == 401
-        client.cookies["refresh_token"] = new
-        logout = client.post("/api/auth/logout", **csrf_headers(client))
-        assert logout.status_code == 200
-        assert logout.cookies["access_token"]["max-age"] == 0
-        assert logout.cookies["refresh_token"]["max-age"] == 0
-        assert refresh(client, new).status_code == 401
-
-    @pytest.mark.parametrize(
-        "path", ["/api/auth/login", "/api/auth/refresh", "/api/auth/logout"]
-    )
-    def test_public_unsafe_auth_requires_csrf(self, path):
-        client = Client(enforce_csrf_checks=True)
+        assert refresh(client, tokens["refresh"]).status_code == 401
         assert (
-            client.post(path, "{}", content_type="application/json").status_code == 403
+            logout(client, tokens["token"], rotated.json()["refresh"]).status_code
+            == 200
         )
+        assert refresh(client, rotated.json()["refresh"]).status_code == 401
 
-    def test_authenticated_mutations_require_csrf(self):
-        client = Client(enforce_csrf_checks=True)
-        client.cookies["access_token"] = str(
-            RefreshToken.for_user(UserFactory()).access_token
-        )
-        assert (
-            client.post(
-                "/api/todos/", '{"title":"test"}', content_type="application/json"
-            ).status_code
-            == 403
-        )
 
 class TestRefreshRotation:
     def test_refresh_rotates_and_new_token_keeps_working(self, client):
@@ -229,14 +208,12 @@ class TestLogoutRevocation:
         # The blacklisted refresh token can no longer mint access tokens.
         assert refresh(client, token).status_code == 401
 
-    @pytest.mark.parametrize("token", ["invalid", ""])
-    def test_malformed_refresh_is_unauthorized(self, token):
-        client = Client(enforce_csrf_checks=True)
-        assert refresh(client, token).status_code == 401
+    def test_access_token_remains_valid_after_logout(self, client):
+        user = UserFactory()
+        tokens = tokens_for(user)
+        access, token = tokens["token"], tokens["refresh"]
 
-    def test_production_cookies_are_secure(self, settings):
-        from django.http import HttpResponse
-        from core.security.cookie_auth import set_auth_cookies
+        assert logout(client, access, token).status_code == 200
 
         response = client.get("/api/auth/me", HTTP_AUTHORIZATION=f"Bearer {access}")
         assert response.status_code == 200
