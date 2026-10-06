@@ -124,7 +124,7 @@ wheels = [
 
 [[package]]
 name = "django-ninja-matt"
-version = "1.2.0"
+version = "1.13.0"
 source = { editable = "." }
 dependencies = [
     { name = "gitpython" },

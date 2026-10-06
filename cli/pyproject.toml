@@ -1,6 +1,6 @@
 [project]
 name = "django-ninja-matt"
-version = "1.2.0"
+version = "1.13.0"
 description = "CLI tool for scaffolding Django Ninja Boilerplate projects"
 authors = [{ name = "Matt Jaikaran", email = "info@mattjaikaran.com" }]
 readme = "README.md"

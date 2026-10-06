@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.13.0] - 2026-10-06
+
 Upgrading a platform from 1.12.0? Follow [UPGRADING.md](UPGRADING.md): several
 changes refuse to start the app until you set new configuration.
 
@@ -657,6 +659,7 @@ development.
 
 | Version | Date | Description |
 |---------|------|-------------|
+| 1.13.0 | 2026-10-06 | Cookie auth, camelCase API, psycopg3/ASGI, generated secrets, AI layer |
 | 1.10.0 | 2026-08-12 | Deploy notification, dependency gate, commit-msg style checks |
 | 1.9.0 | 2026-07-31 | Convention enforcement, cross-stack checker, four-layer AI defense |
 | 1.8.0 | 2026-07-24 | The Gauntlet, constraint tools, mutation testing, architecture enforcement |
@@ -673,7 +676,8 @@ development.
 | 0.7.0 | 2026-01-20 | JWT auth, UV, Docker dev environment |
 | 0.6.0 | 2026-01-15 | Initial release |
 
-[Unreleased]: https://github.com/mattjaikaran/django-ninja-boilerplate/compare/v1.12.0...HEAD
+[Unreleased]: https://github.com/mattjaikaran/django-ninja-boilerplate/compare/v1.13.0...HEAD
+[1.13.0]: https://github.com/mattjaikaran/django-ninja-boilerplate/compare/v1.12.0...v1.13.0
 [1.12.0]: https://github.com/mattjaikaran/django-ninja-boilerplate/compare/v1.11.0...v1.12.0
 [1.11.0]: https://github.com/mattjaikaran/django-ninja-boilerplate/compare/v1.10.0...v1.11.0
 [1.10.0]: https://github.com/mattjaikaran/django-ninja-boilerplate/compare/v1.9.0...v1.10.0

@@ -2,8 +2,8 @@ apiVersion: v2
 name: django-ninja-stack
 description: A Helm chart for Django Ninja Boilerplate applications
 type: application
-version: 0.9.0
-appVersion: "0.9.0"
+version: 1.13.0
+appVersion: "1.13.0"
 
 keywords:
   - django
