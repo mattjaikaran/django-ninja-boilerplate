@@ -126,7 +126,7 @@ repos:
         entry: uv run --extra dev mypy
         language: system
         types_or: [python, pyi]
-        exclude: (^|/)(migrations|tests)/|^cli/
+        exclude: (^|/)(migrations|tests)/|^cli/|(^|/)conftest\.py$
         require_serial: true
 
   # ===========================================
