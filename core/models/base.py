@@ -137,6 +137,8 @@ class SoftDeleteBaseModel(AuditBaseModel):
         help_text="User who deleted this record",
     )
 
+    # default=dict: an empty value is {}, never NULL.
+    # nosemgrep: python.django.correctness.nontext-field-must-set-null-true
     metadata = models.JSONField(
         default=dict,
         blank=True,

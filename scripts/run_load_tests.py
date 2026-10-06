@@ -114,6 +114,8 @@ def run_locust(
     print("=" * 60)
     print()
 
+    # Argument list, no shell; options come from the local operator.
+    # nosemgrep: python.lang.security.audit.dangerous-subprocess-use-audit
     result = subprocess.run(cmd, check=False)
     return result.returncode
 

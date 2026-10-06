@@ -13,6 +13,8 @@ Checks:
   9. PIP_USAGE         — no pip install in code/docs
  10. MOCKED_ORM        — no mocker.patch on ORM in tests
  11. CONTROLLER_REG    — controllers registered in api/urls.py
+ 12. SCHEMA_ANY        — no Any / bare dict / Json schema field without
+                         an inline "# schema-ok: <reason>"
 
 Usage:
     python scripts/check_conventions.py              # check all
@@ -42,6 +44,7 @@ EXCLUDE_DIRS = {
     "env",
     "node_modules",
     ".git",
+    ".cache",
     "__pycache__",
     "migrations",
     ".mypy_cache",
@@ -117,6 +120,10 @@ HTTP_METHOD_DECORATORS = {
 # Directories whose __init__.py should export public classes.
 EXPORT_DIRS = {"models", "schemas", "services", "controllers", "factories"}
 
+# Schema field annotations that reach OpenAPI (and generated Zod) untyped.
+UNTYPED_ANNOTATION = re.compile(r"\bAny\b|\bdict\b(?!\[)|\bJson(?:Value)?\b|JSONField")
+SCHEMA_OK_MARKER = re.compile(r"#\s*schema-ok:\s*\S")
+
 
 @dataclass
 class Violation:
@@ -137,7 +144,9 @@ class ConventionChecker:
             return self._python_files
         files: list[Path] = []
         for path in PROJECT_ROOT.rglob("*.py"):
-            if any(part in EXCLUDE_DIRS for part in path.parts):
+            if any(
+                part in EXCLUDE_DIRS or part.startswith(".venv") for part in path.parts
+            ):
                 continue
             files.append(path)
         self._python_files = files
@@ -519,6 +528,36 @@ class ConventionChecker:
                             f"{node.name} not registered in api/urls.py",
                         )
 
+    def check_schema_any(self) -> Iterator[Violation]:
+        """Schema fields typed Any, bare dict, or Json need a # schema-ok: reason."""
+        for fpath in self.collect_files():
+            if "schemas" not in fpath.parts and fpath.name != "schemas.py":
+                continue
+            text = fpath.read_text()
+            try:
+                tree = ast.parse(text)
+            except SyntaxError:
+                continue
+            lines = text.splitlines()
+            for node in ast.walk(tree):
+                if not isinstance(node, ast.ClassDef):
+                    continue
+                for stmt in node.body:
+                    if not isinstance(stmt, ast.AnnAssign):
+                        continue
+                    annotation = ast.get_source_segment(text, stmt.annotation) or ""
+                    if not UNTYPED_ANNOTATION.search(annotation):
+                        continue
+                    if SCHEMA_OK_MARKER.search(lines[stmt.lineno - 1]):
+                        continue
+                    yield Violation(
+                        "SCHEMA_ANY",
+                        str(fpath.relative_to(PROJECT_ROOT)),
+                        stmt.lineno,
+                        f"{node.name}: '{annotation}' reaches OpenAPI untyped — "
+                        "use a real type or add '# schema-ok: <reason>'",
+                    )
+
     # ── Orchestration ────────────────────────────────────────────────────
 
     def run_all(self) -> int:
@@ -574,6 +613,7 @@ ConventionChecker.CHECKS = {  # type: ignore[attr-defined]
     "PIP_USAGE": ConventionChecker.check_pip_usage,
     "MOCKED_ORM": ConventionChecker.check_mocked_orm,
     "CONTROLLER_REG": ConventionChecker.check_controller_registration,
+    "SCHEMA_ANY": ConventionChecker.check_schema_any,
 }
 
 

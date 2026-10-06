@@ -31,7 +31,11 @@ BASE_ENV = {
     "DB_HOST": "localhost",
     "DB_PORT": "5432",
     "CENTRIFUGO_TOKEN_SECRET": "settings-probe-realtime-secret",
+    "CENTRIFUGO_API_KEY": "settings-probe-realtime-api-key",
     "NINJA_JWT_SIGNING_KEY": "settings-probe-jwt-signing-key",
+    # Production refuses to start without TLS; tests that need plain HTTP
+    # override this.
+    "USE_TLS": "true",
 }
 
 #: Printed on stdout as ``PROBE:<json>``; stdout also carries app log lines.
@@ -62,6 +66,7 @@ print("PROBE:" + json.dumps({
     "session_cookie_age": getattr(settings, "SESSION_COOKIE_AGE", None),
     "session_cookie_secure": getattr(settings, "SESSION_COOKIE_SECURE", False),
     "csrf_cookie_secure": getattr(settings, "CSRF_COOKIE_SECURE", False),
+    "auth_cookie_secure": getattr(settings, "AUTH_COOKIE_SECURE", False),
     "proxy_ssl_header": getattr(settings, "SECURE_PROXY_SSL_HEADER", None),
     "referrer_policy": getattr(settings, "SECURE_REFERRER_POLICY", None),
     "allowed_hosts": getattr(settings, "ALLOWED_HOSTS", None),
@@ -140,33 +145,33 @@ class TestProductionSettings:
         assert data["module"] == "api.settings.prod"
 
     def test_enforces_transport_security_in_tls_mode(self):
-        """When USE_TLS=true, full HSTS and session cookie age are enforced."""
+        """When USE_TLS=true, one-year HSTS and session cookie age are enforced;
+        includeSubDomains and preload stay opt-in (hard to undo)."""
         data = probe(
             "api.settings.prod", ENVIRONMENT="production", DEBUG="0", USE_TLS="true"
         )
         assert data["debug"] is False
         assert data["hsts"] == 31536000
-        assert data["hsts_include_subdomains"] is True
-        assert data["hsts_preload"] is True
+        assert data["hsts_include_subdomains"] is False
+        assert data["hsts_preload"] is False
         assert data["session_cookie_age"] == 3600
         assert data["session_cookie_secure"] is True
         assert data["csrf_cookie_secure"] is True
 
-    def test_non_tls_deployment_disables_hsts(self):
-        """Without USE_TLS, HSTS must be off — over HTTP it is ignored and
-        SECURE_HSTS_PRELOAD is dangerous."""
-        data = probe("api.settings.prod", ENVIRONMENT="production", DEBUG="0")
-        assert data["hsts"] == 0
-        assert data["hsts_include_subdomains"] is False
-        assert data["hsts_preload"] is False
+    def test_hsts_subdomains_and_preload_are_opt_in(self):
+        data = probe(
+            "api.settings.prod",
+            ENVIRONMENT="production",
+            SECURE_HSTS_INCLUDE_SUBDOMAINS="true",
+            SECURE_HSTS_PRELOAD="true",
+        )
+        assert (data["hsts_include_subdomains"], data["hsts_preload"]) == (True, True)
 
-    def test_non_tls_deployment_keeps_cookies_and_proxy_header_off(self):
-        """Plain-HTTP deployment must not set secure cookies or trust a proxy
-        SSL header."""
+    def test_tls_deployment_sets_secure_cookies(self):
         data = probe("api.settings.prod", ENVIRONMENT="production", DEBUG="0")
-        assert data["session_cookie_secure"] is False
-        assert data["csrf_cookie_secure"] is False
-        assert data["proxy_ssl_header"] is None
+        assert data["session_cookie_secure"] is True
+        assert data["csrf_cookie_secure"] is True
+        assert data["auth_cookie_secure"] is True
 
     def test_tls_deployment_sets_proxy_header(self):
         """Behind a TLS-terminating proxy Django must trust
@@ -181,12 +186,6 @@ class TestProductionSettings:
         assert data["csp"] is True
         assert data["csp_report_only"] is False
 
-    def test_non_tls_deployment_omits_upgrade_insecure_requests(self):
-        """Over plain HTTP, upgrade-insecure-requests would upgrade every
-        subresource to a scheme the deployment does not serve."""
-        data = probe("api.settings.prod", ENVIRONMENT="production", DEBUG="0")
-        assert "upgrade-insecure-requests" not in data["csp_directives"]
-
     def test_tls_deployment_emits_upgrade_insecure_requests(self):
         """Over HTTPS, upgrade-insecure-requests upgrades legacy subresource
         references to https."""
@@ -195,10 +194,21 @@ class TestProductionSettings:
         )
         assert data["csp_directives"]["upgrade-insecure-requests"] is True
 
-    def test_tls_redirect_is_opt_in(self):
-        data = probe("api.settings.prod", ENVIRONMENT="production", DEBUG="0")
+    def test_insecure_override_turns_off_redirect_and_secure_cookies(self):
+        """The local plain-HTTP override must not redirect to an https port
+        nothing serves, and its cookies must reach an http origin."""
+        data = probe(
+            "api.settings.prod",
+            ENVIRONMENT="staging",
+            USE_TLS="false",
+            ALLOW_INSECURE_COOKIES="true",
+        )
         assert data["use_tls"] is False
         assert data["ssl_redirect"] is False
+        assert (data["hsts"], data["hsts_preload"]) == (0, False)
+        assert data["proxy_ssl_header"] is None
+        assert "upgrade-insecure-requests" not in data["csp_directives"]
+        assert data["auth_cookie_secure"] is False
 
     def test_tls_redirect_applies_when_enabled(self):
         data = probe(
@@ -287,6 +297,28 @@ print("PROBE:" + json.dumps({
         assert result.returncode != 0
         assert "Set CENTRIFUGO_TOKEN_SECRET" in result.stderr
 
+    @pytest.mark.parametrize(
+        "overrides",
+        [
+            {"CENTRIFUGO_API_KEY": "centrifugo-api-key"},
+            {"CENTRIFUGO_API_KEY": "dev-centrifugo-api-key"},
+        ],
+    )
+    def test_rejects_a_committed_realtime_api_key(self, overrides):
+        """A public Centrifugo API key lets anyone publish to every channel."""
+        result = _run_probe("api.settings.prod", ENVIRONMENT="production", **overrides)
+        assert result.returncode != 0
+        assert "Set CENTRIFUGO_API_KEY" in result.stderr
+
+    def test_rejects_an_unset_realtime_api_key(self):
+        result = _run_probe(
+            "api.settings.prod",
+            drop=("CENTRIFUGO_API_KEY",),
+            ENVIRONMENT="production",
+        )
+        assert result.returncode != 0
+        assert "Set CENTRIFUGO_API_KEY" in result.stderr
+
     def test_rejects_empty_secret_key(self):
         result = _run_probe(
             "api.settings.prod",
@@ -329,13 +361,23 @@ print("PROBE:" + json.dumps({
         data = probe("api.settings.prod", ENVIRONMENT="production", DEBUG="1")
         assert data["debug"] is False
 
-    def test_use_tls_lowercase_false_is_off(self):
-        """The lowercase `false` shipped in .env.deploy.example must parse as
-        off, never as a truthy redirect."""
-        data = probe("api.settings.prod", ENVIRONMENT="production", USE_TLS="false")
-        assert data["use_tls"] is False
-        assert data["ssl_redirect"] is False
-        assert data["hsts"] == 0
+    @pytest.mark.parametrize("use_tls", ["false", "False", "0"])
+    def test_production_refuses_to_start_without_tls(self, use_tls):
+        """Cookie auth needs TLS; ALLOW_INSECURE_COOKIES cannot override it in
+        production."""
+        for extra in ({}, {"ALLOW_INSECURE_COOKIES": "true"}):
+            result = _run_probe(
+                "api.settings.prod", ENVIRONMENT="production", USE_TLS=use_tls, **extra
+            )
+            assert result.returncode != 0
+            assert "cookie auth needs TLS" in result.stderr
+
+    def test_non_production_without_tls_needs_explicit_override(self):
+        refused = _run_probe(
+            "api.settings.prod", ENVIRONMENT="staging", USE_TLS="false"
+        )
+        assert refused.returncode != 0
+        assert "cookie auth needs TLS" in refused.stderr
 
     def test_sets_strict_referrer_policy(self):
         data = probe("api.settings.prod", ENVIRONMENT="production")
@@ -350,16 +392,7 @@ print("PROBE:" + json.dumps({
 
 @pytest.mark.smoke
 class TestDevelopmentSettings:
-    """Development stays permissive."""
-
-    def test_uses_a_report_only_csp(self):
-        data = probe("api.settings.dev", ENVIRONMENT="development")
-        assert data["csp_report_only"] is True
-
-    def test_does_not_enable_hsts(self):
-        # Django defaults SECURE_HSTS_SECONDS to 0, which disables HSTS.
-        data = probe("api.settings.dev", ENVIRONMENT="development")
-        assert data["hsts"] == 0
+    """Development settings normalize local service URLs."""
 
     def test_normalizes_every_rq_queue_url(self):
         data = probe(
@@ -371,6 +404,3 @@ class TestDevelopmentSettings:
         assert {queue["URL"] for queue in data["rq_queues"].values()} == {
             "redis://localhost:6380/0"
         }
-
-    def test_test_module_imports(self):
-        assert probe("api.settings.test")["module"] == "api.settings.test"

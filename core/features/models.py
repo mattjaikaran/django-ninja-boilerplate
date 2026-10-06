@@ -76,12 +76,16 @@ class FeatureFlag(models.Model):
     )
 
     # User targeting
+    # JSONFields with default=dict/list in this model: an empty value is {}
+    # or [], never NULL, so null=True is not needed.
+    # nosemgrep: python.django.correctness.nontext-field-must-set-null-true
     user_ids = models.JSONField(
         default=list,
         blank=True,
         encoder=DjangoJSONEncoder,
         help_text="List of user IDs that have this flag enabled",
     )
+    # nosemgrep: python.django.correctness.nontext-field-must-set-null-true
     excluded_user_ids = models.JSONField(
         default=list,
         blank=True,
@@ -90,6 +94,7 @@ class FeatureFlag(models.Model):
     )
 
     # A/B Testing
+    # nosemgrep: python.django.correctness.nontext-field-must-set-null-true
     variants = models.JSONField(
         default=dict,
         blank=True,
@@ -104,6 +109,7 @@ class FeatureFlag(models.Model):
     )
 
     # Advanced conditions
+    # nosemgrep: python.django.correctness.nontext-field-must-set-null-true
     conditions = models.JSONField(
         default=dict,
         blank=True,
@@ -112,6 +118,7 @@ class FeatureFlag(models.Model):
     )
 
     # Environment settings
+    # nosemgrep: python.django.correctness.nontext-field-must-set-null-true
     environments = models.JSONField(
         default=list,
         blank=True,
@@ -132,12 +139,14 @@ class FeatureFlag(models.Model):
     )
 
     # Metadata and tracking
+    # nosemgrep: python.django.correctness.nontext-field-must-set-null-true
     metadata = models.JSONField(
         default=dict,
         blank=True,
         encoder=DjangoJSONEncoder,
         help_text="Additional metadata for this flag",
     )
+    # nosemgrep: python.django.correctness.nontext-field-must-set-null-true
     tags = models.JSONField(
         default=list,
         blank=True,

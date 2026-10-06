@@ -220,5 +220,7 @@ def flush_expired_tokens() -> dict[str, int]:
         logger.info("Flushed %d expired JWT tokens", deleted)
         return {"deleted": deleted}
     except Exception as e:
+        # Logs the exception, not a token value.
+        # nosemgrep: python.lang.security.audit.logging.python-logger-credential-disclosure
         logger.exception("JWT token flush failed: %s", e)
         raise

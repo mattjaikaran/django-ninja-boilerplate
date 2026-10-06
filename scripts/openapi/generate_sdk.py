@@ -999,6 +999,8 @@ build-backend = "hatchling.build"
         ]
 
         try:
+            # Argument list, no shell; paths come from the local operator.
+            # nosemgrep: python.lang.security.audit.dangerous-subprocess-use-audit
             subprocess.run(cmd, check=True, capture_output=True)
             print(f"Generated {language} SDK with openapi-generator: {output_path}")
             return output_path

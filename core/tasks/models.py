@@ -76,6 +76,9 @@ class TaskResult(models.Model):
         help_text="Current progress message",
     )
 
+    # JSONFields with default=dict/list in this module: an empty value is {}
+    # or [], never NULL, so null=True is not needed.
+    # nosemgrep: python.django.correctness.nontext-field-must-set-null-true
     args = models.JSONField(
         default=list,
         blank=True,
@@ -83,6 +86,7 @@ class TaskResult(models.Model):
         help_text="Task positional arguments",
     )
 
+    # nosemgrep: python.django.correctness.nontext-field-must-set-null-true
     kwargs = models.JSONField(
         default=dict,
         blank=True,
@@ -109,6 +113,7 @@ class TaskResult(models.Model):
         help_text="Full traceback if task failed",
     )
 
+    # nosemgrep: python.django.correctness.nontext-field-must-set-null-true
     meta = models.JSONField(
         default=dict,
         blank=True,
@@ -227,6 +232,7 @@ class DeadLetterQueueEntry(models.Model):
         help_text="Task name",
     )
 
+    # nosemgrep: python.django.correctness.nontext-field-must-set-null-true
     args = models.JSONField(
         default=list,
         blank=True,
@@ -234,6 +240,7 @@ class DeadLetterQueueEntry(models.Model):
         help_text="Task positional arguments",
     )
 
+    # nosemgrep: python.django.correctness.nontext-field-must-set-null-true
     kwargs = models.JSONField(
         default=dict,
         blank=True,

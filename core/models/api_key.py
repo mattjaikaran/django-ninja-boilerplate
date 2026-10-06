@@ -30,6 +30,8 @@ class APIKey(TimestampedModel):
         on_delete=models.CASCADE,
         related_name="api_keys",
     )
+    # default=list: an empty value is [], never NULL.
+    # nosemgrep: python.django.correctness.nontext-field-must-set-null-true
     scopes = models.JSONField(
         default=list,
         blank=True,

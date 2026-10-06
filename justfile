@@ -11,6 +11,17 @@ uv := "uv"
 django_service := "django"
 db_service := "db"
 
+# Image label version. Compose passes it to the Dockerfiles as a build arg.
+export APP_VERSION := trim(read("VERSION"))
+
+# Optional extras baked into the images, space-separated:
+# `UV_EXTRAS="sentry" just prod-build`, or UV_EXTRAS=sentry in .env. Not
+# exported here: an exported empty value would override .env. Compose and
+# `just trivy` pass it to the Dockerfiles as a build arg.
+
+# Extras the test suite imports: the task contract test loads every backend.
+test_extras := "--extra dev --extra huey --extra django-q --extra django-rq --extra dramatiq"
+
 # ---------------------------------------------------------------------------
 # Help
 # ---------------------------------------------------------------------------
@@ -37,9 +48,11 @@ backend-profile:
         django_q) echo django-q ;;
         django_rq) echo django-rq ;;
         dramatiq) echo dramatiq ;;
+        # No worker profile: the dev profile alone starts db, valkey, django.
+        none) echo dev ;;
         *)
             echo "Unknown TASK_BACKEND '${name}' in .env" >&2
-            echo "Expected one of: celery, huey, django_q, django_rq, dramatiq" >&2
+            echo "Expected one of: celery, huey, django_q, django_rq, dramatiq, none" >&2
             exit 1
             ;;
     esac
@@ -95,12 +108,13 @@ up-realtime:
 up-mail:
     just _stack --profile mail up -d --build
 
-# Start the dev stack with the MCP server (needs the `dev` extra)
-up-mcp:
+# Start the dev stack with the MCP server (needs the `dev` extra and
+# DJANGO_MCP_AUTH_TOKEN in .env)
+up-mcp: _mcp-token
     just _stack --profile mcp up -d --build
 
 # Start every dev service
-up-full:
+up-full: _mcp-token
     just _stack --profile monitoring --profile realtime --profile mail --profile mcp up -d --build
 
 # Stop every dev service
@@ -127,20 +141,35 @@ shell-plus:
 create-superuser:
     {{ dev }} exec {{ django_service }} {{ uv }} run python manage.py create_superuser
 
-# Install the pre-commit hooks (pre-commit and commit-msg)
+# Hooks come from .pre-commit-config.yaml and go into this clone only.
+# pre-commit refuses to install while core.hooksPath is set. When it only
+# names this clone's default .git/hooks, the recipe unsets that local entry
+# (same directory, no behavior change); any other hooks path stops the install.
+# Install the pre-commit, commit-msg and pre-push (gauntlet-quick) git hooks
 pre-commit-install:
-    {{ uv }} run pre-commit install
-    {{ uv }} run pre-commit install --hook-type commit-msg
+    #!/usr/bin/env bash
+    set -euo pipefail
+    hooks_path=$(git config --local core.hooksPath || true)
+    if [ -n "$hooks_path" ]; then
+        default=$(git rev-parse --absolute-git-dir)/hooks
+        if [ "$(cd "$hooks_path" 2>/dev/null && pwd -P)" != "$(cd "$default" && pwd -P)" ]; then
+            echo "core.hooksPath is $hooks_path, not this clone's .git/hooks; not installing." >&2
+            exit 1
+        fi
+        git config --local --unset core.hooksPath
+    fi
+    {{ uv }} run --extra dev pre-commit install
 
-# Create a .env file from the example
+# Create .env with generated secrets, or generate the unset ones in an
+# existing .env. Run it before the first `docker compose` call: Compose
+# refuses to start any profile while a required secret is unset.
 setup-env:
     #!/usr/bin/env bash
     set -euo pipefail
     if [ -f .env ]; then
-        echo ".env already exists; leaving it alone."
+        python3 scripts/env_secrets.py fill
     else
-        cp .env.example .env
-        echo "Created .env from .env.example."
+        python3 scripts/env_secrets.py create
     fi
 
 # Format code (alias for `fmt`)
@@ -150,9 +179,9 @@ format: fmt
 ty:
     {{ uv }} run ty check .
 
-# Alias for `test`
+# Run the whole suite without coverage (coverage runs in `just gauntlet`)
 test-all:
-    {{ uv }} run pytest
+    {{ uv }} run {{ test_extras }} pytest -q --no-cov
 
 # Run any target from the legacy Makefile, with its arguments:
 #   just legacy db-dump
@@ -168,13 +197,23 @@ targets:
 # Testing
 # ---------------------------------------------------------------------------
 
-# Run the test suite on SQLite (fast, no services)
-test:
-    {{ uv }} run pytest
+# A changed test file runs itself; a changed app file runs <app>/tests; with no
+# mapped change, every test runs. Pass paths to choose them yourself.
+# Fast loop: test the files changed since HEAD (no coverage, stop on failure)
+test *paths:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    targets="{{ paths }}"
+    if [ -z "$targets" ]; then
+        targets=$({{ uv }} run python scripts/changed_tests.py)
+        echo "Changed test targets: ${targets:-none, running the whole suite}"
+    fi
+    # shellcheck disable=SC2086 # targets is a space-separated path list
+    {{ uv }} run {{ test_extras }} pytest -x -q --no-cov $targets
 
 # Run the test suite with coverage
 test-coverage:
-    {{ uv }} run pytest --cov=core --cov=todos --cov-report=term-missing
+    {{ uv }} run {{ test_extras }} pytest --cov=core --cov=todos --cov-report=term-missing
 
 # Run the full suite against Postgres, then tear down.
 # Host ports are offset from the defaults so this works while a local
@@ -186,7 +225,20 @@ test-integration:
     valkey_port="${TEST_VALKEY_PORT:-6381}"
     trap 'POSTGRES_PORT=$pg_port VALKEY_PORT=$valkey_port {{ compose }} --profile test down' EXIT
     POSTGRES_PORT=$pg_port VALKEY_PORT=$valkey_port {{ compose }} --profile test up -d --wait {{ db_service }} valkey
-    DB_HOST=127.0.0.1 DB_PORT=$pg_port CI=1 {{ uv }} run pytest
+    DB_HOST=127.0.0.1 DB_PORT=$pg_port CI=1 {{ uv }} run {{ test_extras }} pytest
+
+# `uv run --with` layers Django 6.0 over the project environment in uv's cache,
+# so .venv stays on the locked Django 5.2. Not a gate: DEPENDENCIES.md lists
+# the Django 6 blockers. Set CI=1 to run on PostgreSQL instead of SQLite.
+# Run the suite on Django 6.0 (manual check only)
+test-django6 *args:
+    {{ uv }} run {{ test_extras }} --with "Django~=6.0.0" python -c "import django; print('Django', django.get_version())"
+    {{ uv }} run {{ test_extras }} --with "Django~=6.0.0" pytest -q --no-cov -p no:cacheprovider {{ args }}
+
+# Run the Postgres-only tests (core.ai owner scoping, concurrent refresh) on a
+# throwaway pgvector container. Also the AI-DB gauntlet gate; needs Docker.
+test-ai-db *args:
+    {{ uv }} run python scripts/test_ai_db.py {{ args }}
 
 # Re-run tests whenever a Python file changes (polls, needs no extra tools)
 test-watch:
@@ -196,7 +248,7 @@ test-watch:
     trap 'rm -f "$stamp"' EXIT
     touch "$stamp"
     while true; do
-        {{ uv }} run pytest -q || true
+        {{ uv }} run {{ test_extras }} pytest -x -q --no-cov || true
         while :; do
             sleep 2
             changed=$(find . -path ./.venv -prune -o -name '*.py' -newer "$stamp" -print -quit)
@@ -243,8 +295,19 @@ doctor:
 # MCP
 # ---------------------------------------------------------------------------
 
-# Start the django-ai-boost SSE server on port 8001
-mcp:
+# Fail early when .env has no DJANGO_MCP_AUTH_TOKEN of 32+ characters. The
+# container runs scripts/run_dev_mcp.py, which enforces the same rule.
+_mcp-token:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    token=$(grep -E '^DJANGO_MCP_AUTH_TOKEN=' .env 2>/dev/null | tail -1 | cut -d= -f2- || true)
+    if [ "${#token}" -lt 32 ]; then
+        echo "Set DJANGO_MCP_AUTH_TOKEN (32+ characters) in .env: openssl rand -hex 32" >&2
+        exit 1
+    fi
+
+# Start the django-ai-boost SSE server on 127.0.0.1:8001 (bearer token required)
+mcp: _mcp-token
     {{ dev }} up -d --build mcp
 
 # Follow MCP server logs
@@ -317,6 +380,15 @@ check-cross-stack:
 check-arch:
     {{ uv }} run python scripts/check_architecture.py --all
 
+# Export the OpenAPI contract to docs/openapi/openapi.json (sorted keys)
+openapi:
+    DJANGO_SETTINGS_MODULE=api.settings.test SECRET_KEY=openapi-export-not-a-secret {{ uv }} run python manage.py export_openapi
+
+# Fail if docs/openapi/openapi.json is stale, then check schema parity
+openapi-check:
+    DJANGO_SETTINGS_MODULE=api.settings.test SECRET_KEY=openapi-export-not-a-secret {{ uv }} run python manage.py export_openapi --check
+    {{ uv }} run python scripts/check_schema_parity.py
+
 # Run mutation testing
 mutation-test:
     {{ uv }} run --extra dev mutmut run
@@ -324,6 +396,72 @@ mutation-test:
 # Run the security scan
 security-scan:
     {{ uv }} run --extra dev bandit -c pyproject.toml -r .
+
+# Check that tool and service versions match across pyproject, Docker, hooks
+check-drift:
+    {{ uv }} run python scripts/check_version_drift.py
+
+# Audit every locked package with pip-audit (blocking; see pip-audit-allowlist.toml)
+audit:
+    {{ uv }} run --extra dev python scripts/audit_dependencies.py
+
+# Pinned versions for `just security-full`. semgrep_rules_ref is a commit of
+# github.com/semgrep/semgrep-rules, so the ruleset only changes when you bump it.
+semgrep_version := "1.179.0"
+semgrep_rules_ref := "a84ff9cc2453ca91d581380de4b8b3f272f6f4be"
+cyclonedx_version := "7.5.0"
+trivy_version := "0.75.0"
+
+# Optional deep scan, not a gauntlet gate: bandit, audit, semgrep, SBOM, trivy.
+# Runs every step even when one fails, then fails if any step failed.
+security-full:
+    #!/usr/bin/env bash
+    set -uo pipefail
+    failed=()
+    for step in security-scan audit semgrep sbom trivy; do
+        echo "==> just $step"
+        just "$step" || failed+=("$step")
+    done
+    if [ ${#failed[@]} -gt 0 ]; then
+        echo "security-full: failed steps: ${failed[*]}" >&2
+        exit 1
+    fi
+    echo "security-full: every step passed"
+
+# Scan with semgrep using the pinned semgrep-rules commit (Django, JWT, security)
+semgrep:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    rules="${XDG_CACHE_HOME:-$HOME/.cache}/django-ninja-boilerplate/semgrep-rules-{{ semgrep_rules_ref }}"
+    if [ ! -d "$rules/.git" ]; then
+        git init -q "$rules"
+        git -C "$rules" fetch -q --depth 1 https://github.com/semgrep/semgrep-rules.git {{ semgrep_rules_ref }}
+        git -C "$rules" checkout -q FETCH_HEAD
+    fi
+    uvx semgrep=={{ semgrep_version }} scan --metrics=off --error \
+        --config "$rules/python/django" \
+        --config "$rules/python/lang/security" \
+        --config "$rules/python/jwt" .
+
+# Write a CycloneDX SBOM of every locked package to build/sbom.cdx.json
+sbom:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    mkdir -p build
+    requirements=$(mktemp)
+    trap 'rm -f "$requirements"' EXIT
+    {{ uv }} export --frozen --all-extras --no-emit-project --quiet --output-file "$requirements"
+    uvx --from cyclonedx-bom=={{ cyclonedx_version }} cyclonedx-py requirements "$requirements" \
+        --output-format JSON --output-file build/sbom.cdx.json
+    echo "Wrote build/sbom.cdx.json"
+
+# Build the production image on a freshly pulled base and scan it with trivy
+# (HIGH/CRITICAL with a fix available fail)
+trivy:
+    docker build --pull --target production --build-arg APP_VERSION --build-arg UV_EXTRAS --tag django-ninja-boilerplate:scan .
+    docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+        -v "$HOME/.cache/trivy:/root/.cache/trivy" aquasec/trivy:{{ trivy_version }} \
+        image --exit-code 1 --severity HIGH,CRITICAL --ignore-unfixed django-ninja-boilerplate:scan
 
 # ---------------------------------------------------------------------------
 # Setup
@@ -335,8 +473,7 @@ setup +args:
 
 # Non-interactive setup stages called by `dnm setup`
 setup-services:
-    ./scripts/generate_secret_key.sh --update-env
-    ./scripts/generate_realtime_secret.sh
+    python3 scripts/env_secrets.py fill
     ./scripts/doctor.sh
     # --wait keeps `just migrate` from racing the container's own migrate.
     just _stack up -d --build --wait

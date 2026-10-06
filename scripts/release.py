@@ -29,6 +29,8 @@ REPO = "mattjaikaran/django-ninja-boilerplate"
 
 
 def run(cmd: list[str]) -> None:
+    # Argument list, no shell; callers pass fixed git/uv commands.
+    # nosemgrep: python.lang.security.audit.dangerous-subprocess-use-audit
     subprocess.run(cmd, cwd=ROOT, check=True)
 
 

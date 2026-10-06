@@ -167,6 +167,8 @@ class Command(BaseCommand):
             if options.get("compress"):
                 # Pipe through gzip
                 with open(output_path, "wb") as f:
+                    # Argument list, no shell; built from DATABASES settings.
+                    # nosemgrep: python.lang.security.audit.dangerous-subprocess-use-audit
                     dump_process = subprocess.Popen(
                         cmd,
                         stdout=subprocess.PIPE,
@@ -189,6 +191,8 @@ class Command(BaseCommand):
                         raise CommandError(f"gzip failed: {gzip_err.decode()}")
             else:
                 with open(output_path, "w") as f:
+                    # Argument list, no shell; built from DATABASES settings.
+                    # nosemgrep: python.lang.security.audit.dangerous-subprocess-use-audit
                     result = subprocess.run(
                         cmd,
                         stdout=f,
@@ -240,6 +244,8 @@ class Command(BaseCommand):
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,
                 )
+                # Argument list, no shell; built from DATABASES settings.
+                # nosemgrep: python.lang.security.audit.dangerous-subprocess-use-audit
                 psql_process = subprocess.Popen(
                     cmd,
                     stdin=gunzip_process.stdout,
@@ -256,6 +262,8 @@ class Command(BaseCommand):
                     )
             else:
                 with open(file_path) as f:
+                    # Argument list, no shell; built from DATABASES settings.
+                    # nosemgrep: python.lang.security.audit.dangerous-subprocess-use-audit
                     result = subprocess.run(
                         cmd,
                         check=False,

@@ -133,6 +133,8 @@ def metadata_for(label: str) -> dict[str, Any]:
     if isinstance(configured, dict) and label in configured:
         return configured[label] or {}
     try:
+        # label is an installed app label, not request data.
+        # nosemgrep: python.lang.security.audit.non-literal-import
         module = importlib.import_module(f"{label}.atlas")
     except (ImportError, ModuleNotFoundError):
         return {}
@@ -144,6 +146,8 @@ def _controller_names(local_configs: list[Any]) -> dict[str, str]:
     controller_names: dict[str, str] = {}
     for config in local_configs:
         try:
+            # The label comes from INSTALLED_APPS, not request data.
+            # nosemgrep: python.lang.security.audit.non-literal-import
             module = importlib.import_module(f"{config.label}.controllers")
         except (ImportError, ModuleNotFoundError):
             continue

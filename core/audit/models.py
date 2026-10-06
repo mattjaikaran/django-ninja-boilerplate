@@ -105,6 +105,9 @@ class AuditLog(models.Model):
     )
 
     # Change details
+    # JSONFields with default=dict/list below: an empty value is {} or [],
+    # never NULL, so null=True is not needed.
+    # nosemgrep: python.django.correctness.nontext-field-must-set-null-true
     changes = models.JSONField(
         default=dict,
         blank=True,
@@ -112,6 +115,7 @@ class AuditLog(models.Model):
         help_text="JSON object containing the changes made",
     )
 
+    # nosemgrep: python.django.correctness.nontext-field-must-set-null-true
     previous_state = models.JSONField(
         default=dict,
         blank=True,
@@ -119,6 +123,7 @@ class AuditLog(models.Model):
         help_text="State of the object before the change",
     )
 
+    # nosemgrep: python.django.correctness.nontext-field-must-set-null-true
     new_state = models.JSONField(
         default=dict,
         blank=True,
@@ -169,6 +174,8 @@ class AuditLog(models.Model):
     )
 
     # Additional context
+    # default=dict: an empty value is {}, never NULL.
+    # nosemgrep: python.django.correctness.nontext-field-must-set-null-true
     extra_data = models.JSONField(
         default=dict,
         blank=True,

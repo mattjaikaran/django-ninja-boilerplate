@@ -1,227 +1,243 @@
 # Pre-commit hooks for Django Ninja Boilerplate
-# Install: uv add --dev pre-commit && pre-commit install
-# Run manually: pre-commit run --all-files
+# Install: just pre-commit-install (pre-commit, commit-msg and pre-push hooks)
+# Run manually: uv run pre-commit run --all-files
+#
+# There is no hosted CI. The pre-push hook runs `just gauntlet-quick`.
+#
+# Every hook is `repo: local` with `language: system`:
+# - Tools in uv.lock (ruff, mypy, pip-audit) run through `uv run`, so a hook
+#   always uses the locked version.
+# - Tools outside the lock run through `uvx --from <pkg>==<version>` (Python)
+#   or `bunx <pkg>@<version>` (JS). Pin each package to one version.
+# scripts/check_version_drift.py fails when a hook bypasses the lock for a
+# locked tool or pins one package at two versions.
 # ============================================================
 
 default_language_version:
   python: python3.13
 
+default_install_hook_types: [pre-commit, commit-msg, pre-push]
+
 repos:
   # ===========================================
-  # General file checks
+  # General file checks (pre-commit-hooks)
   # ===========================================
-  - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v5.0.0
-    hooks:
-      # File formatting
-      - id: trailing-whitespace
-        args: [--markdown-linebreak-ext=md]
-      - id: end-of-file-fixer
-      - id: mixed-line-ending
-        args: [--fix=lf]
-
-      # File validation
-      - id: check-yaml
-        args: [--unsafe] # Allow custom tags
-      - id: check-toml
-      - id: check-json
-        exclude: ^\.vscode/ # VS Code uses JSONC (comments allowed)
-      - id: check-xml
-
-      # Git checks
-      - id: check-merge-conflict
-      - id: check-added-large-files
-        args: [--maxkb=1000]
-      # - id: no-commit-to-branch
-      #   args: [--branch, main, --branch, master]
-
-      # Python checks
-      - id: check-ast
-      - id: debug-statements
-      - id: check-docstring-first
-
-      # Security
-      - id: detect-private-key
-
-  # ===========================================
-  # Python - Ruff (linting + formatting)
-  # ===========================================
-  - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.15.10
-    hooks:
-      # Linter
-      - id: ruff
-        args: [--fix, --exit-non-zero-on-fix]
-        types_or: [python, pyi]
-
-      # Formatter (replaces black)
-      - id: ruff-format
-        types_or: [python, pyi]
-
-  # ===========================================
-  # Python - Type checking
-  # ===========================================
-  - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.14.0
-    hooks:
-      - id: mypy
-        additional_dependencies:
-          - django-stubs>=5.0.0
-          - djangorestframework-stubs>=3.14.0
-          - types-requests>=2.31.0
-          - types-python-dateutil>=2.8.19
-        args: [--ignore-missing-imports, --no-strict-optional]
-        exclude: ^(migrations/|tests/|cli/)
-
-  # ===========================================
-  # Django specific
-  # ===========================================
-  - repo: https://github.com/rtts/djhtml
-    rev: "3.0.7"
-    hooks:
-      - id: djhtml
-        args: [--tabwidth=2]
-        types: [html]
-
-  # ===========================================
-  # Security scanning
-  # ===========================================
-  - repo: https://github.com/PyCQA/bandit
-    rev: 1.8.0
-    hooks:
-      - id: bandit
-        args: [-c, pyproject.toml, -r, .]
-        additional_dependencies: ["bandit[toml]"]
-        exclude: ^(tests/|cli/tests/)
-        stages: [pre-push]
-
   - repo: local
     hooks:
+      - id: trailing-whitespace
+        name: trim trailing whitespace
+        entry: uvx --from pre-commit-hooks==5.0.0 trailing-whitespace-fixer
+        args: [--markdown-linebreak-ext=md]
+        language: system
+        types: [text]
+      - id: end-of-file-fixer
+        name: fix end of files
+        entry: uvx --from pre-commit-hooks==5.0.0 end-of-file-fixer
+        language: system
+        types: [text]
+      - id: mixed-line-ending
+        name: mixed line ending
+        entry: uvx --from pre-commit-hooks==5.0.0 mixed-line-ending
+        args: [--fix=lf]
+        language: system
+        types: [text]
+
+      - id: check-yaml
+        name: check yaml
+        entry: uvx --from pre-commit-hooks==5.0.0 check-yaml
+        args: [--unsafe] # Allow custom tags
+        language: system
+        types: [yaml]
+      - id: check-toml
+        name: check toml
+        entry: uvx --from pre-commit-hooks==5.0.0 check-toml
+        language: system
+        types: [toml]
+      - id: check-json
+        name: check json
+        entry: uvx --from pre-commit-hooks==5.0.0 check-json
+        language: system
+        types: [json]
+        exclude: ^\.vscode/ # VS Code uses JSONC (comments allowed)
+      - id: check-xml
+        name: check xml
+        entry: uvx --from pre-commit-hooks==5.0.0 check-xml
+        language: system
+        types: [xml]
+
+      - id: check-merge-conflict
+        name: check for merge conflicts
+        entry: uvx --from pre-commit-hooks==5.0.0 check-merge-conflict
+        language: system
+        types: [text]
+      - id: check-added-large-files
+        name: check for added large files
+        entry: uvx --from pre-commit-hooks==5.0.0 check-added-large-files
+        args: [--maxkb=1000]
+        language: system
+        stages: [pre-commit, pre-push, manual]
+
+      - id: check-ast
+        name: check python ast
+        entry: uvx --from pre-commit-hooks==5.0.0 check-ast
+        language: system
+        types: [python]
+      - id: debug-statements
+        name: debug statements (python)
+        entry: uvx --from pre-commit-hooks==5.0.0 debug-statement-hook
+        language: system
+        types: [python]
+      - id: check-docstring-first
+        name: check docstring is first
+        entry: uvx --from pre-commit-hooks==5.0.0 check-docstring-first
+        language: system
+        types: [python]
+
+      - id: detect-private-key
+        name: detect private key
+        entry: uvx --from pre-commit-hooks==5.0.0 detect-private-key
+        language: system
+        types: [text]
+
+  # ===========================================
+  # Python tools pinned by uv.lock
+  # ===========================================
+  - repo: local
+    hooks:
+      - id: ruff
+        name: ruff check
+        entry: uv run --extra dev ruff check --fix --exit-non-zero-on-fix
+        language: system
+        types_or: [python, pyi]
+        require_serial: true
+
+      - id: ruff-format
+        name: ruff format
+        entry: uv run --extra dev ruff format
+        language: system
+        types_or: [python, pyi]
+        require_serial: true
+
+      # Uses [tool.mypy] in pyproject.toml. mypy checks files passed on the
+      # command line even when [tool.mypy] excludes them, so repeat the
+      # exclusions here.
+      - id: mypy
+        name: mypy
+        entry: uv run --extra dev mypy
+        language: system
+        types_or: [python, pyi]
+        exclude: (^|/)(migrations|tests)/|^cli/
+        require_serial: true
+
+  # ===========================================
+  # Templates, Dockerfiles, shell, YAML/JSON
+  # ===========================================
+  - repo: local
+    hooks:
+      - id: djhtml
+        name: djhtml
+        entry: uvx djhtml==3.0.7
+        args: [--tabwidth=2]
+        language: system
+        types: [html]
+
+      # Allow unpinned apt/pip versions. Info-level hints (DL3059, DL3066)
+      # stay visible but do not block a commit.
+      - id: hadolint
+        name: hadolint
+        entry: uvx --from hadolint-py==2.14.0.1 hadolint
+        args: [--ignore, DL3008, --ignore, DL3013, --failure-threshold, warning]
+        language: system
+        types: [dockerfile]
+
+      - id: shellcheck
+        name: shellcheck
+        entry: uvx --from shellcheck-py==0.10.0.1 shellcheck
+        args: [-x] # Follow sourced files
+        language: system
+        types: [shell]
+
+      # Helm templates are Go templates, not YAML.
+      - id: prettier
+        name: prettier
+        entry: bunx prettier@3.9.9 --write --ignore-unknown
+        language: system
+        types_or: [yaml, json]
+        exclude: ^(uv\.lock|.*\.lock\.json|deploy/kubernetes/helm/.*/templates/.*)$
+
+  # ===========================================
+  # Project gates (scripts/)
+  # ===========================================
+  - repo: local
+    hooks:
+      - id: file-length
+        name: Check file length
+        entry: uv run python scripts/check_file_length.py
+        language: system
+        types: [python]
+
+      - id: architecture
+        name: Check architecture constraints
+        entry: uv run python scripts/check_architecture.py
+        language: system
+        types: [python]
+
+      - id: conventions
+        name: Check code conventions
+        entry: uv run python scripts/check_conventions.py
+        language: system
+        types: [python]
+        pass_filenames: false
+
+      - id: dependencies
+        name: Check dependency manifest
+        entry: uv run python scripts/check_dependencies.py
+        language: system
+        pass_filenames: false
+
+      - id: version-drift
+        name: Check version drift
+        entry: uv run python scripts/check_version_drift.py
+        language: system
+        files: (^|/)(pyproject\.toml|uv\.lock|Dockerfile[^/]*|docker-compose[^/]*\.yml|\.pre-commit-config\.yaml|\.python-version)$
+        pass_filenames: false
+
+  # ===========================================
+  # Pre-push: the quick gauntlet and a blocking dependency audit
+  # ===========================================
+  - repo: local
+    hooks:
+      - id: gauntlet-quick
+        name: just gauntlet-quick
+        entry: just gauntlet-quick
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-push]
+
       - id: pip-audit
-        name: Audit the project environment
-        entry: uv run --no-sync python -m pip_audit --skip-editable
+        name: Audit locked dependencies
+        entry: uv run --extra dev python scripts/audit_dependencies.py
         language: system
         pass_filenames: false
         always_run: true
         stages: [pre-push]
 
   # ===========================================
-  # Dockerfile linting
-  # ===========================================
-  - repo: https://github.com/hadolint/hadolint
-    rev: v2.13.1-beta
-    hooks:
-      - id: hadolint-docker
-        # Allow unpinned apt/pip versions. Info-level hints (DL3059, DL3066)
-        # stay visible but do not block a commit.
-        args: [--ignore, DL3008, --ignore, DL3013, --failure-threshold, warning]
-
-  # ===========================================
-  # Shell script linting
-  # ===========================================
-  - repo: https://github.com/shellcheck-py/shellcheck-py
-    rev: v0.10.0.1
-    hooks:
-      - id: shellcheck
-        args: [-x] # Follow sourced files
-
-  # ===========================================
-  # YAML/JSON formatting
-  # ===========================================
-  - repo: https://github.com/pre-commit/mirrors-prettier
-    rev: v4.0.0-alpha.8
-    hooks:
-      - id: prettier
-        types_or: [yaml, json]
-        exclude: ^(uv\.lock|.*\.lock\.json)$
-
-  # ===========================================
-  # File length enforcement
+  # Commit messages
   # ===========================================
   - repo: local
     hooks:
-      - id: file-length
-        name: Check file length
-        entry: python scripts/check_file_length.py
-        language: python
-        types: [python]
-        pass_filenames: true
-
-  # ===========================================
-  # Architecture enforcement
-  # ===========================================
-  - repo: local
-    hooks:
-      - id: architecture
-        name: Check architecture constraints
-        entry: python scripts/check_architecture.py
-        language: python
-        types: [python]
-        pass_filenames: true
-
-  # ===========================================
-  # Convention enforcement (catches AI anti-patterns)
-  # ===========================================
-  - repo: local
-    hooks:
-      - id: conventions
-        name: Check code conventions
-        entry: python scripts/check_conventions.py
-        language: python
-        types: [python]
-        pass_filenames: false
-
-  # ===========================================
-  # Dependency gate (pyproject.toml change requires DEPENDENCIES.md entry)
-  # ===========================================
-  - repo: local
-    hooks:
-      - id: dependencies
-        name: Check dependency manifest
-        entry: python scripts/check_dependencies.py
-        language: python
-        pass_filenames: false
-
-  # ===========================================
-  # Tests (pre-push only — keeps commits fast)
-  # ===========================================
-  - repo: local
-    hooks:
-      - id: pytest
-        name: Run tests
-        entry: env DJANGO_SETTINGS_MODULE=api.settings.test uv run --extra dev --extra huey --extra django-q --extra django-rq --extra dramatiq pytest --no-header -q
-        language: system
-        types: [python]
-        pass_filenames: false
-        stages: [pre-push]
-
-  # ===========================================
-  # Commit message linting (conventional commits)
-  # ===========================================
-  - repo: https://github.com/commitizen-tools/commitizen
-    rev: v4.1.0
-    hooks:
+      # Conventional Commits
       - id: commitizen
+        name: commitizen check
+        entry: uv run --extra dev cz check --allow-abort --commit-msg-file
+        language: system
         stages: [commit-msg]
 
-  # ===========================================
-  # Commit message style (subject <=50, no trailing period, body wrapped at 72)
-  # ===========================================
-  - repo: local
-    hooks:
+      # Subject <=50, no trailing period, body wrapped at 72
       - id: commit-msg-tbaggery
         name: Check commit message style
         entry: bash scripts/check_commit_msg.sh
         language: system
         stages: [commit-msg]
-
-# ===========================================
-# CI Configuration
-# ===========================================
-ci:
-  autofix_commit_msg: "style: auto-fix by pre-commit hooks"
-  autofix_prs: true
-  autoupdate_branch: develop
-  autoupdate_commit_msg: "chore: update pre-commit hooks"
-  autoupdate_schedule: weekly
-  skip: [hadolint-docker] # Docker not available in CI

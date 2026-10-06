@@ -139,3 +139,7 @@ gauntlet-report.json
 
 # Codebase atlas data file (generated)
 atlas-data.json
+
+# Local agent state: permissions files embed absolute local paths, and
+# worktrees are nested checkouts.
+.claude/

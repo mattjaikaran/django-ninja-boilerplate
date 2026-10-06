@@ -25,6 +25,8 @@ class Notification(TimestampedModel):
     )
     title = models.CharField(max_length=255)
     body = models.TextField()
+    # default=dict: an empty value is {}, never NULL.
+    # nosemgrep: python.django.correctness.nontext-field-must-set-null-true
     data = models.JSONField(default=dict, blank=True)
     action_url = models.CharField(max_length=500, blank=True, default="")
     is_read = models.BooleanField(default=False, db_index=True)

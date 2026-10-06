@@ -1,0 +1,11 @@
+# Advisories the AUDIT gate may ignore (scripts/audit_dependencies.py).
+#
+# Add an entry only when no fixed version exists or the vulnerable code path is
+# not reachable. Every entry needs an id, a reason and an expiry date. An
+# expired entry fails the gate, so the exception gets reviewed again.
+#
+# [[ignore]]
+# id = "GHSA-xxxx-xxxx-xxxx"
+# package = "example"
+# reason = "No fixed release; the affected API is not called."
+# expires = 2026-12-31

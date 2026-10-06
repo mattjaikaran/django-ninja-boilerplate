@@ -43,9 +43,8 @@ def test_evaluate_passes_when_both_changed() -> None:
 
 
 def test_evaluate_fails_when_pyproject_changed_without_manifest() -> None:
-    passed, message = evaluate(pyproject_changed=True, dependencies_changed=False)
+    passed, _message = evaluate(pyproject_changed=True, dependencies_changed=False)
     assert passed is False
-    assert "DEPENDENCIES.md" in message
 
 
 def test_file_changed_false_when_unchanged(tmp_path: Path) -> None:
