@@ -1,9 +1,5 @@
 {
-  "token_hmac_secret_key": "centrifugo-token-secret",
-  "api_key": "centrifugo-api-key",
-  "admin": true,
-  "admin_password": "admin",
-  "admin_secret": "admin-secret",
+  "admin": false,
   "allowed_origins": ["http://localhost:3000", "http://localhost:8000"],
   "engine": "redis",
   "redis_address": "redis://valkey:6379/1",

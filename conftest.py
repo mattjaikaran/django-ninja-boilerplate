@@ -43,6 +43,21 @@ def enable_db_access_for_all_tests(db):
     """
 
 
+@pytest.fixture(autouse=True)
+def _isolate_cache():
+    """Clear the cache around each test.
+
+    Throttle buckets and login lockouts live in the cache and are keyed by
+    client IP, which every test client shares. Without this, one test's
+    requests throttle another test's credential endpoints.
+    """
+    from django.core.cache import cache
+
+    cache.clear()
+    yield
+    cache.clear()
+
+
 @pytest.fixture
 def transactional_db(db):
     """Create a transactional database for tests that need transaction testing."""

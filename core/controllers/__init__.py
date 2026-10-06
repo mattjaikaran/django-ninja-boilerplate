@@ -9,6 +9,7 @@ from core.controllers.centrifugo_controller import (
 )
 from core.controllers.mixins import SoftDeleteMixin
 from core.controllers.otp_controller import OTPController
+from core.controllers.session_controller import SessionController
 from core.controllers.users_controller import UserController
 from core.tasks.controller import (
     DeadLetterQueueController,
@@ -24,6 +25,7 @@ __all__ = [
     "ConnectionTokenResponse",
     "DeadLetterQueueController",
     "OTPController",
+    "SessionController",
     "SoftDeleteMixin",
     "SubscriptionTokenRequest",
     "SubscriptionTokenResponse",

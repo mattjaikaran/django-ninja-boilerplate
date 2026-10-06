@@ -1,14 +1,17 @@
 """Pydantic schemas for API key endpoints."""
 
 from datetime import datetime
+from uuid import UUID
+
+from pydantic import Field
 
 from core.schemas.base_schema import CamelCaseSchema
 
 
 class CreateAPIKeyRequest(CamelCaseSchema):
-    name: str
-    scopes: list[str] = []
-    expires_in_days: int | None = None
+    name: str = Field(..., min_length=1, max_length=255)
+    scopes: list[str] = Field(default_factory=list)
+    expires_in_days: int | None = Field(None, ge=1)
 
 
 class APIKeyResponse(CamelCaseSchema):
@@ -35,7 +38,7 @@ class APIKeyCreatedResponse(CamelCaseSchema):
 
 
 class RevokeAPIKeyRequest(CamelCaseSchema):
-    key_id: str
+    key_id: UUID
 
 
 class RotateAPIKeyResponse(CamelCaseSchema):

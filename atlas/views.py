@@ -59,7 +59,7 @@ def atlas_admin_view(request):
                 f"{data['meta']['endpoint_count']} endpoints, "
                 f"{data['meta']['total_loc']} LOC"
             ),
-            "atlas_data_url": "/admin/atlas/data.json",
+            "atlas_data_url": reverse("atlas_data"),
             "atlas_regenerate_url": reverse("atlas_regenerate"),
             "atlas_generated_at": data["meta"].get("generated_at", ""),
             "atlas_static_version": _static_version(),

@@ -12,12 +12,17 @@ from core.schemas.api_key_schema import (
 )
 from core.schemas.auth_schema import (
     AuthStatusSchema,
+    CsrfTokenSchema,
     EmailVerificationSchema,
     LoginSchema,
     PasswordlessLoginRequest,
     PasswordlessLoginVerify,
+    PasswordlessTokenSchema,
     PasswordResetConfirmSchema,
     PasswordResetRequestSchema,
+    RefreshTokenSchema,
+    TokenRefreshResponse,
+    TokenSchema,
     UserLoginSchema,
 )
 from core.schemas.base_schema import (
@@ -72,12 +77,17 @@ from core.schemas.user_schema import (
 __all__ = [
     # Auth schemas
     "AuthStatusSchema",
+    "CsrfTokenSchema",
     "EmailVerificationSchema",
     "LoginSchema",
     "PasswordlessLoginRequest",
     "PasswordlessLoginVerify",
+    "PasswordlessTokenSchema",
     "PasswordResetConfirmSchema",
     "PasswordResetRequestSchema",
+    "RefreshTokenSchema",
+    "TokenRefreshResponse",
+    "TokenSchema",
     "UserLoginSchema",
     # OTP schemas
     "OTPRequestSchema",

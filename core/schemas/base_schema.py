@@ -79,7 +79,7 @@ class ErrorResponse(CamelCaseSchema):
     error: bool = True
     message: str
     code: str = "error"
-    details: dict[str, Any] | None = None
+    details: dict[str, Any] | None = None  # schema-ok: free-form error context
 
 
 class ValidationErrorResponse(CamelCaseSchema):
@@ -202,7 +202,9 @@ class BulkActionResponse(CamelCaseSchema):
     success: bool = True
     processed: int = 0
     failed: int = 0
-    errors: list[dict[str, Any]] = Field(default_factory=list)
+    errors: list[dict[str, Any]] = Field(  # schema-ok: free-form per-item errors
+        default_factory=list,
+    )
 
 
 # =============================================================================

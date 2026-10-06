@@ -3,17 +3,29 @@
 This module contains settings specific to the production environment.
 """
 
+import logging
+
 from django.core.exceptions import ImproperlyConfigured
 
 from .common import *
 
+# Values committed to this repository (templates, compose dev fallbacks, the
+# old deploy/centrifugo/config.json). Treat them as public.
 _INSECURE_REALTIME_SECRETS = {
     "centrifugo-token-secret",
     "dev-centrifugo-token-secret",
+    "centrifugo-api-key",
+    "dev-centrifugo-api-key",
+    "admin",
+    "admin-secret",
 }
 if CENTRIFUGO_TOKEN_SECRET in _INSECURE_REALTIME_SECRETS:
     raise ImproperlyConfigured(
         "Set CENTRIFUGO_TOKEN_SECRET to a unique value in production."
+    )
+if CENTRIFUGO_API_KEY in _INSECURE_REALTIME_SECRETS:
+    raise ImproperlyConfigured(
+        "Set CENTRIFUGO_API_KEY to a unique value in production."
     )
 
 # A production deploy must supply its own secrets explicitly. common.py reads
@@ -44,29 +56,29 @@ DEBUG = False
 # Production allowed hosts
 ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=[])
 
-# CORS settings for production
-CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS", default=[])
-CSRF_TRUSTED_ORIGINS = env.list("CSRF_TRUSTED_ORIGINS", default=[])
+# The API docs and OpenAPI schema map every route. Off unless the deploy
+# opts in with API_DOCS=staff (admin login) or API_DOCS=public.
+API_DOCS = env("API_DOCS", default="off")
+if API_DOCS not in {"public", "staff", "off"}:
+    raise ImproperlyConfigured("API_DOCS must be one of: public, staff, off.")
 
-CORS_ALLOW_CREDENTIALS = True
-CORS_ALLOW_HEADERS = [
-    "accept",
-    "accept-encoding",
-    "authorization",
-    "content-type",
-    "dnt",
-    "origin",
-    "user-agent",
-    "x-csrftoken",
-    "x-requested-with",
-]
+# CORS and CSRF origins and USE_TLS live in common.py. Set FRONTEND_URL, or
+# CORS_ALLOWED_ORIGINS and CSRF_TRUSTED_ORIGINS, per deploy.
 
-# SSL settings.
-# Defaults to False because the bundled nginx serves plain HTTP on port 80 and
-# forwards X-Forwarded-Proto: http. Set USE_TLS=true only when a TLS-terminating
-# proxy sits in front; otherwise SECURE_SSL_REDIRECT redirects every request to
-# an https:// port that nothing listens on.
-USE_TLS = env.bool("USE_TLS", default=False)
+# Cookie auth needs TLS. Browsers drop Secure cookies on plain HTTP for every
+# host but localhost, and cookies without Secure leak the session, CSRF and
+# JWT cookies in clear text. So production requires USE_TLS=true: a TLS proxy
+# in front, forwarding X-Forwarded-Proto: https (the bundled nginx passes it
+# through). ALLOW_INSECURE_COOKIES=true lets these settings run over plain
+# HTTP for a local smoke run only; ENVIRONMENT=production rejects it.
+ALLOW_INSECURE_COOKIES = env.bool("ALLOW_INSECURE_COOKIES", default=False)
+if not USE_TLS and (ENVIRONMENT == "production" or not ALLOW_INSECURE_COOKIES):
+    raise ImproperlyConfigured(
+        "USE_TLS=false: cookie auth needs TLS outside localhost. Put a TLS proxy "
+        "in front and set USE_TLS=true (docs/COOKIE_AUTH.md). For a local "
+        "plain-HTTP smoke run only, set ALLOW_INSECURE_COOKIES=true with "
+        "ENVIRONMENT other than production."
+    )
 
 # Security settings for production. Every setting that presumes the site is
 # served over HTTPS is gated on USE_TLS so a plain-HTTP deployment (the bundled
@@ -74,15 +86,18 @@ USE_TLS = env.bool("USE_TLS", default=False)
 # deployment does not serve. HSTS is ignored by browsers over HTTP and
 # SECURE_HSTS_PRELOAD is dangerous: a preloaded domain that does not serve TLS
 # becomes unreachable.
-SECURE_BROWSER_XSS_FILTER = True
 SECURE_CONTENT_TYPE_NOSNIFF = True
 SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
 
 if USE_TLS:
     SECURE_SSL_REDIRECT = True
     SECURE_HSTS_SECONDS = 31536000  # 1 year
-    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
-    SECURE_HSTS_PRELOAD = True
+    # includeSubDomains and preload are hard to undo and break any plain-HTTP
+    # subdomain, so each one is opt-in.
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = env.bool(
+        "SECURE_HSTS_INCLUDE_SUBDOMAINS", default=False
+    )
+    SECURE_HSTS_PRELOAD = env.bool("SECURE_HSTS_PRELOAD", default=False)
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
     # Platform health checks call the container over plain HTTP without
     # X-Forwarded-Proto, so a redirect would mark the deployment unhealthy.
@@ -95,8 +110,7 @@ if USE_TLS:
         r"^api/health/readiness$",
     ]
 else:
-    # Plain-HTTP deployment: keep HSTS, SSL redirect, and secure cookies off so
-    # requests reach the port-80 listener unchanged.
+    # Local plain-HTTP smoke run (ALLOW_INSECURE_COOKIES): no HSTS or redirect.
     SECURE_SSL_REDIRECT = False
     SECURE_HSTS_SECONDS = 0
     SECURE_HSTS_INCLUDE_SUBDOMAINS = False
@@ -183,14 +197,6 @@ else:
         }
     )
 
-# Database connection pooling for production
-DATABASES["default"].update(
-    {
-        "CONN_MAX_AGE": 60,
-        "CONN_HEALTH_CHECKS": True,
-    }
-)
-
 # =============================================================================
 # Content-Security-Policy — production: enforce, no unsafe-inline/eval.
 # django-csp 4.x reads CONTENT_SECURITY_POLICY (enforced) and
@@ -214,11 +220,13 @@ CONTENT_SECURITY_POLICY_REPORT_ONLY.clear()
 SESSION_COOKIE_AGE = 3600  # 1 hour
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = "Lax"
-if USE_TLS:
-    SESSION_COOKIE_SECURE = True
 
-# CSRF security for production
-CSRF_COOKIE_HTTPONLY = True
-CSRF_COOKIE_SAMESITE = "Lax"
-if USE_TLS:
-    CSRF_COOKIE_SECURE = True
+# Secure cookies whenever TLS is on, which production requires (see above).
+SESSION_COOKIE_SECURE = USE_TLS
+CSRF_COOKIE_SECURE = USE_TLS
+AUTH_COOKIE_SECURE = USE_TLS
+if not USE_TLS:
+    logging.getLogger("api.settings").error(
+        "ALLOW_INSECURE_COOKIES=true: production settings over plain HTTP, "
+        "cookies without Secure. Never use this on a reachable host."
+    )

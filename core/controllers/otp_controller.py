@@ -13,8 +13,8 @@ import logging
 from django.contrib.auth import get_user_model
 from django.http import HttpResponse
 from ninja_extra import api_controller, http_post
-from core.security.cookie_auth import CookieJWTAuth
-from core.security.cookie_auth import issue_auth_cookies
+from ninja_extra.throttling import DynamicRateThrottle
+from ninja_jwt.authentication import JWTAuth
 
 from api.decorators import log_api_call
 from api.utils.http import get_client_ip, get_user_agent
@@ -31,13 +31,19 @@ from core.schemas.otp_schema import (
     TwoFactorSetupSchema,
     TwoFactorVerifySchema,
 )
+from core.security.cookie_auth import issue_token_pair, set_auth_cookies
 from core.services.otp_service import otp_service
 
 User = get_user_model()
 logger = logging.getLogger(__name__)
 
 
-@api_controller("/auth/otp", tags=["OTP Authentication"], use_unique_op_id=False)
+# Per-IP throttle on every route: 6-digit codes are brute-forceable without it.
+@api_controller(
+    "/auth/otp",
+    tags=["OTP Authentication"],
+    throttle=DynamicRateThrottle(scope="anon-auth"),
+)
 class OTPController:
     """OTP authentication controller for mobile/iOS apps.
 
@@ -95,7 +101,11 @@ class OTPController:
     def verify_otp(self, request, response: HttpResponse, payload: OTPVerifySchema):
         """Verify a 6-digit OTP code.
 
-        Validates the code and issues authentication cookies for LOGIN.
+        Validates the OTP code and returns authentication tokens on success.
+        Can be used for login, password reset confirmation, or other purposes.
+
+        For LOGIN, returns JWT access and refresh tokens along with user data
+        and sets the httpOnly auth cookies.
         """
         success, message, user = otp_service.verify_otp(
             email=payload.email,
@@ -109,14 +119,17 @@ class OTPController:
 
         # Generate tokens for LOGIN purpose
         if payload.purpose == "LOGIN":
-            issue_auth_cookies(request, response, user)
+            access, refresh = issue_token_pair(user)
+            set_auth_cookies(response, access, refresh)
 
             logger.info("User logged in via OTP: %s", user.email)
 
             return 200, OTPVerifyResponseSchema(
                 success=True,
                 message="Login successful",
-                user=UserSchema.model_validate(user).model_dump(),
+                access=access,
+                refresh=refresh,
+                user=UserSchema.model_validate(user),
             )
 
         # For other purposes, just return success
@@ -137,21 +150,25 @@ class OTPController:
         """Verify a magic link token.
 
         Used for passwordless authentication via email magic links.
-        Issues HttpOnly authentication cookies and returns user data.
+        Returns JWT access and refresh tokens along with user data and sets
+        the httpOnly auth cookies.
         """
         success, message, user = otp_service.verify_token(token=payload.token)
 
         if not success or not user:
             return 401, {"error": message, "success": False}
 
-        issue_auth_cookies(request, response, user)
+        access, refresh = issue_token_pair(user)
+        set_auth_cookies(response, access, refresh)
 
         logger.info("User logged in via magic link: %s", user.email)
 
         return 200, OTPVerifyResponseSchema(
             success=True,
             message="Login successful",
-            user=UserSchema.model_validate(user).model_dump(),
+            access=access,
+            refresh=refresh,
+            user=UserSchema.model_validate(user),
         )
 
     @http_post("/resend", response={200: OTPResponseSchema, 400: dict, 429: dict})

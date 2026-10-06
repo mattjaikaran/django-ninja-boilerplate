@@ -20,6 +20,7 @@ Usage::
 """
 
 import logging
+import threading
 from typing import Any
 
 from django.conf import settings
@@ -194,3 +195,26 @@ class EmailService:
                 failed_count += 1
 
         return {"sent": sent_count, "failed": failed_count}
+
+
+def send_account_email(subject: str, message: str, recipient_email: str) -> None:
+    """Send an account email without making the request wait for delivery.
+
+    Signup, magic-link and OTP requests answer the same way for known and
+    unknown addresses. Delivery time would still tell them apart, so the send
+    runs in a daemon thread and its errors are only logged. Set
+    ``ACCOUNT_EMAIL_SYNC = True`` (the test settings do) to send inline.
+    """
+
+    def deliver() -> None:
+        try:
+            EmailService().send_simple_email(
+                subject=subject, message=message, recipient_email=recipient_email
+            )
+        except Exception:
+            logger.exception("Failed to send account email")
+
+    if getattr(settings, "ACCOUNT_EMAIL_SYNC", False):
+        deliver()
+        return
+    threading.Thread(target=deliver, name="account-email", daemon=True).start()

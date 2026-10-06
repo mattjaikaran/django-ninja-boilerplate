@@ -3,9 +3,14 @@
 This module defines Pydantic schemas for authentication-related API operations.
 """
 
-from pydantic import EmailStr, Field, field_validator
+from pydantic import EmailStr, Field
 
 from core.schemas.base_schema import CamelCaseSchema
+from core.schemas.user_schema import UserSchema
+
+# Django's AbstractBaseUser.password and username columns.
+_PASSWORD_MAX_LENGTH = 128
+_USERNAME_MAX_LENGTH = 150
 
 
 class PasswordlessLoginRequest(CamelCaseSchema):
@@ -17,7 +22,7 @@ class PasswordlessLoginRequest(CamelCaseSchema):
 class PasswordlessLoginVerify(CamelCaseSchema):
     """Schema for verifying passwordless login token."""
 
-    token: str
+    token: str = Field(min_length=1, max_length=255)
 
 
 class LoginSchema(CamelCaseSchema):
@@ -27,7 +32,50 @@ class LoginSchema(CamelCaseSchema):
     """
 
     email: EmailStr
-    password: str
+    password: str = Field(min_length=1, max_length=_PASSWORD_MAX_LENGTH)
+
+
+class TokenSchema(CamelCaseSchema):
+    """Login response.
+
+    Browser clients ignore the token fields: login also sets httpOnly auth
+    cookies (docs/COOKIE_AUTH.md). Bearer clients read them.
+    """
+
+    token: str
+    refresh: str
+    user: UserSchema
+
+
+class PasswordlessTokenSchema(CamelCaseSchema):
+    """Magic-link verification response. Also sets httpOnly auth cookies."""
+
+    access: str
+    refresh: str
+    user: UserSchema
+
+
+class RefreshTokenSchema(CamelCaseSchema):
+    """Refresh token in the body. Browser clients omit it and use the cookie."""
+
+    refresh: str | None = Field(default=None, min_length=1)
+
+
+class TokenRefreshResponse(CamelCaseSchema):
+    """Rotated token pair.
+
+    Both fields are null when the refresh token came from the cookie: cookie
+    clients get new cookies, never tokens in the body.
+    """
+
+    access: str | None = None
+    refresh: str | None = None
+
+
+class CsrfTokenSchema(CamelCaseSchema):
+    """CSRF token, also set as the readable ``csrftoken`` cookie."""
+
+    csrf_token: str
 
 
 class PasswordResetRequestSchema(CamelCaseSchema):
@@ -39,23 +87,14 @@ class PasswordResetRequestSchema(CamelCaseSchema):
 class PasswordResetConfirmSchema(CamelCaseSchema):
     """Schema for password reset confirmation."""
 
-    token: str
-    new_password: str = Field(..., min_length=8)
-
-    @field_validator("new_password")
-    @classmethod
-    def password_requirements(cls, v: str) -> str:
-        """Validate password meets requirements."""
-        if len(v) < 8:
-            msg = "Password must be at least 8 characters"
-            raise ValueError(msg)
-        return v
+    token: str = Field(min_length=1, max_length=255)
+    new_password: str = Field(min_length=8, max_length=_PASSWORD_MAX_LENGTH)
 
 
 class EmailVerificationSchema(CamelCaseSchema):
     """Schema for email verification."""
 
-    token: str
+    token: str = Field(min_length=1, max_length=255)
 
 
 class AuthStatusSchema(CamelCaseSchema):
@@ -73,5 +112,5 @@ class UserLoginSchema(CamelCaseSchema):
     Deprecated: Use LoginSchema instead.
     """
 
-    username: str
-    password: str
+    username: str = Field(min_length=1, max_length=_USERNAME_MAX_LENGTH)
+    password: str = Field(min_length=1, max_length=_PASSWORD_MAX_LENGTH)

@@ -191,17 +191,16 @@ class UserController:
 
         return queryset
 
-    @http_put(
-        "/{user_id}", response={200: UserSchema, 400: dict, 404: dict}, by_alias=True
-    )
+    @http_put("/{user_id}", response={200: UserSchema, 400: dict, 403: dict, 404: dict})
     @log_api_call(include_payload=True)
-    def update_user(self, user_id: UUID, payload: UserUpdateSchema):
+    def update_user(self, request, user_id: UUID, payload: UserUpdateSchema):
         """Update an existing user's profile fields.
 
         Only fields that are explicitly set in the request body are applied
         (``exclude_unset=True``).
 
         Args:
+            request: The authenticated staff request.
             user_id: The UUID primary key of the user to update.
             payload: Validated update data. Only non-omitted fields are written.
 
@@ -210,14 +209,17 @@ class UserController:
             validation failure, or (404, error_dict) if the user does not exist.
         """
         user = get_object_or_404(User, id=user_id)
+        # Staff may not modify superusers: only superusers may create them.
+        if user.is_superuser and not request.user.is_superuser:
+            return 403, {"detail": "Only a superuser can modify a superuser."}
         for attr, value in payload.model_dump(exclude_unset=True).items():
             setattr(user, attr, value)
         user.save()
         return 200, UserSchema.model_validate(user)
 
-    @http_delete("/{user_id}", response={204: None})
+    @http_delete("/{user_id}", response={204: None, 403: dict})
     @log_api_call()
-    def delete_user(self, user_id: UUID):
+    def delete_user(self, request, user_id: UUID):
         """Permanently delete a user.
 
         This is a hard delete — the user record is removed from the database.
@@ -225,6 +227,7 @@ class UserController:
         production use cases that require audit trails.
 
         Args:
+            request: The authenticated staff request.
             user_id: The UUID primary key of the user to delete.
 
         Returns:
@@ -232,5 +235,7 @@ class UserController:
             does not exist.
         """
         user = get_object_or_404(User, id=user_id)
+        if user.is_superuser and not request.user.is_superuser:
+            return 403, {"detail": "Only a superuser can delete a superuser."}
         user.delete()
         return 204, None

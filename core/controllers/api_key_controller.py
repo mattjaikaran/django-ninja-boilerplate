@@ -1,5 +1,7 @@
 """API Key management endpoints."""
 
+from uuid import UUID
+
 from django.http import HttpRequest
 from ninja_extra import api_controller, http_delete, http_get, http_post
 from core.security.cookie_auth import CookieJWTAuth
@@ -46,16 +48,16 @@ class APIKeyController:
         keys = APIKeyService.list_keys(request.user, include_revoked=include_revoked)
         return 200, list(keys)
 
-    @http_delete("/{key_id}", response={200: APIKeyResponse})
+    @http_delete("/{key_id}", response={200: APIKeyResponse, 404: dict})
     @log_api_call()
-    def revoke_key(self, request: HttpRequest, key_id: str):
+    def revoke_key(self, request: HttpRequest, key_id: UUID):
         """Revoke an API key."""
         api_key = APIKeyService.revoke_key(request.user, key_id)
         return 200, api_key
 
-    @http_post("/{key_id}/rotate", response={201: RotateAPIKeyResponse})
+    @http_post("/{key_id}/rotate", response={201: RotateAPIKeyResponse, 404: dict})
     @log_api_call()
-    def rotate_key(self, request: HttpRequest, key_id: str):
+    def rotate_key(self, request: HttpRequest, key_id: UUID):
         """Rotate an API key: revokes the old key and creates a new one with the same configuration."""
         new_key, raw_key, old_key = APIKeyService.rotate_key(request.user, key_id)
         return 201, {

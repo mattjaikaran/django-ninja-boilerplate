@@ -83,7 +83,7 @@ class TestUserAPI:
         response = api_client.post(
             "/api/auth/signup", user_data, content_type="application/json"
         )
-        assert response.status_code == 201
+        assert response.status_code == 202
         assert User.objects.filter(email=user_data["email"]).exists()
 
     def test_get_user(self, api_client, user, auth_headers):

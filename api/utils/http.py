@@ -1,10 +1,18 @@
 """HTTP request utilities."""
 
+from django.conf import settings
 from django.http import HttpRequest
 
 
 def get_client_ip(request: HttpRequest) -> str:
-    """Get the client IP address from the request.
+    """Return the client IP, trusting only the configured reverse proxies.
+
+    ``TRUSTED_PROXY_COUNT`` (env ``NINJA_NUM_PROXIES``, default 0) is the
+    number of proxies that append to ``X-Forwarded-For``. With 0 the header
+    is ignored and ``REMOTE_ADDR`` is the client. With N, the client is the
+    N-th entry from the right, the address the outermost trusted proxy saw;
+    entries further left are client-supplied and never trusted. This matches
+    the Ninja Extra throttles (``NINJA_EXTRA["NUM_PROXIES"]``).
 
     Args:
         request: Django HTTP request object
@@ -12,12 +20,13 @@ def get_client_ip(request: HttpRequest) -> str:
     Returns:
         Client IP address
     """
+    remote_addr = request.META.get("REMOTE_ADDR", "")
+    num_proxies = getattr(settings, "TRUSTED_PROXY_COUNT", 0)
     x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
-    if x_forwarded_for:
-        ip = x_forwarded_for.split(",")[0]
-    else:
-        ip = request.META.get("REMOTE_ADDR")
-    return ip
+    if num_proxies <= 0 or not x_forwarded_for:
+        return remote_addr
+    addresses = x_forwarded_for.split(",")
+    return addresses[-min(num_proxies, len(addresses))].strip()
 
 
 def is_ajax(request: HttpRequest) -> bool:

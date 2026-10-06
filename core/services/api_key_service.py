@@ -1,7 +1,10 @@
 """Business logic for API key management."""
 
 from datetime import timedelta
+from uuid import UUID
 
+from django.http import Http404
+from django.shortcuts import get_object_or_404
 from django.utils import timezone
 
 from core.models.api_key import APIKey
@@ -40,24 +43,29 @@ class APIKeyService:
         return api_key, raw_key
 
     @staticmethod
-    def revoke_key(user, key_id: str) -> APIKey:
+    def revoke_key(user, key_id: UUID | str) -> APIKey:
         """Revoke an API key."""
-        api_key = APIKey.objects.get(id=key_id, user=user, revoked=False)
+        api_key = get_object_or_404(APIKey, id=key_id, user=user, revoked=False)
         api_key.revoked = True
         api_key.save(update_fields=["revoked", "updated_at"])
         return api_key
 
     @staticmethod
-    def rotate_key(user, key_id: str) -> tuple[APIKey, str, APIKey]:
+    def rotate_key(user, key_id: UUID | str) -> tuple[APIKey, str, APIKey]:
         """Rotate an API key: revoke old, create new with same config.
 
         Returns:
             Tuple of (new_api_key, new_raw_key, old_api_key).
         """
-        old_key = APIKey.objects.get(id=key_id, user=user, revoked=False)
-
+        old_key = get_object_or_404(APIKey, id=key_id, user=user, revoked=False)
+        # Conditional update: of two concurrent rotations only one revokes the
+        # key, so only one mints a replacement.
+        revoked = APIKey.objects.filter(pk=old_key.pk, revoked=False).update(
+            revoked=True, updated_at=timezone.now()
+        )
+        if not revoked:
+            raise Http404("API key not found")
         old_key.revoked = True
-        old_key.save(update_fields=["revoked", "updated_at"])
 
         new_key, raw_key = APIKeyService.create_key(
             user=user,

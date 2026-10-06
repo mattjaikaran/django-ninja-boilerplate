@@ -9,6 +9,7 @@ from datetime import timedelta
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.urls import reverse
 from django.utils import timezone
 
 User = get_user_model()
@@ -80,18 +81,23 @@ def dashboard_callback(request, context):
     context["quick_links"] = [
         {
             "title": "Health Check",
-            "url": "/admin/observability/health/",
+            "url": reverse("health_admin"),
             "icon": "monitor_heart",
         },
         {
             "title": "API Metrics",
-            "url": "/admin/observability/metrics/",
+            "url": reverse("metrics_admin"),
             "icon": "bar_chart",
         },
-        {"title": "API Docs", "url": "/api/docs", "icon": "description"},
+    ]
+    if getattr(settings, "API_DOCS", "public") != "off":
+        context["quick_links"].append(
+            {"title": "API Docs", "url": "/api/docs", "icon": "description"}
+        )
+    context["quick_links"] += [
         {
             "title": "Codebase Atlas",
-            "url": "/admin/atlas/",
+            "url": reverse("atlas_admin"),
             "icon": "map",
         },
     ]

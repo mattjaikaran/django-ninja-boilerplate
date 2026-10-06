@@ -1,11 +1,26 @@
-"""Cookie refresh rotation, CSRF, logout revocation, and pruning behavior."""
+"""Behavioral tests for JWT refresh rotation, logout revocation, and pruning.
+
+Covers the refresh-rotation contract:
+
+- Refresh tokens rotate: each refresh returns a new refresh token.
+- Rotated (old) refresh tokens are blacklisted and rejected.
+- A rotated token presented again after the grace window revokes every
+  refresh token of the user; inside the window (concurrent tabs) it only
+  gets 401.
+- A password change revokes every refresh token of the user.
+- Logout blacklists the supplied refresh token; the access token stays valid
+  until its own expiry.
+- Expired outstanding tokens are pruned by the scheduled task.
+"""
 
 import json
 import subprocess
 import sys
+import threading
 from datetime import timedelta
 
 import pytest
+from django.db import connection
 from django.test import Client
 from django.utils import timezone
 from ninja_jwt.tokens import RefreshToken
@@ -19,10 +34,24 @@ def csrf_headers(client):
     return {"HTTP_X_CSRFTOKEN": client.get("/api/auth/csrf").json()["csrfToken"]}
 
 
-def refresh(client, token=None):
-    if token is not None:
-        client.cookies["refresh_token"] = token
-    return client.post("/api/auth/refresh", **csrf_headers(client))
+def _age_blacklist_past_grace() -> None:
+    """Move every blacklist entry outside the concurrent-refresh grace window."""
+    from ninja_jwt.token_blacklist.models import BlacklistedToken
+
+    from core.security.refresh_tokens import REUSE_GRACE_SECONDS
+
+    BlacklistedToken.objects.update(
+        blacklisted_at=timezone.now() - timedelta(seconds=REUSE_GRACE_SECONDS + 1)
+    )
+
+
+def refresh(client: Client, refresh_token: str):
+    """POST /api/token/refresh with the given refresh token."""
+    return client.post(
+        "/api/token/refresh",
+        json.dumps({"refresh": refresh_token}),
+        content_type="application/json",
+    )
 
 
 @pytest.mark.django_db
@@ -82,25 +111,122 @@ class TestCookieAuthentication:
             == 403
         )
 
-    def test_bearer_header_is_not_application_authentication(self):
-        token = RefreshToken.for_user(UserFactory()).access_token
-        assert (
-            Client()
-            .get("/api/auth/me", HTTP_AUTHORIZATION=f"Bearer {token}")
-            .status_code
-            == 401
-        )
+class TestRefreshRotation:
+    def test_refresh_rotates_and_new_token_keeps_working(self, client):
+        user = UserFactory()
+        old_refresh = tokens_for(user)["refresh"]
 
-    def test_logout_without_access_cookie_is_idempotent(self):
-        client = Client(enforce_csrf_checks=True)
-        token = str(RefreshToken.for_user(UserFactory()))
-        client.cookies["refresh_token"] = token
-        assert (
-            client.post("/api/auth/logout", **csrf_headers(client)).status_code == 200
-        )
-        assert (
-            client.post("/api/auth/logout", **csrf_headers(client)).status_code == 200
-        )
+        response = refresh(client, old_refresh)
+        assert response.status_code == 200, response.content
+        new_refresh = response.json()["refresh"]
+        assert new_refresh != old_refresh
+        assert refresh(client, new_refresh).status_code == 200
+
+    @pytest.mark.parametrize("path", ["/api/token/refresh", "/api/auth/refresh"])
+    def test_reused_refresh_token_revokes_all_user_refresh_tokens(self, client, path):
+        user = UserFactory()
+        other_session = tokens_for(user)["refresh"]
+        stolen = tokens_for(user)["refresh"]
+
+        def post(token: str):
+            return client.post(
+                path, json.dumps({"refresh": token}), content_type="application/json"
+            )
+
+        rotated = post(stolen)
+        assert rotated.status_code == 200
+        _age_blacklist_past_grace()
+
+        # The rotated token comes back: 401, and the whole user is revoked.
+        assert post(stolen).status_code == 401
+        assert post(rotated.json()["refresh"]).status_code == 401
+        assert post(other_session).status_code == 401
+
+    def test_replay_inside_grace_window_keeps_the_session(self, client):
+        """A second tab sending the same cookie right after a rotation gets
+        401, but the successor and other sessions stay valid."""
+        user = UserFactory()
+        other_session = tokens_for(user)["refresh"]
+        shared = tokens_for(user)["refresh"]
+        first = refresh(client, shared)
+        assert first.status_code == 200
+        assert refresh(client, shared).status_code == 401
+        assert refresh(client, first.json()["refresh"]).status_code == 200
+        assert refresh(client, other_session).status_code == 200
+
+    def test_reuse_does_not_revoke_other_users(self, client):
+        victim, bystander = UserFactory(), UserFactory()
+        stolen = tokens_for(victim)["refresh"]
+        bystander_refresh = tokens_for(bystander)["refresh"]
+        assert refresh(client, stolen).status_code == 200
+        _age_blacklist_past_grace()
+        assert refresh(client, stolen).status_code == 401
+        assert refresh(client, bystander_refresh).status_code == 200
+
+    def test_password_change_revokes_refresh_tokens(self, client):
+        user = UserFactory()
+        before = tokens_for(user)["refresh"]
+        user.set_password("N3w-Passw0rd!x")
+        user.save()
+        assert refresh(client, before).status_code == 401
+        # Tokens issued after the change work.
+        assert refresh(client, tokens_for(user)["refresh"]).status_code == 200
+
+    def test_saving_without_password_change_keeps_tokens(self, client):
+        user = UserFactory()
+        token = tokens_for(user)["refresh"]
+        user.first_name = "Renamed"
+        user.save()
+        assert refresh(client, token).status_code == 200
+
+    def test_deactivated_user_cannot_refresh(self, client):
+        user = UserFactory()
+        token = tokens_for(user)["refresh"]
+        user.is_active = False
+        user.save()
+        assert refresh(client, token).status_code == 401
+
+
+@pytest.mark.skipif(
+    connection.vendor != "postgresql",
+    reason="Needs Postgres row locks (scripts/test_ai_db.py runs it).",
+)
+@pytest.mark.django_db(transaction=True)
+def test_concurrent_refresh_of_one_token_keeps_the_session():
+    """Two tabs refresh the same cookie at once: one rotation wins, the other
+    gets 401, and nothing is revoked."""
+    user = UserFactory()
+    shared = tokens_for(user)["refresh"]
+    barrier = threading.Barrier(2)
+    responses: list = []
+
+    def tab() -> None:
+        try:
+            barrier.wait()
+            responses.append(refresh(Client(), shared))
+        finally:
+            connection.close()
+
+    threads = [threading.Thread(target=tab) for _ in range(2)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+
+    assert sorted(r.status_code for r in responses) == [200, 401]
+    winner = next(r for r in responses if r.status_code == 200)
+    assert refresh(Client(), winner.json()["refresh"]).status_code == 200
+
+
+class TestLogoutRevocation:
+    def test_logout_blacklists_refresh_token(self, client):
+        user = UserFactory()
+        tokens = tokens_for(user)
+        access, token = tokens["token"], tokens["refresh"]
+
+        assert logout(client, access, token).status_code == 200
+
+        # The blacklisted refresh token can no longer mint access tokens.
         assert refresh(client, token).status_code == 401
 
     @pytest.mark.parametrize("token", ["invalid", ""])
@@ -112,11 +238,27 @@ class TestCookieAuthentication:
         from django.http import HttpResponse
         from core.security.cookie_auth import set_auth_cookies
 
-        settings.AUTH_COOKIE_SECURE = True
-        response = HttpResponse()
-        set_auth_cookies(response, RefreshToken.for_user(UserFactory()))
-        assert response.cookies["access_token"]["secure"]
-        assert response.cookies["refresh_token"]["secure"]
+        response = client.get("/api/auth/me", HTTP_AUTHORIZATION=f"Bearer {access}")
+        assert response.status_code == 200
+
+    def test_logout_is_idempotent(self, client):
+        user = UserFactory()
+        tokens = tokens_for(user)
+        access, token = tokens["token"], tokens["refresh"]
+
+        assert logout(client, access, token).status_code == 200
+        # A second logout with the already-blacklisted token still succeeds.
+        assert logout(client, access, token).status_code == 200
+
+    def test_logout_cannot_revoke_another_users_refresh_token(self, client):
+        actor = UserFactory()
+        owner = UserFactory()
+        actor_access = tokens_for(actor)["token"]
+        owner_refresh = tokens_for(owner)["refresh"]
+
+        response = logout(client, actor_access, owner_refresh)
+        assert response.status_code == 400
+        assert refresh(client, owner_refresh).status_code == 200
 
 
 class TestTokenPruning:

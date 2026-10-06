@@ -29,6 +29,7 @@ class ErrorCode(StrEnum):
     TOKEN_EXPIRED = "token_expired"
     PERMISSION_DENIED = "permission_denied"
     EMAIL_NOT_VERIFIED = "email_not_verified"
+    CSRF_FAILED = "csrf_failed"
 
     # Validation
     VALIDATION_FAILED = "validation_failed"

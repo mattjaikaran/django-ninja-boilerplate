@@ -4,6 +4,17 @@ from django.core.management.base import BaseCommand
 
 from api.settings.common import env
 
+# Passwords published in this repository's templates and scripts.
+_PUBLISHED_PASSWORDS = {
+    "Password123!",
+    "admin123",
+    "admin",
+    "password",
+    "changeme",
+    "CHANGE_ME",
+}
+_MIN_PASSWORD_LENGTH = 12
+
 
 class Command(BaseCommand):
     help = "Creates a superuser from environment variables"
@@ -24,6 +35,19 @@ class Command(BaseCommand):
             self.stdout.write(
                 self.style.ERROR(
                     "Error: All superuser fields must be provided in the .env file."
+                )
+            )
+            return
+
+        # Outside development, refuse a published or short password. The
+        # container entrypoint applies the same rule before calling this.
+        if env("ENVIRONMENT", default="development") != "development" and (
+            password in _PUBLISHED_PASSWORDS or len(password) < _MIN_PASSWORD_LENGTH
+        ):
+            self.stdout.write(
+                self.style.ERROR(
+                    "Error: SUPERUSER_PASSWORD is a published default or shorter "
+                    f"than {_MIN_PASSWORD_LENGTH} characters."
                 )
             )
             return

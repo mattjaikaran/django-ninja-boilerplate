@@ -41,6 +41,9 @@ class CustomUserManager(BaseUserManager):
             extra_fields["username"] = normalized_email.split("@")[0]
 
         user = self.model(email=normalized_email, **extra_fields)
+        # Manager primitive: the API paths run validate_password first
+        # (auth_controller.signup, users_controller.create_superuser).
+        # nosemgrep: python.django.security.audit.unvalidated-password
         user.set_password(password)
         try:
             user.full_clean()
@@ -210,6 +213,8 @@ class User(AbstractBaseUser, PermissionsMixin):
     )
 
     # Metadata (flexible JSON field for additional data)
+    # default=dict: an empty value is {}, never NULL.
+    # nosemgrep: python.django.correctness.nontext-field-must-set-null-true
     metadata = models.JSONField(
         default=dict,
         blank=True,
@@ -254,6 +259,22 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     def __str__(self) -> str:
         return self.email
+
+    def save(self, *args, **kwargs) -> None:
+        """Save, and revoke every refresh token after a password change.
+
+        ``set_password`` stores the raw password in ``_password`` until the
+        next save, so this covers the reset, admin and management-command
+        paths alike.
+        """
+        password_changed = (
+            getattr(self, "_password", None) is not None and not self._state.adding
+        )
+        super().save(*args, **kwargs)
+        if password_changed:
+            from core.security.refresh_tokens import revoke_user_refresh_tokens
+
+            revoke_user_refresh_tokens(self.pk)
 
     def clean(self) -> None:
         """Validate the user instance."""

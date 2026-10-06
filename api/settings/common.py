@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 import environ
+from django.core.exceptions import ImproperlyConfigured
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
@@ -42,7 +43,7 @@ env = environ.Env(
     # Superuser defaults
     SUPERUSER_EMAIL=(str, "admin@example.com"),
     SUPERUSER_USERNAME=(str, "admin"),
-    SUPERUSER_PASSWORD=(str, "Password123!"),
+    SUPERUSER_PASSWORD=(str, ""),
     SUPERUSER_FIRST_NAME=(str, "Admin"),
     SUPERUSER_LAST_NAME=(str, "User"),
     # Stripe (optional)
@@ -101,9 +102,8 @@ INSTALLED_APPS = [
     "core",  # core app
     "todos",  # todos app
     "atlas",  # codebase atlas (interactive architecture map in admin)
-    # Optional apps — uncomment to enable:
-    # "files",  # files app (S3 presigned upload)
-    # "webhooks",  # outbound webhooks
+    # Optional apps. Set FILES_ENABLED / WEBHOOKS_ENABLED (below) for files and
+    # webhooks; uncomment the others to enable them:
     # "organizations",  # multi-tenancy / org membership
     # "notifications",  # in-app + email notifications
     # "billing",  # Stripe billing
@@ -114,6 +114,26 @@ INSTALLED_APPS = [
     "csp",  # django-csp for Content-Security-Policy headers
 ]
 
+# Optional apps behind flags. Both default off. See docs/ARCHITECTURE.md.
+# files: S3 presigned upload. Uploads are size-capped and magic-byte checked.
+FILES_ENABLED = env.bool("FILES_ENABLED", default=False)
+if FILES_ENABLED:
+    INSTALLED_APPS += ["files"]
+# Largest accepted upload, in bytes (presigned POST limit and local upload cap).
+FILES_MAX_UPLOAD_BYTES = env.int("FILES_MAX_UPLOAD_BYTES", default=10 * 1024 * 1024)
+# Accepted types. Only types with a known magic-byte signature are accepted:
+# image/jpeg, image/png, image/gif, image/webp, application/pdf.
+FILES_ALLOWED_CONTENT_TYPES = env.list(
+    "FILES_ALLOWED_CONTENT_TYPES",
+    default=["image/jpeg", "image/png", "image/gif", "image/webp", "application/pdf"],
+)
+# webhooks: outbound webhooks. Delivery is SSRF-guarded (webhooks/ssrf.py).
+WEBHOOKS_ENABLED = env.bool("WEBHOOKS_ENABLED", default=False)
+if WEBHOOKS_ENABLED:
+    INSTALLED_APPS += ["webhooks"]
+# Allow http:// webhook URLs outside DEBUG. Keep off: plain HTTP leaks payloads.
+WEBHOOKS_ALLOW_HTTP = env.bool("WEBHOOKS_ALLOW_HTTP", default=False)
+
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",  # security middleware
     # Serves collected static files when no nginx sits in front (single, PaaS).
@@ -123,8 +143,8 @@ MIDDLEWARE = [
     "django.contrib.sessions.middleware.SessionMiddleware",  # session middleware
     "corsheaders.middleware.CorsMiddleware",  # django-cors-headers
     "django.middleware.common.CommonMiddleware",  # common middleware
-    "django.middleware.csrf.CsrfViewMiddleware",  # csrf view middleware
-    "core.security.cookie_auth.CookieCSRFMiddleware",
+    # Django CSRF, extended to the cookie-authenticated API (docs/COOKIE_AUTH.md)
+    "core.security.cookie_auth.ApiCsrfMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",  # authentication middleware
     "django.contrib.messages.middleware.MessageMiddleware",  # message middleware
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
@@ -166,6 +186,39 @@ WSGI_APPLICATION = "api.wsgi.application"  # wsgi application
 
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
+# https://docs.djangoproject.com/en/5.2/ref/databases/#connection-pool
+# Web processes use psycopg 3's connection pool. The pool replaces persistent
+# connections, so CONN_MAX_AGE must stay 0 (Django raises ImproperlyConfigured
+# otherwise). With a pool, CONN_HEALTH_CHECKS makes the pool check each
+# connection before it hands it out.
+# Each process owns its own pool: peak connections are
+# processes x DB_POOL_MAX_SIZE, which must stay below Postgres max_connections.
+# Task workers fork after Django loads, which breaks an inherited pool, so their
+# Compose services set DB_POOL_ENABLED=false. See "Database connection pool" in
+# docs/ARCHITECTURE.md.
+DB_POOL_ENABLED = env.bool("DB_POOL_ENABLED", default=True)
+DB_POOL_MIN_SIZE = env.int("DB_POOL_MIN_SIZE", default=2)
+DB_POOL_MAX_SIZE = env.int("DB_POOL_MAX_SIZE", default=10)
+# Seconds a request waits for a free pooled connection before it fails.
+DB_POOL_TIMEOUT = env.float("DB_POOL_TIMEOUT", default=10.0)
+if DB_POOL_MAX_SIZE < DB_POOL_MIN_SIZE:
+    raise ImproperlyConfigured(
+        f"DB_POOL_MAX_SIZE ({DB_POOL_MAX_SIZE}) must be >= "
+        f"DB_POOL_MIN_SIZE ({DB_POOL_MIN_SIZE})."
+    )
+
+_db_options: dict[str, object] = {
+    "connect_timeout": 10,
+    # Query timeout (30 seconds)
+    "options": "-c statement_timeout=30000",
+}
+if DB_POOL_ENABLED:
+    _db_options["pool"] = {
+        "min_size": DB_POOL_MIN_SIZE,
+        "max_size": DB_POOL_MAX_SIZE,
+        "timeout": DB_POOL_TIMEOUT,
+    }
+
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
@@ -174,14 +227,9 @@ DATABASES = {
         "PASSWORD": env("DB_PASSWORD"),
         "HOST": env("DB_HOST"),
         "PORT": env("DB_PORT"),
-        # Performance: Connection pooling (keep connections alive for 10 minutes)
-        "CONN_MAX_AGE": 600,
-        "OPTIONS": {
-            # Performance: Connection timeout
-            "connect_timeout": 10,
-            # Performance: Query timeout (30 seconds)
-            "options": "-c statement_timeout=30000",
-        },
+        "CONN_MAX_AGE": 0,
+        "CONN_HEALTH_CHECKS": True,
+        "OPTIONS": _db_options,
     }
 }
 
@@ -216,11 +264,21 @@ NINJA_JWT_SIGNING_KEY = env("NINJA_JWT_SIGNING_KEY", default=SECRET_KEY)
 # Access tokens are short-lived (60 minutes) and intentionally left valid until
 # expiry after logout: revoking only the refresh token stops the refresh flow
 # without a per-request blacklist lookup on every access-token use.
+# Refresh tokens always rotate. core.security.refresh_tokens adds reuse
+# detection (a rotated token presented again revokes all of the user's refresh
+# tokens) and revokes them on every password change (core.models.User.save).
 NINJA_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=60),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
     "ROTATE_REFRESH_TOKENS": True,
     "BLACKLIST_AFTER_ROTATION": True,
+    "TOKEN_OBTAIN_PAIR_REFRESH_INPUT_SCHEMA": (
+        "core.security.refresh_tokens.TokenRefreshInputSchema"
+    ),
+    # Per-account and per-IP lockout shared with /api/auth/login.
+    "TOKEN_OBTAIN_PAIR_INPUT_SCHEMA": (
+        "core.security.brute_force.TokenObtainPairInputSchema"
+    ),
     "UPDATE_LAST_LOGIN": False,
     "ALGORITHM": "HS256",
     "SIGNING_KEY": NINJA_JWT_SIGNING_KEY,
@@ -257,7 +315,7 @@ NINJA_EXTRA = {
     "THROTTLE_RATES": {
         "user": "1000/day",  # authenticated general API
         "anon": "100/day",  # anonymous general API
-        "anon-auth": "20/min",  # credential auth endpoints (signup/login/verify)
+        "anon-auth": "20/min",  # credential endpoints (login, token, verify)
         "anon-email": "5/min",  # magic-link request (email sending)
         "tasks": "60/min",  # task admin endpoints
     },
@@ -442,7 +500,8 @@ os.environ.setdefault("FLOWER_URL", FLOWER_URL)
 # =============================================================================
 # Pluggable Task Backend
 # =============================================================================
-# Options: celery (default), huey, django_q, django_rq, dramatiq
+# Options: celery (default), huey, django_q, django_rq, dramatiq, none.
+# none runs no worker: .delay() raises TaskDispatchDisabled (api/tasks).
 TASK_BACKEND = env("TASK_BACKEND", default="celery")
 _TASK_REDIS_URL = REDIS_URL.replace("valkey://", "redis://", 1)
 
@@ -514,14 +573,55 @@ STRIPE_WEBHOOK_SECRET = env("STRIPE_WEBHOOK_SECRET", default="")
 # =============================================================================
 # Security Settings
 # =============================================================================
-SECURE_BROWSER_XSS_FILTER = True
 SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = "DENY"
 
 # =============================================================================
+# Cookie auth, CSRF and CORS (contract: docs/COOKIE_AUTH.md)
+# =============================================================================
+# The frontend is a separate origin or container. It authenticates with
+# httpOnly JWT cookies and sends X-CSRFToken on every unsafe request.
+# USE_TLS=true only when a TLS-terminating proxy sits in front: it turns on
+# Secure cookies here and the HTTPS redirect and HSTS in prod.py.
+USE_TLS = env.bool("USE_TLS", default=False)
+
+AUTH_COOKIE_ACCESS_NAME = "access_token"
+AUTH_COOKIE_REFRESH_NAME = "refresh_token"
+AUTH_COOKIE_ACCESS_PATH = "/api/"
+# Only refresh and logout read the refresh token.
+AUTH_COOKIE_REFRESH_PATH = "/api/auth/"
+AUTH_COOKIE_SAMESITE = "Lax"
+AUTH_COOKIE_SECURE = USE_TLS
+
+# The client reads the csrftoken cookie and echoes it in X-CSRFToken.
+CSRF_COOKIE_HTTPONLY = False
+CSRF_COOKIE_SAMESITE = "Lax"
+CSRF_COOKIE_SECURE = USE_TLS
+CSRF_TRUSTED_ORIGINS = env.list("CSRF_TRUSTED_ORIGINS", default=[FRONTEND_URL])
+# ninja-jwt bearer endpoints return tokens in the body and set no cookie, so a
+# forged cross-site request gains nothing. Signed webhook receivers verify the
+# sender's signature instead of a CSRF token (Stripe: billing/webhooks.py).
+API_CSRF_EXEMPT_PATHS = ["/api/token/", "/api/billing/webhooks/"]
+# security.W003 looks for the exact CsrfViewMiddleware path; ApiCsrfMiddleware
+# subclasses it and keeps Django's CSRF behaviour for every non-API view.
+SILENCED_SYSTEM_CHECKS = ["security.W003"]
+
+CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS", default=[FRONTEND_URL])
+CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOW_HEADERS = [
+    "accept",
+    "authorization",
+    "content-type",
+    "user-agent",
+    "x-csrftoken",
+    "x-requested-with",
+]
+
+# =============================================================================
 # Content-Security-Policy (django-csp 4.0+)
-# Development: permissive to allow hot-reload tools, local docs, etc.
-# Production overrides in prod.py should lock this down.
+# Covers the only HTML the API-only backend serves: the admin and the API
+# docs. The frontend is a separate origin and sets its own CSP. Development
+# reports violations only; prod.py enforces a stricter copy.
 # =============================================================================
 # Public so prod.py can build the enforced policy from the same directives.
 CSP_DIRECTIVES = {
@@ -545,15 +645,6 @@ if ENVIRONMENT == "development":
     CONTENT_SECURITY_POLICY_REPORT_ONLY["DIRECTIVES"] = CSP_DIRECTIVES
 else:
     CONTENT_SECURITY_POLICY["DIRECTIVES"] = CSP_DIRECTIVES
-
-# Production security settings (enabled when not in DEBUG mode)
-# Note: These should be configured in prod.py for production environment
-# SECURE_SSL_REDIRECT = True
-# SECURE_HSTS_SECONDS = 31536000  # 1 year
-# SECURE_HSTS_INCLUDE_SUBDOMAINS = True
-# SECURE_HSTS_PRELOAD = True
-# SESSION_COOKIE_SECURE = True
-# CSRF_COOKIE_SECURE = True
 
 # =============================================================================
 # Email Configuration
@@ -598,6 +689,18 @@ ADMIN_INDEX_TITLE = env(
 )
 ADMIN_SITE_URL = "/api/docs"
 ADMIN_VIEW_SITE_NAME = "View Docs"
+# Admin mount path, relative and with a trailing slash. Change it per deploy
+# to keep the admin login off scanners' default path; failed admin logins also
+# share the API login lockout (core.security.brute_force).
+ADMIN_URL = env("ADMIN_URL", default="admin/").strip("/") + "/"
+if ADMIN_URL == "/":
+    raise ImproperlyConfigured("ADMIN_URL must not be empty.")
+
+# Swagger UI (/api/docs) and /api/openapi.json: "public", "staff" (admin
+# login required) or "off". Production (prod.py) defaults to "off".
+API_DOCS = env("API_DOCS", default="public")
+if API_DOCS not in {"public", "staff", "off"}:
+    raise ImproperlyConfigured("API_DOCS must be one of: public, staff, off.")
 
 # =============================================================================
 # Codebase Atlas Configuration
@@ -673,6 +776,48 @@ OTEL_EXPORTER_OTLP_ENDPOINT = env(
     "OTEL_EXPORTER_OTLP_ENDPOINT", default="http://localhost:4317"
 )
 OTEL_CONSOLE_EXPORT = env.bool("OTEL_CONSOLE_EXPORT", default=False)
+
+# Sentry or GlitchTip (same DSN format). A DSN starts the SDK in
+# CoreConfig.ready() and needs the `sentry` extra. PII is scrubbed: see
+# core/observability/sentry.py.
+SENTRY_DSN = env("SENTRY_DSN", default="")
+SENTRY_TRACES_SAMPLE_RATE = env.float("SENTRY_TRACES_SAMPLE_RATE", default=0.0)
+
+# =============================================================================
+# AI and data layer (opt-in, `ai` extra). See docs/AI_LAYER.md.
+# =============================================================================
+# AI_ENABLED installs core.ai: the pgvector example models and the migration
+# that creates the `vector` extension. Postgres needs pgvector
+# (POSTGRES_IMAGE=pgvector/pgvector:pg17 in Compose).
+AI_ENABLED = env.bool("AI_ENABLED", default=False)
+if AI_ENABLED:
+    INSTALLED_APPS += ["core.ai"]
+# Any OpenAI-compatible API: OpenAI, Ollama, vLLM, OpenRouter, a LiteLLM proxy.
+AI_BASE_URL = env("AI_BASE_URL", default="")
+AI_API_KEY = env("AI_API_KEY", default="")
+# Reported as gen_ai.provider.name on traces (openai, anthropic, ...).
+AI_PROVIDER_NAME = env("AI_PROVIDER_NAME", default="openai")
+AI_CHAT_MODEL = env("AI_CHAT_MODEL", default="")
+AI_EMBEDDING_MODEL = env("AI_EMBEDDING_MODEL", default="")
+AI_TIMEOUT = env.float("AI_TIMEOUT", default=60.0)
+# Seconds a chat response stays in the cache. 0 turns the cache off.
+AI_CACHE_TTL = env.int("AI_CACHE_TTL", default=3600)
+
+# App-level MCP server at /api/mcp (core/mcp/server.py). Needs the `ai` extra
+# and an ASGI server. Clients send a JWT access token as a Bearer token.
+MCP_ENABLED = env.bool("MCP_ENABLED", default=False)
+# Public origin of this API, used in the MCP auth metadata.
+MCP_BASE_URL = env("MCP_BASE_URL", default="http://localhost:8000")
+# operationIds of the GET routes exposed as MCP tools (docs/openapi/openapi.json).
+MCP_TOOLS = env.list(
+    "MCP_TOOLS",
+    default=[
+        "auth_get_current_user",
+        "todo_list_todos",
+        "todo_search_todos",
+        "todo_get_todo",
+    ],
+)
 
 # Enable structured JSON logging in production
 USE_STRUCTURED_LOGGING = env.bool(

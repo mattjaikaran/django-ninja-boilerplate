@@ -686,13 +686,10 @@ def rate_limit(identifier_func: callable, limit: int, window: int):
 
 
 def get_client_ip(request):
-    """Get client IP from request."""
-    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
-    if x_forwarded_for:
-        ip = x_forwarded_for.split(',')[0]
-    else:
-        ip = request.META.get('REMOTE_ADDR')
-    return ip
+    """Get client IP from request, trusting only NINJA_NUM_PROXIES proxies."""
+    from api.utils.http import get_client_ip as trusted_client_ip
+
+    return trusted_client_ip(request)
 
 
 def get_user_id(request):

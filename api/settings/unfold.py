@@ -6,6 +6,8 @@ Separated from common.py to keep settings manageable.
 import os
 from typing import Any
 
+from django.urls import reverse_lazy
+
 # FLOWER_URL is set into os.environ by common.py (via the .env loader)
 # before this module is imported, so the sidebar can hide the Flower
 # link until the operator configures the dashboard.
@@ -27,12 +29,20 @@ UNFOLD: dict[str, Any] = {
             {
                 "title": "Core",
                 "items": [
-                    {"title": "Users", "icon": "person", "link": "/admin/core/user/"},
-                    {"title": "API Keys", "icon": "key", "link": "/admin/core/apikey/"},
+                    {
+                        "title": "Users",
+                        "icon": "person",
+                        "link": reverse_lazy("admin:core_user_changelist"),
+                    },
+                    {
+                        "title": "API Keys",
+                        "icon": "key",
+                        "link": reverse_lazy("admin:core_apikey_changelist"),
+                    },
                     {
                         "title": "Audit Log",
                         "icon": "history",
-                        "link": "/admin/core/auditlog/",
+                        "link": reverse_lazy("admin:core_auditlog_changelist"),
                     },
                 ],
             },
@@ -42,17 +52,17 @@ UNFOLD: dict[str, Any] = {
                     {
                         "title": "Health Check",
                         "icon": "monitor_heart",
-                        "link": "/admin/observability/health/",
+                        "link": reverse_lazy("health_admin"),
                     },
                     {
                         "title": "Metrics",
                         "icon": "bar_chart",
-                        "link": "/admin/observability/metrics/",
+                        "link": reverse_lazy("metrics_admin"),
                     },
                     {
                         "title": "Codebase Atlas",
                         "icon": "map",
-                        "link": "/admin/atlas/",
+                        "link": reverse_lazy("atlas_admin"),
                     },
                 ],
             },

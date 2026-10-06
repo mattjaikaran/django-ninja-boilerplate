@@ -267,11 +267,10 @@ class ObservabilityMiddleware:
             logger.debug(message, extra=extra)
 
     def _get_client_ip(self, request: HttpRequest) -> str:
-        """Get client IP address from request."""
-        x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
-        if x_forwarded_for:
-            return x_forwarded_for.split(",")[0].strip()
-        return request.META.get("REMOTE_ADDR", "")
+        """Get client IP address from request (trusted proxies only)."""
+        from api.utils.http import get_client_ip
+
+        return get_client_ip(request)
 
 
 class TracingMiddleware:

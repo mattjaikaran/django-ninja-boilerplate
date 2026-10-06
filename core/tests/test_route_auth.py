@@ -26,6 +26,10 @@ def bearer_for(user) -> dict:
     return {"HTTP_COOKIE": f"access_token={AccessToken.for_user(user)}"}
 
 
+# Any well-formed id: staff checks must answer 403 before any lookup.
+_ANY_UUID = "00000000-0000-4000-8000-000000000000"
+
+
 def post_json(client: Client, path: str, data: dict, **headers) -> HttpResponseBase:
     return client.post(
         path, json.dumps(data), content_type="application/json", **headers
@@ -115,19 +119,70 @@ class TestRolePermissions:
     @pytest.mark.parametrize(
         ("method", "path"),
         [
+            # Observability detail (staff only).
+            ("get", "/api/health/detailed"),
+            ("get", "/api/health/component/database"),
+            ("get", "/api/health/system"),
+            ("get", "/api/metrics"),
+            # User administration.
             ("get", "/api/users/"),
             ("get", "/api/users/staff"),
             ("get", "/api/users/active"),
+            ("post", "/api/users/superuser"),
+            ("get", f"/api/users/{_ANY_UUID}"),
+            ("put", f"/api/users/{_ANY_UUID}"),
+            ("delete", f"/api/users/{_ANY_UUID}"),
+            # Audit logs.
+            ("get", "/api/audit/"),
+            ("get", "/api/audit/actions"),
+            ("get", "/api/audit/failed-logins"),
+            ("get", "/api/audit/models"),
+            ("get", "/api/audit/stats/summary"),
+            ("get", "/api/audit/ip/192.0.2.1"),
+            ("get", "/api/audit/user/someone@example.com"),
+            ("get", f"/api/audit/object/user/{_ANY_UUID}"),
+            ("get", f"/api/audit/{_ANY_UUID}"),
+            # Task status and progress.
+            ("get", "/api/tasks/stats"),
+            ("get", "/api/tasks/recent"),
+            ("get", "/api/tasks/active"),
+            ("post", "/api/tasks/cleanup"),
+            ("get", "/api/tasks/some-task/status"),
+            ("get", "/api/tasks/some-task/progress"),
+            ("post", "/api/tasks/some-task/revoke"),
+            # Periodic task scheduler.
             ("get", "/api/tasks/scheduler/"),
             ("get", "/api/tasks/scheduler/stats"),
+            ("post", "/api/tasks/scheduler/crontab"),
+            ("post", "/api/tasks/scheduler/interval"),
+            ("get", "/api/tasks/scheduler/1"),
+            ("put", "/api/tasks/scheduler/1"),
+            ("delete", "/api/tasks/scheduler/1"),
+            ("post", "/api/tasks/scheduler/1/run"),
+            ("post", "/api/tasks/scheduler/1/toggle"),
+            # Dead-letter queue.
             ("get", "/api/tasks/dlq/"),
-            ("get", "/api/audit/"),
-            ("get", "/api/audit/stats/summary"),
+            ("get", "/api/tasks/dlq/stats"),
+            ("post", "/api/tasks/dlq/cleanup"),
+            ("post", "/api/tasks/dlq/resolve-bulk"),
+            ("post", "/api/tasks/dlq/retry-all"),
+            ("get", f"/api/tasks/dlq/{_ANY_UUID}"),
+            ("delete", f"/api/tasks/dlq/{_ANY_UUID}"),
+            ("post", f"/api/tasks/dlq/{_ANY_UUID}/resolve"),
+            ("post", f"/api/tasks/dlq/{_ANY_UUID}/retry"),
         ],
     )
     def test_staff_routes_forbid_regular_user(self, client, regular_user, method, path):
-        response = client.get(path, **bearer_for(regular_user))
-        assert response.status_code == 403, f"{path} -> {response.status_code}"
+        headers = bearer_for(regular_user)
+        if method in ("get", "delete"):
+            response = getattr(client, method)(path, **headers)
+        else:
+            response = getattr(client, method)(
+                path, "{}", content_type="application/json", **headers
+            )
+        assert response.status_code == 403, (
+            f"{method.upper()} {path} -> {response.status_code}"
+        )
 
     @pytest.mark.parametrize(
         "path",
@@ -168,10 +223,40 @@ class TestRolePermissions:
         )
         assert response.status_code == 201, response
 
-    def test_task_status_allows_authenticated_user(self, client, regular_user):
-        """Task status/progress is JWT-protected, not staff-only."""
-        response = client.get("/api/tasks/stats", **bearer_for(regular_user))
-        assert response.status_code == 200
+    def test_staff_cannot_modify_or_delete_a_superuser(
+        self, client, staff_user, superuser
+    ):
+        path = f"/api/users/{superuser.id}"
+        update = client.put(
+            path,
+            data=json.dumps({"username": "hijacked"}),
+            content_type="application/json",
+            **bearer_for(staff_user),
+        )
+        delete = client.delete(path, **bearer_for(staff_user))
+        assert (update.status_code, delete.status_code) == (403, 403)
+        superuser.refresh_from_db()
+        assert superuser.username != "hijacked"
+
+    def test_superuser_can_delete_a_superuser(self, client, superuser):
+        other = UserFactory(is_staff=True, is_superuser=True)
+        response = client.delete(f"/api/users/{other.id}", **bearer_for(superuser))
+        assert response.status_code == 204
+        assert not User.objects.filter(id=other.id).exists()
+
+    def test_api_key_revoke_and_rotate_return_404_for_missing_or_foreign_key(
+        self, client, regular_user
+    ):
+        from core.services.api_key_service import APIKeyService
+
+        foreign_key, _ = APIKeyService.create_key(UserFactory(), name="other")
+        headers = bearer_for(regular_user)
+        for key_id in (_ANY_UUID, foreign_key.id):
+            revoke = client.delete(f"/api/api-keys/{key_id}", **headers)
+            rotate = client.post(f"/api/api-keys/{key_id}/rotate", **headers)
+            assert (revoke.status_code, rotate.status_code) == (404, 404)
+        foreign_key.refresh_from_db()
+        assert not foreign_key.revoked
 
 
 # =============================================================================
@@ -197,7 +282,6 @@ class TestOpenAPISecurity:
         [
             ("get", "/api/auth/me"),
             ("get", "/api/auth/status"),
-            ("post", "/api/auth/refresh"),
             ("get", "/api/users/"),
             ("post", "/api/users/superuser"),
             ("get", "/api/tasks/stats"),
@@ -226,8 +310,10 @@ class TestOpenAPISecurity:
     #: missing from this set and has no security fails the test below.
     PUBLIC_OPERATIONS = frozenset(
         {
+            ("get", "/api/auth/csrf"),
             ("post", "/api/auth/login"),
             ("post", "/api/auth/login/username"),
+            ("post", "/api/auth/logout"),
             ("post", "/api/auth/otp/email/verify"),
             ("post", "/api/auth/otp/password-reset/confirm"),
             ("post", "/api/auth/otp/password-reset/request"),
@@ -237,6 +323,7 @@ class TestOpenAPISecurity:
             ("post", "/api/auth/otp/verify-token"),
             ("post", "/api/auth/passwordless/login/request"),
             ("post", "/api/auth/passwordless/login/verify"),
+            ("post", "/api/auth/refresh"),
             ("post", "/api/auth/signup"),
             ("get", "/api/health/"),
             ("get", "/api/health/liveness"),

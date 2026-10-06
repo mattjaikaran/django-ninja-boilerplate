@@ -67,22 +67,13 @@ class UserBasicSchema(CamelCaseSchema):
 class UserSignupSchema(CamelCaseSchema):
     """Schema for user registration."""
 
-    email: EmailStr
+    email: EmailStr = Field(..., max_length=255)
     username: str = Field(..., min_length=3, max_length=100)
     password: str = Field(..., min_length=8)
     first_name: str = Field("", max_length=100)
     last_name: str = Field("", max_length=100)
     is_staff: bool = False
     is_superuser: bool = False
-
-    @field_validator("password")
-    @classmethod
-    def password_requirements(cls, v: str) -> str:
-        """Validate password meets requirements."""
-        if len(v) < 8:
-            msg = "Password must be at least 8 characters"
-            raise ValueError(msg)
-        return v
 
 
 class UserLoginSchema(CamelCaseSchema):
@@ -101,14 +92,14 @@ class UserLogoutSchema(CamelCaseSchema):
 class UserUpdateSchema(CamelCaseSchema):
     """Schema for updating user profile."""
 
-    first_name: str | None = None
-    last_name: str | None = None
+    first_name: str | None = Field(None, max_length=100)
+    last_name: str | None = Field(None, max_length=100)
     username: str | None = Field(None, min_length=3, max_length=100)
     bio: str | None = Field(None, max_length=500)
     phone: str | None = Field(None, max_length=20)
     location: str | None = Field(None, max_length=200)
-    website: str | None = None
-    timezone: str | None = None
+    website: str | None = Field(None, max_length=200)
+    timezone: str | None = Field(None, max_length=50)
     email_notifications: bool | None = None
     push_notifications: bool | None = None
 
@@ -132,15 +123,6 @@ class ChangePasswordSchema(CamelCaseSchema):
 
     current_password: str
     new_password: str = Field(..., min_length=8)
-
-    @field_validator("new_password")
-    @classmethod
-    def password_requirements(cls, v: str) -> str:
-        """Validate new password meets requirements."""
-        if len(v) < 8:
-            msg = "Password must be at least 8 characters"
-            raise ValueError(msg)
-        return v
 
 
 class UserPreferencesSchema(CamelCaseSchema):

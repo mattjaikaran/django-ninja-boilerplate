@@ -31,17 +31,21 @@ Run `just legacy security-check` (calls `manage.py check --deploy`) before each 
   - Dev: report-only mode, permissive (won't block your local tools)
   - Prod: enforced, no `unsafe-inline` or `unsafe-eval`
   - Tighten the `script-src` / `style-src` directives in `CONTENT_SECURITY_POLICY["DIRECTIVES"]` (`prod.py`) as your frontend stabilises
-- [ ] Keep `SESSION_COOKIE_HTTPONLY = True`. Set `USE_TLS=true` to enable
-  `SESSION_COOKIE_SECURE` and `CSRF_COOKIE_SECURE` in prod.py.
-- [ ] `CSRF_COOKIE_HTTPONLY = True` (prod.py ✓)
+- [ ] Keep `SESSION_COOKIE_HTTPONLY = True`. Production requires `USE_TLS=true`
+  (it refuses to start otherwise), which sets `SESSION_COOKIE_SECURE`,
+  `CSRF_COOKIE_SECURE`, and `AUTH_COOKIE_SECURE`.
+- [ ] Keep `API_DOCS=off` (production default), or set `staff`, so
+  `/api/docs` and `/api/openapi.json` do not map the API for anyone.
+- [ ] Set `ADMIN_URL` to an unguessable path and add it to the nginx
+  `location` regex.
+- [ ] Keep `CSRF_COOKIE_HTTPONLY = False`: the client reads `csrftoken` to send `X-CSRFToken` (`docs/COOKIE_AUTH.md`).
 
-The bundled nginx profile listens on HTTP port 80 and sets
-`X-Forwarded-Proto: http`. Do not set `USE_TLS=true` behind that nginx
-configuration: Django will redirect in a loop, even if an upstream proxy
-terminates TLS. Terminate TLS at a trusted proxy that forwards the original
-scheme directly to Django, or configure a trusted-proxy nginx deployment
-separately. At the TLS edge, enforce HTTPS and HSTS and verify that session
-and CSRF cookies carry `Secure`.
+The bundled nginx profile listens on HTTP port 80. Put a TLS proxy in front
+of it that sends `X-Forwarded-Proto: https`; nginx passes that header through
+to Django (it reports `http` only when the header is missing), so
+`USE_TLS=true` redirects plain-HTTP requests and trusts proxied HTTPS ones.
+Expose port 80 only to that proxy. At the TLS edge, enforce HTTPS and verify
+that session and CSRF cookies carry `Secure`.
 
 Verify headers on a live deployment:
 
@@ -139,17 +143,20 @@ Rate limiting is configured at two levels in this boilerplate:
 - Anonymous: 100 req/day
 
 **Per-endpoint** (Ninja Extra `@throttle` with a scope):
-- `anon-auth`, 20 req/min: signup, both login endpoints, and passwordless verify
-- `anon-email`, 5 req/min: `POST /auth/passwordless/login/request`
+- `anon-auth`, 20 req/min: both login endpoints, `/api/token/*`, and passwordless verify
+- `anon-email`, 5 req/min: signup and `POST /auth/passwordless/login/request`
 - `tasks`, 60 req/min: task admin endpoints
 
 **Brute force lockout** (`core/security/brute_force.py`):
-- Login locked after 5 failed attempts for 15 minutes
+- Password logins (`/api/auth/login`, `/api/auth/login/username`,
+  `/api/token/pair`, admin login) lock an (account, client IP) pair after 5
+  failures and a client IP after 20 failures, for 15 minutes. See
+  `docs/COOKIE_AUTH.md`.
 
 Before launching:
 - [ ] Confirm Valkey/Redis is running and cache backend is connected (rate limits degrade gracefully if the cache is down, but won't protect you)
 - [ ] Add `@throttle(DynamicRateThrottle, scope=...)` to any endpoint that sends email, creates a resource, or calls a paid external API
-- [ ] Set `NINJA_NUM_PROXIES` to the number of reverse proxies, so throttles see the real client IP
+- [ ] Set `NINJA_NUM_PROXIES` to the number of proxies that append to `X-Forwarded-For` (Compose prod: 2, single image: 1; table in `docs/COOKIE_AUTH.md`), so throttles and the lockout see the real client IP
 - [ ] Consider tightening `THROTTLE_RATES["anon"]` for public-facing APIs
 
 ---

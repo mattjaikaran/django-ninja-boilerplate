@@ -7,14 +7,14 @@ This module provides OTP models for:
 - Password reset tokens
 """
 
-import random
+import hmac
 import secrets
-import string
 from datetime import timedelta
 from enum import Enum
 
 from django.conf import settings
 from django.db import models
+from django.db.models import F
 from django.utils import timezone
 
 
@@ -108,6 +108,8 @@ class OneTimePassword(models.Model):
         default="",
         help_text="User agent of the request",
     )
+    # default=dict: an empty value is {}, never NULL.
+    # nosemgrep: python.django.correctness.nontext-field-must-set-null-true
     metadata = models.JSONField(
         default=dict,
         blank=True,
@@ -137,7 +139,7 @@ class OneTimePassword(models.Model):
         Returns:
             str: A 6-digit numeric string
         """
-        return "".join(random.choices(string.digits, k=6))
+        return f"{secrets.randbelow(10**6):06d}"
 
     @classmethod
     def generate_token(cls) -> str:
@@ -229,54 +231,54 @@ class OneTimePassword(models.Model):
         """Get the time remaining until expiration."""
         return max(timedelta(0), self.expires_at - timezone.now())
 
-    def increment_attempts(self) -> None:
-        """Increment the attempt counter."""
-        self.attempts += 1
-        self.save(update_fields=["attempts"])
-
-    def mark_as_used(self) -> None:
-        """Mark the OTP as used."""
-        self.is_used = True
-        self.used_at = timezone.now()
-        self.save(update_fields=["is_used", "used_at"])
-
-    def verify_code(self, code: str) -> bool:
-        """Verify the provided code against this OTP.
-
-        Args:
-            code: The code to verify
+    def increment_attempts(self) -> bool:
+        """Claim one verification attempt atomically.
 
         Returns:
-            bool: True if the code matches and OTP is valid
+            bool: False when no attempt is left. Concurrent requests cannot
+            exceed ``max_attempts``, because the database checks the limit.
         """
-        if not self.is_valid:
+        claimed = (
+            type(self)
+            .objects.filter(pk=self.pk, attempts__lt=F("max_attempts"))
+            .update(attempts=F("attempts") + 1)
+        )
+        self.refresh_from_db(fields=["attempts"])
+        return bool(claimed)
+
+    def mark_as_used(self) -> bool:
+        """Mark the OTP as used.
+
+        Returns:
+            bool: False when another request already used it.
+        """
+        now = timezone.now()
+        claimed = (
+            type(self)
+            .objects.filter(pk=self.pk, is_used=False)
+            .update(is_used=True, used_at=now)
+        )
+        self.is_used = True
+        self.used_at = now
+        return bool(claimed)
+
+    def verify_code(self, code: str) -> bool:
+        """Return True and use the OTP once when ``code`` matches a valid OTP."""
+        if not self.is_valid or not self.increment_attempts():
             return False
 
-        self.increment_attempts()
-
-        if self.code and self.code == code:
-            self.mark_as_used()
-            return True
+        if self.code and hmac.compare_digest(self.code.encode(), code.encode()):
+            return self.mark_as_used()
 
         return False
 
     def verify_token(self, token: str) -> bool:
-        """Verify the provided token against this OTP.
-
-        Args:
-            token: The token to verify
-
-        Returns:
-            bool: True if the token matches and OTP is valid
-        """
-        if not self.is_valid:
+        """Return True and use the OTP once when ``token`` matches a valid OTP."""
+        if not self.is_valid or not self.increment_attempts():
             return False
 
-        self.increment_attempts()
-
-        if self.token == token:
-            self.mark_as_used()
-            return True
+        if hmac.compare_digest(self.token.encode(), token.encode()):
+            return self.mark_as_used()
 
         return False
 

@@ -7,6 +7,7 @@ In CI, PostgreSQL is used via environment variables.
 import os
 
 from .common import *
+from .common import INSTALLED_APPS as COMMON_INSTALLED_APPS
 
 # Test mode
 DEBUG = False
@@ -30,6 +31,12 @@ NINJA_JWT_SIGNING_KEY = "test-jwt-signing-key-not-for-production"
 NINJA_JWT = {**NINJA_JWT, "SIGNING_KEY": NINJA_JWT_SIGNING_KEY}
 
 ALLOWED_HOSTS = ["*"]
+
+# The billing app is commented out of INSTALLED_APPS by default. Install its
+# models so billing/tests runs in the default suite; its routes stay off the
+# main API (and the exported OpenAPI). billing/tests/urls.py mounts them.
+if "billing" not in COMMON_INSTALLED_APPS:
+    INSTALLED_APPS = [*COMMON_INSTALLED_APPS, "billing"]
 
 # Database: Use PostgreSQL in CI, SQLite locally
 # CI sets the CI=1 env var; locally we fall back to SQLite for zero-setup testing
@@ -68,6 +75,8 @@ CELERY_TASK_EAGER_PROPAGATES = True
 
 # Use console email backend
 EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
+# Send account emails inline so tests can read mail.outbox.
+ACCOUNT_EMAIL_SYNC = True
 
 # Disable audit logging middleware in tests to reduce noise
 MIDDLEWARE = [m for m in MIDDLEWARE if "Audit" not in m and "Observability" not in m]

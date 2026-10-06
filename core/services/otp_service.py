@@ -13,11 +13,10 @@ import logging
 from datetime import timedelta
 from typing import TYPE_CHECKING
 
-from django.conf import settings
-from django.core.mail import send_mail
 from django.utils import timezone
 
 from core.models.otp import OneTimePassword, OTPDeliveryMethod, OTPPurpose, OTPRateLimit
+from core.services.email.service import send_account_email
 
 if TYPE_CHECKING:
     from core.models import User
@@ -47,6 +46,7 @@ class OTPService:
     RATE_LIMIT_REQUESTS = 5
     RATE_LIMIT_WINDOW_MINUTES = 15
     RATE_LIMIT_BLOCK_MINUTES = 60
+    NEUTRAL_REQUEST_MESSAGE = "If an account exists, you will receive an OTP code"
 
     def __init__(self):
         """Initialize the OTP service."""
@@ -74,7 +74,8 @@ class OTPService:
         Returns:
             tuple: (success, message, expires_in_seconds)
         """
-        identifier = email or phone
+        # Normalise so case variants of one address share one rate-limit bucket.
+        identifier = (email or "").strip().lower() or phone
         if not identifier:
             return False, "Email or phone is required", None
 
@@ -93,22 +94,23 @@ class OTPService:
         # Find user
         user = self._find_user(email=email, phone=phone)
 
-        # For login/password reset, we need an existing user
-        if purpose in [OTPPurpose.LOGIN.value, OTPPurpose.PASSWORD_RESET.value]:
-            if not user:
-                # Don't reveal if user exists (security)
-                return (
-                    True,
-                    "If an account exists, you will receive an OTP code",
-                    None,
-                )
-
-        # For signup verification, user should not exist
-        if purpose == OTPPurpose.SIGNUP_VERIFICATION.value and user:
-            return False, "Email already registered", None
-
         # Get expiry time based on purpose
         expiry_minutes = self._get_expiry_minutes(purpose)
+
+        # Account-existence-sensitive purposes answer the same way for known
+        # and unknown addresses. Login and reset need an account; signup
+        # verification must not reach an existing one.
+        neutral_purposes = [
+            OTPPurpose.LOGIN.value,
+            OTPPurpose.PASSWORD_RESET.value,
+            OTPPurpose.SIGNUP_VERIFICATION.value,
+        ]
+        if purpose in [OTPPurpose.LOGIN.value, OTPPurpose.PASSWORD_RESET.value]:
+            if not user:
+                return True, self.NEUTRAL_REQUEST_MESSAGE, expiry_minutes * 60
+
+        if purpose == OTPPurpose.SIGNUP_VERIFICATION.value and user:
+            return True, self.NEUTRAL_REQUEST_MESSAGE, expiry_minutes * 60
 
         # Create OTP
         use_code = delivery_method in [
@@ -133,12 +135,14 @@ class OTPService:
             self._send_otp(otp, delivery_method)
 
             self.logger.info(
-                "OTP requested for user %s, purpose: %s, method: %s",
-                user.email,
+                "OTP requested for user id %s, purpose: %s, method: %s",
+                user.pk,
                 purpose,
                 delivery_method,
             )
 
+        if purpose in neutral_purposes:
+            return True, self.NEUTRAL_REQUEST_MESSAGE, expiry_minutes * 60
         return True, "OTP sent successfully", expiry_minutes * 60
 
     def verify_otp(
@@ -168,7 +172,7 @@ class OTPService:
 
         user = self._find_user(email=email, phone=phone)
         if not user:
-            return False, "Invalid code", None
+            return False, "Invalid or expired code", None
 
         # Find the OTP
         otp = (
@@ -182,17 +186,9 @@ class OTPService:
             .first()
         )
 
-        if not otp:
-            return False, "Invalid or expired code", None
-
-        if not otp.is_valid:
-            if otp.is_expired:
-                return False, "Code has expired", None
-            if otp.remaining_attempts == 0:
-                return False, "Too many attempts. Request a new code.", None
-
-        # Verify the code
-        if otp.verify_code(code):
+        # One message for every failure: distinct messages reveal whether an
+        # account (and a pending code) exists.
+        if otp and otp.verify_code(code):
             self.logger.info(
                 "OTP verified for user %s, purpose: %s",
                 user.email,
@@ -206,11 +202,7 @@ class OTPService:
 
             return True, "Code verified successfully", user
 
-        return (
-            False,
-            f"Invalid code. {otp.remaining_attempts} attempts remaining.",
-            None,
-        )
+        return False, "Invalid or expired code", None
 
     def verify_token(
         self,
@@ -317,7 +309,9 @@ class OTPService:
         user.set_password(new_password)
         user.save(update_fields=["password"])
 
-        self.logger.info("Password reset for user %s", email)
+        # Log the id, not the email: logs must not carry PII. No secret logged.
+        # nosemgrep: python.lang.security.audit.logging.python-logger-credential-disclosure
+        self.logger.info("Password reset for user id %s", user.pk)
 
         return True, "Password reset successfully"
 
@@ -535,29 +529,10 @@ This code will expire in {otp.time_until_expiry.seconds // 60} minutes.
 If you didn't request this code, please ignore this email.
 """
 
-        try:
-            # Try to use the email service if available
-            from core.services.email.service import EmailService
-
-            email_service = EmailService()
-            email_service.send_simple_email(
-                subject=subject,
-                message=message,
-                recipient_email=otp.user.email,
-            )
-        except ImportError:
-            # Fallback to Django's send_mail
-            send_mail(
-                subject=subject,
-                message=message,
-                from_email=getattr(
-                    settings, "DEFAULT_FROM_EMAIL", "noreply@example.com"
-                ),
-                recipient_list=[otp.user.email],
-                fail_silently=True,
-            )
-
-        self.logger.info("OTP email sent to %s", otp.user.email)
+        # Off the request, so delivery time does not reveal whether the
+        # account exists (unknown accounts send nothing).
+        send_account_email(subject, message, otp.user.email)
+        self.logger.info("OTP email queued for user id %s", otp.user.pk)
 
     def _send_otp_sms(self, otp: OneTimePassword) -> None:
         """Send OTP via SMS.
@@ -571,10 +546,11 @@ If you didn't request this code, please ignore this email.
         """
         # Placeholder for SMS integration
         # In production, integrate with Twilio, Vonage, AWS SNS, etc.
+        # Never log otp.code: the delivery method is client-chosen, so a logged
+        # code would let anyone with log access take over any account.
         self.logger.info(
-            "SMS OTP would be sent to %s: %s",
-            otp.user.phone if hasattr(otp.user, "phone") else "N/A",
-            otp.code,
+            "SMS OTP not sent (no SMS provider configured) for user %s",
+            otp.user_id,
         )
 
     def _send_otp_push(self, otp: OneTimePassword) -> None:
@@ -589,10 +565,10 @@ If you didn't request this code, please ignore this email.
         """
         # Placeholder for push notification integration
         # In production, integrate with Firebase, OneSignal, Pusher, etc.
+        # Never log otp.code (see _send_otp_sms).
         self.logger.info(
-            "Push OTP would be sent to user %s: %s",
-            otp.user.email,
-            otp.code,
+            "Push OTP not sent (no push provider configured) for user %s",
+            otp.user_id,
         )
 
 
