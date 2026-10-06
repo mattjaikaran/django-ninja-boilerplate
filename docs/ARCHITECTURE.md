@@ -131,6 +131,84 @@ django-ninja-boilerplate/
         └── generators/          # Project generators
 ```
 
+### Optional apps: files and webhooks
+
+The `files` and `webhooks` apps are off by default. Each app has a flag in
+`api/settings/common.py`. The flag adds the app to `INSTALLED_APPS`, and
+`api/urls.py` registers the controller only when the flag is on.
+
+| Setting | Default | Purpose |
+|---|---|---|
+| `FILES_ENABLED` | `false` | Installs `files` and registers `/api/files/`. |
+| `FILES_MAX_UPLOAD_BYTES` | `10485760` | Largest accepted upload, in bytes. |
+| `FILES_ALLOWED_CONTENT_TYPES` | JPEG, PNG, GIF, WebP, PDF | Accepted content types. |
+| `WEBHOOKS_ENABLED` | `false` | Installs `webhooks` and registers `/api/webhooks/`. |
+| `WEBHOOKS_ALLOW_HTTP` | `false` | Accepts `http://` webhook URLs outside `DEBUG`. |
+
+To turn on an app:
+
+1. Set the flag to `true` in `.env`.
+2. Run `uv run python manage.py migrate`.
+3. Run the app tests with the flag on, for example
+   `FILES_ENABLED=true WEBHOOKS_ENABLED=true uv run pytest files webhooks`.
+   The default `testpaths` do not include these apps.
+
+#### Webhook SSRF protection
+
+Webhook URLs are user input, and the server sends requests to them.
+`webhooks/ssrf.py` checks each URL when a user creates or updates a webhook,
+and again before each delivery:
+
+- Only `https` is accepted. `http` is accepted only when `DEBUG` or
+  `WEBHOOKS_ALLOW_HTTP` is on. URLs with credentials are rejected.
+- The host is resolved one time. The URL is rejected if any resolved address
+  is private, loopback, link-local (including `169.254.169.254`), multicast,
+  reserved, unspecified, or not globally routable. IPv4 addresses inside
+  IPv4-mapped, 6to4, Teredo, and NAT64 IPv6 addresses are checked too.
+- The request connects to the checked address. The `Host` header and TLS SNI
+  keep the original hostname, so certificate checks still use the hostname
+  and a DNS rebind cannot change the target.
+- Redirects are not followed. Proxy environment variables are ignored. The
+  connect timeout is 5 seconds and the request timeout is 10 seconds. Delivery
+  stores at most 64 KiB of the response body.
+- A blocked delivery records the error and does not retry. A DNS failure
+  retries with backoff.
+
+Residual risks:
+
+- A public address that forwards traffic to your internal network is not
+  detected. Add an egress firewall or an egress proxy for defense in depth.
+- The receiver sees your server's public IP address.
+- Stored webhook headers are sent as-is, except `Host`.
+
+#### File upload validation
+
+- The content type must be in `FILES_ALLOWED_CONTENT_TYPES` and must have a
+  known magic-byte signature. SVG, HTML, and other active content are never
+  accepted.
+- The server generates the storage key:
+  `users/<owner id>/<folder>/<random hex><extension>`. The client filename is
+  never part of the key. The model keeps a sanitized display name in
+  `filename` and the raw name in `metadata["original_filename"]`.
+- With S3, the presigned POST enforces `content-length-range` (1 byte to
+  `FILES_MAX_UPLOAD_BYTES`) and the exact `Content-Type`. The confirm step
+  reads the object metadata and the first bytes. It rejects and deletes an
+  object with a wrong size, type, or signature. The stored size replaces the
+  size that the client reports.
+- Without S3 (local development), the local-upload endpoint reads at most
+  `FILES_MAX_UPLOAD_BYTES + 1` bytes, checks the magic bytes against the
+  declared type, and writes only inside `MEDIA_ROOT`. `MEDIA_ROOT` is
+  separate from `STATIC_ROOT`.
+
+Residual risks:
+
+- A magic-byte check does not prove that a file is safe. A polyglot file can
+  pass. Scan uploads for malware if users share files.
+- `is_public=true` uploads use the `public-read` ACL. Turn this off if your
+  bucket must stay private.
+- Serve user files from a separate domain (the S3 bucket or a CDN), not from
+  the API origin.
+
 ### Request Flow
 
 ```mermaid
@@ -257,7 +335,7 @@ graph TB
         CELPROD["Celery Workers"]
 
         NGINX -->|"/api/"| DJPROD
-        NGINX -->|"/centrifugo/"| CENTPROD
+        NGINX -->|"/centrifugo/connection/websocket"| CENTPROD
         NGINX -->|"/static/"| STATIC
         DJPROD --> DBPROD & REDPROD & CELPROD
     end
@@ -268,7 +346,6 @@ graph TB
 | Dockerfile | Use Case | Base Image | Size | Features |
 |------------|----------|------------|------|----------|
 | `Dockerfile` | Production | python:3.13-slim | ~250MB | Multi-stage, health checks, security |
-| `Dockerfile.uv` | CI/CD | uv:python3.13 | ~200MB | Fast builds, UV native |
 | `deploy/docker/Dockerfile.single` | PaaS | python:3.13-slim | ~250MB | Single container, health checks |
 
 ---
@@ -530,18 +607,86 @@ graph TB
 
 ## Performance Considerations
 
-### Gunicorn Worker Configuration
+### ASGI server
+
+Production runs `gunicorn api.asgi:application` with
+`uvicorn_worker.UvicornWorker`. `gunicorn.conf.py` holds every setting, so
+the Dockerfile, Compose, `Dockerfile.single`, Railway and k3s all run the same
+command. Tune it with environment variables:
+
+| Variable | Default | Effect |
+|----------|---------|--------|
+| `GUNICORN_WORKERS` | `3` | Worker processes. Start at one or two per CPU core. |
+| `GUNICORN_TIMEOUT` | `120` | Seconds before Gunicorn restarts a stuck worker. |
+| `PORT` | `8000` | Bind port. The image health checks probe the same port. |
+
+Gunicorn plus uvicorn workers was chosen over Granian because it keeps the
+process manager this project already ran (graceful reload, `max_requests`
+recycling, the same logging) and changes only the worker class. Granian would
+replace both and add a Rust server with its own flags and logging.
+
+Sync Ninja views still work: Django wraps each request in a
+`ThreadSensitiveContext`, so its sync code runs in a thread of its own. With
+Valkey up, 2 workers answered 360 concurrent readiness requests and held 8
+database connections (`DB_POOL_MAX_SIZE=4`). With Valkey down, readiness calls
+finished about 9.4 s apart, so something on the cache-check path (the cache
+client or the executor) serialized them; that is not yet traced.
+
+Streaming responses must use async iterators under ASGI. Django drains a sync
+iterator with `list()` before it sends a byte, which is why
+`core/sse/views.py` picks `sse_stream_async` under ASGI.
+
+### Database connection pool
+
+Django 5.2 pools connections with psycopg 3 (`OPTIONS["pool"]`). psycopg2
+ignores that option. The settings in `api/settings/common.py`:
+
+| Variable | Default | Effect |
+|----------|---------|--------|
+| `DB_POOL_ENABLED` | `true` | Turn the pool off for forked task workers. |
+| `DB_POOL_MIN_SIZE` | `2` | Connections each process keeps open. |
+| `DB_POOL_MAX_SIZE` | `10` | Hard cap per process. |
+| `DB_POOL_TIMEOUT` | `10` | Seconds a request waits for a free connection, then fails. |
+
+`CONN_MAX_AGE` is `0`: Django raises `ImproperlyConfigured` when a pool is
+combined with persistent connections. `CONN_HEALTH_CHECKS = True` stays valid:
+with a pool it makes the pool check each connection before it hands it out.
+
+Each process owns one pool. Size it against Postgres `max_connections`
+(default 100):
 
 ```
-Workers = (2 × CPU cores) + 1
+web peak    = GUNICORN_WORKERS x DB_POOL_MAX_SIZE        (x replicas)
+worker peak = task worker processes x 1                  (pool disabled)
+total       = web peak + worker peak + migrations/admin  < max_connections
 
-Example for 4-core server:
-  Workers = (2 × 4) + 1 = 9
-
-With threads (gthread worker class):
-  Workers = CPU cores
-  Threads per worker = 2-4
-
-Memory per worker: ~50-100MB
-Total memory = Workers × Memory per worker
+Defaults in the prod Compose stack:
+  4 Gunicorn workers x 10 = 40
+  Celery concurrency 4 + beat 1 = 5
+  total about 45 of 100
 ```
+
+Do not set `preload_app` in `gunicorn.conf.py`. The pool must be created
+after the fork, in each worker.
+
+Task workers fork after Django loads, so an inherited open pool would share
+sockets between processes. Every task worker service in `docker-compose.yml`
+sets `DB_POOL_ENABLED=false`. Celery, Huey, django-rq and Dramatiq workers ran
+the database cleanup tasks with that setting; Celery prefork also ran them
+with the pool on.
+
+| Backend | Process model | With a pool |
+|---------|---------------|-------------|
+| Celery prefork | Forks children | Safe on Celery 5.6.1+: the Django fixup closes the pool in each child and after every task, so it opens `min_size` connections per task for nothing. |
+| django-q2 | Sentinel forks and re-forks workers; it calls `connections.close_all()` first, which returns connections to the pool but leaves the pool open | Unsafe: children inherit the parent's open pool. |
+| django-rq | Forks a work horse per job | Wasteful: each job opens a new pool. |
+| Dramatiq | Worker processes, each with threads (`--processes 1 --threads 4`) | Not tested with the pool; kept off. |
+| Huey | Threads in one process | Safe, but kept off for one rule across workers. |
+
+pgvector needs no registration for the ORM. `pgvector.django.VectorField`
+converts values itself: an insert and an `L2Distance` query work on psycopg 3
+with the pool on. Call `pgvector.psycopg.register_vector` only for raw psycopg
+connections.
+
+The opt-in AI layer (`ai` extra, `core/ai/`) uses this path: see
+[AI_LAYER.md](./AI_LAYER.md).

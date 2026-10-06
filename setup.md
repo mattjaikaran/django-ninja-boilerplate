@@ -28,10 +28,9 @@ cd django-ninja-boilerplate
 ### 2. Environment Setup
 
 ```bash
-# Create environment file
-cp .env.example .env
-
-# Edit .env with your database and secret key settings
+# Create .env from .env.example with every secret generated
+# (docs/ENV_SECRETS.md). It never replaces an existing .env.
+just setup-env
 ```
 
 ### 3. Install Dependencies
@@ -70,7 +69,7 @@ uv run python manage.py migrate
 uv run python manage.py create_superuser
 ```
 
-### 5. Generate Secret Key
+### 5. Fill unset secrets in an older .env
 
 ```bash
 ./scripts/generate_secret_key.sh --update-env

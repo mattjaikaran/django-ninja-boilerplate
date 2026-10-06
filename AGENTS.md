@@ -103,8 +103,18 @@ wrong here. Do not use them.
   import a per-endpoint `handle_exceptions` decorator; it does not exist.
 - Require `JWTAuth` on private controllers and declare public operations with
   `auth=None`. Give staff-only operations `IsAdminUser`.
+- Review every new anonymous operation before you make it public. After the
+  review, add its `(method, path)` to `PUBLIC_OPERATIONS` in
+  `core/tests/test_route_auth.py`. Do not add routes to make the test pass:
+  the test fails on purpose when an operation is public by mistake.
 - Put static URL paths before dynamic `/{id}` paths in each controller so
   dynamic paths do not shadow static operations.
+- Do not hide a constraint in a `@field_validator` when `Field(...)`,
+  `Literal`, or an `Enum` can express it. The frontend Zod schemas come from
+  `docs/openapi/openapi.json`; run `just openapi` after any schema or route
+  change and commit the file.
+- Do not exempt an endpoint from CSRF to make a browser call work. Unsafe
+  API methods need `X-CSRFToken` (`docs/COOKIE_AUTH.md`).
 
 ### Infrastructure
 
@@ -144,26 +154,47 @@ lets us trust generated code without reading every line.
 | 2 | LINT | `ruff check` | Bugs, anti-patterns, dead code |
 | 3 | TYPECHECK | `mypy` | Type errors, missing annotations |
 | 4 | SECURITY | `bandit` | SQLi, XSS, hardcoded secrets |
-| 5 | CONVENTIONS | `scripts/check_conventions.py` | DRF imports, raw `Schema`, decorator order, unscoped queries, redeclared fields |
+| 5 | CONVENTIONS | `scripts/check_conventions.py` | DRF imports, raw `Schema`, decorator order, unscoped queries, redeclared fields, `Any`/bare `dict` schema fields without `# schema-ok:` |
 | 6 | DEPENDENCIES | `scripts/check_dependencies.py` | `pyproject.toml` changed without a `DEPENDENCIES.md` entry |
-| 7 | ARCHITECTURE | `scripts/check_architecture.py` | Layer violations, cross-app coupling |
-| 8 | FILELENGTH | `scripts/check_file_length.py` | Files over their cap |
-| 9 | CROSS-STACK | `scripts/check_cross_stack.py` | Naming and schema parity (monorepo only) |
-| 10 | TEST | `pytest --cov-fail-under=30` | Broken behaviour, coverage drop |
-| 11 | DEPLOY-CHECK | `manage.py check --deploy` | Production config issues |
+| 7 | DRIFT | `scripts/check_version_drift.py` | Python, uv, Postgres, Valkey or hook tool versions that differ between `pyproject.toml`, `uv.lock`, Dockerfiles, Compose and `.pre-commit-config.yaml` |
+| 8 | ARCHITECTURE | `scripts/check_architecture.py` | Layer violations, cross-app coupling |
+| 9 | OPENAPI | `manage.py export_openapi --check` | `docs/openapi/openapi.json` out of date with the code |
+| 10 | SCHEMA-PARITY | `scripts/check_schema_parity.py` | snake_case or untyped properties, required/nullable mismatches in the OpenAPI contract |
+| 11 | FILELENGTH | `scripts/check_file_length.py` | Files over their cap |
+| 12 | CROSS-STACK | `scripts/check_cross_stack.py` | Naming and schema parity (monorepo only) |
+| 13 | TEST | `pytest --cov-fail-under=30` | Broken behaviour, coverage drop |
+| 14 | CLI-TEST | `pytest cli/tests` | Broken `cli/` package |
+| 15 | AI-DB | `scripts/test_ai_db.py` | Postgres-only tests (`core.ai` owner scoping, concurrent refresh) on a throwaway pgvector container; prints a skip reason when Docker is not running |
+| 16 | DEPLOY-CHECK | `manage.py check --deploy` | Production config issues |
 
-The full gauntlet adds MUTATION (`mutmut`) and AUDIT (`pip-audit`).
+The full gauntlet adds MUTATION (`mutmut`), AUDIT and DOCKER (builds the
+production image; skipped when Docker is not running). AUDIT runs
+`scripts/audit_dependencies.py`: `pip-audit` on every package in `uv.lock`. It
+always blocks. Put a known advisory with no fix in `pip-audit-allowlist.toml`
+with a reason and an expiry date; an expired entry fails the gate.
+
+There is no hosted CI. Every gate runs on your machine. `just pre-commit-install`
+installs the git hooks; the pre-push hook runs `just gauntlet-quick` and the
+audit. All hooks are `repo: local` and run tools through `uv run` (locked
+tools) or a pinned `uvx`/`bunx`, so they cannot drift from the lockfile.
 
 ```bash
 just gauntlet                 # every gate
-just gauntlet-quick           # skip mutation + audit (use this while working)
-just gauntlet-ci              # CI mode with a JSON report
+just gauntlet-quick           # skip mutation, audit, docker (use this while working)
+just gauntlet-ci              # every gate with a JSON report
 just gauntlet-gate lint       # one gate by name
+just pre-commit-install       # pre-commit, commit-msg and pre-push hooks
 just check-conventions        # convention gate only
 just check-cross-stack        # cross-stack gate only
 just check-arch               # architecture gate only
+just openapi                  # regenerate docs/openapi/openapi.json
+just openapi-check            # OpenAPI staleness + schema parity gates
+just check-drift              # version drift gate only
+just audit                    # pip-audit on uv.lock (blocking)
 just mutation-test            # mutation testing only
 just security-scan            # bandit only
+just security-full            # optional: bandit, audit, semgrep, SBOM, trivy
+just test-django6             # manual: the suite on Django 6.0 (not supported yet)
 ```
 
 `make -f Makefile.legacy gauntlet-quick` is the fallback if `just` is missing.
@@ -180,7 +211,7 @@ just security-scan            # bandit only
 A task is done when all of these hold:
 
 - [ ] The code implements the requirement, not just the happy path
-- [ ] Tests exist and pass (`just test`)
+- [ ] Tests for the change pass (`just test`)
 - [ ] The gauntlet passes (`just gauntlet-quick`)
 - [ ] No new linter warnings
 - [ ] Architecture constraints respected
@@ -190,10 +221,35 @@ A task is done when all of these hold:
 
 Rules the gauntlet cannot fully enforce, and that you must follow yourself:
 
-- Every new feature ships tests; every bug fix ships a regression test.
+- Follow the testing policy below.
 - No commented-out code, no `print()` in production code.
 - No `# type: ignore`, `# nosec`, or `# noqa` without a written reason.
 - Run `just gauntlet-quick` before declaring work complete.
+
+### Testing policy
+
+Write a test only for one of these:
+
+- A bug fix: a regression test that fails before the fix and passes after.
+- A changed public contract: a route, schema, status code, error shape, or
+  setting that a client or operator depends on.
+- A boundary or permission rule: auth, ownership scoping, limits, validation
+  edges.
+
+Do not write tests for wiring, getters, schema echo, default values, copied
+constants, or mock calls. Do not copy a test that already exists in another
+file. A test must assert on behavior (the response, the database state, the
+raised error, the exact returned value), not on `mock.assert_called*`,
+`is not None`, `isinstance` or `len(...) > 0`.
+
+Create at most one new test file per change. Never add a test to reach a
+coverage number. Prove a new feature by running it; a throwaway script does
+not belong in `tests/`.
+
+`just test` runs only the tests for the files you changed, without coverage,
+and stops at the first failure. `just test-all` runs every test without
+coverage. Coverage runs in `just gauntlet`. Two TTSR rules in `.omp/rules/`
+(`ttsr-test-new-file.md`, `ttsr-test-assertions.md`) enforce this policy.
 
 ## 11 Constraint tools
 

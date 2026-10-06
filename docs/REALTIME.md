@@ -34,7 +34,7 @@ just up-realtime
 just up-full
 ```
 
-Centrifugo will be available at `http://localhost:8800`. The admin UI is at `http://localhost:8800/` (password: `admin`).
+Centrifugo will be available at `http://localhost:8800`. The development admin UI is at `http://localhost:8800/`; its password comes from `CENTRIFUGO_ADMIN_PASSWORD` (development fallback: `admin`, safe only because the port binds to `127.0.0.1`). The production service disables the admin UI.
 
 ### 2. Configure Environment Variables
 
@@ -47,7 +47,7 @@ CENTRIFUGO_TOKEN_SECRET=your-secure-secret     # JWT signing secret
 CENTRIFUGO_TOKEN_TTL=3600                      # Token lifetime in seconds
 ```
 
-> **Important:** `CENTRIFUGO_TOKEN_SECRET` and `CENTRIFUGO_API_KEY` must reach the Centrifugo process with values that match Django's settings. Centrifugo does not expand `${...}` in its config file; it only reads environment variables whose names match its own config keys. Compose therefore sets `CENTRIFUGO_TOKEN_HMAC_SECRET_KEY` (which maps to `token_hmac_secret_key`) and `CENTRIFUGO_API_KEY`. `deploy/centrifugo/config.json` holds development defaults only.
+> **Important:** `CENTRIFUGO_TOKEN_SECRET` and `CENTRIFUGO_API_KEY` must reach the Centrifugo process with values that match Django's settings. Centrifugo does not expand `${...}` in its config file; it only reads environment variables whose names match its own config keys. Compose therefore sets `CENTRIFUGO_TOKEN_HMAC_SECRET_KEY` (which maps to `token_hmac_secret_key`) and `CENTRIFUGO_API_KEY`. `deploy/centrifugo/config.json` holds no secrets. Centrifugo treats an empty environment variable as unset, so never rely on an empty value to clear a key.
 
 ### 3. Get a Connection Token
 
@@ -261,10 +261,10 @@ docker compose --profile prod --profile realtime-prod up -d
 
 ### Nginx Proxy
 
-The production nginx config proxies WebSocket connections at `/centrifugo/`:
+The production nginx config proxies only the client WebSocket endpoint. Every other `/centrifugo/` path, including the server API at `/api`, returns 404; Django calls the API over the internal network at `http://centrifugo-prod:8000`.
 
 ```
-Client --[wss://yourdomain.com/centrifugo/]--> Nginx --> Centrifugo:8000
+Client --[wss://yourdomain.com/centrifugo/connection/websocket]--> Nginx --> Centrifugo:8000/connection/websocket
 ```
 
 When connecting from a browser in production:
@@ -283,11 +283,11 @@ CENTRIFUGO_API_KEY=$(openssl rand -hex 32)
 CENTRIFUGO_TOKEN_SECRET=$(openssl rand -hex 32)
 ```
 
-Set these in your production `.env`. Compose passes them to the `centrifugo-prod` service as `CENTRIFUGO_TOKEN_HMAC_SECRET_KEY` and `CENTRIFUGO_API_KEY`, which Centrifugo maps onto `token_hmac_secret_key` and `api_key`. Do not put `${...}` placeholders in `deploy/centrifugo/config.json`: Centrifugo does not expand them.
+Set these in your production `.env`. Compose passes them to the `centrifugo-prod` service as `CENTRIFUGO_TOKEN_HMAC_SECRET_KEY` and `CENTRIFUGO_API_KEY`, which Centrifugo maps onto `token_hmac_secret_key` and `api_key`. Compose refuses to start when either is unset, and `api/settings/prod.py` refuses the committed development values. Do not put `${...}` placeholders in `deploy/centrifugo/config.json`: Centrifugo does not expand them.
 
 ### Centrifugo Config: `deploy/centrifugo/config.json`
 
-Key production settings to change:
+Key production settings to change (the `centrifugo-prod` service already sets `CENTRIFUGO_ADMIN=false` and reads `CENTRIFUGO_ALLOWED_ORIGINS`):
 
 ```json
 {

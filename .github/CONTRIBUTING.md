@@ -86,8 +86,7 @@ If you prefer manual setup:
 3. **Set up environment variables:**
 
    ```bash
-   cp .env.example .env
-   # Edit .env with your local settings
+   just setup-env   # .env with generated secrets (docs/ENV_SECRETS.md)
    ```
 
 4. **Start required services:**

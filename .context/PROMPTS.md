@@ -615,9 +615,10 @@ CMD ["granian", "api.asgi:application", \
     "--access-log"]
 ```
 
-### Step 3: Update Dockerfile.uv
+### Step 3: (removed) Dockerfile.uv
 
-Same CMD replacement as Step 2.
+`Dockerfile.uv` no longer exists. `Dockerfile` and
+`deploy/docker/Dockerfile.single` are the only images.
 
 ### Step 4: Update docker-compose.yml (prod profile)
 

@@ -311,7 +311,7 @@ controller (for example, signup and login), pass `auth=None` to the individual
 ```python
 @api_controller("/auth", tags=["Auth"], auth=JWTAuth())
 class AuthController:
-    @http_post("/signup", response={201: UserSchema, 400: dict}, auth=None)
+    @http_post("/signup", response={202: MessageResponse, 400: dict}, auth=None)
     def signup(self, request, payload: UserSignupSchema):
         ...
 ```

@@ -29,7 +29,7 @@ Each worker uses the production image target and depends on healthy `django`,
 
 | Profile | Service | Host ports | Notes |
 |---|---|---|---|
-| `mcp` | `mcp` | 8001 | django-ai-boost SSE; needs the `dev` extra |
+| `mcp` | `mcp` | 127.0.0.1:8001 | django-ai-boost SSE; needs the `dev` extra and `DJANGO_MCP_AUTH_TOKEN`; own `mcp-network` |
 | `mail` | `mailhog` | 1025, 8025 | Catches outgoing email |
 | `realtime` | `centrifugo` | 8800 | Centrifugo development server |
 | `monitoring` | `flower`, `jaeger` | 5555, 16686 | Worker dashboard and traces |
