@@ -322,22 +322,22 @@ def instrument_requests() -> bool:
         return False
 
 
-def instrument_psycopg2() -> bool:
-    """Instrument psycopg2 with OpenTelemetry.
+def instrument_psycopg() -> bool:
+    """Instrument psycopg (3) with OpenTelemetry.
 
     Returns:
         True if instrumentation was successful, False otherwise.
     """
     try:
-        from opentelemetry.instrumentation.psycopg2 import Psycopg2Instrumentor
+        from opentelemetry.instrumentation.psycopg import PsycopgInstrumentor
 
-        Psycopg2Instrumentor().instrument()
-        logger.info("Psycopg2 instrumentation enabled")
+        PsycopgInstrumentor().instrument()
+        logger.info("Psycopg instrumentation enabled")
         return True
     except ImportError:
         return False
     except Exception as e:
-        logger.warning("Failed to instrument psycopg2: %s", e)
+        logger.warning("Failed to instrument psycopg: %s", e)
         return False
 
 
@@ -388,7 +388,7 @@ def instrument_all() -> dict[str, bool]:
     return {
         "django": instrument_django(),
         "requests": instrument_requests(),
-        "psycopg2": instrument_psycopg2(),
+        "psycopg": instrument_psycopg(),
         "redis": instrument_redis(),
         "celery": instrument_celery(),
     }

@@ -7,9 +7,18 @@ https://docs.djangoproject.com/en/5.2/howto/deployment/asgi/
 """
 
 import os
+from collections.abc import Awaitable, Callable
+from typing import Any
 
+from django.conf import settings
 from django.core.asgi import get_asgi_application
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "api.settings")
 
-application = get_asgi_application()
+application: Callable[..., Awaitable[Any]] = get_asgi_application()
+
+if settings.MCP_ENABLED:
+    # Read-only MCP server at /api/mcp (core/mcp/server.py, `ai` extra).
+    from core.mcp.server import with_mcp
+
+    application = with_mcp(application)
