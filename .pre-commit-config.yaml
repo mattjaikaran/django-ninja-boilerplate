@@ -48,6 +48,9 @@ repos:
         args: [--unsafe] # Allow custom tags
         language: system
         types: [yaml]
+        # Helm templates are Go templates that render to YAML; they are not
+        # YAML themselves.
+        exclude: ^deploy/kubernetes/helm/.*/templates/
       - id: check-toml
         name: check toml
         entry: uvx --from pre-commit-hooks==5.0.0 check-toml
