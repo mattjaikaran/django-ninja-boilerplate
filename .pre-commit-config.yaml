@@ -160,13 +160,14 @@ repos:
         language: system
         types: [shell]
 
-      # Helm templates are Go templates, not YAML.
+      # Helm templates are Go templates, not YAML. docs/openapi/openapi.json is
+      # generated; `export_openapi --check` compares it byte for byte.
       - id: prettier
         name: prettier
         entry: bunx prettier@3.9.9 --write --ignore-unknown
         language: system
         types_or: [yaml, json]
-        exclude: ^(uv\.lock|.*\.lock\.json|deploy/kubernetes/helm/.*/templates/.*)$
+        exclude: ^(uv\.lock|.*\.lock\.json|deploy/kubernetes/helm/.*/templates/.*|docs/openapi/openapi\.json)$
 
   # ===========================================
   # Project gates (scripts/)
