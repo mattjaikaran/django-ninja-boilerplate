@@ -82,8 +82,9 @@ def _run_probe(
 
     Args:
         module: Dotted settings module to load.
-        drop: Environment variable names to remove from the inherited copy
-            (used to simulate a truly unset variable despite BASE_ENV).
+        drop: Environment variable names to blank (simulate an unset
+            variable). They are set to "" rather than removed, because
+            environ.Env.read_env would refill a removed key from a local .env.
         **overrides: Extra environment variables for the subprocess.
 
     Returns:
@@ -95,7 +96,7 @@ def _run_probe(
     env.pop("DJANGO_ENVIRONMENT", None)
     env.pop("DJANGO_ENV", None)
     for key in drop:
-        env.pop(key, None)
+        env[key] = ""
     env.update(overrides)
 
     return subprocess.run(

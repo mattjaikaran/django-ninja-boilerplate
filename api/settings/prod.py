@@ -19,11 +19,12 @@ _INSECURE_REALTIME_SECRETS = {
     "admin",
     "admin-secret",
 }
-if CENTRIFUGO_TOKEN_SECRET in _INSECURE_REALTIME_SECRETS:
+# An empty value is as public as a default one.
+if not CENTRIFUGO_TOKEN_SECRET or CENTRIFUGO_TOKEN_SECRET in _INSECURE_REALTIME_SECRETS:
     raise ImproperlyConfigured(
         "Set CENTRIFUGO_TOKEN_SECRET to a unique value in production."
     )
-if CENTRIFUGO_API_KEY in _INSECURE_REALTIME_SECRETS:
+if not CENTRIFUGO_API_KEY or CENTRIFUGO_API_KEY in _INSECURE_REALTIME_SECRETS:
     raise ImproperlyConfigured(
         "Set CENTRIFUGO_API_KEY to a unique value in production."
     )
