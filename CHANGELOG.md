@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **ROUTE_ORDER convention check** (`scripts/check_conventions.py`): flags a static controller path declared after a `/{param}` path that would catch it. Escape with `# route-ok: <reason>`; `--root DIR` scans another tree.
+
+### Fixed
+- `FeatureFlagAdminController`: `POST /bulk/toggle` came after `PATCH /{flag_id}/toggle`, so it resolved to the PATCH route. It is now declared first.
+
 ## [1.14.0] - 2026-10-12
 
 Upgrading from 1.13.0? Follow the 1.13.0 to 1.14.0 section of

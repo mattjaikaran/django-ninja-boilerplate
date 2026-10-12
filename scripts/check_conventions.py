@@ -14,13 +14,17 @@ Checks:
  10. MOCKED_ORM        — no mocker.patch on ORM in tests
  11. CONTROLLER_REG    — controllers registered in api/urls.py
  12. SCHEMA_ANY        — no Any / bare dict / Json schema field without
-                         an inline "# schema-ok: <reason>"
+                        an inline "# schema-ok: <reason>"
+ 13. ROUTE_ORDER       — static controller paths declared before any
+                         earlier /{param} path that shadows them, or an
+                         inline "# route-ok: <reason>"
 
 Usage:
     python scripts/check_conventions.py              # check all
     python scripts/check_conventions.py --check DRF_IMPORT  # single check
     python scripts/check_conventions.py --list       # list available checks
     python scripts/check_conventions.py --json       # JSON output
+    python scripts/check_conventions.py --root DIR   # check another tree
 
 Exit: 0 = no violations, 1 = violations found
 """
@@ -117,6 +121,18 @@ HTTP_METHOD_DECORATORS = {
     "http_delete",
 }
 
+# Route decorators whose first argument is a path (ROUTE_ORDER).
+ROUTE_DECORATORS = HTTP_METHOD_DECORATORS | {"http_generic"}
+ROUTE_OK_MARKER = re.compile(r"#\s*route-ok:\s*\S")
+# Django path converters that cannot match an arbitrary static segment.
+_UUID = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
+CONVERTER_PATTERNS = {
+    "int": re.compile(r"[0-9]+"),
+    "uuid": _UUID,
+    "uuidstr": _UUID,
+    "slug": re.compile(r"[-a-zA-Z0-9_]+"),
+}
+
 # Directories whose __init__.py should export public classes.
 EXPORT_DIRS = {"models", "schemas", "services", "controllers", "factories"}
 
@@ -185,6 +201,21 @@ class ConventionChecker:
             f
             for f in self.collect_files()
             if f.name == "__init__.py" and any(d in f.parts for d in EXPORT_DIRS)
+        ]
+
+    def _route_order_files(self) -> list[Path]:
+        """Controller modules: */controllers/*.py and core/**/controller*.py."""
+        return [
+            f
+            for f in self.collect_files()
+            if f.name != "__init__.py"
+            and (
+                f.parent.name == "controllers"
+                or (
+                    f.relative_to(PROJECT_ROOT).parts[0] == "core"
+                    and f.name.startswith("controller")
+                )
+            )
         ]
 
     # ── Check runners ────────────────────────────────────────────────────
@@ -558,6 +589,50 @@ class ConventionChecker:
                         "use a real type or add '# schema-ok: <reason>'",
                     )
 
+    def check_route_order(self) -> Iterator[Violation]:
+        """Static controller paths must precede /{param} paths that shadow them."""
+        for fpath in self._route_order_files():
+            text = fpath.read_text()
+            try:
+                tree = ast.parse(text)
+            except SyntaxError:
+                continue
+            lines = text.splitlines()
+            for node in ast.walk(tree):
+                if not isinstance(node, ast.ClassDef) or not _is_api_controller(node):
+                    continue
+                dynamic: list[tuple[str, int]] = []
+                for route_path, dec in _class_routes(node):
+                    if "{" in route_path:
+                        dynamic.append((route_path, dec.lineno))
+                        continue
+                    shadow = next(
+                        (
+                            (dyn, line)
+                            for dyn, line in dynamic
+                            if _shadows(dyn, route_path)
+                        ),
+                        None,
+                    )
+                    if shadow is None:
+                        continue
+                    end = dec.end_lineno or dec.lineno
+                    if any(
+                        ROUTE_OK_MARKER.search(lines[i - 1])
+                        for i in range(dec.lineno, end + 1)
+                    ):
+                        continue
+                    yield Violation(
+                        "ROUTE_ORDER",
+                        str(fpath.relative_to(PROJECT_ROOT)),
+                        dec.lineno,
+                        f"{node.name}: static path '{route_path}' is shadowed by "
+                        f"earlier '{shadow[0]}' (line {shadow[1]}); Ninja binds a "
+                        "path where it first appears, for any method. Declare "
+                        "static paths before every /{id} handler, or add "
+                        "'# route-ok: <reason>'",
+                    )
+
     # ── Orchestration ────────────────────────────────────────────────────
 
     def run_all(self) -> int:
@@ -614,7 +689,58 @@ ConventionChecker.CHECKS = {  # type: ignore[attr-defined]
     "MOCKED_ORM": ConventionChecker.check_mocked_orm,
     "CONTROLLER_REG": ConventionChecker.check_controller_registration,
     "SCHEMA_ANY": ConventionChecker.check_schema_any,
+    "ROUTE_ORDER": ConventionChecker.check_route_order,
 }
+
+
+def _decorator_name(dec: ast.expr) -> str | None:
+    target = dec.func if isinstance(dec, ast.Call) else dec
+    if isinstance(target, ast.Name):
+        return target.id
+    if isinstance(target, ast.Attribute):
+        return target.attr
+    return None
+
+
+def _is_api_controller(node: ast.ClassDef) -> bool:
+    return any(_decorator_name(d) == "api_controller" for d in node.decorator_list)
+
+
+def _class_routes(node: ast.ClassDef) -> Iterator[tuple[str, ast.Call]]:
+    """Yield (path, decorator) for each route handler in declaration order."""
+    for item in node.body:
+        if not isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        for dec in item.decorator_list:
+            if not isinstance(dec, ast.Call):
+                continue
+            if _decorator_name(dec) not in ROUTE_DECORATORS:
+                continue
+            arg: ast.expr | None = dec.args[0] if dec.args else None
+            if arg is None:
+                arg = next((k.value for k in dec.keywords if k.arg == "path"), None)
+            if isinstance(arg, ast.Constant) and isinstance(arg.value, str):
+                yield arg.value, dec
+
+
+def _shadows(dynamic_path: str, static_path: str) -> bool:
+    """True if Django would resolve static_path to the dynamic_path pattern."""
+    dyn_parts = dynamic_path.strip("/").split("/")
+    static_parts = static_path.strip("/").split("/")
+    if len(dyn_parts) != len(static_parts):
+        return False
+    for dyn, static in zip(dyn_parts, static_parts, strict=True):
+        if "{" not in dyn:
+            if dyn != static:
+                return False
+            continue
+        if not static:
+            return False  # a path converter never matches an empty segment
+        param = re.fullmatch(r"\{(\w+):\w+\}", dyn)
+        pattern = CONVERTER_PATTERNS.get(param.group(1)) if param else None
+        if pattern is not None and not pattern.fullmatch(static):
+            return False
+    return True
 
 
 def main() -> int:
@@ -622,7 +748,16 @@ def main() -> int:
     parser.add_argument("--check", type=str, help="Run a single check by name")
     parser.add_argument("--list", action="store_true", help="List available checks")
     parser.add_argument("--json", action="store_true", help="JSON output")
+    parser.add_argument(
+        "--root",
+        type=Path,
+        help="Project root to scan (default: this repository)",
+    )
     args = parser.parse_args()
+
+    if args.root:
+        global PROJECT_ROOT
+        PROJECT_ROOT = args.root.resolve()
 
     if args.list:
         for name in ConventionChecker.CHECKS:  # type: ignore[attr-defined]

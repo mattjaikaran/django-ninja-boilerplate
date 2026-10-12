@@ -113,6 +113,31 @@ class FeatureFlagAdminController:
 
         return queryset.order_by("name")
 
+    @http_post("/bulk/toggle", response={200: BulkFlagResponseSchema, 400: dict})
+    @log_api_call(include_payload=True)
+    def bulk_toggle_flags(self, request, payload: BulkFlagToggleSchema):
+        """Bulk toggle multiple feature flags."""
+        updated = 0
+        failed = []
+        errors = {}
+
+        for flag_name in payload.flag_names:
+            try:
+                feature_flag_service.toggle_flag(
+                    flag_name, payload.enabled, request.user
+                )
+                updated += 1
+            except Exception as e:
+                failed.append(flag_name)
+                errors[flag_name] = str(e)
+
+        return 200, BulkFlagResponseSchema(
+            success=len(failed) == 0,
+            updated=updated,
+            failed=failed,
+            errors=errors,
+        )
+
     @http_get("/{flag_id}", response={200: FeatureFlagWithAuditSchema, 404: dict})
     @log_api_call()
     def get_flag(self, request, flag_id: UUID):
@@ -205,31 +230,6 @@ class FeatureFlagAdminController:
         """Delete a feature flag."""
         feature_flag_service.delete_flag(flag_id, request.user)
         return 204, None
-
-    @http_post("/bulk/toggle", response={200: BulkFlagResponseSchema, 400: dict})
-    @log_api_call(include_payload=True)
-    def bulk_toggle_flags(self, request, payload: BulkFlagToggleSchema):
-        """Bulk toggle multiple feature flags."""
-        updated = 0
-        failed = []
-        errors = {}
-
-        for flag_name in payload.flag_names:
-            try:
-                feature_flag_service.toggle_flag(
-                    flag_name, payload.enabled, request.user
-                )
-                updated += 1
-            except Exception as e:
-                failed.append(flag_name)
-                errors[flag_name] = str(e)
-
-        return 200, BulkFlagResponseSchema(
-            success=len(failed) == 0,
-            updated=updated,
-            failed=failed,
-            errors=errors,
-        )
 
 
 # =============================================================================

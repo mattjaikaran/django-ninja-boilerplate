@@ -110,7 +110,8 @@ wrong here. Do not use them.
 - Put static URL paths before every handler on a dynamic `/{id}` path in
   each controller, including `PUT` and `DELETE`. Ninja binds a path pattern
   where it first appears, so any earlier `/{id}` handler shadows a later
-  static GET. The smoke route sweep fails when this happens.
+  static GET. The CONVENTIONS gate (`ROUTE_ORDER`) and the smoke route sweep
+  catch it; escape a deliberate case with `# route-ok: <reason>`.
 - Do not hide a constraint in a `@field_validator` when `Field(...)`,
   `Literal`, or an `Enum` can express it. The frontend Zod schemas come from
   `docs/openapi/openapi.json`; run `just openapi` after any schema or route
