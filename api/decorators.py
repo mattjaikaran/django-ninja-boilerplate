@@ -29,11 +29,26 @@ SENSITIVE_FIELDS = frozenset(
         "token",
         "access_token",
         "refresh_token",
+        "refresh",
+        "csrf_token",
+        "id_token",
         "secret",
         "secret_key",
         "api_key",
         "private_key",
         "authorization",
+        "passcode",
+        "otp",
+        "otp_code",
+        "code",
+        "pin",
+        "mfa_code",
+        "totp",
+        "recovery_code",
+        "backup_code",
+        "session_id",
+        "cookie",
+        "set_cookie",
         "credit_card",
         "card_number",
         "cvv",
@@ -64,6 +79,22 @@ def _scrub(data: object) -> object:
     if isinstance(data, list):
         return [_scrub(item) for item in data]
     return data
+
+
+#: Longest non-structured payload repr written to the log.
+MAX_LOGGED_PAYLOAD_CHARS = 1000
+
+
+def _loggable_payload(payload: object) -> object:
+    """Scrub dicts and lists; cap anything else before `str()` reaches a log."""
+    if hasattr(payload, "model_dump"):
+        return _scrub(payload.model_dump())
+    if isinstance(payload, dict | list):
+        return _scrub(payload)
+    text = str(payload)
+    if len(text) > MAX_LOGGED_PAYLOAD_CHARS:
+        return f"{text[:MAX_LOGGED_PAYLOAD_CHARS]}... ({len(text)} chars)"
+    return text
 
 
 # Constants
@@ -99,11 +130,7 @@ def log_api_call(
             }
 
             if include_payload and "payload" in kwargs:
-                payload = kwargs["payload"]
-                if hasattr(payload, "model_dump"):
-                    log_data["payload"] = _scrub(payload.model_dump())
-                else:
-                    log_data["payload"] = str(payload)
+                log_data["payload"] = _loggable_payload(kwargs["payload"])
 
             logger.log(log_level, "API call started: %s", func.__name__, extra=log_data)
 

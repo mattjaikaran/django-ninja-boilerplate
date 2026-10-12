@@ -42,9 +42,7 @@ class TestAuthAPI:
             )
 
         payloads = [r.payload for r in caplog.records if hasattr(r, "payload")]
-        assert payloads == [
-            {"email": user.email, "code": "000000", "newPassword": "***"}
-        ]
+        assert payloads == [{"email": user.email, "code": "***", "newPassword": "***"}]
         assert secret not in caplog.text
 
     def test_signup_answer_does_not_reveal_existing_accounts(
