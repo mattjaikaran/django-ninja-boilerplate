@@ -193,7 +193,7 @@ MODULES: tuple[Module, ...] = (
         name="journeys",
         summary="Feature list, user journeys and the /admin/journeys/ "
         "staff pages, with the JOURNEYS gate.",
-        versions=("1.14.0",),
+        versions=("Unreleased",),
         paths=(
             "journeys",
             "scripts/check_journeys.py",
@@ -258,7 +258,7 @@ MODULES: tuple[Module, ...] = (
         name="tickets",
         summary="File-based tickets for worker models (docs/tickets/), the "
         "TICKETS gate and the planner and worker skills.",
-        versions=("1.14.0",),
+        versions=("Unreleased",),
         paths=(
             "scripts/tickets.py",
             "docs/tickets/README.md",
@@ -294,7 +294,7 @@ MODULES: tuple[Module, ...] = (
         name="testing-policy",
         summary="Lean testing policy: TTSR rules for oh-my-pi plus the "
         "AGENTS.md text to paste.",
-        versions=("1.13.0", "1.14.0"),
+        versions=("1.13.0", "Unreleased"),
         paths=(
             ".omp/rules/ttsr-test-new-file.md",
             ".omp/rules/ttsr-test-assertions.md",

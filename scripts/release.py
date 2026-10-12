@@ -105,17 +105,36 @@ def main(argv: list[str] | None = None) -> None:
     justfile_path = ROOT / "justfile"
     justfile = justfile_path.read_text().replace(f"v{current}", f"v{version}")
     version_file = ROOT / "VERSION"
+    # Portable modules changed since the last release say "Unreleased" in the
+    # adopt manifest; the release stamps them with this version. A platform
+    # built from the boilerplate may have deleted scripts/adopt.py.
+    adopt_path = ROOT / "scripts" / "adopt.py"
+    has_adopt = adopt_path.is_file()
+    adopt = (
+        re.sub(
+            r'^(\s*versions=\(.*)"Unreleased"',
+            rf'\1"{version}"',
+            adopt_path.read_text(),
+            flags=re.MULTILINE,
+        )
+        if has_adopt
+        else ""
+    )
 
     if dry_run:
         print(f"  pyproject.toml: {current} -> {version}")
         print(f"  api/settings/common.py: APP_VERSION default={version}")
         print(f"  justfile banner: v{version}")
         print(f"  VERSION file: {version}")
+        if has_adopt:
+            print(f"  scripts/adopt.py: manifest Unreleased -> {version}")
     else:
         pyproject_path.write_text(pyproject)
         common_path.write_text(common)
         justfile_path.write_text(justfile)
         version_file.write_text(version + "\n")
+        if has_adopt:
+            adopt_path.write_text(adopt)
         run(["uv", "lock"])
 
     # CHANGELOG: retitle Unreleased, refresh the HEAD link, and insert the
@@ -144,18 +163,17 @@ def main(argv: list[str] | None = None) -> None:
         return
     changelog_path.write_text(changelog)
     # uv.lock is tracked (reproducible installs), so bump it too.
-    run(
-        [
-            "git",
-            "add",
-            "pyproject.toml",
-            "api/settings/common.py",
-            "justfile",
-            "VERSION",
-            "CHANGELOG.md",
-            "uv.lock",
-        ]
-    )
+    staged = [
+        "pyproject.toml",
+        "api/settings/common.py",
+        "justfile",
+        "VERSION",
+        "CHANGELOG.md",
+        "uv.lock",
+    ]
+    if has_adopt:
+        staged.append("scripts/adopt.py")
+    run(["git", "add", *staged])
     run(["git", "commit", "-m", f"chore(release): Bump version to {version}"])
     run(["git", "tag", f"v{version}"])
     if not options.push:
