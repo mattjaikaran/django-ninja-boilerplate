@@ -412,6 +412,11 @@ check-arch:
 check-journeys:
     {{ uv }} run python scripts/check_journeys.py
 
+# Check a frontend against this API: journey tests and its OpenAPI copy.
+# Example: just sync-frontend ../boilerplates/react-rsbuild-boilerplate --check
+sync-frontend path *args:
+    {{ uv }} run python scripts/sync_frontend.py {{ path }} {{ args }}
+
 # Ticket queue: just tickets check | next --tier small | show T-001 | claim T-001
 tickets *args:
     {{ uv }} run python scripts/tickets.py {{ args }}

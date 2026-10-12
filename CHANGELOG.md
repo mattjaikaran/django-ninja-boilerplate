@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`scripts/agent_status.py`** (`just agent-status`, `--json`): read-only session summary in under a second: git state, tickets, journeys, the last gauntlet report and uncommitted route or schema changes.
 - **Automatic dev ports** (`scripts/dev_ports.py`, `just check-ports`): `just dev` and every stack recipe move a host port held by another project (for example its Postgres on 5433) to the next free port and say so; `just test-integration` does the same for its test ports. Ports held by this project's own containers stay.
 - **`env_secrets.py --dry-run`** (`fill`, `create`): lists the secret names it would add or replace, never values, and writes nothing. Run `python3 scripts/env_secrets.py fill --dry-run` before `just setup-env`. A real `fill` now names the replaced placeholders too.
+- **`scripts/sync_frontend.py`** (`just sync-frontend <path>`): checks a frontend repo against this API: the journey sync report against its `e2e/` and Playwright JSON report, and its copy of the OpenAPI contract against `docs/openapi/openapi.json` (added and removed paths, changed operation ids). Read-only; `--check` exits 1 on journey errors or drift.
 
 ### Changed
 - **Test database switch**: `api.settings.test` uses PostgreSQL only with `TEST_DB=postgres`. It used `CI`, which agent shells and CI runners set for unrelated reasons, so local runs moved to Postgres silently.

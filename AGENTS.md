@@ -344,6 +344,9 @@ Three artifacts describe what the product does. They must agree.
 - `just check-journeys` (the JOURNEYS gate) enforces these rules. The staff
   page `/admin/journeys/` shows each journey, step by step, with what is
   missing.
+- `just sync-frontend <frontend path>` runs the same rules against that
+  frontend's Playwright report and compares its copy of the OpenAPI contract
+  with `docs/openapi/openapi.json`. `--check` exits 1 on drift.
 
 Format and the sync loop: `docs/product/README.md` and the `journey-sync`
 skill.
