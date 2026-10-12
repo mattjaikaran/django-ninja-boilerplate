@@ -4,6 +4,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+# Content of an otherwise empty package ``__init__.py`` in a generated app.
+PACKAGE_INIT = (
+    "# This file is intentionally left empty to make the directory a Python package.\n"
+)
+
 # Words that end in "s" but are already singular.
 _SINGULAR_ENDINGS = ("ss", "us", "is")
 # Plural endings that drop "es" to get the singular form.
@@ -109,3 +114,28 @@ def import_block(*statements: str) -> str:
     ``tests``, so the order depends on the app name.
     """
     return "\n".join(sorted(statements, key=lambda line: line.split()[1].lower()))
+
+
+def package_init(*imports: tuple[str, list[str]]) -> str:
+    """Return a package ``__init__.py`` that re-exports names in ruff layout.
+
+    Each ``(module, names)`` pair becomes one ``from module import names``
+    statement in isort order, followed by one ``__all__`` with every name.
+    """
+    statements = import_block(
+        *(from_import(module, *names) for module, names in imports)
+    )
+    quoted = [f'"{name}"' for _, names in imports for name in names]
+    exports = f"__all__ = [{', '.join(quoted)}]"
+    if len(exports) > 88:
+        body = "".join(f"    {name},\n" for name in quoted)
+        exports = f"__all__ = [\n{body}]"
+    return f"{statements}\n\n{exports}\n"
+
+
+def fill_imports(template: str, *statements: str) -> str:
+    """Put the first-party import block where ``{first_party_imports}`` stands.
+
+    Use it for templates that are verbatim code, so braces need no escaping.
+    """
+    return template.replace("{first_party_imports}", import_block(*statements))

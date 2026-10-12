@@ -69,507 +69,227 @@ def render_service(names: ResourceNames) -> str:
     )
 
 
-RBAC_SERVICE_TEMPLATE = '''"""RBAC permissions system."""
+# Rendered with str.format: {first_party_imports} is the app's isort block, so
+# literal braces in the generated code are doubled.
+RBAC_SERVICE_TEMPLATE = '''"""RBAC business logic.
 
-from typing import Any, Optional
+Role and permission management acts on every user, so it is staff-only: the
+controller requires IsAdminUser for those routes. Permission checks and
+summaries are scoped to the user passed in.
+"""
+
+from typing import Any
+from uuid import UUID
+
 from django.contrib.auth import get_user_model
 from django.contrib.contenttypes.models import ContentType
-from django.db import models
+from django.db import transaction
+from django.db.models import Q, QuerySet
+from django.shortcuts import get_object_or_404
 
-from .models import Role, Permission, UserRole
+{first_party_imports}
 
-User = get_user_model()
+DEFAULT_PERMISSIONS = [
+    ("view_user", "Can view users"),
+    ("add_user", "Can add users"),
+    ("change_user", "Can change users"),
+    ("delete_user", "Can delete users"),
+    ("view_content", "Can view content"),
+    ("add_content", "Can add content"),
+    ("change_content", "Can change content"),
+    ("delete_content", "Can delete content"),
+    ("manage_roles", "Can manage roles and permissions"),
+]
+
+# (name, description, permission codenames). New users get "user".
+DEFAULT_ROLES = [
+    (
+        "admin",
+        "Administrator",
+        ["manage_roles", "view_user", "add_user", "change_user", "delete_user"],
+    ),
+    ("editor", "Editor", ["view_content", "add_content", "change_content"]),
+    ("viewer", "Viewer", ["view_content"]),
+    ("user", "Regular User", ["view_content"]),
+]
+DEFAULT_ROLE = "user"
 
 
 class RBACService:
-    """Service for RBAC operations."""
+    """Role and permission catalog, assignments and per-user checks."""
 
-    @staticmethod
-    def assign_role_to_user(
-        user: User,
-        role: Role,
-        content_object: Optional[Any] = None
-    ) -> UserRole:
-        """Assign a role to a user, optionally scoped to an object."""
-        content_type = None
-        object_id = None
+    # Catalog and assignments: staff-only callers.
 
-        if content_object:
-            content_type = ContentType.objects.get_for_model(content_object)
-            object_id = content_object.pk
+    def list_roles(self) -> QuerySet[Role]:
+        """Return every role with its permissions."""
+        return Role.objects.prefetch_related("permissions").order_by("name")
 
-        user_role, created = UserRole.objects.get_or_create(
-            user=user,
-            role=role,
-            content_type=content_type,
-            object_id=object_id,
+    def list_permissions(self) -> QuerySet[Permission]:
+        """Return every permission."""
+        return Permission.objects.order_by("name")
+
+    def create_permission(self, payload: CreatePermissionSchema) -> Permission:
+        """Create a permission. Raise ConflictError for a duplicate."""
+        duplicate = Q(name=payload.name) | Q(codename=payload.codename)
+        if Permission.objects.filter(duplicate).exists():
+            raise ConflictError("A permission with this name or codename exists")
+        return Permission.objects.create(
+            name=payload.name,
+            codename=payload.codename,
+            description=payload.description,
         )
 
+    def create_role(self, payload: CreateRoleSchema) -> Role:
+        """Create a role with the given permissions."""
+        if Role.objects.filter(name=payload.name).exists():
+            raise ConflictError("A role with this name exists")
+        permissions = self._get_permissions(payload.permission_ids)
+        with transaction.atomic():
+            role = Role.objects.create(
+                name=payload.name,
+                description=payload.description,
+                is_default=payload.is_default,
+            )
+            role.permissions.set(permissions)
+        return role
+
+    def update_role(self, role_id: UUID, payload: UpdateRoleSchema) -> Role:
+        """Apply the set fields of the payload to a role."""
+        role = get_object_or_404(Role, id=role_id)
+        name_taken = Role.objects.filter(name=payload.name).exclude(id=role.id)
+        if payload.name is not None and name_taken.exists():
+            raise ConflictError("A role with this name exists")
+        permissions = None
+        if payload.permission_ids is not None:
+            permissions = self._get_permissions(payload.permission_ids)
+        with transaction.atomic():
+            for field in payload.model_fields_set - {{"permission_ids"}}:
+                value = getattr(payload, field)
+                if value is not None:
+                    setattr(role, field, value)
+            role.save()
+            if permissions is not None:
+                role.permissions.set(permissions)
+        return role
+
+    def delete_role(self, role_id: UUID) -> None:
+        """Delete a role and its assignments."""
+        get_object_or_404(Role, id=role_id).delete()
+
+    def assign_role(
+        self, user_id: UUID, role_id: UUID, content_object: Any = None
+    ) -> UserRole:
+        """Assign a role to a user, globally or on one object."""
+        user = get_object_or_404(get_user_model(), id=user_id)
+        role = get_object_or_404(Role, id=role_id)
+        user_role, _ = UserRole.objects.get_or_create(
+            user=user, role=role, **self._scope(content_object)
+        )
         return user_role
 
-    @staticmethod
-    def remove_role_from_user(
-        user: User,
-        role: Role,
-        content_object: Optional[Any] = None
-    ) -> bool:
-        """Remove a role from a user."""
-        content_type = None
-        object_id = None
+    def remove_role(
+        self, user_id: UUID, role_id: UUID, content_object: Any = None
+    ) -> None:
+        """Remove a role assignment. Raise Http404 when it does not exist."""
+        get_object_or_404(
+            UserRole, user_id=user_id, role_id=role_id, **self._scope(content_object)
+        ).delete()
 
-        if content_object:
-            content_type = ContentType.objects.get_for_model(content_object)
-            object_id = content_object.pk
+    def get_user_summary(self, user_id: UUID) -> dict[str, Any]:
+        """Return the roles and permissions of any user."""
+        return self.permissions_summary(get_object_or_404(get_user_model(), id=user_id))
 
-        try:
-            user_role = UserRole.objects.get(
-                user=user,
-                role=role,
-                content_type=content_type,
-                object_id=object_id,
-            )
-            user_role.delete()
-            return True
-        except UserRole.DoesNotExist:
-            return False
+    def create_default_roles_and_permissions(self) -> None:
+        """Create DEFAULT_PERMISSIONS and DEFAULT_ROLES that do not exist yet."""
+        with transaction.atomic():
+            for codename, name in DEFAULT_PERMISSIONS:
+                Permission.objects.get_or_create(
+                    codename=codename, defaults={{"name": name}}
+                )
+            for name, description, codenames in DEFAULT_ROLES:
+                role, created = Role.objects.get_or_create(
+                    name=name,
+                    defaults={{
+                        "description": description,
+                        "is_default": name == DEFAULT_ROLE,
+                    }},
+                )
+                if created:
+                    role.permissions.set(
+                        Permission.objects.filter(codename__in=codenames)
+                    )
 
-    @staticmethod
+    # Checks scoped to the user passed in.
+
+    def permissions_summary(self, user: Any) -> dict[str, Any]:
+        """Return the user's global roles and permission codenames."""
+        return {{
+            "user_id": user.id,
+            "permissions": self.get_user_permissions(user),
+            "roles": list(self.get_user_roles(user)),
+        }}
+
     def user_has_permission(
-        user: User,
-        permission_codename: str,
-        content_object: Optional[Any] = None
+        self, user: Any, codename: str, content_object: Any = None
     ) -> bool:
-        """Check if user has a specific permission."""
+        """Return True if one of the user's roles grants the permission."""
         if user.is_superuser:
             return True
+        roles = self._user_roles(user, content_object)
+        return roles.filter(role__permissions__codename=codename).exists()
 
-        # Get all user roles
-        user_roles = UserRole.objects.filter(user=user)
-
-        # Filter by object if provided
-        if content_object:
-            content_type = ContentType.objects.get_for_model(content_object)
-            user_roles = user_roles.filter(
-                models.Q(content_type=content_type, object_id=content_object.pk) |
-                models.Q(content_type__isnull=True, object_id__isnull=True)  # Global roles
-            )
-        else:
-            # For global permissions, only check global roles
-            user_roles = user_roles.filter(
-                content_type__isnull=True,
-                object_id__isnull=True
-            )
-
-        # Check if any role has the permission
-        for user_role in user_roles:
-            if user_role.role.permissions.filter(codename=permission_codename).exists():
-                return True
-
-        return False
-
-    @staticmethod
     def user_has_role(
-        user: User,
-        role_name: str,
-        content_object: Optional[Any] = None
+        self, user: Any, role_name: str, content_object: Any = None
     ) -> bool:
-        """Check if user has a specific role."""
-        try:
-            role = Role.objects.get(name=role_name)
-        except Role.DoesNotExist:
-            return False
+        """Return True if the user holds the role globally or on the object."""
+        roles = self._user_roles(user, content_object)
+        return roles.filter(role__name=role_name).exists()
 
-        content_type = None
-        object_id = None
-
-        if content_object:
-            content_type = ContentType.objects.get_for_model(content_object)
-            object_id = content_object.pk
-
-        return UserRole.objects.filter(
-            user=user,
-            role=role,
-            content_type=content_type,
-            object_id=object_id,
-        ).exists()
-
-    @staticmethod
-    def get_user_permissions(
-        user: User,
-        content_object: Optional[Any] = None
-    ) -> list[str]:
-        """Get all permissions for a user."""
+    def get_user_permissions(self, user: Any, content_object: Any = None) -> list[str]:
+        """Return the permission codenames of the user. A superuser gets ["*"]."""
         if user.is_superuser:
-            return ["*"]  # Superuser has all permissions
+            return ["*"]
+        codenames = (
+            self._user_roles(user, content_object)
+            .filter(role__permissions__isnull=False)
+            .values_list("role__permissions__codename", flat=True)
+            .distinct()
+        )
+        return sorted(codenames)
 
-        # Get all user roles
-        user_roles = UserRole.objects.filter(user=user).select_related("role")
-
-        # Filter by object if provided
-        if content_object:
-            content_type = ContentType.objects.get_for_model(content_object)
-            user_roles = user_roles.filter(
-                models.Q(content_type=content_type, object_id=content_object.pk) |
-                models.Q(content_type__isnull=True, object_id__isnull=True)  # Global roles
-            )
-        else:
-            # For global permissions, only check global roles
-            user_roles = user_roles.filter(
-                content_type__isnull=True,
-                object_id__isnull=True
-            )
-
-        # Collect all permissions
-        permissions = set()
-        for user_role in user_roles:
-            role_permissions = user_role.role.permissions.values_list("codename", flat=True)
-            permissions.update(role_permissions)
-
-        return list(permissions)
-
-    @staticmethod
     def get_user_roles(
-        user: User,
-        content_object: Optional[Any] = None
-    ) -> list[Role]:
-        """Get all roles for a user."""
-        user_roles = UserRole.objects.filter(user=user).select_related("role")
-
-        if content_object:
-            content_type = ContentType.objects.get_for_model(content_object)
-            user_roles = user_roles.filter(
-                models.Q(content_type=content_type, object_id=content_object.pk) |
-                models.Q(content_type__isnull=True, object_id__isnull=True)
-            )
-
-        return [user_role.role for user_role in user_roles]
-
-    @staticmethod
-    def bulk_assign_permissions(role: Role, permission_codenames: list[str]) -> int:
-        """Bulk assign permissions to a role."""
-        permissions = Permission.objects.filter(codename__in=permission_codenames)
-        role.permissions.set(permissions)
-        return permissions.count()
-
-    @staticmethod
-    def create_default_roles_and_permissions():
-        """Create default roles and permissions."""
-        # Create basic permissions
-        permissions_data = [
-            ("view_user", "Can view users"),
-            ("add_user", "Can add users"),
-            ("change_user", "Can change users"),
-            ("delete_user", "Can delete users"),
-            ("view_content", "Can view content"),
-            ("add_content", "Can add content"),
-            ("change_content", "Can change content"),
-            ("delete_content", "Can delete content"),
-            ("manage_roles", "Can manage roles and permissions"),
-            ("view_roles", "Can view roles"),
-            ("view_permissions", "Can view permissions"),
-            ("view_user_permissions", "Can view user permissions"),
-        ]
-
-        for codename, name in permissions_data:
-            Permission.objects.get_or_create(
-                codename=codename,
-                defaults={"name": name}
-            )
-
-        # Create basic roles
-        roles_data = [
-            ("admin", "Administrator", ["manage_roles", "view_roles", "view_permissions", "view_user_permissions", "view_user", "add_user", "change_user", "delete_user"]),
-            ("editor", "Editor", ["view_content", "add_content", "change_content"]),
-            ("viewer", "Viewer", ["view_content"]),
-            ("user", "Regular User", ["view_content"]),
-        ]
-
-        for role_name, description, permission_codenames in roles_data:
-            role, created = Role.objects.get_or_create(
-                name=role_name,
-                defaults={"description": description}
-            )
-
-            if created or role.permissions.count() == 0:
-                permissions = Permission.objects.filter(codename__in=permission_codenames)
-                role.permissions.set(permissions)
-
-        # Set 'user' as default role
-        try:
-            user_role = Role.objects.get(name="user")
-            user_role.is_default = True
-            user_role.save()
-        except Role.DoesNotExist:
-            pass
-
-
-# Decorator factory for permission checking
-def permission_required(permission_codename: str, content_object_func=None):
-    """Decorator factory for permission checking."""
-    def decorator(func):
-        def wrapper(self, request, *args, **kwargs):
-            content_object = None
-            if content_object_func:
-                content_object = content_object_func(request, *args, **kwargs)
-
-            if not RBACService.user_has_permission(request.user, permission_codename, content_object):
-                from ninja_extra.exceptions import APIException
-                raise APIException("Permission denied", 403)
-
-            return func(self, request, *args, **kwargs)
-        return wrapper
-    return decorator
-
-
-def role_required(role_name: str, content_object_func=None):
-    """Decorator factory for role checking."""
-    def decorator(func):
-        def wrapper(self, request, *args, **kwargs):
-            content_object = None
-            if content_object_func:
-                content_object = content_object_func(request, *args, **kwargs)
-
-            if not RBACService.user_has_role(request.user, role_name, content_object):
-                from ninja_extra.exceptions import APIException
-                raise APIException("Role required", 403)
-
-            return func(self, request, *args, **kwargs)
-        return wrapper
-    return decorator
-'''
-
-ORGANIZATION_SERVICE_TEMPLATE = '''"""Organization service for business logic."""
-
-from typing import List, Optional
-from django.contrib.auth import get_user_model
-from django.utils import timezone
-from django.core.exceptions import ValidationError
-from django.db import transaction
-
-from .models import Organization, OrganizationMember
-
-User = get_user_model()
-
-
-class OrganizationService:
-    """Service class for organization operations."""
-
-    @staticmethod
-    def create_organization(
-        name: str,
-        owner: User,
-        description: str = "",
-        **kwargs
-    ) -> Organization:
-        """Create a new organization with an owner."""
-        with transaction.atomic():
-            # Create the organization
-            organization = Organization.objects.create(
-                name=name,
-                description=description,
-                **kwargs
-            )
-
-            # Add owner as the first member
-            OrganizationMember.objects.create(
-                organization=organization,
-                user=owner,
-                role="owner",
-                status="active",
-                joined_at=timezone.now()
-            )
-
-            return organization
-
-    @staticmethod
-    def invite_member(
-        organization: Organization,
-        email: str,
-        role: str,
-        invited_by: User
-    ) -> OrganizationMember:
-        """Invite a user to join the organization."""
-        # Check if inviter has permission
-        inviter_member = OrganizationMember.objects.get(
-            organization=organization,
-            user=invited_by,
-            status="active"
+        self, user: Any, content_object: Any = None
+    ) -> QuerySet[UserRole]:
+        """Return the user's role assignments with their roles and permissions."""
+        return (
+            self._user_roles(user, content_object)
+            .select_related("role")
+            .prefetch_related("role__permissions")
         )
 
-        if not inviter_member.can_invite:
-            raise ValidationError("You don't have permission to invite members")
-
-        # Check if user exists
-        try:
-            user = User.objects.get(email=email)
-        except User.DoesNotExist:
-            # Could send an invitation email to register
-            raise ValidationError("User with this email does not exist")
-
-        # Check if already a member
-        if OrganizationMember.objects.filter(
-            organization=organization,
-            user=user
-        ).exists():
-            raise ValidationError("User is already a member of this organization")
-
-        # Create invitation
-        member = OrganizationMember.objects.create(
-            organization=organization,
-            user=user,
-            role=role,
-            status="pending",
-            invited_by=invited_by,
-            invited_at=timezone.now(),
-            invitation_expires_at=timezone.now() + timezone.timedelta(days=7)
-        )
-
-        # TODO: Send invitation email
-
-        return member
+    def _user_roles(self, user: Any, content_object: Any) -> QuerySet[UserRole]:
+        """Return global assignments, plus assignments on content_object if given."""
+        roles = UserRole.objects.filter(user=user)
+        is_global = Q(content_type__isnull=True, object_id__isnull=True)
+        if content_object is None:
+            return roles.filter(is_global)
+        return roles.filter(is_global | Q(**self._scope(content_object)))
 
     @staticmethod
-    def accept_invitation(member: OrganizationMember) -> bool:
-        """Accept an organization invitation."""
-        if member.status != "pending":
-            return False
-
-        if member.invitation_expires_at and member.invitation_expires_at < timezone.now():
-            return False
-
-        member.status = "active"
-        member.joined_at = timezone.now()
-        member.save()
-
-        return True
+    def _scope(content_object: Any) -> dict[str, Any]:
+        """Return the content_type/object_id lookup for an assignment scope."""
+        if content_object is None:
+            return {{"content_type": None, "object_id": None}}
+        return {{
+            "content_type": ContentType.objects.get_for_model(content_object),
+            "object_id": str(content_object.pk),
+        }}
 
     @staticmethod
-    def remove_member(
-        organization: Organization,
-        user_to_remove: User,
-        removed_by: User
-    ) -> bool:
-        """Remove a member from the organization."""
-        # Check permissions
-        remover_member = OrganizationMember.objects.get(
-            organization=organization,
-            user=removed_by,
-            status="active"
-        )
-
-        member_to_remove = OrganizationMember.objects.get(
-            organization=organization,
-            user=user_to_remove
-        )
-
-        # Owner can remove anyone, admin can remove non-admins, users can remove themselves
-        if (remover_member.is_owner or
-            (remover_member.can_manage_members and not member_to_remove.is_admin) or
-            user_to_remove == removed_by):
-
-            member_to_remove.status = "inactive"
-            member_to_remove.save()
-            return True
-
-        return False
-
-    @staticmethod
-    def update_member_role(
-        organization: Organization,
-        user_to_update: User,
-        new_role: str,
-        updated_by: User
-    ) -> bool:
-        """Update a member's role."""
-        updater_member = OrganizationMember.objects.get(
-            organization=organization,
-            user=updated_by,
-            status="active"
-        )
-
-        member_to_update = OrganizationMember.objects.get(
-            organization=organization,
-            user=user_to_update,
-            status="active"
-        )
-
-        # Only owners can change roles, and can't demote themselves if they're the only owner
-        if not updater_member.is_owner:
-            return False
-
-        if (user_to_update == updated_by and
-            new_role != "owner" and
-            organization.members.filter(role="owner", status="active").count() == 1):
-            return False
-
-        member_to_update.role = new_role
-        member_to_update.save()
-        return True
-
-    @staticmethod
-    def get_organization_stats(organization: Organization) -> dict:
-        """Get organization statistics."""
-        return {
-            "total_members": organization.members.filter(status="active").count(),
-            "pending_invitations": organization.members.filter(status="pending").count(),
-            "admin_count": organization.members.filter(
-                status="active",
-                role__in=["owner", "admin"]
-            ).count(),
-            "member_count": organization.members.filter(
-                status="active",
-                role="member"
-            ).count(),
-        }
-
-    @staticmethod
-    def transfer_ownership(
-        organization: Organization,
-        new_owner: User,
-        current_owner: User
-    ) -> bool:
-        """Transfer organization ownership."""
-        # Verify current owner
-        current_owner_member = OrganizationMember.objects.get(
-            organization=organization,
-            user=current_owner,
-            role="owner",
-            status="active"
-        )
-
-        # Verify new owner is a member
-        new_owner_member = OrganizationMember.objects.get(
-            organization=organization,
-            user=new_owner,
-            status="active"
-        )
-
-        with transaction.atomic():
-            # Demote current owner to admin
-            current_owner_member.role = "admin"
-            current_owner_member.save()
-
-            # Promote new owner
-            new_owner_member.role = "owner"
-            new_owner_member.save()
-
-        return True
-
-    @staticmethod
-    def get_user_organizations(user: User) -> List[Organization]:
-        """Get all organizations a user belongs to."""
-        return Organization.objects.filter(
-            members__user=user,
-            members__status="active",
-            is_active=True
-        ).distinct()
-
-    @staticmethod
-    def can_user_access_organization(user: User, organization: Organization) -> bool:
-        """Check if user can access an organization."""
-        return OrganizationMember.objects.filter(
-            organization=organization,
-            user=user,
-            status="active"
-        ).exists()
+    def _get_permissions(permission_ids: list[UUID]) -> list[Permission]:
+        """Return the permissions. Raise ValidationError for an unknown id."""
+        permissions = list(Permission.objects.filter(id__in=permission_ids))
+        if len(permissions) != len(set(permission_ids)):
+            raise ValidationError("One or more permission ids do not exist")
+        return permissions
 '''

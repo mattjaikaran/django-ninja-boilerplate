@@ -40,9 +40,17 @@ def test_core_app_gets_a_view_module_the_package_cannot_shadow(project):
     assert not (project / "core" / "graphql.py").exists()
 
 
-def test_urls_imports_land_after_a_multiline_import(project):
+def test_urls_edit_keeps_imports_and_patterns_whole(project):
     GraphQLGenerator("core").generate()
 
-    tree = ast.parse((project / "api" / "urls.py").read_text())
-    modules = [n.module for n in tree.body if isinstance(n, ast.ImportFrom)]
-    assert modules[-2:] == ["core.graphql_view", "core.graphql"]
+    text = (project / "api" / "urls.py").read_text()
+    tree = ast.parse(text)
+    modules = sorted(n.module for n in tree.body if isinstance(n, ast.ImportFrom))
+    assert modules == [
+        "core.graphql",
+        "core.graphql_view",
+        "django.urls",
+        "todos.controllers",
+    ]
+    # The existing entry keeps its indent after the GraphQL path is inserted.
+    assert '\n    path("admin/", admin.site.urls),\n' in text

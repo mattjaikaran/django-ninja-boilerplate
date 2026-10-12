@@ -12,12 +12,18 @@ uv run python manage.py generate_feature payments --provider stripe --platform-t
 
 This creates a complete payments app with:
 
-- Payment, PaymentMethod, and PaymentIntent models
-- Stripe service integration
-- API controllers for payment operations
+- Payment, PaymentMethod, PaymentIntent and StripeCustomer models, plus
+  SubscriptionPlan and Subscription unless you pass `--no-subscriptions`
+- `PaymentService`: owner-scoped queries and every Stripe call. It raises
+  `ImproperlyConfigured` when `STRIPE_SECRET_KEY` is empty
+- `PaymentController` at `/api/payments/` with `JWTAuth`
 - Admin interface
-- One smoke/permission test file (no model or unit tests)
-- Email templates (optional)
+- One smoke/permission test file (no model or unit tests). The tests do not
+  call Stripe: they cover the owner scoping, validation and auth boundary of
+  the Stripe routes
+
+The payments and notification generators refuse an app name that already
+exists, so they never overwrite an app such as `billing` or `notifications`.
 
 ### Generate Redis Cache Integration
 
@@ -42,10 +48,13 @@ uv run python manage.py generate_feature rbac --platform-type b2b
 This creates:
 
 - Role and Permission models
-- User-Role assignments with object-level permissions
-- Decorators for permission checking
-- RBAC service and middleware
+- User-Role assignments, global or on one object
+- A `JWTAuth` controller at `/api/rbac/`. Role, permission and assignment
+  routes need `IsAdminUser`; a regular user may call only
+  `GET /api/rbac/me/permissions` for their own roles and permissions
+- Decorators for permission checking, an RBAC service and middleware
 - Admin interface for role management
+- Smoke and permission tests in `rbac/tests/test_rbac.py`
 
 ## Available Features
 
@@ -83,23 +92,22 @@ uv run python manage.py generate_feature redis --minimal
 
 ### RBAC (Role-Based Access Control)
 
-- Role and permission management
+- Staff-only role and permission management
 - Object-level permissions
 - User role assignments
 - Permission decorators
 
 ```bash
-# Full RBAC for B2B platform
 uv run python manage.py generate_feature rbac --platform-type b2b
-
-# Minimal RBAC for simple apps
-uv run python manage.py generate_feature rbac --minimal
 ```
 
 ### Organizations & Teams
 
-- Organization management
-- Team hierarchies
+- Organizations at `/api/organizations/` and invitations at
+  `/api/invitations/`: members see their organizations, owners and admins
+  manage them, and invited users accept or decline their own invitations
+- Teams at `/api/teams/`: members see their teams, team leads manage the
+  team and its members
 - Member roles and permissions
 
 ```bash
@@ -114,7 +122,8 @@ uv run python manage.py generate_feature team --platform-type saas
 
 - `subscription` - Subscription management
 - `notification` - Notification system
-- `chat` - Real-time messaging (uses Centrifugo with `--realtime` flag)
+- `chat` - Messaging at `/api/conversations/` and `/api/messages/`, scoped to
+  the conversations the user takes part in
 - `file_storage` - File upload and storage
 - `analytics` - Event tracking and analytics
 - `graphql` - Strawberry GraphQL API setup
@@ -168,7 +177,7 @@ Choose specific providers for external services:
 Override the default app name:
 
 ```bash
-uv run python manage.py generate_feature payments --app-name billing
+uv run python manage.py generate_feature payments --app-name pay
 ```
 
 ## Generated Structure
@@ -327,9 +336,11 @@ uv run python manage.py generate_feature graphql --app-name=todos
 ```
 
 This creates:
-- `app/graphql/` - GraphQL package with schema, queries, mutations, and types
+- `app/graphql/` - GraphQL package with schema, queries, mutations, types,
+  permission classes and a user service that scopes every query to the viewer
+- `app/tests/test_graphql.py` - Smoke and permission tests for `/api/graphql/`
 - `core/graphql_view.py` - JWT-authenticated GraphQL view (always in `core`)
-- Automatic URL configuration for `/graphql/` endpoint
+- Automatic URL configuration for the `/api/graphql/` endpoint
 
 See the main [README.md](README.md#graphql-optional) for usage examples.
 

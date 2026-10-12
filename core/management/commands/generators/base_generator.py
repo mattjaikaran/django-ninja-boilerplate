@@ -2,12 +2,17 @@
 
 from __future__ import annotations
 
+import ast
 import keyword
 import logging
+import re
 import subprocess
+import sys
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any
+
+from .codegen import PACKAGE_INIT, ResourceNames, from_import
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +36,8 @@ class BaseGenerator(ABC):
         self.project_root = Path.cwd()
         self.app_path = self.project_root / app_name
         self.logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
+        # True once create_django_app() has run startapp_extended in this run.
+        self.created_app = False
 
         # Validation
         self._validate_app_name()
@@ -60,16 +67,45 @@ class BaseGenerator(ABC):
 
         try:
             subprocess.run(
-                ["python", "manage.py", "startapp_extended", self.app_name],
+                [sys.executable, "manage.py", "startapp_extended", self.app_name],
                 check=True,
                 capture_output=True,
                 text=True,
             )
             self.logger.info("Successfully created Django app: %s", self.app_name)
+            self.created_app = True
         except subprocess.CalledProcessError as e:
             self.logger.exception("Failed to create Django app: %s", e.stderr)
             msg = f"Failed to create Django app: {e.stderr}"
             raise GeneratorError(msg) from e
+
+    def remove_scaffold(self) -> None:
+        """Remove the startapp_extended CRUD scaffold so a feature can replace it.
+
+        Call it right after create_django_app(). It deletes the scaffold's
+        model, schema, service, controller, admin, test, data command and
+        README, and empties the package ``__init__.py`` files that export
+        them. The feature generator then writes its own files and exports.
+        It does nothing when the app existed before this run.
+        """
+        if not self.created_app:
+            return
+        names = ResourceNames.from_app_name(self.app_name)
+        snake = names.model_snake
+        scaffold = (
+            f"models/{snake}.py",
+            f"schemas/{snake}_schema.py",
+            f"services/{snake}_service.py",
+            f"controllers/{snake}_controller.py",
+            f"admin/{snake}_admin.py",
+            f"tests/test_{snake}.py",
+            f"management/commands/generate_{self.app_name}_data.py",
+            "README.md",
+        )
+        for relative_path in scaffold:
+            (self.app_path / relative_path).unlink(missing_ok=True)
+        for package in ("models", "schemas", "services", "controllers", "admin"):
+            self.create_file(self.app_path / package / "__init__.py", PACKAGE_INIT)
 
     def create_file(
         self, file_path: Path, content: str, overwrite: bool = True
@@ -176,7 +212,10 @@ class BaseGenerator(ABC):
             modified = False
 
             # Add app to INSTALLED_APPS if not already there
-            if app_name not in content and "INSTALLED_APPS" in content:
+            installed = re.search(
+                rf"^\s*[\"']{re.escape(app_name)}[\"']\s*,", content, re.MULTILINE
+            )
+            if not installed and "INSTALLED_APPS" in content:
                 lines = content.split("\n")
                 for i, line in enumerate(lines):
                     if "INSTALLED_APPS" in line and "=" in line:
@@ -203,14 +242,26 @@ class BaseGenerator(ABC):
                 if modified:
                     content = "\n".join(lines)
 
-            # Add other settings
-            for key, value in settings_updates.items():
-                if key not in content:
-                    content += f"\n\n# {app_name.title()} settings\n{key} = {value!r}\n"
-                    modified = True
+            # Add other settings as one block per call
+            missing = {
+                key: value
+                for key, value in settings_updates.items()
+                if key not in content
+            }
+            if missing:
+                block = "".join(
+                    f"{key} = {value!r}\n" for key, value in missing.items()
+                )
+                content = (
+                    f"{content.rstrip()}\n\n\n# {app_name.title()} settings\n{block}"
+                )
+                modified = True
 
             if modified:
                 settings_path.write_text(content, encoding="utf-8")
+                # Keep the file ruff-clean: sorted imports, formatted values.
+                self.run_ruff("check", "--fix", "--select", "I", settings_path)
+                self.run_ruff("format", settings_path)
                 self.logger.info(f"Updated settings with {app_name} configuration")
             else:
                 self.logger.info(f"No settings updates needed for {app_name}")
@@ -224,101 +275,140 @@ class BaseGenerator(ABC):
                 pass
 
     def create_migration(self) -> None:
-        """Create and run migrations for the new app."""
+        """Create, format and apply the app's migrations.
+
+        A failed makemigrations or ruff run raises GeneratorError. A failed
+        migrate only logs a warning: the database may not be running.
+        """
         try:
-            # Create migrations
-            result = subprocess.run(
-                ["python", "manage.py", "makemigrations", self.app_name],
+            subprocess.run(
+                [sys.executable, "manage.py", "makemigrations", self.app_name],
                 check=True,
                 capture_output=True,
                 text=True,
             )
-            self.logger.info(f"Created migrations for {self.app_name}")
-
-            # Apply migrations
-            result = subprocess.run(
-                ["python", "manage.py", "migrate"],
-                check=True,
-                capture_output=True,
-                text=True,
-            )
-            self.logger.info(f"Applied migrations for {self.app_name}")
-
+            # makemigrations output is not isort-sorted or ruff-formatted.
+            migrations_dir = self.app_path / "migrations"
+            self.run_ruff("check", "--fix", "--select", "I", migrations_dir)
+            self.run_ruff("format", migrations_dir)
         except subprocess.CalledProcessError as e:
-            self.logger.warning(f"Migration failed: {e.stderr}")
-            # Don't raise error for migrations as they might fail for valid reasons
+            msg = f"Failed to create migrations for {self.app_name}: {e.stderr}"
+            raise GeneratorError(msg) from e
+        self.logger.info("Created migrations for %s", self.app_name)
 
-    def update_urls(self, app_name: str, controller_class: str | None = None) -> None:
-        """Update main urls.py to include the new app's URLs.
+        try:
+            subprocess.run(
+                [sys.executable, "manage.py", "migrate"],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+        except subprocess.CalledProcessError as e:
+            self.logger.warning("Migrate failed for %s: %s", self.app_name, e.stderr)
+            return
+        self.logger.info("Applied migrations for %s", self.app_name)
+
+    def update_urls(self, app_name: str, *controller_classes: str) -> None:
+        """Import and register the app's controllers in ``api/urls.py``.
+
+        The import goes after the last top-level import and the registration
+        after the last top-level ``api.register_controllers(...)`` call, so
+        neither lands inside a multi-line statement; ``ruff --select I`` then
+        sorts the import into place. A second call with the same controllers
+        changes nothing.
 
         Args:
             app_name: Name of the app
-            controller_class: Controller to register. Defaults to the
-                capitalized app name plus ``Controller``.
+            controller_classes: Controllers to register. Defaults to the
+                controller ``startapp_extended`` generates for the app.
         """
         urls_path = self.project_root / "api" / "urls.py"
         if not urls_path.exists():
             self.logger.warning("Main urls.py not found, skipping URL update")
             return
 
-        try:
-            content = urls_path.read_text(encoding="utf-8")
-            original_content = content
-            modified = False
+        classes = controller_classes or (
+            f"{ResourceNames.from_app_name(app_name).model_name}Controller",
+        )
+        module = f"{app_name}.controllers"
+        content = urls_path.read_text(encoding="utf-8")
+        tree = ast.parse(content)
 
-            controller_class = controller_class or f"{app_name.title()}Controller"
-            controller_import = f"from {app_name}.controllers import {controller_class}"
-            controller_register = f"api.register_controllers({controller_class})"
+        registers = [
+            node
+            for node in tree.body
+            if isinstance(node, ast.Expr)
+            and isinstance(node.value, ast.Call)
+            and ast.unparse(node.value.func) == "api.register_controllers"
+        ]
+        if not registers:
+            msg = f"No top-level api.register_controllers(...) call in {urls_path}"
+            raise GeneratorError(msg)
+        register = registers[0]
 
-            # Add controller import if not present
-            if controller_import not in content:
-                lines = content.split("\n")
-                import_added = False
+        imports = [
+            node
+            for node in tree.body
+            if isinstance(node, ast.Import | ast.ImportFrom)
+            and node.lineno < register.lineno
+        ]
+        existing_import = next(
+            (
+                node
+                for node in imports
+                if isinstance(node, ast.ImportFrom) and node.module == module
+            ),
+            None,
+        )
+        imported = (
+            {alias.name for alias in existing_import.names}
+            if existing_import
+            else set()
+        )
+        registered = {
+            arg.id
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Call)
+            and ast.unparse(node.func) == "api.register_controllers"
+            for arg in node.args
+            if isinstance(arg, ast.Name)
+        }
+        to_import = [name for name in classes if name not in imported]
+        to_register = [name for name in classes if name not in registered]
+        if not to_import and not to_register:
+            self.logger.info("URL configuration already up to date for %s", app_name)
+            return
 
-                # Find where to insert the import
-                for i, line in enumerate(lines):
-                    if line.strip().startswith("from") and "controllers" in line:
-                        lines.insert(i + 1, controller_import)
-                        import_added = True
-                        modified = True
-                        break
-
-                # If no controller imports found, add after other imports
-                if not import_added:
-                    for i, line in enumerate(lines):
-                        if line.strip().startswith("from") or line.strip().startswith(
-                            "import"
-                        ):
-                            continue
-                        lines.insert(i, controller_import)
-                        modified = True
-                        break
-
-                content = "\n".join(lines)
-
-            # Add controller registration if not present
-            if controller_register not in content:
-                lines = content.split("\n")
-                for i, line in enumerate(lines):
-                    if "api.register_controllers" in line:
-                        lines.insert(i + 1, controller_register)
-                        modified = True
-                        break
-                content = "\n".join(lines)
-
-            if modified:
-                urls_path.write_text(content, encoding="utf-8")
-                self.logger.info(f"Updated URLs with {app_name} controller")
+        lines = content.split("\n")
+        # Edit bottom-up so the earlier line numbers stay valid.
+        if to_register:
+            call = f"api.register_controllers({', '.join(to_register)})"
+            if len(call) > 88:
+                body = "".join(f"    {name},\n" for name in to_register)
+                call = f"api.register_controllers(\n{body})"
+            lines.insert(registers[-1].end_lineno, call)
+        if to_import:
+            if existing_import:
+                statement = from_import(module, *sorted(imported), *to_import)
+                start, end = existing_import.lineno, existing_import.end_lineno
+                lines[start - 1 : end] = [statement]
             else:
-                self.logger.info(f"URL configuration already up to date for {app_name}")
+                lines.insert(imports[-1].end_lineno, from_import(module, *to_import))
 
-        except Exception as e:
-            self.logger.error(f"Failed to update URLs: {e}")
-            # Restore original content if there was an error
-            try:
-                urls_path.write_text(original_content, encoding="utf-8")
-            except Exception:
-                pass
+        urls_path.write_text("\n".join(lines), encoding="utf-8")
+        # Move the new import into isort position within its section.
+        self.run_ruff("check", "--fix", "--select", "I", urls_path)
+        self.logger.info("Registered %s in %s", ", ".join(classes), urls_path)
+
+    @staticmethod
+    def run_ruff(*args: str | Path) -> None:
+        """Run ruff from this interpreter's environment. Raise on failure."""
+        subprocess.run(
+            [sys.executable, "-m", "ruff", *map(str, args)],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
 
     # Template helper methods
     def get_template_context(self) -> dict[str, Any]:

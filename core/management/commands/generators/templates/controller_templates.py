@@ -90,358 +90,186 @@ def render_controller(names: ResourceNames) -> str:
     )
 
 
-MODERN_CONTROLLER_TEMPLATE = '''"""{{app_name}} controllers."""
+# AGENTS.md section 08: JWTAuth on the controller, a thin handler per route
+# that calls PaymentService (which owns the ORM and the Stripe calls), and
+# static paths before every dynamic handler.
+PAYMENTS_CONTROLLER_TEMPLATE = '''"""Payment controller. The service scopes every route to request.user."""
 
-import logging
 from uuid import UUID
 
-from django.shortcuts import get_object_or_404
-from ninja_extra import api_controller, http_delete, http_get, http_post, http_put
+from ninja_extra import api_controller, http_delete, http_get, http_post
+from ninja_jwt.authentication import JWTAuth
 
-from api.decorators import (
-    create_endpoint,
-    delete_endpoint,
-    detail_endpoint,
-    list_endpoint,
-    update_endpoint,
-)
-from api.search_filters import {{search_filter_class}}, get_{{app_name}}_search_engine
-from {{app_name}}.models import {{model_name}}
-from {{app_name}}.schemas import {{model_name}}Schema, Create{{model_name}}Schema, Update{{model_name}}Schema
-
-logger = logging.getLogger(__name__)
+{first_party_imports}
 
 
-@api_controller("/{{url_prefix}}", tags=["{{model_name_plural}}"])
-class {{model_name}}Controller:
-    @list_endpoint(
-        cache_timeout=300,
-        select_related={{select_related}},
-        search_fields={{search_fields}},
-        filter_fields={{filter_fields}},
-        ordering_fields={{ordering_fields}},
-    )
-    @http_get("/all", response={{200: list[{{model_name}}Schema]}})
-    def list_all_{{url_prefix}}(self, request, filters: {{search_filter_class}} = None):  # noqa: ARG002
-        """List all {{model_name_lower}} with search, filtering, and pagination."""
-        queryset = {{model_name}}.objects.all()
-
-        if filters:
-            search_engine = get_{{app_name}}_search_engine()
-            queryset = search_engine.apply_search(queryset, filters)
-
-        return 200, queryset
-
-    @list_endpoint(
-        cache_timeout=300,
-        select_related={{select_related}},
-        search_fields={{search_fields}},
-        filter_fields={{filter_fields}},
-        ordering_fields={{ordering_fields}},
-    )
-    @http_get("/", response={{200: list[{{model_name}}Schema]}})
-    def list_user_{{url_prefix}}(self, request, filters: {{search_filter_class}} = None):
-        """List {{model_name_lower}} for authenticated user with search, filtering, and pagination."""
-        user = request.user
-        queryset = {{model_name}}.objects.filter(user=user)
-
-        if filters:
-            search_engine = get_{{app_name}}_search_engine()
-            queryset = search_engine.apply_search(queryset, filters)
-
-        return 200, queryset
-
-    @create_endpoint()
-    @http_post("/", response={{201: {{model_name}}Schema}})
-    def create_{{model_name_lower}}(self, request, payload: Create{{model_name}}Schema):
-        """Create a new {{model_name_lower}} for the authenticated user."""
-        user = request.user
-        {{model_name_lower}} = {{model_name}}.objects.create(user=user, **payload.model_dump())
-        return 201, {{model_name_lower}}
-
-    @detail_endpoint(select_related={{select_related}})
-    @http_get("/{{{{str:{{model_name_lower}}_id}}}}", response={{200: {{model_name}}Schema, 404: dict}})
-    def get_{{model_name_lower}}(self, request, {{model_name_lower}}_id: str):
-        """Get a specific {{model_name_lower}} by ID for the authenticated user."""
-        user = request.user
-        {{model_name_lower}} = get_object_or_404({{model_name}}, id={{model_name_lower}}_id, user=user)
-        return 200, {{model_name_lower}}
-
-    @update_endpoint(select_related={{select_related}})
-    @http_put("/{{{{str:{{model_name_lower}}_id}}}}", response={{200: {{model_name}}Schema, 404: dict}})
-    def update_{{model_name_lower}}(self, request, {{model_name_lower}}_id: str, payload: Update{{model_name}}Schema):
-        """Update a specific {{model_name_lower}} by ID for the authenticated user."""
-        user = request.user
-        {{model_name_lower}} = get_object_or_404({{model_name}}, id={{model_name_lower}}_id, user=user)
-
-        # Apply updates
-        for key, value in payload.model_dump(exclude_unset=True).items():
-            setattr({{model_name_lower}}, key, value)
-        {{model_name_lower}}.save()
-
-        return 200, {{model_name_lower}}
-
-    @delete_endpoint()
-    @http_delete("/{{{{str:{{model_name_lower}}_id}}}}", response={{204: dict, 404: dict}})
-    def delete_{{model_name_lower}}(self, request, {{model_name_lower}}_id: str):
-        """Delete a specific {{model_name_lower}} by ID for the authenticated user."""
-        user = request.user
-        {{model_name_lower}} = get_object_or_404({{model_name}}, id={{model_name_lower}}_id, user=user)
-        {{model_name_lower}}.delete()
-        return 204, {{"message": "{{model_name}} deleted successfully"}}
-'''
-
-PAYMENTS_CONTROLLER_TEMPLATE = '''"""Payment controllers."""
-
-import logging
-from uuid import UUID
-
-from django.shortcuts import get_object_or_404
-from ninja_extra import api_controller, http_delete, http_get, http_post, http_put
-
-from api.decorators import (
-    create_endpoint,
-    delete_endpoint,
-    detail_endpoint,
-    list_endpoint,
-    update_endpoint,
-)
-from {{app_name}}.models import Payment, PaymentMethod, PaymentIntent
-from {{app_name}}.schemas.payment_schema import (
-    PaymentSchema,
-    PaymentMethodSchema,
-    PaymentIntentSchema,
-    CreatePaymentMethodSchema,
-    CreatePaymentIntentSchema,
-    ProcessPaymentSchema,
-)
-from {{app_name}}.services.stripe_service import StripeService
-
-logger = logging.getLogger(__name__)
-
-
-@api_controller("/payments", tags=["Payments"])
+@api_controller("/payments", tags=["Payments"], auth=JWTAuth())
 class PaymentController:
-    """Payment management controller."""
+    """Payment endpoints for the authenticated user.
+
+    Put static paths before the first /{{payment_id}} handler.
+    """
 
     def __init__(self):
-        self.stripe_service = StripeService()
+        self.service = PaymentService()
 
-    @list_endpoint(cache_timeout=300)
-    @http_get("/methods", response={{200: list[PaymentMethodSchema]}})
-    def list_payment_methods(self, request):
-        """List user's payment methods."""
-        methods = PaymentMethod.objects.filter(user=request.user)
-        return 200, methods
-
-    @create_endpoint()
-    @http_post("/methods", response={{201: PaymentMethodSchema}})
-    def create_payment_method(self, request, payload: CreatePaymentMethodSchema):
-        """Create a new payment method."""
-        payment_method = self.stripe_service.create_payment_method(
-            request.user, payload.stripe_payment_method_id
-        )
-        return 201, payment_method
-
-    @delete_endpoint()
-    @http_delete("/methods/{{str:method_id}}", response={{204: dict}})
-    def delete_payment_method(self, request, method_id: str):
-        """Delete a payment method."""
-        method = get_object_or_404(PaymentMethod, id=method_id, user=request.user)
-        self.stripe_service.delete_payment_method(method)
-        return 204, {{"message": "Payment method deleted successfully"}}
-
-    @create_endpoint()
-    @http_post("/intents", response={{201: PaymentIntentSchema}})
-    def create_payment_intent(self, request, payload: CreatePaymentIntentSchema):
-        """Create a payment intent."""
-        intent = self.stripe_service.create_payment_intent(
-            user=request.user,
-            amount=payload.amount,
-            currency=payload.currency,
-            payment_method_id=payload.payment_method_id,
-            description=payload.description,
-        )
-        return 201, intent
-
-    @create_endpoint()
-    @http_post("/process", response={{200: PaymentSchema}})
-    def process_payment(self, request, payload: ProcessPaymentSchema):
-        """Process a payment."""
-        payment = self.stripe_service.process_payment(
-            user=request.user,
-            payment_intent_id=payload.payment_intent_id,
-            payment_method_id=payload.payment_method_id,
-        )
-        return 200, payment
-
-    @list_endpoint(cache_timeout=300)
     @http_get("/", response={{200: list[PaymentSchema]}})
+    @log_api_call()
     def list_payments(self, request):
-        """List user's payments."""
-        payments = Payment.objects.filter(user=request.user)
-        return 200, payments
+        """List the user's payments."""
+        return 200, self.service.list_payments(request.user)
 
-    @detail_endpoint()
-    @http_get("/{{str:payment_id}}", response={{200: PaymentSchema, 404: dict}})
-    def get_payment(self, request, payment_id: str):
-        """Get a specific payment."""
-        payment = get_object_or_404(Payment, id=payment_id, user=request.user)
-        return 200, payment
+    @http_get("/methods", response={{200: list[PaymentMethodSchema]}})
+    @log_api_call()
+    def list_payment_methods(self, request):
+        """List the user's payment methods."""
+        return 200, self.service.list_payment_methods(request.user)
+
+    @http_post("/methods", response={{201: PaymentMethodSchema}})
+    @log_api_call(include_payload=True)
+    def create_payment_method(self, request, payload: CreatePaymentMethodSchema):
+        """Attach a Stripe payment method to the user."""
+        return 201, self.service.create_payment_method(request.user, payload)
+
+    @http_post("/intents", response={{201: PaymentIntentSchema, 404: dict}})
+    @log_api_call(include_payload=True)
+    def create_payment_intent(self, request, payload: CreatePaymentIntentSchema):
+        """Create a Stripe payment intent for the user."""
+        return 201, self.service.create_payment_intent(request.user, payload)
+
+    @http_post("/process", response={{200: PaymentSchema, 404: dict, 409: dict}})
+    @log_api_call(include_payload=True)
+    def process_payment(self, request, payload: ProcessPaymentSchema):
+        """Confirm one of the user's payment intents and record the payment."""
+        return 200, self.service.process_payment(request.user, payload)
+
+    @http_delete("/methods/{{method_id}}", response={{204: None, 404: dict}})
+    @log_api_call()
+    def delete_payment_method(self, request, method_id: UUID):
+        """Detach and delete one of the user's payment methods."""
+        self.service.delete_payment_method(method_id, request.user)
+        return 204, None
+
+    @http_get("/{{payment_id}}", response={{200: PaymentSchema, 404: dict}})
+    @log_api_call()
+    def get_payment(self, request, payment_id: UUID):
+        """Get one of the user's payments."""
+        return 200, self.service.get_payment(payment_id, request.user)
 '''
 
-RBAC_CONTROLLER_TEMPLATE = '''"""RBAC controllers."""
 
-import logging
+def render_payments_controller(app_name: str) -> str:
+    """Render PAYMENTS_CONTROLLER_TEMPLATE with its first-party imports in isort order."""
+    first_party_imports = import_block(
+        "from api.decorators import log_api_call",
+        from_import(
+            f"{app_name}.schemas",
+            "CreatePaymentIntentSchema",
+            "CreatePaymentMethodSchema",
+            "PaymentIntentSchema",
+            "PaymentMethodSchema",
+            "PaymentSchema",
+            "ProcessPaymentSchema",
+        ),
+        from_import(f"{app_name}.services", "PaymentService"),
+    )
+    return PAYMENTS_CONTROLLER_TEMPLATE.format(first_party_imports=first_party_imports)
+
+
+# Staff-only RBAC management (IsAdminUser on the controller). The one route a
+# regular user may call is GET /me/permissions, for their own roles. Rendered
+# with str.format, so literal braces are doubled.
+RBAC_CONTROLLER_TEMPLATE = '''"""RBAC controller. Staff manage roles; each user reads their own permissions."""
+
 from uuid import UUID
 
-from django.shortcuts import get_object_or_404
-from django.contrib.auth import get_user_model
 from ninja_extra import api_controller, http_delete, http_get, http_post, http_put
+from ninja_jwt.authentication import JWTAuth
 
-from api.decorators import (
-    admin_endpoint,
-    create_endpoint,
-    delete_endpoint,
-    detail_endpoint,
-    list_endpoint,
-    update_endpoint,
-)
-from {{app_name}}.models import Role, Permission, UserRole
-from {{app_name}}.schemas.rbac_schema import (
-    RoleSchema,
-    PermissionSchema,
-    UserRoleSchema,
-    AssignRoleSchema,
-    CreateRoleSchema,
-    UpdateRoleSchema,
-    CreatePermissionSchema,
-    UserPermissionsSchema,
-)
-from {{app_name}}.services.rbac_service import RBACService
-from {{app_name}}.decorators import require_permission
-
-User = get_user_model()
-logger = logging.getLogger(__name__)
+{first_party_imports}
 
 
-@api_controller("/rbac", tags=["RBAC"])
+@api_controller("/rbac", tags=["RBAC"], auth=JWTAuth(), permissions=[IsAdminUser])
 class RBACController:
-    """RBAC management controller."""
+    """Role and permission management.
 
-    @list_endpoint(cache_timeout=300, require_admin=True)
-    @require_permission("view_roles")
+    Every route is staff-only (IsAdminUser) except GET /me/permissions, which
+    any authenticated user calls for their own roles and permissions. Put
+    static paths before the first dynamic handler.
+    """
+
+    def __init__(self):
+        self.service = RBACService()
+
+    @http_get(
+        "/me/permissions",
+        response={{200: UserPermissionsSchema}},
+        permissions=[IsAuthenticated],
+    )
+    @log_api_call()
+    def get_my_permissions(self, request):
+        """Get the authenticated user's roles and permissions."""
+        return 200, self.service.permissions_summary(request.user)
+
     @http_get("/roles", response={{200: list[RoleSchema]}})
+    @log_api_call()
     def list_roles(self, request):
-        """List all roles."""
-        roles = Role.objects.prefetch_related("permissions").all()
-        return 200, roles
+        """List every role with its permissions."""
+        return 200, self.service.list_roles()
 
-    @create_endpoint(require_admin=True)
-    @require_permission("manage_roles")
-    @http_post("/roles", response={{201: RoleSchema}})
+    @http_post("/roles", response={{201: RoleSchema, 400: dict, 409: dict}})
+    @log_api_call(include_payload=True)
     def create_role(self, request, payload: CreateRoleSchema):
-        """Create a new role."""
-        role = Role.objects.create(
-            name=payload.name,
-            description=payload.description
-        )
+        """Create a role."""
+        return 201, self.service.create_role(payload)
 
-        if payload.permission_ids:
-            permissions = Permission.objects.filter(id__in=payload.permission_ids)
-            role.permissions.set(permissions)
-
-        return 201, role
-
-    @update_endpoint(require_admin=True)
-    @require_permission("manage_roles")
-    @http_put("/roles/{{str:role_id}}", response={{200: RoleSchema, 404: dict}})
-    def update_role(self, request, role_id: str, payload: UpdateRoleSchema):
-        """Update a role."""
-        role = get_object_or_404(Role, id=role_id)
-
-        if payload.name is not None:
-            role.name = payload.name
-        if payload.description is not None:
-            role.description = payload.description
-
-        role.save()
-
-        if payload.permission_ids is not None:
-            permissions = Permission.objects.filter(id__in=payload.permission_ids)
-            role.permissions.set(permissions)
-
-        return 200, role
-
-    @delete_endpoint(require_admin=True)
-    @require_permission("manage_roles")
-    @http_delete("/roles/{{str:role_id}}", response={{204: dict, 404: dict}})
-    def delete_role(self, request, role_id: str):
-        """Delete a role."""
-        role = get_object_or_404(Role, id=role_id)
-        role.delete()
-        return 204, {{"message": "Role deleted successfully"}}
-
-    @list_endpoint(cache_timeout=300, require_admin=True)
-    @require_permission("view_permissions")
     @http_get("/permissions", response={{200: list[PermissionSchema]}})
+    @log_api_call()
     def list_permissions(self, request):
-        """List all permissions."""
-        permissions = Permission.objects.all()
-        return 200, permissions
+        """List every permission."""
+        return 200, self.service.list_permissions()
 
-    @create_endpoint(require_admin=True)
-    @require_permission("manage_roles")
-    @http_post("/permissions", response={{201: PermissionSchema}})
+    @http_post("/permissions", response={{201: PermissionSchema, 409: dict}})
+    @log_api_call(include_payload=True)
     def create_permission(self, request, payload: CreatePermissionSchema):
-        """Create a new permission."""
-        permission = Permission.objects.create(
-            name=payload.name,
-            codename=payload.codename,
-            description=payload.description
-        )
-        return 201, permission
+        """Create a permission."""
+        return 201, self.service.create_permission(payload)
 
-    @create_endpoint(require_admin=True)
-    @require_permission("manage_roles")
-    @http_post("/users/{{str:user_id}}/roles", response={{201: UserRoleSchema}})
-    def assign_role_to_user(self, request, user_id: str, payload: AssignRoleSchema):
-        """Assign a role to a user."""
-        user = get_object_or_404(User, id=user_id)
-        role = get_object_or_404(Role, id=payload.role_id)
+    @http_put(
+        "/roles/{{role_id}}",
+        response={{200: RoleSchema, 400: dict, 404: dict, 409: dict}},
+    )
+    @log_api_call(include_payload=True)
+    def update_role(self, request, role_id: UUID, payload: UpdateRoleSchema):
+        """Update a role."""
+        return 200, self.service.update_role(role_id, payload)
 
-        # TODO: Handle object-level permissions if content_type and object_id provided
+    @http_delete("/roles/{{role_id}}", response={{204: None, 404: dict}})
+    @log_api_call()
+    def delete_role(self, request, role_id: UUID):
+        """Delete a role."""
+        self.service.delete_role(role_id)
+        return 204, None
 
-        user_role = RBACService.assign_role_to_user(user, role)
-        return 201, user_role
+    @http_get(
+        "/users/{{user_id}}/permissions",
+        response={{200: UserPermissionsSchema, 404: dict}},
+    )
+    @log_api_call()
+    def get_user_permissions(self, request, user_id: UUID):
+        """Get a user's roles and permissions."""
+        return 200, self.service.get_user_summary(user_id)
 
-    @delete_endpoint(require_admin=True)
-    @require_permission("manage_roles")
-    @http_delete("/users/{{str:user_id}}/roles/{{str:role_id}}", response={{204: dict}})
-    def remove_role_from_user(self, request, user_id: str, role_id: str):
-        """Remove a role from a user."""
-        user = get_object_or_404(User, id=user_id)
-        role = get_object_or_404(Role, id=role_id)
+    @http_post("/users/{{user_id}}/roles", response={{201: UserRoleSchema, 404: dict}})
+    @log_api_call(include_payload=True)
+    def assign_role(self, request, user_id: UUID, payload: AssignRoleSchema):
+        """Assign a global role to a user."""
+        return 201, self.service.assign_role(user_id, payload.role_id)
 
-        success = RBACService.remove_role_from_user(user, role)
-        if success:
-            return 204, {{"message": "Role removed successfully"}}
-        else:
-            return 400, {{"error": "Role assignment not found"}}
-
-    @detail_endpoint(require_admin=True)
-    @require_permission("view_user_permissions")
-    @http_get("/users/{{str:user_id}}/permissions", response={{200: UserPermissionsSchema}})
-    def get_user_permissions(self, request, user_id: str):
-        """Get user's permissions and roles."""
-        user = get_object_or_404(User, id=user_id)
-        permissions = RBACService.get_user_permissions(user)
-        user_roles = UserRole.objects.filter(user=user).select_related("role")
-
-        return 200, {{
-            "user_id": str(user.id),
-            "username": user.username,
-            "permissions": permissions,
-            "roles": user_roles,
-        }}
+    @http_delete("/users/{{user_id}}/roles/{{role_id}}", response={{204: None, 404: dict}})
+    @log_api_call()
+    def remove_role(self, request, user_id: UUID, role_id: UUID):
+        """Remove a global role from a user."""
+        self.service.remove_role(user_id, role_id)
+        return 204, None
 '''

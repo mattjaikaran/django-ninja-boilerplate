@@ -41,10 +41,13 @@ class ChatRealtimeService:
         """Publish a new message to the conversation channel."""
         channel = cls.channel_name(conversation_id)
         try:
-            centrifugo_client.publish(channel, {{
-                "type": "chat_message",
-                "message": message_data,
-            }})
+            centrifugo_client.publish(
+                channel,
+                {{
+                    "type": "chat_message",
+                    "message": message_data,
+                }},
+            )
         except Exception:
             logger.exception("Failed to publish chat message to %s", channel)
 
@@ -59,12 +62,15 @@ class ChatRealtimeService:
         """Publish a typing indicator to the conversation channel."""
         channel = cls.channel_name(conversation_id)
         try:
-            centrifugo_client.publish(channel, {{
-                "type": "typing_indicator",
-                "user_id": user_id,
-                "username": username,
-                "is_typing": is_typing,
-            }})
+            centrifugo_client.publish(
+                channel,
+                {{
+                    "type": "typing_indicator",
+                    "user_id": user_id,
+                    "username": username,
+                    "is_typing": is_typing,
+                }},
+            )
         except Exception:
             logger.exception("Failed to publish typing indicator to %s", channel)
 
@@ -78,11 +84,14 @@ class ChatRealtimeService:
         """Publish a read receipt to the conversation channel."""
         channel = cls.channel_name(conversation_id)
         try:
-            centrifugo_client.publish(channel, {{
-                "type": "read_receipt",
-                "user_id": user_id,
-                "timestamp": timestamp,
-            }})
+            centrifugo_client.publish(
+                channel,
+                {{
+                    "type": "read_receipt",
+                    "user_id": user_id,
+                    "timestamp": timestamp,
+                }},
+            )
         except Exception:
             logger.exception("Failed to publish read receipt to %s", channel)
 

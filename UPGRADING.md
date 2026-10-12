@@ -13,6 +13,7 @@ full list. To copy single modules instead of merging, see
 | Change | What to do |
 |---|---|
 | `GET /api/todos*/completed`, `/pending` and `/search`, and `GET /api/audit/actions`, `/models` and `/failed-logins`, returned `400` or `422` because an earlier `/{id}` handler caught them. They now return their lists. | Remove any client workaround for those errors. |
+| Apps made with `generate_feature graphql` now serve `/api/graphql/` instead of `/graphql/`; the bundled nginx proxies only `/api/` and `/admin/`. Every query needs authentication and `users` is staff-only. | Point GraphQL clients at `/api/graphql/`. Regenerate an existing GraphQL app or port the changes by hand. |
 
 ### Production configuration
 
@@ -31,6 +32,15 @@ route sweep now fails on any status of `400` or higher on a parameterless GET
 1. Run `just test tests/smoke/test_smoke.py`.
 2. For each route it lists, move every `/{id}` handler of that controller after
    the static paths.
+
+### Code generators
+
+`startapp_extended`, `generate_feature` and the `api_endpoint` generator now
+emit a `JWTAuth` controller, an owner-scoped service and passing smoke and
+permission tests. Apps you generated before keep their old code: compare them
+with a fresh generation, and fix any controller that queries the ORM, wraps
+lookups in `try/except`, or lacks `JWTAuth`. Several generators now stop when
+the app folder exists.
 
 ### Tooling and tests
 

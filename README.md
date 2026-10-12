@@ -632,15 +632,25 @@ This creates:
 
 - `core/graphql/` - GraphQL package with:
   - `schema.py` - Main schema combining Query and Mutation
-  - `queries.py` - Query type with example queries
-  - `mutations.py` - Mutation type with example mutations
+  - `queries.py` - `me`, `user(id)` and the staff-only `users` query
+  - `mutations.py` - `updateUser` and `deleteAccount` for the current user
   - `types.py` - Strawberry types for models
   - `context.py` - Custom context class with user access
+  - `permissions.py` - `IsAuthenticated` and `IsStaff` permission classes
+  - `user_service.py` - All user queries, scoped to the viewer; resolvers hold
+    no ORM code
+- `core/tests/test_graphql.py` - Smoke and permission tests for `/api/graphql/`
 - `core/graphql_view.py` - JWT-authenticated GraphQL view
 
 3. **Access the GraphQL playground:**
 
-Visit http://localhost:8000/graphql/ for the interactive GraphQL playground.
+Visit http://localhost:8000/api/graphql/ for the interactive GraphQL playground.
+`GRAPHQL_PLAYGROUND=false` turns it off. `STRAWBERRY["MAX_QUERY_DEPTH"]` sets
+the deepest query the schema accepts.
+
+Token clients send `Authorization: Bearer <token>` and need no CSRF token.
+Requests that carry a session or auth cookie must send `X-CSRFToken`, the same
+rule as the REST API (`docs/COOKIE_AUTH.md`).
 
 ### Example Query
 
@@ -651,13 +661,12 @@ query {
     email
     fullName
   }
-  users(limit: 10) {
-    id
-    email
-    username
-  }
 }
 ```
+
+Every query and mutation requires an authenticated user. `user(id)` returns
+`null` for any user except yourself unless you are staff, and `users(limit,
+offset)` is staff-only.
 
 ### Example Mutation
 

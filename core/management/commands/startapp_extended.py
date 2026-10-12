@@ -2,16 +2,20 @@ import os
 
 from django.core.management.commands.startapp import Command as StartAppCommand
 
-from .generators.codegen import ResourceNames, from_import
+from .generators.codegen import PACKAGE_INIT, ResourceNames, from_import
 from .generators.templates.controller_templates import render_controller
 from .generators.templates.model_templates import MODEL_TEMPLATE
 from .generators.templates.schema_templates import SCHEMA_TEMPLATE
 from .generators.templates.service_templates import render_service
 from .generators.templates.test_templates import render_api_endpoint_tests
 
-PACKAGE_INIT = (
-    "# This file is intentionally left empty to make the directory a Python package.\n"
-)
+APPS_TEMPLATE = """from django.apps import AppConfig
+
+
+class {config}(AppConfig):
+    default_auto_field = "django.db.models.BigAutoField"
+    name = "{app_name}"
+"""
 
 
 class Command(StartAppCommand):
@@ -33,6 +37,12 @@ class Command(StartAppCommand):
         # "gadgets" and "gadget" both give model Gadget and route /gadgets.
         names = ResourceNames.from_app_name(app_name)
 
+        # Django's template uses single quotes, which ruff rejects.
+        self.create_file(
+            os.path.join(app_directory, "apps.py"),
+            APPS_TEMPLATE.format(config=f"{names.model_name}Config", app_name=app_name),
+        )
+
         # Always create advanced structure regardless of the advanced flag
         # This ensures all new apps follow our organized folder pattern
         created_files = self.create_advanced_structure(names, app_directory)
@@ -53,6 +63,13 @@ class Command(StartAppCommand):
         self.stdout.write("Created files:")
         for file in created_files:
             self.stdout.write(f"  - {file}")
+
+        self.stdout.write(
+            "Next: add "
+            f'"{app_name}" to INSTALLED_APPS, register {names.model_name}Controller '
+            "in api/urls.py, run makemigrations, then run the generated tests. "
+            "`generate_feature api_endpoint` does all of this for you."
+        )
 
     def create_file(self, path, content):
         os.makedirs(os.path.dirname(path), exist_ok=True)

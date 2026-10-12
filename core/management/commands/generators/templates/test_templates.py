@@ -51,234 +51,79 @@ def render_api_endpoint_tests(names: ResourceNames) -> str:
     )
 
 
-RBAC_TESTS_TEMPLATE = '''"""RBAC tests."""
+# Staff-only routes: staff 200/201/204, regular user 403 (read and write), the
+# user's own permissions 200, invalid payload 422. Rendered with str.format.
+RBAC_TESTS_TEMPLATE = '''"""Smoke and permission tests for the {app_name} API."""
 
 import pytest
+from ninja_jwt.tokens import RefreshToken
 
-from {app_name}.models import Role, Permission
-
-
-@pytest.fixture
-def permission():
-    return Permission.objects.create(
-        name="Test Permission",
-        codename="test_permission",
-        description="A test permission"
-    )
+{first_party_imports}
 
 
 @pytest.fixture
-def role(permission):
-    role = Role.objects.create(
-        name="Test Role",
-        description="A test role"
-    )
-    role.permissions.add(permission)
-    return role
+def staff_client(api_client, staff_user):
+    token = RefreshToken.for_user(staff_user).access_token
+    api_client.defaults["HTTP_AUTHORIZATION"] = f"Bearer {{token}}"
+    return api_client
 
 
 @pytest.mark.django_db
 class TestRBACAPI:
-    @pytest.fixture
-    def api_client(self):
-        from django.test import Client
-        return Client()
+    """Staff manage roles; regular users read only their own permissions."""
 
-    def test_list_roles(self, api_client, role, auth_headers):
-        response = api_client.get("/api/rbac/roles", **auth_headers)
+    def test_staff_can_list_roles(self, staff_client):
+        Role.objects.create(name="editor")
+        response = staff_client.get("/api/rbac/roles")
         assert response.status_code == 200
-        data = response.json()
-        assert len(data) >= 1
+        assert [role["name"] for role in response.json()] == ["editor"]
 
-    def test_create_role(self, api_client, permission, auth_headers):
-        role_data = {{
-            "name": "New Role",
-            "description": "A new test role",
-            "permission_ids": [str(permission.id)]
-        }}
-        response = api_client.post(
+    def test_regular_user_cannot_list_roles(self, authenticated_client):
+        client, _ = authenticated_client
+        response = client.get("/api/rbac/roles")
+        assert response.status_code == 403
+
+    def test_regular_user_cannot_create_role(self, authenticated_client):
+        client, _ = authenticated_client
+        response = client.post(
+            "/api/rbac/roles", {{"name": "admin"}}, content_type="application/json"
+        )
+        assert response.status_code == 403
+        assert not Role.objects.filter(name="admin").exists()
+
+    def test_user_reads_own_permissions(self, authenticated_client):
+        client, user = authenticated_client
+        UserRole.objects.create(user=user, role=Role.objects.create(name="viewer"))
+        response = client.get("/api/rbac/me/permissions")
+        assert response.status_code == 200
+        roles = [item["role"]["name"] for item in response.json()["roles"]]
+        assert roles == ["viewer"]
+
+    def test_staff_creates_role_with_permissions(self, staff_client):
+        permission = Permission.objects.create(name="Edit", codename="edit")
+        response = staff_client.post(
             "/api/rbac/roles",
-            role_data,
+            {{"name": "editor", "permissionIds": [str(permission.id)]}},
             content_type="application/json",
-            **auth_headers
         )
         assert response.status_code == 201
-        assert Role.objects.filter(name="New Role").exists()
-'''
+        codenames = [item["codename"] for item in response.json()["permissions"]]
+        assert codenames == ["edit"]
 
-CHAT_TESTS_TEMPLATE = '''"""Chat tests."""
-
-import pytest
-from django.contrib.auth import get_user_model
-from {app_name}.models import Conversation, Message
-
-User = get_user_model()
-
-
-@pytest.fixture
-def other_user():
-    return User.objects.create_user(
-        username="otheruser",
-        email="other@example.com",
-        password="testpass123"
-    )
-
-
-@pytest.fixture
-def conversation(test_user, other_user):
-    conversation = Conversation.objects.create(
-        title="Test Chat",
-        type="private",
-        created_by=test_user
-    )
-    conversation.add_participant(test_user)
-    conversation.add_participant(other_user)
-    return conversation
-
-
-@pytest.fixture
-def message(conversation, test_user):
-    return Message.objects.create(
-        conversation=conversation,
-        sender=test_user,
-        content="Test message",
-        type="text"
-    )
-
-
-@pytest.mark.django_db
-class TestChatAPI:
-    @pytest.fixture
-    def api_client(self):
-        from django.test import Client
-        return Client()
-
-    def test_list_conversations(self, api_client, conversation, auth_headers):
-        response = api_client.get("/api/conversations/", **auth_headers)
-        assert response.status_code == 200
-        data = response.json()
-        assert len(data) >= 1
-        assert data[0]["id"] == str(conversation.id)
-
-    def test_create_conversation(self, api_client, test_user, other_user, auth_headers):
-        conversation_data = {{
-            "title": "New Chat",
-            "type": "private",
-            "description": "Test conversation",
-            "participant_user_ids": [str(other_user.id)]
-        }}
-        response = api_client.post(
-            "/api/conversations/",
-            conversation_data,
-            content_type="application/json",
-            **auth_headers
+    def test_staff_assigns_and_removes_role(self, staff_client, user):
+        role = Role.objects.create(name="viewer")
+        url = f"/api/rbac/users/{{user.id}}/roles"
+        response = staff_client.post(
+            url, {{"roleId": str(role.id)}}, content_type="application/json"
         )
         assert response.status_code == 201
-        data = response.json()
-        assert data["title"] == "New Chat"
-        assert Conversation.objects.filter(title="New Chat").exists()
+        response = staff_client.delete(f"{{url}}/{{role.id}}")
+        assert response.status_code == 204
+        assert not UserRole.objects.filter(user=user).exists()
 
-    def test_send_message(self, api_client, conversation, auth_headers):
-        message_data = {{
-            "content": "Hello, world!",
-            "type": "text"
-        }}
-        response = api_client.post(
-            f"/api/messages/conversation/{{conversation.id}}/",
-            message_data,
-            content_type="application/json",
-            **auth_headers
+    def test_create_role_with_invalid_payload_returns_422(self, staff_client):
+        response = staff_client.post(
+            "/api/rbac/roles", {{}}, content_type="application/json"
         )
-        assert response.status_code == 201
-        data = response.json()
-        assert data["content"] == "Hello, world!"
-        assert Message.objects.filter(content="Hello, world!").exists()
-
-    def test_list_messages(self, api_client, conversation, message, auth_headers):
-        response = api_client.get(
-            f"/api/messages/conversation/{{conversation.id}}/",
-            **auth_headers
-        )
-        assert response.status_code == 200
-        data = response.json()
-        assert len(data) >= 1
-        assert data[0]["content"] == message.content
-'''
-
-ORGANIZATION_TESTS_TEMPLATE = '''"""Organization tests."""
-
-import pytest
-from django.contrib.auth import get_user_model
-from {app_name}.models import Organization, OrganizationMember
-from {app_name}.services.organization_service import OrganizationService
-
-User = get_user_model()
-
-
-@pytest.fixture
-def other_user():
-    return User.objects.create_user(
-        username="otheruser",
-        email="other@example.com",
-        password="testpass123"
-    )
-
-
-@pytest.fixture
-def organization(test_user):
-    return OrganizationService.create_organization(
-        name="Test Organization",
-        owner=test_user,
-        description="A test organization"
-    )
-
-
-@pytest.mark.django_db
-class TestOrganizationAPI:
-    @pytest.fixture
-    def api_client(self):
-        from django.test import Client
-        return Client()
-
-    def test_list_user_organizations(self, api_client, organization, auth_headers):
-        response = api_client.get("/api/organizations/", **auth_headers)
-        assert response.status_code == 200
-        data = response.json()
-        assert len(data) >= 1
-        assert data[0]["id"] == str(organization.id)
-
-    def test_create_organization(self, api_client, auth_headers):
-        org_data = {{
-            "name": "API Test Org",
-            "description": "Created via API",
-            "industry": "technology",
-            "size": "startup"
-        }}
-        response = api_client.post(
-            "/api/organizations/",
-            org_data,
-            content_type="application/json",
-            **auth_headers
-        )
-        assert response.status_code == 201
-        data = response.json()
-        assert data["name"] == "API Test Org"
-        assert Organization.objects.filter(name="API Test Org").exists()
-
-    def test_invite_member(self, api_client, organization, other_user, auth_headers):
-        invite_data = {{
-            "email": other_user.email,
-            "role": "member"
-        }}
-        response = api_client.post(
-            f"/api/organizations/{{organization.id}}/members/invite",
-            invite_data,
-            content_type="application/json",
-            **auth_headers
-        )
-        assert response.status_code == 201
-        assert OrganizationMember.objects.filter(
-            organization=organization,
-            user=other_user
-        ).exists()
+        assert_validation_error(response, field="name")
 '''

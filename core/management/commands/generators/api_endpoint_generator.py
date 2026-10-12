@@ -24,6 +24,7 @@ class ApiEndpointGenerator(BaseGenerator):
         self.create_django_app()
         self.update_settings(self.app_name, {})
         self.update_urls(self.app_name, f"{names.model_name}Controller")
+        self.create_migration()
 
         self.logger.info(
             "Successfully generated API endpoint feature for %s at /api/%s/",
