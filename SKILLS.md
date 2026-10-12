@@ -8,8 +8,11 @@ Skills specification discover it automatically and load a skill on demand.
 |---|---|
 | [`django-ninja-dev`](.agents/skills/django-ninja-dev/SKILL.md) | Controller, schema, and service patterns for Django Ninja Extra. |
 | [`docker-compose-profiles`](.agents/skills/docker-compose-profiles/SKILL.md) | One Compose file, the dev/test/prod/single profiles. |
+| [`journey-sync`](.agents/skills/journey-sync/SKILL.md) | Keep features, journeys, and tagged Playwright tests in sync; the JOURNEYS gate. |
 | [`rtk-ripgrep`](.agents/skills/rtk-ripgrep/SKILL.md) | Searching with ripgrep, and the RTK `exclude_commands` workaround. |
 | [`system-design-atlas`](.agents/skills/system-design-atlas/SKILL.md) | The admin architecture map and how to regenerate it. |
+| [`ticket-planner`](.agents/skills/ticket-planner/SKILL.md) | Scope and write small tickets for worker models; collision checks. |
+| [`ticket-worker`](.agents/skills/ticket-worker/SKILL.md) | Strict loop for a worker model: claim, change owned files, verify, open a PR. |
 
 ## How to add a skill
 
