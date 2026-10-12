@@ -216,109 +216,35 @@ class PinnedNoteFactory(NoteFactory):
 
 ### 6. Tests — `notes/tests/test_note.py`
 
+One smoke/permission test file. Playwright journeys in the frontend verify the feature (see `docs/product/README.md`). No model tests.
+
 ```python
 import pytest
 
 from core.tests.factories import UserFactory
-from notes.models import Note
-from notes.tests.factories import NoteFactory, PinnedNoteFactory
+from notes.tests.factories import NoteFactory
 
 
 @pytest.mark.django_db
 class TestNoteAPI:
+    """Smoke and permission tests for the Notes API."""
 
-    def test_create_note(self, authenticated_client):
+    def test_list_notes_as_owner(self, authenticated_client):
         client, user = authenticated_client
-        response = client.post(
-            "/api/notes/",
-            {"title": "My Note", "content": "Hello"},
-            content_type="application/json",
-        )
-        assert response.status_code == 201
-        assert response.json()["title"] == "My Note"
-        assert Note.objects.filter(user=user).count() == 1
-
-    def test_list_notes_scoped_to_user(self, authenticated_client):
-        client, user = authenticated_client
-        NoteFactory.create_batch(3, user=user)
-        other = UserFactory()
-        NoteFactory.create_batch(2, user=other)
-
+        NoteFactory(user=user)
         response = client.get("/api/notes/")
         assert response.status_code == 200
-        assert len(response.json()["items"]) == 3
-
-    def test_search_notes(self, authenticated_client):
-        client, user = authenticated_client
-        NoteFactory(user=user, title="Django Tips")
-        NoteFactory(user=user, title="React Hooks")
-
-        response = client.get("/api/notes/?search=django")
-        assert response.status_code == 200
-        items = response.json()["items"]
-        assert len(items) == 1
-        assert "Django" in items[0]["title"]
-
-    def test_get_note(self, authenticated_client):
-        client, user = authenticated_client
-        note = NoteFactory(user=user)
-        response = client.get(f"/api/notes/{note.id}")
-        assert response.status_code == 200
-        assert response.json()["id"] == str(note.id)
 
     def test_cannot_access_other_users_note(self, authenticated_client):
         client, _ = authenticated_client
-        other = UserFactory()
-        note = NoteFactory(user=other)
+        note = NoteFactory(user=UserFactory())
         response = client.get(f"/api/notes/{note.id}")
         assert response.status_code == 404
 
-    def test_update_note(self, authenticated_client):
-        client, user = authenticated_client
-        note = NoteFactory(user=user, title="Old Title")
-        response = client.put(
-            f"/api/notes/{note.id}",
-            {"title": "New Title"},
-            content_type="application/json",
-        )
-        assert response.status_code == 200
-        note.refresh_from_db()
-        assert note.title == "New Title"
-
-    def test_toggle_pin(self, authenticated_client):
-        client, user = authenticated_client
-        note = NoteFactory(user=user, is_pinned=False)
-        response = client.post(f"/api/notes/{note.id}/toggle-pin")
-        assert response.status_code == 200
-        note.refresh_from_db()
-        assert note.is_pinned is True
-
-    def test_delete_note_soft_deletes(self, authenticated_client):
-        client, user = authenticated_client
-        note = NoteFactory(user=user)
-        response = client.delete(f"/api/notes/{note.id}")
-        assert response.status_code == 204
-        assert not Note.objects.filter(id=note.id).exists()
-        assert Note.all_objects.filter(id=note.id).exists()
-
-    def test_unauthenticated_access_denied(self, api_client):
-        response = api_client.get("/api/notes/")
-        assert response.status_code == 401
-
-
-@pytest.mark.django_db
-class TestNoteModel:
-
-    def test_str_representation(self):
-        note = NoteFactory(title="My Note")
-        assert str(note) == "My Note"
-
-    def test_default_ordering(self):
-        user = UserFactory()
-        regular = NoteFactory(user=user, is_pinned=False)
-        pinned = PinnedNoteFactory(user=user)
-        notes = list(Note.objects.filter(user=user))
-        assert notes[0] == pinned
+    def test_create_with_invalid_payload_returns_422(self, authenticated_client):
+        client, _ = authenticated_client
+        response = client.post("/api/notes/", {}, content_type="application/json")
+        assert response.status_code == 422
 ```
 
 ### 7. Admin — `notes/admin/note_admin.py`

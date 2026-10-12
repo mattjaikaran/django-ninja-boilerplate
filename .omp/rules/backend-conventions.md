@@ -34,6 +34,7 @@ alwaysApply: true
 - `pip install`, `poetry add` — use `uv add`
 - `npm install`, `yarn add` — use `bun add`
 - `mocker.patch` on ORM — test real database
+- Model tests, unit tests per function, mock-assert tests, coverage-driven tests (see "Testing policy" in `AGENTS.md`)
 - `black`, `isort`, `flake8` — use `ruff`
 
 ## Decorator Order (STRICT)

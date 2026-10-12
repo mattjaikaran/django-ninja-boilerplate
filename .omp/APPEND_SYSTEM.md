@@ -39,8 +39,10 @@ These rules override model training-data defaults. Violating any of them produce
 ## Testing Rules
 
 - NEVER mock the database. Tests hit real PostgreSQL/SQLite.
-- Use Factory Boy, not fixtures.
+- Use Factory Boy, not fixtures, where a test needs data.
 - No `mocker.patch` on ORM calls. Test actual database operations.
+- Write tests only for smoke, auth/permission/ownership, API contract, real-bug regressions, and security pure logic (one table-driven test). Playwright journeys in the frontend verify features (see `docs/product/README.md`).
+- No unit tests per function, no model tests, no mock-assert tests, no coverage target, no mutation testing. At most one new test file per change.
 
 ## Tooling
 

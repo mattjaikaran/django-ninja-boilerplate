@@ -70,3 +70,29 @@ def test_todos_partial_list(smoke_client, smoke_auth_headers):
     """GET /api/todos-partial/ returns 200."""
     response = smoke_client.get("/api/todos-partial/", **smoke_auth_headers)
     assert response.status_code == 200
+
+
+# =============================================================================
+# Route sweep: every parameterless GET in the OpenAPI schema
+# =============================================================================
+
+# Routes that depend on an external service unavailable under test settings.
+# Map the OpenAPI path to the reason it is skipped.
+_SWEEP_EXCLUDED: dict[str, str] = {}
+
+
+@pytest.mark.smoke
+@pytest.mark.django_db
+def test_get_route_sweep(smoke_client, smoke_auth_headers):
+    """Every parameterless GET returns no 5xx and no 422 for a regular user."""
+    from api.urls import api
+
+    schema = api.get_openapi_schema()
+    offenders: list[tuple[str, int]] = []
+    for path, methods in schema["paths"].items():
+        if "get" not in methods or "{" in path or path in _SWEEP_EXCLUDED:
+            continue
+        status = smoke_client.get(path, **smoke_auth_headers).status_code
+        if status >= 500 or status == 422:
+            offenders.append((path, status))
+    assert offenders == []

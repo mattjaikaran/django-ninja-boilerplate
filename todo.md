@@ -179,18 +179,9 @@ Django 5.2 ignores `OPTIONS["pool"]` with psycopg2. Pooling needs psycopg 3.
   `just security-full`. `just semgrep` pins semgrep 1.179.0 and a
   `semgrep-rules` commit (Django, JWT, Python security). First run
   2026-10-05: 50 findings on 464 files, not triaged yet.
-- [ ] Raise the mypy and coverage bar in steps: drop one
-  `disable_error_code` per week, raise the coverage floor from 30% in
-  steps of 5%. Do not add tests only to raise coverage.
+- [ ] Raise the mypy bar in steps: drop one `disable_error_code` per week.
+  The lean testing policy has no coverage floor (see AGENTS.md).
   Ratchet plan (never lower a step; one step per change):
-  - Coverage: the floor lives in two places that must move together,
-    `--cov-fail-under` in `[tool.pytest.ini_options] addopts` and
-    `GauntletRunner.coverage_threshold` in `scripts/gauntlet.py` (the
-    `--coverage` default reads it). Last measured line rate
-    is 39.8% (`coverage.xml`, 2026-10-02). Raise the floor by 5 only when
-    two consecutive `just gauntlet` runs measure at least the new floor + 2.
-    Next steps: 35%, then 40%. Coverage rises from regression and contract
-    tests that the testing policy allows, not from new tests written for it.
   - mypy: drop one code per week from the `[[tool.mypy.overrides]]` blocks,
     fix the errors it shows, then shrink the module list. Order: the
     26-module block (`union-attr`, `override`, `return-value`, `assignment`,

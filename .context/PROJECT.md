@@ -260,7 +260,9 @@ just format             # Format code with ruff
 
 ### Test Structure
 
-Tests use pytest with Factory Boy for data generation:
+Write tests only for smoke, auth/permission/ownership boundaries, API contract, regressions for real bugs, and security-relevant pure logic (one table-driven test). Playwright journeys in the frontend verify features (see `docs/product/README.md`). No unit tests per function, no model tests, no mock-assert tests, no coverage target, no mutation testing. At most one new test file per change.
+
+Tests hit the real database and use Factory Boy for data:
 
 ```python
 import pytest

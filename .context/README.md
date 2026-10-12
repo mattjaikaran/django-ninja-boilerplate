@@ -40,7 +40,9 @@ Read .context/SYSTEM_PROMPT.md and .context/ANTI_PATTERNS.md, then build [your f
 This boilerplate uses **Django Ninja Extra** (not DRF, not vanilla Django Ninja). Every feature follows a 5-layer vertical slice:
 
 ```
-Model → Schema → Service → Controller → Tests
+Model → Schema → Service → Controller → one smoke/permission test file
 ```
+
+Playwright journeys in the frontend verify features. See `docs/product/README.md`.
 
 The context files exist because LLMs frequently default to DRF patterns (serializers, viewsets) since those dominate training data. These files correct that bias and enforce the actual architecture.

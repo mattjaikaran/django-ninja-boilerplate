@@ -141,7 +141,7 @@ jobs:
   ┌───────▼────────┐  ┌───────▼────────┐  ┌───────▼────────┐
   │ Backend        │  │ Cross-Stack    │  │ Frontend       │
   │ Gauntlet       │  │ Checker        │  │ Gauntlet       │
-  │ (12 gates)     │  │ (5 checks)     │  │ (6 gates)      │
+  │ (11 gates)     │  │ (5 checks)     │  │ (6 gates)      │
   │                │  │                │  │                │
   │ format         │  │ naming         │  │ format         │
   │ lint           │  │ schema parity  │  │ lint:strict    │
@@ -152,7 +152,6 @@ jobs:
   │ architecture   │  │                │  │                │
   │ filelength     │  │                │  │                │
   │ test           │  │                │  │                │
-  │ mutation       │  │                │  │                │
   │ audit          │  │                │  │                │
   │ deploy-check   │  │                │  │                │
   └────────────────┘  └────────────────┘  └────────────────┘

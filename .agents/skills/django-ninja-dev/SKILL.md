@@ -109,6 +109,15 @@ Every `models/`, `schemas/`, `services/`, `controllers/`, and `factories/`
 `__init__.py` must import its public classes and set `__all__`. The convention
 checker fails the build otherwise.
 
+## Tests
+
+Write tests only for smoke, auth/permission/ownership boundaries, API
+contract, regressions for real bugs, and security-relevant pure logic (one
+table-driven test). Playwright journeys in the frontend verify features; see
+`docs/product/README.md`. Do not write unit tests per function, model tests,
+or tests that assert on mocks. No coverage target, no mutation testing. Add at
+most one new test file per change. Never mock the database.
+
 ## Verify
 
 ```bash

@@ -760,97 +760,12 @@ class PaymentAdmin(ModelAdmin):
         self.create_file(self.app_path / "admin" / "payment_admin.py", admin_content)
 
     def _generate_tests(self) -> None:
-        """Generate payment tests."""
-        tests_content = f'''"""Payment tests."""
+        """Generate the payment API smoke test."""
+        tests_content = f'''"""Payment API smoke tests."""
 
 import pytest
-from decimal import Decimal
-from unittest.mock import patch, MagicMock
-from django.contrib.auth import get_user_model
 
-from {self.app_name}.models import Payment, PaymentMethod, PaymentIntent
-from {self.app_name}.services.stripe_service import StripeService
-
-User = get_user_model()
-
-
-@pytest.fixture
-def stripe_service():
-    return StripeService()
-
-
-@pytest.fixture
-def payment_data():
-    return {{
-        "amount": Decimal("29.99"),
-        "currency": "usd",
-        "description": "Test payment",
-    }}
-
-
-@pytest.mark.django_db
-class TestPaymentModels:
-    def test_create_payment_method(self, test_user):
-        payment_method = PaymentMethod.objects.create(
-            user=test_user,
-            stripe_payment_method_id="pm_test_123",
-            type="card",
-            last_four="4242",
-            brand="visa",
-        )
-        assert str(payment_method) == "visa ****4242"
-
-    def test_create_payment_intent(self, test_user):
-        intent = PaymentIntent.objects.create(
-            user=test_user,
-            stripe_payment_intent_id="pi_test_123",
-            amount=Decimal("29.99"),
-            currency="usd",
-            status="requires_confirmation",
-            client_secret="pi_test_123_secret",
-        )
-        assert str(intent) == "Payment Intent pi_test_123 - $29.99"
-
-    def test_create_payment(self, test_user):
-        payment = Payment.objects.create(
-            user=test_user,
-            amount=Decimal("29.99"),
-            currency="usd",
-            status="succeeded",
-        )
-        assert str(payment) == f"Payment {{payment.id}} - $29.99 (succeeded)"
-
-
-@pytest.mark.django_db
-class TestStripeService:
-    @patch("stripe.Customer.create")
-    def test_create_customer(self, mock_create, stripe_service, test_user):
-        mock_create.return_value = MagicMock(id="cus_test_123")
-
-        customer_id = stripe_service.create_customer(test_user)
-
-        assert customer_id == "cus_test_123"
-        mock_create.assert_called_once()
-
-    @patch("stripe.PaymentMethod.attach")
-    @patch("stripe.PaymentMethod.retrieve")
-    def test_create_payment_method(
-        self, mock_retrieve, mock_attach, stripe_service, test_user
-    ):
-        mock_retrieve.return_value = MagicMock(
-            type="card",
-            card=MagicMock(last4="4242", brand="visa")
-        )
-
-        with patch.object(stripe_service, "get_or_create_customer", return_value="cus_test_123"):
-            payment_method = stripe_service.create_payment_method(
-                test_user, "pm_test_123"
-            )
-
-        assert payment_method.user == test_user
-        assert payment_method.stripe_payment_method_id == "pm_test_123"
-        assert payment_method.last_four == "4242"
-        assert payment_method.brand == "visa"
+from {self.app_name}.models import PaymentMethod
 
 
 @pytest.mark.django_db

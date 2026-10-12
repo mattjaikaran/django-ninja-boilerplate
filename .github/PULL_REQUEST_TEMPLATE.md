@@ -45,13 +45,13 @@
 # just lint
 ```
 
-### Test Coverage
+### Tests
 
-<!-- If applicable, include coverage changes -->
+<!-- See the testing policy in AGENTS.md. Features are verified by Playwright journeys. -->
 
 - [ ] All existing tests pass
-- [ ] New tests added for new functionality
-- [ ] Edge cases considered and tested
+- [ ] New tests cover only smoke, permission, contract, or a real-bug regression
+- [ ] At most one new test file
 
 ### Manual Testing
 

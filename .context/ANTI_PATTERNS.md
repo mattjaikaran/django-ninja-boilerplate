@@ -175,6 +175,8 @@ def test_create_item(authenticated_client):
     assert Item.objects.filter(user=user, name="Test").exists()
 ```
 
+Also do not write model tests (`__str__`, field defaults), unit tests per function, tests that assert on mocks, or tests added for coverage. Write smoke, permission, contract, and regression tests only. Playwright journeys in the frontend verify features (see `docs/product/README.md`).
+
 ---
 
 ## 7. Importing a Per-Endpoint `@handle_exceptions` Decorator
@@ -471,7 +473,7 @@ Before submitting code, verify:
 - [ ] No redeclared base model fields
 - [ ] Business logic in services, not controllers
 - [ ] Using `uv`, never `pip`
-- [ ] Tests hit real DB, no mocking
+- [ ] Tests hit real DB, no mocking, no model or per-function unit tests, at most one new test file
 - [ ] Exception handlers registered once in `api/urls.py` (no per-endpoint `@handle_exceptions`)
 - [ ] Decorator order: `@http_*` → `@log_api_call` → `@paginate`
 - [ ] Queries scoped to `request.user`

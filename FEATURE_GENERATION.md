@@ -16,7 +16,7 @@ This creates a complete payments app with:
 - Stripe service integration
 - API controllers for payment operations
 - Admin interface
-- Comprehensive tests
+- One smoke/permission test file (no model or unit tests)
 - Email templates (optional)
 
 ### Generate Redis Cache Integration
@@ -182,7 +182,7 @@ feature_name/
 ├── controllers/      # API endpoints (Django Ninja)
 ├── services/         # Business logic
 ├── admin/           # Django admin configuration
-├── tests/           # Comprehensive test suite
+├── tests/           # One smoke/permission test file
 ├── management/      # Django management commands
 │   └── commands/
 ├── migrations/      # Database migrations
@@ -295,7 +295,7 @@ uv run python manage.py generate_feature file_storage --provider local --minimal
 1. **Start with Core Features**: Begin with authentication, then add payments, caching, etc.
 2. **Choose the Right Platform Type**: This affects the complexity and features generated
 3. **Use Minimal Mode for Prototyping**: Add full features later as needed
-4. **Test Generated Code**: Run tests after generation to ensure everything works
+4. **Test Generated Code**: Run the generated smoke/permission test file. Verify the feature itself with a Playwright journey in the frontend (see `docs/product/README.md`)
 5. **Customize as Needed**: The generated code is a starting point, modify to fit your needs
 
 ## Troubleshooting

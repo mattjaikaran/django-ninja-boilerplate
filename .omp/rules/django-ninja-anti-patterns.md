@@ -239,6 +239,8 @@ def test_create_item(authenticated_client):
     assert Item.objects.filter(user=user, name="Test").exists()
 ```
 
+Also banned: model tests (`__str__`, field defaults), unit tests per function, tests that assert on mocks, and tests written for coverage. See "Testing policy" in `AGENTS.md`.
+
 ## 12. pip/npm/yarn — BANNED
 
 WRONG: `pip install django-ninja`, `npm install react`, `yarn add typescript`

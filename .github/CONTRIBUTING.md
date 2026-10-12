@@ -300,7 +300,7 @@ Fixes #123
 
 3. **Update documentation** if needed
 
-4. **Add/update tests** for your changes
+4. **Add tests** only where the testing policy below requires them
 
 ### Submitting a PR
 
@@ -350,7 +350,7 @@ just test-coverage
 uv run pytest core/tests/test_user.py
 
 # Run specific test
-uv run pytest core/tests/test_user.py::TestUserModel::test_create_user -v
+uv run pytest core/tests/test_user.py::test_name -v
 
 # Run with print output
 uv run pytest -s
@@ -360,60 +360,13 @@ uv run pytest -s
 
 1. **Location**: Place tests in each app's `tests/` directory (e.g., `core/tests/`, `todos/tests/`)
 2. **Naming**: Use `test_` prefix for test files and functions
-3. **Fixtures**: Use pytest fixtures for setup/teardown
-4. **Coverage**: Coverage must not decrease (ratchet: currently >=35%, target 80%)
+3. **Scope**: Write tests only for smoke, auth/permission/ownership boundaries, API contract, regressions for real bugs, and security-relevant pure logic (one table-driven test)
+4. **Features**: Playwright journeys in the frontend verify features. See [`docs/product/README.md`](../docs/product/README.md)
+5. **Do not write**: unit tests per function, model tests, tests that assert on mocks, or tests for coverage. There is no coverage floor and no mutation testing
+6. **Size**: Add at most one new test file per change
+7. **Data**: Never mock the database. Use Factory Boy where a test needs data
 
-**Example:**
-
-```python
-import pytest
-from django.test import Client
-
-from users.models import User
-
-
-@pytest.fixture
-def api_client():
-    """Create a test client."""
-    return Client()
-
-
-@pytest.fixture
-def test_user(db):
-    """Create a test user."""
-    return User.objects.create_user(
-        email="test@example.com",
-        password="testpass123"
-    )
-
-
-class TestUserAPI:
-    """Tests for the User API endpoints."""
-
-    def test_create_user(self, api_client, db):
-        """Test user creation endpoint."""
-        response = api_client.post(
-            "/api/users/",
-            data={"email": "new@example.com", "password": "newpass123"},
-            content_type="application/json"
-        )
-
-        assert response.status_code == 201
-        assert User.objects.filter(email="new@example.com").exists()
-
-    def test_get_user(self, api_client, test_user):
-        """Test retrieving a user."""
-        response = api_client.get(f"/api/users/{test_user.id}/")
-
-        assert response.status_code == 200
-        assert response.json()["email"] == "test@example.com"
-```
-
-### Test Categories
-
-- **Unit Tests**: Test individual functions/methods in isolation
-- **Integration Tests**: Test component interactions
-- **API Tests**: Test API endpoints end-to-end
+See `todos/tests/` for examples.
 
 ## Documentation
 

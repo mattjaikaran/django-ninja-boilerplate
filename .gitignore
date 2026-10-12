@@ -135,7 +135,6 @@ CLAUDE.md
 
 # Gauntlet reports
 gauntlet-report.json
-.mutmut-cache/
 
 # Codebase atlas data file (generated)
 atlas-data.json

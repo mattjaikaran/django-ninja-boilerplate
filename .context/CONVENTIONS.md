@@ -562,7 +562,21 @@ class ItemController:
 
 ## Test Patterns
 
-### Test Class Structure
+### Testing policy
+
+Write tests only for these cases:
+
+- Smoke: routes return no 5xx and no unexpected 422.
+- Auth, permission, and ownership boundaries.
+- API contract (OpenAPI, route classification).
+- Regressions for real bugs.
+- Security-relevant pure logic, as one table-driven test.
+
+Playwright journeys in the frontend verify features. See `docs/product/README.md`.
+
+Do not write unit tests per function, model tests, tests that assert on mocks, or tests for coverage. There is no coverage target and no mutation testing. Add at most one new test file per change. Never mock the database.
+
+### Permission test structure
 
 ```python
 import pytest
@@ -570,30 +584,10 @@ from core.tests.factories import UserFactory
 from myapp.tests.factories import ItemFactory
 from myapp.models import Item
 
-@pytest.mark.django_db
-class TestItemModel:
-    """Unit tests for Item model."""
-
-    def test_create_item(self, user):
-        item = ItemFactory(user=user)
-        assert item.name
-        assert item.user == user
-
-    def test_item_str(self, user):
-        item = ItemFactory(user=user, name="Test Item")
-        assert str(item) == "Test Item"
-
-    def test_soft_delete(self, user):
-        item = ItemFactory(user=user)
-        item.soft_delete()
-        assert not item.is_active
-        assert Item.objects.filter(id=item.id).count() == 0
-        assert Item.all_objects.filter(id=item.id).count() == 1
-
 
 @pytest.mark.django_db
 class TestItemAPI:
-    """Integration tests for Item API."""
+    """Smoke and permission tests for Item API."""
 
     def test_create_item(self, authenticated_client):
         client, user = authenticated_client

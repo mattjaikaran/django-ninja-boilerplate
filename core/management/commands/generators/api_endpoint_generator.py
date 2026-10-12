@@ -4,6 +4,7 @@ from .base_generator import BaseGenerator
 from .templates.controller_templates import CONTROLLER_TEMPLATE
 from .templates.model_templates import MODEL_TEMPLATE
 from .templates.schema_templates import SCHEMA_TEMPLATE
+from .templates.test_templates import API_ENDPOINT_TESTS_TEMPLATE
 
 
 class ApiEndpointGenerator(BaseGenerator):
@@ -120,86 +121,11 @@ class {self.app_name.title().rstrip("s")}Admin(admin.ModelAdmin):
         )
 
     def _generate_tests(self) -> None:
-        """Generate test files."""
-        test_content = f'''"""Tests for {self.app_name} API."""
-
-import pytest
-from django.contrib.auth import get_user_model
-from django.urls import reverse
-from django.test import Client
-
-from {self.app_name}.models import {self.app_name.title().rstrip("s")}
-
-User = get_user_model()
-
-
-@pytest.mark.django_db
-class Test{self.app_name.title().rstrip("s")}API:
-    """Test cases for {self.app_name.title().rstrip("s")} API endpoints."""
-
-    def setup_method(self):
-        """Set up test data."""
-        self.client = APIClient()
-        self.user = User.objects.create_user(
-            username="testuser",
-            email="test@example.com",
-            password="testpass123"
+        """Generate the single smoke/permission test file."""
+        test_content = API_ENDPOINT_TESTS_TEMPLATE.format(
+            app_name=self.app_name,
+            model_name=self.app_name.title().rstrip("s"),
         )
-        self.client.force_authenticate(user=self.user)
-
-    def test_create_{self.app_name.rstrip("s")}(self):
-        """Test creating a new {self.app_name.rstrip("s")}."""
-        url = reverse("{self.app_name.rstrip("s")}-list")
-        data = {{"name": "Test {self.app_name.title().rstrip("s")}"}}
-
-        response = self.client.post(url, data)
-
-        assert response.status_code == 201
-        assert {self.app_name.title().rstrip("s")}.objects.count() == 1
-
-    def test_list_{self.app_name}(self):
-        """Test listing {self.app_name}."""
-        # Create test data
-        {self.app_name.title().rstrip("s")}.objects.create(name="Test {self.app_name.title().rstrip("s")}")
-
-        url = reverse("{self.app_name.rstrip("s")}-list")
-        response = self.client.get(url)
-
-        assert response.status_code == 200
-        assert len(response.data) == 1
-
-    def test_retrieve_{self.app_name.rstrip("s")}(self):
-        """Test retrieving a specific {self.app_name.rstrip("s")}."""
-        obj = {self.app_name.title().rstrip("s")}.objects.create(name="Test {self.app_name.title().rstrip("s")}")
-
-        url = reverse("{self.app_name.rstrip("s")}-detail", kwargs={{"pk": obj.pk}})
-        response = self.client.get(url)
-
-        assert response.status_code == 200
-        assert response.data["name"] == "Test {self.app_name.title().rstrip("s")}"
-
-    def test_update_{self.app_name.rstrip("s")}(self):
-        """Test updating a {self.app_name.rstrip("s")}."""
-        obj = {self.app_name.title().rstrip("s")}.objects.create(name="Test {self.app_name.title().rstrip("s")}")
-
-        url = reverse("{self.app_name.rstrip("s")}-detail", kwargs={{"pk": obj.pk}})
-        data = {{"name": "Updated {self.app_name.title().rstrip("s")}"}}
-        response = self.client.put(url, data)
-
-        assert response.status_code == 200
-        obj.refresh_from_db()
-        assert obj.name == "Updated {self.app_name.title().rstrip("s")}"
-
-    def test_delete_{self.app_name.rstrip("s")}(self):
-        """Test deleting a {self.app_name.rstrip("s")}."""
-        obj = {self.app_name.title().rstrip("s")}.objects.create(name="Test {self.app_name.title().rstrip("s")}")
-
-        url = reverse("{self.app_name.rstrip("s")}-detail", kwargs={{"pk": obj.pk}})
-        response = self.client.delete(url)
-
-        assert response.status_code == 204
-        assert {self.app_name.title().rstrip("s")}.objects.count() == 0
-'''
 
         tests_dir = self.app_path / "tests"
         tests_dir.mkdir(exist_ok=True)

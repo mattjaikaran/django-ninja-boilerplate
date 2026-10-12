@@ -31,7 +31,8 @@ Add a new API endpoint for [RESOURCE_NAME] with the following:
 
 5. Create factory in `[app_name]/tests/factories/[resource]_factory.py`
 
-6. Create tests in `[app_name]/tests/test_[resource].py`
+6. Create one smoke/permission test file in `[app_name]/tests/test_[resource].py`
+   (list as owner, other user cannot read, invalid payload returns 422)
 
 Follow the patterns from `todos/` app.
 ```
@@ -54,7 +55,7 @@ Add a Notes API endpoint following the todos pattern:
 
 4. Register in api/urls.py
 
-5. Add NoteFactory and tests
+5. Add NoteFactory and one smoke/permission test file
 
 Use these existing files as reference:
 - todos/models/todo.py
@@ -208,32 +209,22 @@ def sensitive_action(self, request, payload: ActionSchema):
 
 ## Writing Tests
 
-### Basic API Test
+### Smoke and permission test
 
 ```
-Write tests for the [RESOURCE_NAME] API:
+Write ONE test file for the [RESOURCE_NAME] API with only these tests:
 
-1. Test CRUD operations:
-   - test_create_[resource]
-   - test_list_[resource]s
-   - test_get_[resource]
-   - test_update_[resource]
-   - test_delete_[resource]
+1. List as the owner returns 200.
+2. Another user cannot read the owner's item (404).
+3. Create with an invalid payload returns 422 with a field error.
 
-2. Test authorization:
-   - test_unauthenticated_access_denied
-   - test_cannot_access_others_[resource]
-
-3. Test validation:
-   - test_create_with_invalid_data
-   - test_update_with_invalid_data
+Do not write model tests, unit tests per function, or tests that assert on
+mocks. No coverage target. Playwright journeys in the frontend verify the
+feature (see docs/product/README.md).
 
 Use these fixtures:
 - authenticated_client (returns client, user tuple)
-- UserFactory for creating users
-- [Resource]Factory for creating test data
-
-Follow the pattern in todos/tests/test_todo.py.
+- UserFactory and [Resource]Factory for test data
 ```
 
 ### Test Template
@@ -246,35 +237,18 @@ from [app].models import [Resource]
 
 @pytest.mark.django_db
 class Test[Resource]API:
-    def test_create_[resource](self, authenticated_client):
+    """Smoke and permission tests for [Resource] API."""
+
+    def test_list_[resource]s_as_owner(self, authenticated_client):
         client, user = authenticated_client
-        data = {"field": "value"}
-        response = client.post(
-            "/api/[resources]/",
-            data,
-            content_type="application/json"
-        )
-        assert response.status_code == 201
-        assert [Resource].objects.filter(user=user).exists()
-
-    def test_list_[resource]s(self, authenticated_client):
-        client, user = authenticated_client
-        [Resource]Factory.create_batch(3, user=user)
-
-        # Create resource for another user (should not appear)
-        other_user = UserFactory()
-        [Resource]Factory(user=other_user)
-
+        [Resource]Factory(user=user)
         response = client.get("/api/[resources]/")
         assert response.status_code == 200
-        assert len(response.json()["items"]) == 3
 
-    def test_get_[resource](self, authenticated_client):
-        client, user = authenticated_client
-        resource = [Resource]Factory(user=user)
-        response = client.get(f"/api/[resources]/{resource.id}")
-        assert response.status_code == 200
-        assert response.json()["id"] == str(resource.id)
+    def test_create_with_invalid_payload_returns_422(self, authenticated_client):
+        client, _ = authenticated_client
+        response = client.post("/api/[resources]/", {}, content_type="application/json")
+        assert response.status_code == 422
 
     def test_cannot_access_others_[resource](self, authenticated_client):
         client, user = authenticated_client

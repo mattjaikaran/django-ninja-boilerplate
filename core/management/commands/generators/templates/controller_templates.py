@@ -7,6 +7,7 @@ from uuid import UUID
 
 from django.shortcuts import get_object_or_404
 from ninja_extra import api_controller, http_delete, http_get, http_post, http_put
+from ninja_jwt.authentication import JWTAuth
 
 from {app_name}.models import {model_name}
 from {app_name}.schemas import {model_name}Schema, Create{model_name}Schema, Update{model_name}Schema
@@ -14,31 +15,33 @@ from {app_name}.schemas import {model_name}Schema, Create{model_name}Schema, Upd
 logger = logging.getLogger(__name__)
 
 
-@api_controller("/{app_name}", tags=["{app_name_title}"])
+@api_controller("/{app_name}", tags=["{app_name_title}"], auth=JWTAuth())
 class {model_name}Controller:
-    """Controller for {model_name} CRUD operations."""
+    """Controller for {model_name} CRUD operations, scoped to the owner."""
 
     @http_get("/", response={{200: list[{model_name}Schema]}})
     def list_{app_name}(self, request):
-        """List all {app_name}."""
-        return 200, {model_name}.objects.all()
+        """List the user's {app_name}."""
+        return 200, {model_name}.objects.filter(created_by=request.user)
 
     @http_post("/", response={{201: {model_name}Schema}})
     def create_{model_name_lower}(self, request, payload: Create{model_name}Schema):
         """Create a new {model_name_lower}."""
-        {model_name_lower} = {model_name}.objects.create(**payload.model_dump())
+        {model_name_lower} = {model_name}.objects.create(
+            **payload.model_dump(), created_by=request.user, updated_by=request.user
+        )
         return 201, {model_name_lower}
 
     @http_get("/{{str:{model_name_lower}_id}}", response={{200: {model_name}Schema, 404: dict}})
     def get_{model_name_lower}(self, request, {model_name_lower}_id: str):
         """Get a specific {model_name_lower} by ID."""
-        {model_name_lower} = get_object_or_404({model_name}, id={model_name_lower}_id)
+        {model_name_lower} = get_object_or_404({model_name}, id={model_name_lower}_id, created_by=request.user)
         return 200, {model_name_lower}
 
     @http_put("/{{str:{model_name_lower}_id}}", response={{200: {model_name}Schema, 404: dict}})
     def update_{model_name_lower}(self, request, {model_name_lower}_id: str, payload: Update{model_name}Schema):
         """Update a specific {model_name_lower} by ID."""
-        {model_name_lower} = get_object_or_404({model_name}, id={model_name_lower}_id)
+        {model_name_lower} = get_object_or_404({model_name}, id={model_name_lower}_id, created_by=request.user)
         for key, value in payload.model_dump(exclude_unset=True).items():
             setattr({model_name_lower}, key, value)
         {model_name_lower}.save()
@@ -47,7 +50,7 @@ class {model_name}Controller:
     @http_delete("/{{str:{model_name_lower}_id}}", response={{204: dict, 404: dict}})
     def delete_{model_name_lower}(self, request, {model_name_lower}_id: str):
         """Delete a specific {model_name_lower} by ID."""
-        {model_name_lower} = get_object_or_404({model_name}, id={model_name_lower}_id)
+        {model_name_lower} = get_object_or_404({model_name}, id={model_name_lower}_id, created_by=request.user)
         {model_name_lower}.delete()
         return 204, {{"message": "{model_name} deleted successfully"}}
 '''

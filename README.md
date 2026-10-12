@@ -25,7 +25,7 @@ A production-ready, **opinionated** Django boilerplate built with **Django Ninja
 | **Full observability**           | Distributed tracing, metrics, structured logging out of the box             |
 | **SDK generation**               | Auto-generate TypeScript and Python clients from your API                   |
 | **Production-ready**             | Docker, K8s Helm charts, PaaS configs - deploy anywhere                     |
-| **Test everything**              | Unit, E2E, contract, and load tests included                                |
+| **Lean tests**                   | Smoke, permission, contract, and load tests; Playwright journeys verify features |
 | **Progressive patterns**         | Four `todos` controller variants show every abstraction level side-by-side  |
 
 ## Progressive Controller Patterns
@@ -686,7 +686,7 @@ Authorization: Bearer <your-jwt-token>
 
 ## Testing
 
-This boilerplate includes comprehensive testing utilities including unit tests, E2E tests, contract tests, and load tests.
+This boilerplate includes smoke, permission, contract, and load tests. Playwright journeys in the frontend verify features.
 
 ### Quick Start
 
@@ -696,9 +696,11 @@ just test-all                # Alias for `just test`
 just test-coverage           # Run with coverage report
 ```
 
-### Unit Tests
+### What to test
 
-Tests use Factory Boy for data generation (no mocks):
+Write backend tests only for smoke, auth/permission/ownership boundaries, API contract, regressions for real bugs, and security-relevant pure logic (one table-driven test). Do not write unit tests per function, model tests, or tests that assert on mocks. There is no coverage target and no mutation testing. Add at most one new test file per change.
+
+Tests hit the real database and use Factory Boy for data:
 
 ```bash
 uv run pytest -v             # Verbose output
@@ -717,14 +719,9 @@ def test_create_todo(db, authenticated_client):
     assert response.status_code == 201
 ```
 
-### E2E Tests
+### Feature verification
 
-End-to-end tests for complete user journeys:
-
-```bash
-just legacy test-e2e                # Run E2E tests
-just legacy generate-e2e            # Generate E2E test stubs from YAML
-```
+Playwright journeys in the frontend repo verify features end to end. See [`docs/product/README.md`](docs/product/README.md) for the spec and tag format.
 
 ### Contract Tests
 

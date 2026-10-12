@@ -52,8 +52,7 @@ Plus third-party deterministic tools integrated as gates:
 | `ruff check` | LINT | 50+ rule categories: bugs, anti-patterns, dead code |
 | `mypy` | TYPECHECK | Type safety, missing annotations |
 | `bandit` | SECURITY | SQL injection, XSS, hardcoded secrets, crypto issues |
-| `pytest --cov-fail-under` | TEST | Broken functionality, coverage regression |
-| `mutmut` | MUTATION | Tests that don't actually catch bugs |
+| `pytest` | TEST | Broken functionality |
 | `pip-audit` | AUDIT | Known vulnerabilities in dependencies |
 | `manage.py check --deploy` | DEPLOY | Production Django configuration |
 
@@ -163,7 +162,7 @@ gates["something"] = self._gate_something
 │   Human intervention only for:                      │
 │     • Designing new constraints                     │
 │     • Changing architecture rules                   │
-│     • Adjusting thresholds (coverage ratchet)       │
+│     • Adjusting thresholds (file length, complexity)│
 │                                                     │
 └─────────────────────────────────────────────────────┘
 ```

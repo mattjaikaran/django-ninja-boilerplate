@@ -685,23 +685,6 @@ dev-reset: ## Reset development environment (down, clean volumes, up fresh)
 	@echo "Development environment reset complete!"
 
 # ===========================================
-# E2E Test Generation
-# ===========================================
-generate-e2e: ## Generate E2E test stubs from user journey YAML
-	@echo "Generating E2E tests from user journeys..."
-	$(UV) run python scripts/generate_e2e_tests.py
-	@echo "Done! Review the generated tests in tests/e2e/"
-
-generate-e2e-dry: ## Preview E2E test generation (dry run)
-	$(UV) run python scripts/generate_e2e_tests.py --dry-run
-
-test-e2e: ## Run E2E tests
-	$(DOCKER_COMPOSE) exec $(DJANGO_SERVICE) $(UV) run python -m pytest tests/e2e/ -v
-
-local-test-e2e: ## Run E2E tests locally
-	$(UV) run pytest tests/e2e/ -v
-
-# ===========================================
 # Contract Testing
 # ===========================================
 test-contract: ## Run API contract tests against OpenAPI spec
@@ -737,16 +720,13 @@ test-load-custom: ## Run custom load test (usage: make test-load-custom USERS=50
 # ===========================================
 # All Tests
 # ===========================================
-test-all: ## Run all test types (unit, e2e, contract)
+test-all: ## Run all test types (unit, contract)
 	@echo "========================================"
 	@echo "  Running All Tests"
 	@echo "========================================"
 	@echo ""
 	@echo ">>> Running Unit Tests..."
 	$(MAKE) local-test
-	@echo ""
-	@echo ">>> Running E2E Tests..."
-	$(MAKE) local-test-e2e
 	@echo ""
 	@echo ">>> Running Contract Tests..."
 	$(MAKE) local-test-contract
@@ -757,7 +737,6 @@ test-all: ## Run all test types (unit, e2e, contract)
 
 test-ci: ## Run tests suitable for CI (excludes load tests)
 	$(UV) run pytest --cov=. --cov-report=xml -v
-	$(UV) run pytest tests/e2e/ -v || true
 	@echo "Contract tests require running server - skipped in CI"
 
 # ===========================================
@@ -841,7 +820,7 @@ worker-rq: ## Start django-rq worker locally
 gauntlet: ## Run the full gauntlet (all quality gates)
 	$(UV) run python scripts/gauntlet.py --verbose
 
-gauntlet-quick: ## Run quick gauntlet (skip mutation testing + audit)
+gauntlet-quick: ## Run quick gauntlet (skip audit)
 	$(UV) run python scripts/gauntlet.py --quick --verbose
 
 gauntlet-ci: ## Run gauntlet in CI mode (with JSON report)
@@ -859,12 +838,6 @@ check-cross-stack: ## Check cross-stack conventions (monorepo only)
 
 check-file-length: ## Check all Python files against length limits
 	@find . -name "*.py" -not -path "./.venv/*" -not -path "./env/*" -not -path "./.git/*" | xargs python scripts/check_file_length.py
-
-mutation-test: ## Run mutation testing (are your tests actually catching bugs?)
-	$(UV) run mutmut run --paths-to-mutate=core/,todos/ --tests-dir=core/tests/,todos/tests/
-
-mutation-results: ## Show mutation testing results
-	$(UV) run mutmut results
 
 smoke-test: ## Run gauntlet smoke test (validates checker works)
 	$(UV) run python scripts/smoke_test_gauntlet.py

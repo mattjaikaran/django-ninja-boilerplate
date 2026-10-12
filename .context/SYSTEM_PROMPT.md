@@ -44,7 +44,7 @@ Request → Controller → Service → Model → Database
 | **Schema** | `app/schemas/name_schema.py` | Request/response validation, serialization | Database queries |
 | **Service** | `app/services/name_service.py` | Business logic, QuerySet building, validation rules | HTTP concerns, status codes |
 | **Controller** | `app/controllers/name_controller.py` | HTTP interface, status codes, routing | Business logic, direct ORM queries |
-| **Test** | `app/tests/test_name.py` | Behavior verification | Implementation testing |
+| **Test** | `app/tests/test_name.py` | Smoke, permission, contract, regression | Unit tests per function, model tests, mock asserts |
 
 ### Controller is a Thin HTTP Adapter
 
@@ -453,6 +453,8 @@ if not request.user.is_authenticated:
 
 ## Test Rules
 
+Write tests only for smoke, auth/permission/ownership boundaries, API contract, regressions for real bugs, and security-relevant pure logic (one table-driven test). Playwright journeys in the frontend verify features (see `docs/product/README.md`). Do not write unit tests per function, model tests, tests that assert on mocks, or tests for coverage. No coverage target, no mutation testing. At most one new test file per change.
+
 ### Test Template
 
 ```python
@@ -460,70 +462,29 @@ import pytest
 
 from core.tests.factories import UserFactory
 
-from {app}.models import {Name}
 from {app}.tests.factories import {Name}Factory
 
 
 @pytest.mark.django_db
 class Test{Name}API:
+    """Smoke and permission tests for {Name} API."""
 
-    def test_create_{name}(self, authenticated_client):
+    def test_list_{name_plural}_as_owner(self, authenticated_client):
         client, user = authenticated_client
-        response = client.post(
-            "/api/{name_plural}/",
-            {{"name": "Test {Name}"}},
-            content_type="application/json",
-        )
-        assert response.status_code == 201
-        assert {Name}.objects.filter(user=user).exists()
-
-    def test_list_{name_plural}_scoped_to_user(self, authenticated_client):
-        client, user = authenticated_client
-        {Name}Factory.create_batch(3, user=user)
-        other = UserFactory()
-        {Name}Factory.create_batch(2, user=other)
-
+        {Name}Factory(user=user)
         response = client.get("/api/{name_plural}/")
         assert response.status_code == 200
-        data = response.json()
-        assert len(data["items"]) == 3
-
-    def test_get_{name}(self, authenticated_client):
-        client, user = authenticated_client
-        obj = {Name}Factory(user=user)
-        response = client.get(f"/api/{name_plural}/{{obj.id}}")
-        assert response.status_code == 200
-        assert response.json()["id"] == str(obj.id)
 
     def test_cannot_access_other_users_{name}(self, authenticated_client):
         client, user = authenticated_client
-        other = UserFactory()
-        obj = {Name}Factory(user=other)
+        obj = {Name}Factory(user=UserFactory())
         response = client.get(f"/api/{name_plural}/{{obj.id}}")
         assert response.status_code == 404
 
-    def test_update_{name}(self, authenticated_client):
+    def test_create_with_invalid_payload_returns_422(self, authenticated_client):
         client, user = authenticated_client
-        obj = {Name}Factory(user=user)
-        response = client.put(
-            f"/api/{name_plural}/{{obj.id}}",
-            {{"name": "Updated"}},
-            content_type="application/json",
-        )
-        assert response.status_code == 200
-        obj.refresh_from_db()
-        assert obj.name == "Updated"
-
-    def test_delete_{name}(self, authenticated_client):
-        client, user = authenticated_client
-        obj = {Name}Factory(user=user)
-        response = client.delete(f"/api/{name_plural}/{{obj.id}}")
-        assert response.status_code == 204
-        assert not {Name}.objects.filter(id=obj.id).exists()
-
-    def test_unauthenticated_access_denied(self, api_client):
-        response = api_client.get("/api/{name_plural}/")
-        assert response.status_code == 401
+        response = client.post("/api/{name_plural}/", {{}}, content_type="application/json")
+        assert response.status_code == 422
 ```
 
 ### Factory Template

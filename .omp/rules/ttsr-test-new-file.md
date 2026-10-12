@@ -17,8 +17,11 @@ Read "Testing policy" in `AGENTS.md`. Before you continue, answer these:
    test in that file, or do not write it. One new test file per task, at most.
 2. Does a test file for this module already exist? Add to it instead of
    creating a new one.
-3. Is this test for a bug fix (regression), a changed public contract, or a
-   boundary or permission rule? If not, do not write it.
+3. Is this a smoke test, an auth/permission/ownership boundary, an API
+   contract test, a regression for a real bug, or security-relevant pure logic
+   (one table-driven test)? If not, do not write it. Playwright journeys in
+   the frontend verify features (see `docs/product/README.md`).
 
-Do not write tests for wiring, getters, schema echo, default values, copied
-constants, or mock calls. Do not add tests to raise coverage.
+Do not write unit tests per function, model tests, tests for wiring, getters,
+schema echo, default values, copied constants, or mock calls. Do not add tests
+to raise coverage.

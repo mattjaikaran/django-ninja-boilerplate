@@ -198,34 +198,14 @@ item_service = ItemService()
 
 ## Testing Guidelines
 
-### Factory-Based Testing
+### What to test
 
-Use Factory Boy for test data:
+Write tests only for smoke, auth/permission/ownership boundaries, API contract, regressions for real bugs, and security-relevant pure logic (one table-driven test). Playwright journeys in the frontend verify features (see `docs/product/README.md`).
 
-```python
-import factory
-from core.tests.factories import UserFactory
-
-class ItemFactory(factory.django.DjangoModelFactory):
-    class Meta:
-        model = Item
-
-    name = factory.Faker('word')
-    user = factory.SubFactory(UserFactory)
-
-# In tests
-def test_create_item(db, api_client, user):
-    item = ItemFactory(user=user)
-    assert item.name is not None
-```
-
-### Test Best Practices
-
-- Use factories instead of fixtures
-- No mocking of database calls
-- Test actual database operations
-- Use `pytest.mark` for test categorization
-- Keep tests focused and atomic
+- No unit tests per function, no model tests, no tests that assert on mocks
+- No coverage target, no mutation testing
+- At most one new test file per change
+- No mocking of database calls; use Factory Boy where a test needs data
 
 ## Error Handling
 
