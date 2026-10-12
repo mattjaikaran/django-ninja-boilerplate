@@ -3,10 +3,10 @@
 Uses SQLite by default for fast local testing.
 Set TEST_DB=postgres to use PostgreSQL via the DB_* environment variables.
 CI is ignored on purpose: agent shells and runners set it for unrelated reasons.
-common.py reads the local .env before this module runs. The gauntlet TEST
-gates and the `just test*` recipes set DJANGO_READ_DOT_ENV=0 so results do not
-depend on it; `just test-integration` keeps reading it for the DB credentials
-that compose also takes from .env.
+common.py skips the local .env for these settings unless DJANGO_READ_DOT_ENV=1,
+so every pytest run (gauntlet, agents, IDEs) gives the same result on every
+machine. `just test-integration` sets DJANGO_READ_DOT_ENV=1 for the DB
+credentials that Compose also takes from .env.
 """
 
 import os

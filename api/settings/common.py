@@ -57,9 +57,15 @@ env = environ.Env(
     AWS_S3_REGION_NAME=(str, "us-east-1"),
 )
 
-# Read .env file unless DJANGO_READ_DOT_ENV=0 (test runs set it so results do
-# not depend on a developer's local .env).
-if os.environ.get("DJANGO_READ_DOT_ENV", "1") != "0":
+# Read .env unless DJANGO_READ_DOT_ENV=0. Test settings skip it by default, so
+# every pytest run (gates, agents, IDEs) gives the same result on every machine;
+# `just test-integration` sets DJANGO_READ_DOT_ENV=1 for the Compose DB password.
+_read_dot_env = os.environ.get("DJANGO_READ_DOT_ENV")
+if _read_dot_env is None:
+    _read_dot_env = (
+        "0" if os.environ.get("DJANGO_SETTINGS_MODULE") == "api.settings.test" else "1"
+    )
+if _read_dot_env != "0":
     environ.Env.read_env(os.path.join(BASE_DIR, ".env"))
 
 # Environment setting

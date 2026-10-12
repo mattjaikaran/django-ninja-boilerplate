@@ -812,16 +812,26 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Diagnose and repair the dev environment."
     )
-    parser.add_argument("--fix", action="store_true", help="run the safe fixes")
+    parser.add_argument(
+        "--check",
+        action="store_true",
+        help="diagnose only; run no fixes (the default with --json)",
+    )
+    parser.add_argument(
+        "--fix", action="store_true", help="run the safe fixes (the default)"
+    )
     parser.add_argument(
         "--yes",
         action="store_true",
-        help="with --fix: also run fixes that change the DB, worktrees or .env secrets",
+        help="also run fixes that change the DB, worktrees or .env secrets",
     )
     parser.add_argument("--json", action="store_true", help="print the checks as JSON")
     args = parser.parse_args(argv)
-    if args.yes and not args.fix:
-        parser.error("--yes needs --fix")
+    if args.check and (args.fix or args.yes):
+        parser.error("--check runs no fixes; drop --fix and --yes")
+    # Repair by default; agents asking for --json get a read-only report
+    # unless they pass --fix.
+    args.fix = args.fix or args.yes or not (args.check or args.json)
     if not args.json:
         print("Django Ninja Boilerplate doctor")
     diagnose()

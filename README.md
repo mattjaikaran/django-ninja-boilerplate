@@ -316,7 +316,7 @@ just legacy local-run
 
 ```bash
 just setup               # Ask for a task backend, then bootstrap the project
-just doctor              # Validate development environment
+just doctor              # Diagnose the environment and run the safe repairs (--check: read-only)
 just setup-env           # Create .env with generated secrets, or add missing ones
                          # Run it before any `docker compose` call: Compose refuses
                          # every profile while a required secret is unset.

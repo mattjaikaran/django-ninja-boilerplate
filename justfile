@@ -257,7 +257,7 @@ test-integration:
     valkey_port="$VALKEY_PORT"
     trap 'POSTGRES_PORT=$pg_port VALKEY_PORT=$valkey_port {{ compose }} --profile test down' EXIT
     POSTGRES_PORT=$pg_port VALKEY_PORT=$valkey_port {{ compose }} --profile test up -d --wait {{ db_service }} valkey
-    DB_HOST=127.0.0.1 DB_PORT=$pg_port TEST_DB=postgres {{ uv }} run {{ test_extras }} pytest
+    DJANGO_READ_DOT_ENV=1 DB_HOST=127.0.0.1 DB_PORT=$pg_port TEST_DB=postgres {{ uv }} run {{ test_extras }} pytest
 
 # `uv run --with` layers Django 6.0 over the project environment in uv's cache,
 # so .venv stays on the locked Django 5.2. Not a gate: DEPENDENCIES.md lists
@@ -319,8 +319,9 @@ seed:
 update-architecture:
     {{ dev }} exec {{ django_service }} {{ uv }} run python manage.py atlas
 
-# Diagnose the dev environment. --fix runs safe repairs; --yes also applies
-# migrations, removes merged agent worktrees and fills .env secrets; --json for agents
+# Diagnose the dev environment and run the safe repairs. --check only
+# diagnoses; --yes also migrates, removes merged agent worktrees and fills
+# .env secrets; --json prints a read-only report for agents
 doctor *args:
     ./scripts/doctor.sh {{ args }}
 
