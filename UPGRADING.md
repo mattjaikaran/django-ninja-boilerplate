@@ -6,31 +6,6 @@ what to do. Apply the sections in order, oldest first. `CHANGELOG.md` has the
 full list. To copy single modules instead of merging, see
 `docs/ADOPTING_UPDATES.md`.
 
-## 1.14.0 to 1.15.0
-
-### Your own code
-
-| Change | What to do |
-|---|---|
-| `CamelCaseSchema.model_dump()` returns camelCase keys, so writing it to the ORM drops or crashes on multi-word fields. The new `model_dump_fields()` returns field names. The CONVENTIONS gate (`CAMEL_DUMP_TO_ORM`) now fails on `f(**x.model_dump())`, a stored dump unpacked the same way, and `setattr` loops over a dump. | Replace each flagged ORM write with `payload.model_dump_fields(...)`. Keep `model_dump()` for responses and logs. |
-| The CONVENTIONS gate (`ROUTE_ORDER`) fails when a static path comes after a `/{id}` handler in the same controller. | Move the `/{id}` handlers after the static paths, or add `# route-ok: <reason>`. |
-| `@log_api_call(include_payload=True)` now masks `code`, `otp`, `pin`, `refresh`, session and cookie fields, at any depth and in any case. | Nothing, unless a log consumer reads those values. |
-| `api.settings.test` no longer reads `.env` unless `DJANGO_READ_DOT_ENV=1`, and selects Postgres only with `TEST_DB=postgres` (not `CI`). | Set test-only values in `api/settings/test.py` or the test command, not `.env`. Use `TEST_DB=postgres` where you used `CI=1`. |
-
-### Generators and tooling
-
-| Change | What to do |
-|---|---|
-| `generate_feature` lost `monitoring` and `cache` (they never worked), `subscription` (use `payments` or the `billing` app) and `file_storage` (use the `files` app), plus `--no-webhooks`. `redis` now defaults to the `cache_api` app name and generates a staff-only cache API. | Update scripts that call the removed choices. |
-| `dnm add-app` runs `generate_feature api_endpoint` (or `startapp_extended` with `--no-wire`); `--docstrings` is gone. | Run it from inside the project. |
-| `just doctor` now repairs by default (`uv sync`, hooks, `git worktree prune`, a missing `.env`, `just openapi`). | Use `just doctor --check` where you only want a report. |
-| The full gauntlet adds GENERATORS; quick mode runs it when generator code changes. Flower's host port is `FLOWER_PORT`. | Nothing. |
-
-### Verify
-
-1. `just doctor` reports no FAIL.
-2. `just gauntlet` passes.
-
 ## 1.13.0 to 1.14.0
 
 ### API changes for clients
@@ -47,16 +22,23 @@ full list. To copy single modules instead of merging, see
 | `CENTRIFUGO_API_KEY`, `CENTRIFUGO_TOKEN_SECRET` | `api.settings.prod` now refuses an empty value, as well as the published defaults. An empty token secret let anyone sign connection tokens. | Generate both with `python3 scripts/env_secrets.py fill`. |
 | `JOURNEYS_ENABLED` | New. The `/admin/journeys/` pages are on by default and off in `api.settings.prod`, because the production image excludes `docs/`. | Nothing, unless you want the pages in another environment. |
 
-### Your own controllers
+### Your own code
 
 Ninja binds a path pattern where it first appears, so any earlier handler on
-`/{id}` (any method) shadows a later static path such as `/search`. The smoke
-route sweep now fails on any status of `400` or higher on a parameterless GET
-(`403` is allowed for a regular user) and also runs as a staff user.
+`/{id}` (any method) shadows a later static path such as `/search`. The
+CONVENTIONS gate (`ROUTE_ORDER`) and the smoke route sweep now catch it: the
+sweep fails on any status of `400` or higher on a parameterless GET (`403` is
+allowed for a regular user) and also runs as a staff user.
 
-1. Run `just test tests/smoke/test_smoke.py`.
-2. For each route it lists, move every `/{id}` handler of that controller after
-   the static paths.
+1. Run `just check-conventions` and `just test tests/smoke/test_smoke.py`.
+2. For each route they list, move every `/{id}` handler of that controller
+   after the static paths, or add `# route-ok: <reason>`.
+
+| Change | What to do |
+|---|---|
+| `CamelCaseSchema.model_dump()` returns camelCase keys, so writing it to the ORM drops or crashes on multi-word fields. The new `model_dump_fields()` returns field names. The CONVENTIONS gate (`CAMEL_DUMP_TO_ORM`) now fails on `f(**x.model_dump())`, a stored dump unpacked the same way, and `setattr` loops over a dump. | Replace each flagged ORM write with `payload.model_dump_fields(...)`. Keep `model_dump()` for responses and logs. |
+| `@log_api_call(include_payload=True)` now masks `code`, `otp`, `pin`, `refresh`, session and cookie fields, at any depth and in any case. | Nothing, unless a log consumer reads those values. |
+| `api.settings.test` no longer reads `.env` unless `DJANGO_READ_DOT_ENV=1`, and selects Postgres only with `TEST_DB=postgres` (not `CI`). | Set test-only values in `api/settings/test.py` or the test command, not `.env`. Use `TEST_DB=postgres` where you used `CI=1`. |
 
 ### Code generators
 
@@ -87,11 +69,16 @@ A regenerated app has a different API from one generated before 1.14.0:
 | New gates: JOURNEYS (`just check-journeys`), TICKETS (`just tickets check`) and TEST-OPTIONAL (`just test-optional`). | Keep `docs/product/` and `docs/tickets/` valid, or remove the gates you do not use from `scripts/gauntlet.py`. |
 | `pyyaml` is a base dependency; the `unit` pytest marker is gone. | Run `uv sync`. Remove `@pytest.mark.unit`. |
 | The testing policy in `AGENTS.md` section 10 allows smoke, contract, permission and regression tests only. | Prune unit and mock tests with tickets, as `docs/tickets/PRUNE_PLAN.md` shows. |
+| `generate_feature` lost `monitoring` and `cache` (they never worked), `subscription` (use `payments` or the `billing` app) and `file_storage` (use the `files` app), plus `--no-webhooks`. `redis` now defaults to the `cache_api` app name and generates a staff-only cache API. | Update scripts that call the removed choices. |
+| `dnm add-app` runs `generate_feature api_endpoint` (or `startapp_extended` with `--no-wire`); `--docstrings` is gone. | Run it from inside the project. |
+| `just doctor` now repairs by default (`uv sync`, hooks, `git worktree prune`, a missing `.env`, `just openapi`). | Use `just doctor --check` where you only want a report. |
+| The full gauntlet adds GENERATORS; quick mode runs it when generator code changes. Flower's host port is `FLOWER_PORT`. | Nothing. |
 
 ### Verify
 
-1. `just gauntlet-quick` passes.
-2. With a production `.env`, `DJANGO_SETTINGS_MODULE=api.settings.prod python manage.py check` starts.
+1. `just doctor` reports no FAIL.
+2. `just gauntlet` passes.
+3. With a production `.env`, `DJANGO_SETTINGS_MODULE=api.settings.prod python manage.py check` starts.
 
 ## 1.12.0 to 1.13.0
 
