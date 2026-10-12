@@ -1,16 +1,60 @@
-# Feature Generation System
+# Feature generation
 
-This Django Ninja boilerplate now includes a powerful CLI system for generating feature modules with optional integrations. This allows you to quickly scaffold complete features with models, controllers, services, tests, and more.
-
-## Quick Start
-
-### Generate a Payments Feature with Stripe
+`manage.py generate_feature` creates a Django app for one feature and wires it
+into the project. Each generated app follows the conventions in `AGENTS.md`:
+`JWTAuth` controllers, services that hold every query, `CamelCaseSchema`
+schemas and one smoke and permission test file.
 
 ```bash
-uv run python manage.py generate_feature payments --provider stripe --platform-type b2c
+uv run python manage.py generate_feature <feature> [--app-name NAME] [options]
 ```
 
-This creates a complete payments app with:
+A generator does these steps:
+
+1. Creates the app with `startapp_extended` and replaces its CRUD scaffold.
+2. Adds the app to `INSTALLED_APPS` in `api/settings/common.py`.
+3. Registers its controllers in `api/urls.py`.
+4. Runs `makemigrations` for the app and then `migrate`. A failed `migrate`
+   only logs a warning, for example when the database is not running. The
+   `redis` and `graphql` features have no models and skip this step.
+
+The `payments`, `notification`, `chat`, `organization`, `analytics` and
+`api_endpoint` generators refuse an app name that already exists, so they
+never overwrite an app such as `billing` or `notifications`.
+
+## App names
+
+Without `--app-name`, the app name is the feature type: `generate_feature team`
+creates the `team` app. The `redis` feature defaults to `cache_api`.
+
+The command refuses an app name that shadows an installed Python module, for
+example `redis` or `graphql`, and tells you to pass `--app-name`. The
+`graphql` feature adds GraphQL to an existing app, so always pass
+`--app-name` for it.
+
+## Features
+
+| Feature | Default app | Routes |
+|---|---|---|
+| `payments` | `payments` | `/api/payments/` |
+| `redis` | `cache_api` | `/api/cache/health`, `/api/cache/keys/{key}` |
+| `rbac` | `rbac` | `/api/rbac/` |
+| `organization` | `organization` | `/api/organizations/`, `/api/invitations/` |
+| `team` | `team` | `/api/teams/` |
+| `notification` | `notification` | `/api/notifications/` |
+| `chat` | `chat` | `/api/conversations/`, `/api/messages/` |
+| `analytics` | `analytics` | `/api/analytics/events`, `/api/analytics/summary` |
+| `api_endpoint` | `api_endpoint` | `/api/<plural of the app name>/` |
+| `graphql` | none, pass `--app-name` | `/api/graphql/` |
+
+### Payments
+
+```bash
+uv run python manage.py generate_feature payments --provider stripe
+uv run python manage.py generate_feature payments --no-subscriptions
+```
+
+This creates:
 
 - Payment, PaymentMethod, PaymentIntent and StripeCustomer models, plus
   SubscriptionPlan and Subscription unless you pass `--no-subscriptions`
@@ -18,37 +62,36 @@ This creates a complete payments app with:
   `ImproperlyConfigured` when `STRIPE_SECRET_KEY` is empty
 - `PaymentController` at `/api/payments/` with `JWTAuth`
 - Admin interface
-- One smoke/permission test file (no model or unit tests). The tests do not
-  call Stripe: they cover the owner scoping, validation and auth boundary of
-  the Stripe routes
+- One smoke and permission test file. The tests do not call Stripe: they
+  cover the owner scoping, validation and auth boundary of the Stripe routes
 
-The payments and notification generators refuse an app name that already
-exists, so they never overwrite an app such as `billing` or `notifications`.
-
-### Generate Redis Cache Integration
+### Redis or Valkey cache
 
 ```bash
-uv run python manage.py generate_feature redis --minimal
+uv run python manage.py generate_feature redis
 ```
 
-This creates:
+This creates the `cache_api` app with a staff-only (`IsAdminUser`) cache API.
+It uses Django's cache framework, so it works with the `CACHES` backend that
+`api/settings` builds from `REDIS_URL` or `VALKEY_URL`. It adds no models,
+settings or dependencies.
 
-- Cache service with Redis backend
-- Session manager
-- Rate limiting functionality
-- Cache decorators
-- Management API
+- `GET /api/cache/health`: writes, reads and deletes a probe key and returns
+  the backend name and the round-trip time
+- `DELETE /api/cache/keys/{key}`: deletes one key, or returns 404 when the
+  key is not cached
+- Smoke and permission tests in `cache_api/tests/test_cache.py`
 
-### Generate RBAC (Role-Based Access Control)
+### RBAC (role-based access control)
 
 ```bash
-uv run python manage.py generate_feature rbac --platform-type b2b
+uv run python manage.py generate_feature rbac
 ```
 
 This creates:
 
 - Role and Permission models
-- User-Role assignments, global or on one object
+- User-role assignments, global or on one object
 - A `JWTAuth` controller at `/api/rbac/`. Role, permission and assignment
   routes need `IsAdminUser`; a regular user may call only
   `GET /api/rbac/me/permissions` for their own roles and permissions
@@ -56,170 +99,136 @@ This creates:
 - Admin interface for role management
 - Smoke and permission tests in `rbac/tests/test_rbac.py`
 
-## Available Features
-
-### Payments
-
-- **Provider Options**: `stripe`, `paypal`
-- **Platform Types**: `b2c`, `b2b`, `marketplace`, `saas`
-- **Optional Flags**: `--no-subscriptions`, `--no-webhooks`, `--minimal`
+### Organizations and teams
 
 ```bash
-# Full Stripe integration with subscriptions and webhooks
-uv run python manage.py generate_feature payments --provider stripe
-
-# Minimal payments without subscriptions
-uv run python manage.py generate_feature payments --provider stripe --no-subscriptions --minimal
-
-# B2B marketplace with PayPal
-uv run python manage.py generate_feature payments --provider paypal --platform-type marketplace
+uv run python manage.py generate_feature organization
+uv run python manage.py generate_feature organization --minimal
+uv run python manage.py generate_feature team
 ```
-
-### Redis Integration
-
-- Caching service
-- Session management
-- Rate limiting
-- Cache decorators
-
-```bash
-# Full Redis integration
-uv run python manage.py generate_feature redis
-
-# Minimal cache-only version
-uv run python manage.py generate_feature redis --minimal
-```
-
-### RBAC (Role-Based Access Control)
-
-- Staff-only role and permission management
-- Object-level permissions
-- User role assignments
-- Permission decorators
-
-```bash
-uv run python manage.py generate_feature rbac --platform-type b2b
-```
-
-### Organizations & Teams
 
 - Organizations at `/api/organizations/` and invitations at
   `/api/invitations/`: members see their organizations, owners and admins
-  manage them, and invited users accept or decline their own invitations
+  manage them, and invited users accept or decline their own invitations.
+  The generator adds `ORGANIZATION_INVITATION_EXPIRY_DAYS = 7` and
+  `ORGANIZATION_MAX_MEMBERS` to the settings: 1000, or 100 with `--minimal`
 - Teams at `/api/teams/`: members see their teams, team leads manage the
   team and its members
-- Member roles and permissions
+
+### Notifications
 
 ```bash
-# Organization management for B2B
-uv run python manage.py generate_feature organization --platform-type b2b
-
-# Team management
-uv run python manage.py generate_feature team --platform-type saas
+uv run python manage.py generate_feature notification
 ```
 
-### Other Features
+This creates notifications and notification preferences at
+`/api/notifications/`, scoped to the user: list, unread, count, mark one or
+all as read, delete, and read or update preferences.
 
-- `subscription` - Subscription management
-- `notification` - Notification system
-- `chat` - Messaging at `/api/conversations/` and `/api/messages/`, scoped to
-  the conversations the user takes part in
-- `file_storage` - File upload and storage
-- `analytics` - Event tracking and analytics
-- `graphql` - Strawberry GraphQL API setup
-
-## Platform Types
-
-### B2C (Business to Consumer)
-
-- Individual user accounts
-- Simple permission structure
-- Consumer-focused features
-
-### B2B (Business to Business)
-
-- Organization-based accounts
-- Complex permission hierarchies
-- Team collaboration features
-
-### Marketplace
-
-- Multi-vendor support
-- Vendor management
-- Commission tracking
-
-### SaaS (Software as a Service)
-
-- Tenant isolation
-- Subscription billing
-- Feature flags
-
-## Customization Options
-
-### Minimal Mode
-
-Use `--minimal` flag to generate a basic version without advanced features:
-
-- Fewer dependencies
-- Simpler models
-- Basic functionality only
-
-### Provider Selection
-
-Choose specific providers for external services:
-
-- **Payments**: Stripe, PayPal
-- **Storage**: AWS S3, Google Cloud, Local
-- **Email**: SendGrid, Mailgun, SMTP
-
-### Custom App Names
-
-Override the default app name:
+### Chat
 
 ```bash
-uv run python manage.py generate_feature payments --app-name pay
+uv run python manage.py generate_feature chat
+uv run python manage.py generate_feature chat --realtime
 ```
 
-## Generated Structure
+This creates messaging at `/api/conversations/` and `/api/messages/`, scoped
+to the conversations the user takes part in. It adds
+`CHAT_MESSAGE_MAX_LENGTH` and `CHAT_CONVERSATION_MAX_PARTICIPANTS` to the
+settings. `--realtime` also creates `ChatRealtimeService` in
+`<app>/services/realtime_service.py`, which publishes chat events to
+Centrifugo (see `docs/REALTIME.md`).
 
-Each feature generates a complete Django app with:
+### Analytics
 
-```
-feature_name/
-├── models/           # Database models
-├── schemas/          # API schemas (Pydantic)
-├── controllers/      # API endpoints (Django Ninja)
-├── services/         # Business logic
-├── admin/           # Django admin configuration
-├── tests/           # One smoke/permission test file
-├── management/      # Django management commands
-│   └── commands/
-├── migrations/      # Database migrations
-└── README.md        # Feature documentation
+```bash
+uv run python manage.py generate_feature analytics
 ```
 
-## Integration Features
+This creates product event tracking. It adds no settings or dependencies.
 
-### Automatic Settings Updates
+- An `Event` model: the user, an event name such as `report.exported`, and a
+  `properties` object of up to 50 scalar values
+- `POST /api/analytics/events`: records an event for the user. Names are
+  lowercase letters, digits and `_.:-`
+- `GET /api/analytics/events?name=`: the user's newest 100 events
+- `GET /api/analytics/summary?days=30`: staff only (`IsAdminUser`). Event
+  counts per name across all users over the last 1 to 365 days
+- Smoke, ownership and permission tests in `analytics/tests/test_analytics.py`
 
-- Adds new apps to `INSTALLED_APPS`
-- Updates database settings
-- Configures cache backends
-- Sets up external service credentials
+### API endpoint
 
-### Dependency Management
+```bash
+uv run python manage.py generate_feature api_endpoint --app-name widgets
+```
 
-- Updates `pyproject.toml` with required packages
-- Handles version compatibility
-- Optional dependencies based on features
+This creates an owner-scoped CRUD resource from the `startapp_extended`
+templates: a `Widget` model, schemas, service and a `JWTAuth` controller at
+`/api/widgets/`.
 
-### URL Configuration
+### GraphQL (Strawberry)
 
-- Automatically registers API controllers
-- Updates main `urls.py`
-- Configures API routing
+```bash
+# Add GraphQL to the core app
+uv run python manage.py generate_feature graphql --app-name=core
 
-## Email Service Integration
+# Add GraphQL to another existing app
+uv run python manage.py generate_feature graphql --app-name=todos
+```
+
+This creates:
+
+- `app/graphql/` - GraphQL package with schema, queries, mutations, types,
+  permission classes and a user service that scopes every query to the viewer
+- `app/tests/test_graphql.py` - Smoke and permission tests for `/api/graphql/`
+- `core/graphql_view.py` - JWT-authenticated GraphQL view (always in `core`)
+- Automatic URL configuration for the `/api/graphql/` endpoint
+
+Install the dependencies first with `uv sync --extra graphql`. See the main
+[README.md](README.md#graphql-optional) for usage examples.
+
+## Options
+
+| Option | Applies to | Effect |
+|---|---|---|
+| `--app-name NAME` | every feature | Name of the app to create or extend |
+| `--provider stripe` | `payments` | The payments provider. Only `stripe` exists |
+| `--platform-type` | `payments`, `rbac`, `organization`, `team` | Shown in the generator log only. It does not change the generated code |
+| `--no-subscriptions` | `payments` | Skip the SubscriptionPlan and Subscription models |
+| `--minimal` | `organization` | Set `ORGANIZATION_MAX_MEMBERS` to 100 instead of 1000 |
+| `--realtime` | `chat` | Add `ChatRealtimeService` for Centrifugo |
+
+Other generators accept `--minimal` and `--platform-type` but ignore them.
+
+## Removed features
+
+- `subscription`: it created only the generic `startapp_extended` scaffold.
+  Use `generate_feature payments`, which creates SubscriptionPlan and
+  Subscription, or the existing `billing` app.
+- `file_storage`: it created only the generic scaffold. Use the existing
+  `files` app: set `FILES_ENABLED=true` for owner-scoped local and S3
+  uploads.
+- `monitoring` and `cache`: these choices had no generator. Use `redis` for
+  the cache API.
+
+## Verify the generators
+
+```bash
+just check-generators
+uv run python scripts/check_generators.py --only analytics,redis
+```
+
+The GENERATORS gate runs every generator in a throwaway worktree, then runs
+`manage.py check`, a pending-migrations check, ruff and the generated tests.
+Your working tree does not change.
+
+After you generate a feature in your tree, run its test file, then
+`just openapi` to update `docs/openapi/openapi.json`. Add each new anonymous
+route to `PUBLIC_OPERATIONS` in `core/tests/test_route_auth.py` only after
+you review it. Verify the feature itself with a Playwright journey in the
+frontend (see `docs/product/README.md`).
+
+## Email service integration
 
 The boilerplate now includes a comprehensive email service:
 
@@ -251,100 +260,3 @@ default_email_service.send_templated_email(
 - Context variables
 - Subject line templates
 - Responsive design
-
-## Examples
-
-### Complete E-commerce Setup
-
-```bash
-# Generate payments with Stripe
-uv run python manage.py generate_feature payments --provider stripe --platform-type marketplace
-
-# Add organization management
-uv run python manage.py generate_feature organization --platform-type marketplace
-
-# Add RBAC for vendor permissions
-uv run python manage.py generate_feature rbac --platform-type marketplace
-
-# Add Redis for caching and sessions
-uv run python manage.py generate_feature redis
-```
-
-### SaaS Application Setup
-
-```bash
-# Generate subscription management
-uv run python manage.py generate_feature subscription --provider stripe --platform-type saas
-
-# Add team management
-uv run python manage.py generate_feature team --platform-type saas
-
-# Add notification system
-uv run python manage.py generate_feature notification
-
-# Add analytics tracking
-uv run python manage.py generate_feature analytics
-```
-
-### Simple API Setup
-
-```bash
-# Basic Redis caching
-uv run python manage.py generate_feature redis --minimal
-
-# Simple RBAC
-uv run python manage.py generate_feature rbac --minimal
-
-# File storage
-uv run python manage.py generate_feature file_storage --provider local --minimal
-```
-
-## Best Practices
-
-1. **Start with Core Features**: Begin with authentication, then add payments, caching, etc.
-2. **Choose the Right Platform Type**: This affects the complexity and features generated
-3. **Use Minimal Mode for Prototyping**: Add full features later as needed
-4. **Test Generated Code**: Run the generated smoke/permission test file. Verify the feature itself with a Playwright journey in the frontend (see `docs/product/README.md`)
-5. **Customize as Needed**: The generated code is a starting point, modify to fit your needs
-
-## Troubleshooting
-
-### Common Issues
-
-1. **Import Errors**: Make sure to run migrations after generating features
-2. **Missing Dependencies**: Check that all required packages are installed
-3. **URL Conflicts**: Ensure no duplicate URL patterns
-4. **Settings Conflicts**: Review settings updates for any conflicts
-
-### Getting Help
-
-1. Check the generated README.md files in each feature
-2. Run the test suite to identify issues
-3. Review the Django logs for errors
-4. Check the admin interface for model registration
-
-### GraphQL (Strawberry)
-
-Generate a complete GraphQL setup with Strawberry for any Django app:
-
-```bash
-# Generate GraphQL for the core app
-uv run python manage.py generate_feature graphql --app-name=core
-
-# Generate for a custom app
-uv run python manage.py generate_feature graphql --app-name=todos
-```
-
-This creates:
-- `app/graphql/` - GraphQL package with schema, queries, mutations, types,
-  permission classes and a user service that scopes every query to the viewer
-- `app/tests/test_graphql.py` - Smoke and permission tests for `/api/graphql/`
-- `core/graphql_view.py` - JWT-authenticated GraphQL view (always in `core`)
-- Automatic URL configuration for the `/api/graphql/` endpoint
-
-See the main [README.md](README.md#graphql-optional) for usage examples.
-
-## Future Enhancements
-
-- Machine learning model integration
-- Docker configuration generation

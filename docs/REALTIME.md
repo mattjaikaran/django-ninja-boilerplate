@@ -223,7 +223,7 @@ centrifugo_client.disconnect("user-id")
 
 ### Generated App Services
 
-When using the code generators with `--realtime`, the generated apps include Centrifugo service classes:
+The chat generator adds a Centrifugo service class when you pass `--realtime`:
 
 ```bash
 # Generate a chat app with real-time support

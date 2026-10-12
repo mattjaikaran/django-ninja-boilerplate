@@ -28,6 +28,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Security:** `@log_api_call(include_payload=True)` logged multi-word secrets in plain text. Schemas dump by their camelCase alias (`newPassword`, `refreshToken`, `apiKey`), and the scrubber only knew snake_case names, so `POST /api/auth/otp/password-reset/confirm` wrote the new password to the logs. Keys are now compared after normalizing case, `_` and `-`, at every depth.
 - `generate_feature redis` left a pending scaffold migration, produced 62 ruff errors, and generated tests that failed on `valkey://` URLs because they built their own redis client. It now generates a staff-only cache health and key-delete API on Django's cache framework (whatever `REDIS_URL` or `VALKEY_URL` configures), with four smoke and permission tests. It no longer adds `redis`, `django-redis`, `hiredis` or `django-rq`, or overwrites `CACHES`. The GENERATORS gate found this.
 - `FeatureFlagAdminController`: `POST /bulk/toggle` came after `PATCH /{flag_id}/toggle`, so it resolved to the PATCH route. It is now declared first.
+- `generate_feature redis` failed with its default app name, which shadows the `redis` package. It now defaults to `cache_api`, and any app name that shadows an installed module fails with a message naming `--app-name`. `generate_feature analytics` is rebuilt to the same standard as the others (owner-scoped events, staff-only summary, passing tests) and now runs in the GENERATORS gate. `docs/REALTIME.md` documented `generate_feature chat --realtime`, which did not exist; the flag now does.
+
+### Removed
+- `generate_feature` choices `monitoring` and `cache` (their generator modules never existed, so they always failed), `subscription` (the payments generator and the `billing` app cover it) and `file_storage` (the `files` app covers it), plus the `--no-webhooks` flag, which nothing read, and the `--provider` values only those generators used.
 
 ## [1.14.0] - 2026-10-12
 

@@ -1,280 +1,145 @@
-"""Management command to generate feature modules with optional integrations."""
+"""Management command to generate feature modules."""
 
+import importlib
+import importlib.util
+from pathlib import Path
 from typing import Any
 
 from django.core.management.base import BaseCommand, CommandError
 
+from .generators.base_generator import BaseGenerator
+
+# Feature type -> (module in .generators, generator class).
+GENERATORS = {
+    "payments": ("payments_generator", "PaymentsGenerator"),
+    "redis": ("redis_generator", "RedisGenerator"),
+    "rbac": ("rbac_generator", "RBACGenerator"),
+    "organization": ("organization_generator", "OrganizationGenerator"),
+    "team": ("team_generator", "TeamGenerator"),
+    "notification": ("notification_generator", "NotificationGenerator"),
+    "chat": ("chat_generator", "ChatGenerator"),
+    "analytics": ("analytics_generator", "AnalyticsGenerator"),
+    "api_endpoint": ("api_endpoint_generator", "ApiEndpointGenerator"),
+    "graphql": ("graphql_generator", "GraphQLGenerator"),
+}
+# Features whose generator takes a platform type.
+PLATFORM_FEATURES = {"payments", "rbac", "organization", "team"}
+
+# Default app names for features whose own name is an installed module.
+# Without --app-name the app name is the feature type.
+DEFAULT_APP_NAMES = {"redis": "cache_api"}
+
+
+def shadowed_module(app_name: str, project_root: Path) -> str | None:
+    """Return where ``app_name`` imports from when it is not the project's app.
+
+    An app named after an importable module, such as ``redis`` or
+    ``graphql``, would shadow that module. Return None when nothing is
+    importable under the name or when the name resolves to
+    ``project_root/app_name``, an app that already exists in the project.
+    """
+    if not app_name.isidentifier():
+        return None
+    spec = importlib.util.find_spec(app_name)
+    if spec is None:
+        return None
+    app_dir = (project_root / app_name).resolve()
+    locations = list(spec.submodule_search_locations or [])
+    if any(Path(location).resolve() == app_dir for location in locations):
+        return None
+    return spec.origin or ", ".join(locations)
+
 
 class Command(BaseCommand):
-    """Generate feature modules with optional integrations like payments, Redis, etc."""
+    """Generate a feature app, such as payments, RBAC or a cache API."""
 
-    help = "Generate feature modules with optional integrations"
+    help = "Generate a feature app and register it in the project"
 
     def add_arguments(self, parser: Any) -> None:
         """Add command arguments."""
         parser.add_argument(
             "feature_type",
-            choices=[
-                "payments",
-                "redis",
-                "rbac",
-                "organization",
-                "team",
-                "subscription",
-                "notification",
-                "chat",
-                "file_storage",
-                "analytics",
-                "api_endpoint",
-                "monitoring",
-                "cache",
-                "graphql",
-            ],
+            choices=list(GENERATORS),
             help="Type of feature to generate",
         )
         parser.add_argument(
             "--app-name",
             type=str,
-            help="Name of the Django app to create (defaults to feature type)",
+            help=(
+                "Name of the Django app to create. Defaults to the feature "
+                "type; redis defaults to cache_api"
+            ),
         )
         parser.add_argument(
             "--provider",
             type=str,
-            choices=["stripe", "paypal", "aws", "gcp", "local"],
-            help="Provider for the feature (e.g., stripe for payments)",
+            choices=["stripe"],
+            help="Payments provider. Only stripe is supported",
         )
         parser.add_argument(
             "--platform-type",
             type=str,
             choices=["b2c", "b2b", "marketplace", "saas"],
             default="b2c",
-            help="Platform type to optimize for",
+            help="Platform type, shown in the generator log",
         )
         parser.add_argument(
             "--no-subscriptions",
             action="store_true",
-            help="Skip subscription functionality for payments",
-        )
-        parser.add_argument(
-            "--no-webhooks",
-            action="store_true",
-            help="Skip webhook functionality",
+            help="Payments: skip the subscription models",
         )
         parser.add_argument(
             "--minimal",
             action="store_true",
-            help="Generate minimal version without advanced features",
+            help="Organization: set ORGANIZATION_MAX_MEMBERS to 100, not 1000",
+        )
+        parser.add_argument(
+            "--realtime",
+            action="store_true",
+            help="Chat: add a Centrifugo ChatRealtimeService",
         )
 
     def handle(self, *args: Any, **options: Any) -> None:
         """Handle the command execution."""
         feature_type = options["feature_type"]
-        app_name = options.get("app_name") or feature_type
-        provider = options.get("provider")
-        platform_type = options["platform_type"]
+        app_name = options.get("app_name") or DEFAULT_APP_NAMES.get(
+            feature_type, feature_type
+        )
+        origin = shadowed_module(app_name, Path.cwd())
+        if origin:
+            msg = (
+                f"App name '{app_name}' shadows the installed module "
+                f"'{app_name}' ({origin}). Pass another name with --app-name."
+            )
+            raise CommandError(msg)
 
         self.stdout.write(self.style.SUCCESS(f"Generating {feature_type} feature..."))
-
         try:
-            if feature_type == "payments":
-                self._generate_payments_feature(
-                    app_name, provider, platform_type, options
-                )
-            elif feature_type == "redis":
-                self._generate_redis_feature(app_name, options)
-            elif feature_type == "rbac":
-                self._generate_rbac_feature(app_name, platform_type, options)
-            elif feature_type == "organization":
-                self._generate_organization_feature(app_name, platform_type, options)
-            elif feature_type == "team":
-                self._generate_team_feature(app_name, platform_type, options)
-            elif feature_type == "subscription":
-                self._generate_subscription_feature(app_name, provider, options)
-            elif feature_type == "notification":
-                self._generate_notification_feature(app_name, options)
-            elif feature_type == "chat":
-                self._generate_chat_feature(app_name, options)
-            elif feature_type == "file_storage":
-                self._generate_file_storage_feature(app_name, provider, options)
-            elif feature_type == "analytics":
-                self._generate_analytics_feature(app_name, options)
-            elif feature_type == "api_endpoint":
-                self._generate_api_endpoint_feature(app_name, options)
-            elif feature_type == "monitoring":
-                self._generate_monitoring_feature(app_name, options)
-            elif feature_type == "cache":
-                self._generate_cache_feature(app_name, options)
-            elif feature_type == "graphql":
-                self._generate_graphql_feature(app_name, options)
-            else:
-                raise CommandError(f"Unsupported feature type: {feature_type}")
-
-            self.stdout.write(
-                self.style.SUCCESS(
-                    f"Successfully generated {feature_type} feature in '{app_name}' app"
-                )
-            )
-
+            self._generator(feature_type, app_name, options).generate()
         except Exception as e:
-            raise CommandError(f"Failed to generate {feature_type} feature: {e}")
-
-    def _generate_payments_feature(
-        self, app_name: str, provider: str | None, platform_type: str, options: dict
-    ) -> None:
-        """Generate payments feature with Stripe integration."""
-        from .generators.payments_generator import PaymentsGenerator
-
-        generator = PaymentsGenerator(
-            app_name=app_name,
-            provider=provider or "stripe",
-            platform_type=platform_type,
-            include_subscriptions=not options.get("no_subscriptions", False),
-            include_webhooks=not options.get("no_webhooks", False),
-            minimal=options.get("minimal", False),
+            msg = f"Failed to generate {feature_type} feature: {e}"
+            raise CommandError(msg) from e
+        self.stdout.write(
+            self.style.SUCCESS(
+                f"Successfully generated {feature_type} feature in '{app_name}' app"
+            )
         )
-        generator.generate()
 
-    def _generate_redis_feature(self, app_name: str, options: dict) -> None:
-        """Generate Redis integration feature."""
-        from .generators.redis_generator import RedisGenerator
-
-        generator = RedisGenerator(
-            app_name=app_name,
-            minimal=options.get("minimal", False),
-        )
-        generator.generate()
-
-    def _generate_rbac_feature(
-        self, app_name: str, platform_type: str, options: dict
-    ) -> None:
-        """Generate RBAC (Role-Based Access Control) feature."""
-        from .generators.rbac_generator import RBACGenerator
-
-        generator = RBACGenerator(
-            app_name=app_name,
-            platform_type=platform_type,
-            minimal=options.get("minimal", False),
-        )
-        generator.generate()
-
-    def _generate_organization_feature(
-        self, app_name: str, platform_type: str, options: dict
-    ) -> None:
-        """Generate organization/company management feature."""
-        from .generators.organization_generator import OrganizationGenerator
-
-        generator = OrganizationGenerator(
-            app_name=app_name,
-            platform_type=platform_type,
-            minimal=options.get("minimal", False),
-        )
-        generator.generate()
-
-    def _generate_team_feature(
-        self, app_name: str, platform_type: str, options: dict
-    ) -> None:
-        """Generate team management feature."""
-        from .generators.team_generator import TeamGenerator
-
-        generator = TeamGenerator(
-            app_name=app_name,
-            platform_type=platform_type,
-            minimal=options.get("minimal", False),
-        )
-        generator.generate()
-
-    def _generate_subscription_feature(
-        self, app_name: str, provider: str | None, options: dict
-    ) -> None:
-        """Generate subscription management feature."""
-        from .generators.subscription_generator import SubscriptionGenerator
-
-        generator = SubscriptionGenerator(
-            app_name=app_name,
-            provider=provider or "stripe",
-            minimal=options.get("minimal", False),
-        )
-        generator.generate()
-
-    def _generate_notification_feature(self, app_name: str, options: dict) -> None:
-        """Generate notification system feature."""
-        from .generators.notification_generator import NotificationGenerator
-
-        generator = NotificationGenerator(
-            app_name=app_name,
-            minimal=options.get("minimal", False),
-        )
-        generator.generate()
-
-    def _generate_chat_feature(self, app_name: str, options: dict) -> None:
-        """Generate chat/messaging feature."""
-        from .generators.chat_generator import ChatGenerator
-
-        generator = ChatGenerator(
-            app_name=app_name,
-            minimal=options.get("minimal", False),
-        )
-        generator.generate()
-
-    def _generate_file_storage_feature(
-        self, app_name: str, provider: str | None, options: dict
-    ) -> None:
-        """Generate file storage feature."""
-        from .generators.file_storage_generator import FileStorageGenerator
-
-        generator = FileStorageGenerator(
-            app_name=app_name,
-            provider=provider or "local",
-            minimal=options.get("minimal", False),
-        )
-        generator.generate()
-
-    def _generate_analytics_feature(self, app_name: str, options: dict) -> None:
-        """Generate analytics tracking feature."""
-        from .generators.analytics_generator import AnalyticsGenerator
-
-        generator = AnalyticsGenerator(
-            app_name=app_name,
-            minimal=options.get("minimal", False),
-        )
-        generator.generate()
-
-    def _generate_api_endpoint_feature(self, app_name: str, options: dict) -> None:
-        """Generate API endpoint feature with full CRUD operations."""
-        from .generators.api_endpoint_generator import ApiEndpointGenerator
-
-        generator = ApiEndpointGenerator(
-            app_name=app_name,
-            minimal=options.get("minimal", False),
-        )
-        generator.generate()
-
-    def _generate_monitoring_feature(self, app_name: str, options: dict) -> None:
-        """Generate monitoring and metrics feature."""
-        from .generators.monitoring_generator import MonitoringGenerator
-
-        generator = MonitoringGenerator(
-            app_name=app_name,
-            minimal=options.get("minimal", False),
-        )
-        generator.generate()
-
-    def _generate_cache_feature(self, app_name: str, options: dict) -> None:
-        """Generate advanced caching feature."""
-        from .generators.cache_generator import CacheGenerator
-
-        generator = CacheGenerator(
-            app_name=app_name,
-            minimal=options.get("minimal", False),
-        )
-        generator.generate()
-
-    def _generate_graphql_feature(self, app_name: str, options: dict) -> None:
-        """Generate GraphQL/Strawberry feature."""
-        from .generators.graphql_generator import GraphQLGenerator
-
-        generator = GraphQLGenerator(
-            app_name=app_name,
-            minimal=options.get("minimal", False),
-        )
-        generator.generate()
+    def _generator(
+        self, feature_type: str, app_name: str, options: dict[str, Any]
+    ) -> BaseGenerator:
+        """Return the generator for ``feature_type`` with its options."""
+        module_name, class_name = GENERATORS[feature_type]
+        module = importlib.import_module(f".generators.{module_name}", __package__)
+        kwargs: dict[str, Any] = {"app_name": app_name}
+        if feature_type != "analytics":
+            kwargs["minimal"] = options["minimal"]
+        if feature_type in PLATFORM_FEATURES:
+            kwargs["platform_type"] = options["platform_type"]
+        if feature_type == "payments":
+            kwargs["provider"] = options["provider"] or "stripe"
+            kwargs["include_subscriptions"] = not options["no_subscriptions"]
+        if feature_type == "chat":
+            kwargs["realtime"] = options["realtime"]
+        generator: BaseGenerator = getattr(module, class_name)(**kwargs)
+        return generator

@@ -63,14 +63,16 @@ GENERATORS: tuple[Generator, ...] = (
         ("generate_feature", "notification", "--app-name", "notifs"),
         "notifs",
     ),
-    Generator("chat", ("generate_feature", "chat"), "chat"),
+    Generator("chat", ("generate_feature", "chat", "--realtime"), "chat"),
     Generator(
         "organization",
         ("generate_feature", "organization", "--app-name", "orgs"),
         "orgs",
     ),
     Generator("graphql", ("generate_feature", "graphql", "--app-name", "core"), "core"),
-    Generator("redis", ("generate_feature", "redis", "--app-name", "rcache"), "rcache"),
+    # No --app-name: proves the default app name does not shadow redis.
+    Generator("redis", ("generate_feature", "redis"), "cache_api"),
+    Generator("analytics", ("generate_feature", "analytics"), "analytics"),
     Generator(
         "startapp_extended", ("startapp_extended", "gadget"), "gadget", wired=False
     ),

@@ -604,7 +604,7 @@ just legacy generate-feature FEATURE=organization
 just legacy generate-feature FEATURE=notification
 ```
 
-Available features: `payments`, `rbac`, `organization`, `team`, `subscription`, `notification`, `chat`, `file_storage`, `analytics`, `redis`, `graphql`
+Available features: `payments`, `redis`, `rbac`, `organization`, `team`, `notification`, `chat`, `analytics`, `api_endpoint`, `graphql`
 
 See [FEATURE_GENERATION.md](FEATURE_GENERATION.md) for details.
 
