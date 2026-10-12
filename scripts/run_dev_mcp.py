@@ -192,6 +192,17 @@ def register_project_tools(server: FastMCP) -> None:
         server.tool(fn, annotations=READ_ONLY)
 
 
+def build_server(token: str) -> FastMCP:
+    """Build the server: django-ai-boost tools plus the project tools."""
+    from django_ai_boost.server_fastmcp import create_auth_provider, register_tools
+    from fastmcp import FastMCP
+
+    server = FastMCP("Django AI Boost Server", auth=create_auth_provider(token))
+    register_tools(server)
+    register_project_tools(server)
+    return server
+
+
 def main() -> None:
     """Parse arguments, apply the guards, and serve SSE."""
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
@@ -201,14 +212,10 @@ def main() -> None:
 
     token = check_environment()
 
-    from django_ai_boost.server_fastmcp import create_auth_provider, register_tools
-    from fastmcp import FastMCP
     from starlette.middleware import Middleware
     from starlette.middleware.trustedhost import TrustedHostMiddleware
 
-    server = FastMCP("Django AI Boost Server", auth=create_auth_provider(token))
-    register_tools(server)
-    register_project_tools(server)
+    server = build_server(token)
     server.run(
         transport="sse",
         host=args.host,

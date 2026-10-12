@@ -9,8 +9,9 @@ Usage:
 
 The script bumps the version in pyproject.toml, api/settings/common.py
 (APP_VERSION default), the justfile banner, and the VERSION file; retitles
-the CHANGELOG [Unreleased] section to the new version and inserts the new
-compare link; syncs uv.lock; then commits and tags vX.Y.Z. It pushes only
+the CHANGELOG [Unreleased] section to the new version under a fresh, empty
+[Unreleased] heading, and inserts the new compare link; syncs uv.lock; then
+commits and tags vX.Y.Z. It pushes only
 with --push. Unknown arguments exit with an error before any file or git
 change.
 """
@@ -137,12 +138,15 @@ def main(argv: list[str] | None = None) -> None:
             adopt_path.write_text(adopt)
         run(["uv", "lock"])
 
-    # CHANGELOG: retitle Unreleased, refresh the HEAD link, and insert the
-    # new version's compare link above the previous version's (which stays).
+    # CHANGELOG: retitle Unreleased (keeping a fresh empty one on top), refresh
+    # the HEAD link, and insert the new version's compare link above the
+    # previous version's (which stays).
     changelog_path = ROOT / "CHANGELOG.md"
     changelog = changelog_path.read_text()
     today = datetime.now(UTC).date().isoformat()
-    changelog = changelog.replace("## [Unreleased]", f"## [{version}] - {today}", 1)
+    changelog = changelog.replace(
+        "## [Unreleased]", f"## [Unreleased]\n\n## [{version}] - {today}", 1
+    )
     changelog = re.sub(
         r"^\[Unreleased\]: .*$",
         f"[Unreleased]: https://github.com/{REPO}/compare/v{version}...HEAD",

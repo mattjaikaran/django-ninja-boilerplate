@@ -176,13 +176,14 @@ pre-commit-install:
 # Create .env with generated secrets, or generate the unset ones in an
 # existing .env. Run it before the first `docker compose` call: Compose
 # refuses to start any profile while a required secret is unset.
-setup-env:
+# Preview the key names it would change: just setup-env --dry-run
+setup-env *args:
     #!/usr/bin/env bash
     set -euo pipefail
     if [ -f .env ]; then
-        python3 scripts/env_secrets.py fill
+        python3 scripts/env_secrets.py fill {{ args }}
     else
-        python3 scripts/env_secrets.py create
+        python3 scripts/env_secrets.py create {{ args }}
     fi
 
 # Format code (alias for `fmt`)

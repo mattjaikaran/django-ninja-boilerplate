@@ -51,7 +51,10 @@ def test_release_tags_locally_without_push(repo):
     assert ["git", "tag", "v1.12.0"] in calls
     assert not any(cmd[:2] == ["git", "push"] for cmd in calls)
     assert (root / "VERSION").read_text() == "1.12.0\n"
-    assert "## [1.12.0] - " in (root / "CHANGELOG.md").read_text()
+    changelog = (root / "CHANGELOG.md").read_text()
+    # Regression (1.14.0): the release must leave a fresh, empty [Unreleased]
+    # section above the new version so the next entries have a home.
+    assert changelog.startswith("## [Unreleased]\n\n## [1.12.0] - ")
 
 
 def test_push_flag_pushes_after_tag(repo):
