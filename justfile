@@ -421,6 +421,11 @@ sync-frontend path *args:
 tickets *args:
     {{ uv }} run python scripts/tickets.py {{ args }}
 
+# One worker-loop iteration: claim, agent, verify (one retry), PR or draft PR.
+# Needs WORKER_AGENT_CMD. Preview with: just worker-once --dry-run
+worker-once *args:
+    {{ uv }} run python scripts/worker_once.py {{ args }}
+
 # Compare or copy portable modules into another backend: just adopt status --target ../my-api
 adopt *args:
     {{ uv }} run python scripts/adopt.py {{ args }}

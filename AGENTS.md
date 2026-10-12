@@ -362,8 +362,11 @@ skill.
   TICKETS gate) blocks tickets that would collide.
 - Each ticket lists the files it owns. A worker never edits outside them.
 
-Machines, the overnight loop, the bot account and the merge-conflict
-playbook: `docs/AGENT_HANDOFF.md`. Skills: `ticket-planner`, `ticket-worker`.
+One worker-loop iteration is `just worker-once` (preview with `--dry-run`):
+claim, run `$WORKER_AGENT_CMD` in a worktree, verify with one retry, then a
+PR or a draft `needs-planner` PR. Machines, the bot account and the
+merge-conflict playbook: `docs/AGENT_HANDOFF.md`. Skills: `ticket-planner`,
+`ticket-worker`.
 
 This file evolves with the codebase. After a scaffold, the first planner
 session fills `docs/product/` and the first tickets. After each rejected PR,

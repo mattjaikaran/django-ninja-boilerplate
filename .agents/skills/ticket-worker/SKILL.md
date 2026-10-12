@@ -30,7 +30,9 @@ not design. You do not explore.
 
 ## Loop
 
-Run from the main checkout of the repo. Do the steps in order. Skip none.
+`just worker-once` automates this loop end to end; follow these steps when
+you run a ticket by hand. Run from the main checkout of the repo. Do the
+steps in order. Skip none.
 
 1. Update: `git fetch origin main && git merge --ff-only origin/main`
 2. Find work: `uv run python scripts/tickets.py next --tier small`. Take the

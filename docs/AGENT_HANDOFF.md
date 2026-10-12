@@ -98,34 +98,54 @@ git -C ~/src/<repo> worktree remove ~/worktrees/<repo>/T-001
 
 ## Overnight loop
 
-The worker runs this loop until `next` lists no tickets. Run it from a main
-checkout of the repo (`~/src/<repo>` here).
+`scripts/worker_once.py` runs one iteration of the loop. Run it from a main
+checkout of the repo (`~/src/<repo>` here). It:
 
-1. `git fetch origin main && git merge --ff-only origin/main`
-2. `uv run python scripts/tickets.py next --tier small`. Take the first ID. If
-   the list is empty, stop.
-3. `uv run python scripts/tickets.py claim T-NNN`. If it says "taken", go to
-   step 2.
-4. `git worktree add ~/worktrees/<repo>/T-NNN <branch>`, then work in that
-   directory.
-5. Follow the ticket's `## Change` steps. Edit only files in `owns`.
-6. Run every command under `## Verify` and compare with the expected output.
-   Then run `just gauntlet-quick`.
-7. Set `status: done` in the ticket file.
-8. Commit with a Conventional Commits message, for example
-   `test(core): prune mock-only centrifugo tests`. Reference the ticket ID in
-   the body.
-9. `git push origin <branch>`
-10. Open the PR as the bot user:
+1. Fast-forwards the main checkout to `origin/main`, then takes the first
+   claimable `tier: small` ticket, or the one you pass with
+   `--ticket T-NNN`.
+2. Claims it with the atomic push from `scripts/tickets.py`.
+3. Creates the worktree `${WORKER_WORKTREES:-~/worktrees/<repo>}/T-NNN` on
+   the ticket branch.
+4. Runs the worker agent in the worktree with a prompt that points to the
+   ticket and the `ticket-worker` skill. The agent commits but does not
+   push. Output goes to `/tmp/T-NNN-agent.log`.
+5. Runs each fenced block under the ticket's `## Verify` and
+   `just gauntlet-quick`. Output goes to `/tmp/verify.log` (reset each run)
+   with `exit=` markers. On the first failure, it runs the agent once more
+   with the redacted log and "fix only what fails, within owns", then runs
+   Verify again.
+6. On success, checks that the diff since the merge base stays within
+   `owns` and the ticket file, commits leftover changes, pushes, and opens
+   a PR.
+7. On an agent error, a second Verify failure, or an `owns` violation,
+   follows the stop rules below: it restores the ticket file from
+   `origin/main`, writes a redacted `/tmp/T-NNN-failure.md`, and opens a
+   draft PR labeled `needs-planner`.
 
-    ```bash
-    gh pr create --base main --head <branch> \
-      --title "T-NNN <ticket title>" \
-      --body "Ticket: docs/tickets/T-NNN-slug.md" \
-      --reviewer <maintainer>
-    ```
+Set these variables on the worker machine:
 
-11. Go to step 1.
+|Variable|Default|Purpose|
+|---|---|---|
+|`WORKER_AGENT_CMD`|none (required)|Agent command, for example `claude -p`, `omp -p`, or `opencode run`. The script appends the prompt.|
+|`WORKER_TIMEOUT`|`3600`|Agent timeout in seconds.|
+|`WORKER_WORKTREES`|`~/worktrees/<repo>`|Parent directory for worktrees.|
+|`WORKER_REVIEWER`|unset|Passed as `--reviewer`. Omitted when unset.|
+
+Preview the plan first. `--dry-run` prints every command and changes
+nothing:
+
+```bash
+uv run python scripts/worker_once.py --dry-run
+```
+
+Exit codes: `0` PR opened or dry run, `1` stopped with a draft PR, `2`
+nothing to do or setup error. To drain the queue, for example in a Herdr
+pane, loop until exit `2`:
+
+```bash
+while uv run python scripts/worker_once.py || [ $? -eq 1 ]; do :; done
+```
 
 ### Stop rules
 
