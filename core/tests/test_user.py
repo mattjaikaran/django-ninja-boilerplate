@@ -57,6 +57,23 @@ class TestUserAPI:
         user.refresh_from_db()
         assert user.username == update_data["username"]
 
+    def test_update_user_persists_multi_word_fields(
+        self, api_client, user, auth_headers
+    ):
+        """A camelCase body updates multi-word model fields such as first_name."""
+        response = api_client.put(
+            f"/api/users/{user.id}",
+            {"firstName": "Ada", "lastName": "Lovelace", "emailNotifications": False},
+            content_type="application/json",
+            **auth_headers,
+        )
+        assert response.status_code == 200
+        user.refresh_from_db()
+        assert user.first_name == "Ada"
+        assert user.last_name == "Lovelace"
+        assert user.email_notifications is False
+        assert response.json()["firstName"] == "Ada"
+
     def test_delete_user(self, api_client, user, auth_headers):
         response = api_client.delete(f"/api/users/{user.id}", **auth_headers)
         assert response.status_code == 204

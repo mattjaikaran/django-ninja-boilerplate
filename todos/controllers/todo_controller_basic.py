@@ -94,7 +94,7 @@ class TodoControllerBasic:
         Returns:
             Tuple of (201, todo) for the created instance.
         """
-        todo_data = payload.model_dump()
+        todo_data = payload.model_dump_fields()
         todo_data["user"] = request.user
         todo = Todo.objects.create(**todo_data)
         logger.info("Created todo '%s' (id=%s)", todo.title, todo.id)
@@ -194,7 +194,7 @@ class TodoControllerBasic:
         """
         todo = get_object_or_404(Todo, id=todo_id, user=request.user)
 
-        for attr, value in payload.model_dump(exclude_unset=True).items():
+        for attr, value in payload.model_dump_fields(exclude_unset=True).items():
             setattr(todo, attr, value)
         todo.save()
 

@@ -105,7 +105,7 @@ class AnalyticsService:
 
     def track(self, user: Any, payload: TrackEventSchema) -> Event:
         """Record one event for the user."""
-        return Event.objects.create(user=user, **payload.model_dump())
+        return Event.objects.create(user=user, **payload.model_dump_fields())
 
     def list_for_user(self, user: Any, name: str | None = None) -> QuerySet[Event]:
         """Return the user's newest events, optionally for one event name."""

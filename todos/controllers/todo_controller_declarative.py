@@ -104,7 +104,7 @@ class TodoControllerDeclarative:
                 "message": "Title is required and cannot be blank",
             }
 
-        todo_data = payload.model_dump()
+        todo_data = payload.model_dump_fields()
         todo_data["user"] = request.user
         todo = Todo.objects.create(**todo_data)
 
@@ -227,7 +227,7 @@ class TodoControllerDeclarative:
                 "message": f"Todo with id '{todo_id}' does not exist",
             }
 
-        for attr, value in payload.model_dump(exclude_unset=True).items():
+        for attr, value in payload.model_dump_fields(exclude_unset=True).items():
             setattr(todo, attr, value)
         todo.save()
 

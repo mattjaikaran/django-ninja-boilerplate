@@ -49,7 +49,7 @@ def create_todo(self, request, payload: CreateTodoSchema):
     try:
         if not payload.title or not payload.title.strip():
             return 400, {"error": "Validation error", "message": "Title is required"}
-        todo_data = payload.model_dump()
+        todo_data = payload.model_dump_fields()
         todo_data["user"] = request.user
         todo = Todo.objects.create(**todo_data)
         logger.info("Created todo '%s' (id=%s)", todo.title, todo.id)
@@ -68,7 +68,7 @@ Uses `get_object_or_404` for 404 handling. Other exceptions propagate to Django 
 ```python
 @http_post("/", response={201: TodoSchema})
 def create_todo(self, request, payload: CreateTodoSchema):
-    todo_data = payload.model_dump()
+    todo_data = payload.model_dump_fields()
     todo_data["user"] = request.user
     todo = Todo.objects.create(**todo_data)
     logger.info("Created todo '%s' (id=%s)", todo.title, todo.id)
@@ -97,7 +97,7 @@ def get_todo(self, request, todo_id: str):
 @http_post("/", response={201: TodoSchema, 400: dict, 500: dict})
 @log_api_call(include_payload=True, include_response=False)
 def create_todo(self, request, payload: CreateTodoSchema):
-    todo_data = payload.model_dump()
+    todo_data = payload.model_dump_fields()
     todo_data["user"] = request.user
     return 201, Todo.objects.create(**todo_data)
 ```

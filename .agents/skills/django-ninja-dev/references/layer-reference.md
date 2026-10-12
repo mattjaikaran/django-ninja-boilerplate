@@ -91,14 +91,15 @@ Know these before you use the base methods:
 
 `CamelCaseSchema.model_dump()` always serializes by alias. It ignores
 `by_alias=False`, and `.dict()` behaves the same. The keys are camelCase
-(`firstName`), so do not pass the result to the ORM or to `setattr` for
-multi-word fields. Use field names instead:
+(`firstName`): use it for responses and logs only. For data that goes to the
+ORM, to `setattr` or to a service dict, call `model_dump_fields()`. It takes
+the same arguments (except `by_alias`) and returns field names (`first_name`):
 
 ```python
-data = {name: getattr(payload, name) for name in payload.model_fields_set}
+Item.objects.create(user=user, **payload.model_dump_fields())
+for key, value in payload.model_dump_fields(exclude_unset=True).items():
+    setattr(item, key, value)
 ```
-
-`dict(payload)` also gives field names, with unset fields included.
 
 Base schemas in the same module:
 
@@ -126,7 +127,8 @@ Base schemas in the same module:
   are not masked. Do not set `include_payload=True` on a schema with a
   multi-word secret field.
 - `validate_request(validators=None)` runs each validator on the payload and
-  returns 400 when one fails. A validator returns
+  returns 400 when one fails. A validator receives the payload as a dict with
+  field names (`model_dump_fields()`) and returns
   `api.utils.validation.ValidationResult`.
 - Rate limits: `@throttle(DynamicRateThrottle, scope="...")` from
   `ninja_extra.throttling`, or `throttle=` on `@api_controller`. Scopes and

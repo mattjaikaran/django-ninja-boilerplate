@@ -10,6 +10,8 @@ import logging
 import time
 from collections.abc import Callable
 
+from core.schemas.base_schema import CamelCaseSchema
+
 from .utils.validation import ValidationResult, create_error_response
 
 logger = logging.getLogger(__name__)
@@ -178,13 +180,17 @@ def validate_request(validators: list[Callable] | None = None):
             if payload and validators:
                 validation_result = ValidationResult()
 
+                # Validators see field names (snake_case), like the ORM does.
+                if isinstance(payload, CamelCaseSchema):
+                    data = payload.model_dump_fields()
+                elif hasattr(payload, "model_dump"):
+                    data = payload.model_dump()
+                else:
+                    data = payload
+
                 # Run custom validators
                 for validator in validators:
-                    result = validator(
-                        payload.model_dump()
-                        if hasattr(payload, "model_dump")
-                        else payload
-                    )
+                    result = validator(data)
                     if not result.is_valid:
                         validation_result.is_valid = False
                         validation_result.errors.extend(result.errors)

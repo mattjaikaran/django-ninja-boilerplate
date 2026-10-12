@@ -201,7 +201,7 @@ class UserController:
         # Staff may not modify superusers: only superusers may create them.
         if user.is_superuser and not request.user.is_superuser:
             return 403, {"detail": "Only a superuser can modify a superuser."}
-        for attr, value in payload.model_dump(exclude_unset=True).items():
+        for attr, value in payload.model_dump_fields(exclude_unset=True).items():
             setattr(user, attr, value)
         user.save()
         return 200, UserSchema.model_validate(user)

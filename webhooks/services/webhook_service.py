@@ -34,7 +34,7 @@ class WebhookService:
         _check_url(data.url)
         webhook = Webhook.objects.create(
             created_by=user,
-            **data.model_dump(),
+            **data.model_dump_fields(),
         )
         logger.info("Created webhook: %s (id=%s)", webhook.name, webhook.id)
         return webhook
@@ -43,7 +43,7 @@ class WebhookService:
         self, webhook_id: str, user: Any, data: UpdateWebhookSchema
     ) -> Webhook:
         webhook = self.get_webhook(webhook_id, user)
-        changes = data.model_dump(exclude_unset=True)
+        changes = data.model_dump_fields(exclude_unset=True)
         if changes.get("url") is not None:
             _check_url(changes["url"])
         for attr, value in changes.items():

@@ -88,7 +88,9 @@ Do not delegate the top-level plan.
   `ninja.Schema`, `ModelSchema`, or a redeclared `from_attributes = True`).
   One `<app>/schemas/<name>_schema.py` per domain (no `schemas/request.py` or
   `schemas/response.py`): `{Name}Schema`, `Create{Name}Schema`,
-  `Update{Name}Schema` (all optional). UUIDs are `str`.
+  `Update{Name}Schema` (all optional). UUIDs are `str`. `model_dump()`
+  returns camelCase keys for responses and logs; pass ORM writes
+  `model_dump_fields()` (snake_case field names).
 - Use `Field(...)`, `Literal` or an `Enum` over a hidden `@field_validator`.
   Frontend Zod schemas come from `docs/openapi/openapi.json`: after a schema
   or route change, run `just openapi` and commit the file.
@@ -146,7 +148,7 @@ Every change passes these gates before merge.
 | 2 | LINT | `ruff check` | Bugs, anti-patterns, dead code |
 | 3 | TYPECHECK | `mypy` | Type errors, missing annotations |
 | 4 | SECURITY | `bandit` | SQLi, XSS, hardcoded secrets |
-| 5 | CONVENTIONS | `scripts/check_conventions.py` | DRF, raw `Schema`, decorator order, unscoped queries, redeclared fields, `Any`/bare `dict` fields without `# schema-ok:` |
+| 5 | CONVENTIONS | `scripts/check_conventions.py` | DRF, raw `Schema`, decorator order, unscoped queries, redeclared fields, `Any`/bare `dict` fields without `# schema-ok:`, static paths after `/{id}` (`ROUTE_ORDER`), camelCase dumps written to the ORM (`CAMEL_DUMP_TO_ORM`) |
 | 6 | DEPENDENCIES | `scripts/check_dependencies.py` | `pyproject.toml` change without a `DEPENDENCIES.md` entry |
 | 7 | DRIFT | `scripts/check_version_drift.py` | Python/uv/Postgres/Valkey/hook versions differ across `pyproject.toml`, `uv.lock`, Dockerfiles, Compose, `.pre-commit-config.yaml` |
 | 8 | ARCHITECTURE | `scripts/check_architecture.py` | Layer violations, cross-app coupling |

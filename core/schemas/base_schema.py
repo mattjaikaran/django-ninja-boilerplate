@@ -31,6 +31,13 @@ class CamelCaseSchema(Schema):
         - ``populate_by_name=True``: input accepts both ``firstName`` and ``first_name``
         - ``model_dump`` overridden to always serialise by alias (camelCase),
           which is required because Django Ninja passes ``by_alias=False`` by default.
+        - ``model_dump_fields`` returns snake_case field names for ORM writes.
+
+    Which dump to use:
+        - ``model_dump()``: camelCase keys. Use it for responses and logs.
+        - ``model_dump_fields()``: field names. Use it for data that goes to
+          the ORM or to Python code (``Model.objects.create(**...)``,
+          ``setattr`` loops, ``QuerySet.update(**...)``, service dicts).
 
     Usage::
 
@@ -57,6 +64,19 @@ class CamelCaseSchema(Schema):
         """
         kwargs["by_alias"] = True
         return super().model_dump(**kwargs)
+
+    def model_dump_fields(self, **kwargs: Any) -> dict[str, Any]:
+        """Serialise with field names (snake_case) for ORM-bound data.
+
+        ``model_dump()`` returns camelCase keys such as ``firstName``. Passing
+        those to ``setattr`` silently sets an attribute the model does not
+        save, and ``Model.objects.create(**...)`` raises ``TypeError``. Use
+        this method whenever the keys must match model field names.
+
+        Accepts the same keyword arguments as ``model_dump()`` except
+        ``by_alias``.
+        """
+        return super().model_dump(by_alias=False, **kwargs)
 
 
 # =============================================================================

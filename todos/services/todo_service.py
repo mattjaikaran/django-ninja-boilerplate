@@ -121,7 +121,7 @@ class TodoService:
         Returns:
             The newly created Todo instance.
         """
-        todo_data = payload.model_dump()
+        todo_data = payload.model_dump_fields()
         todo_data["user"] = user
         todo = Todo.objects.create(**todo_data)
         logger.info("Created todo: %s (id=%s)", todo.title, todo.id)
@@ -142,7 +142,7 @@ class TodoService:
             Http404: If the todo does not exist or belongs to another user.
         """
         todo = self.get_todo(todo_id, user)
-        for attr, value in payload.model_dump(exclude_unset=True).items():
+        for attr, value in payload.model_dump_fields(exclude_unset=True).items():
             setattr(todo, attr, value)
         todo.save()
         logger.info("Updated todo: %s (id=%s)", todo.title, todo.id)

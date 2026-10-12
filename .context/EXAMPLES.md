@@ -68,9 +68,9 @@ class UpdateNoteSchema(CamelCaseSchema):
     pinned: bool | None = None
 ```
 
-`CamelCaseSchema.model_dump()` always returns camelCase keys. Passing its
-output to the model works only for one-word field names. For a field such as
-`due_date`, build the dict from `dict(payload)`, which has snake_case keys.
+`CamelCaseSchema.model_dump()` returns camelCase keys (`dueDate`); use it for
+responses and logs. For data that goes to the model, call
+`model_dump_fields()`, which returns field names (`due_date`).
 
 ### Service: `notes/services/note_service.py`
 
@@ -101,13 +101,15 @@ class NoteService(CRUDService[Note]):
         return get_object_or_404(self.get_queryset(), id=note_id, user=user)
 
     def create_for_user(self, payload: CreateNoteSchema, user: Any) -> Note:
-        return self.create({**payload.model_dump(), "user": user}, user=user)
+        return self.create({**payload.model_dump_fields(), "user": user}, user=user)
 
     def update_for_user(
         self, note_id: UUID, payload: UpdateNoteSchema, user: Any
     ) -> Note:
         note = self.get_for_user(note_id, user)
-        return self.update(note.pk, payload.model_dump(exclude_unset=True), user=user)
+        return self.update(
+            note.pk, payload.model_dump_fields(exclude_unset=True), user=user
+        )
 
     def delete_for_user(self, note_id: UUID, user: Any) -> None:
         self.delete(self.get_for_user(note_id, user).pk, user=user)  # soft delete

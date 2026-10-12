@@ -173,7 +173,7 @@ class FeatureFlagAdminController:
     @log_api_call(include_payload=True)
     def update_flag(self, request, flag_id: UUID, payload: FeatureFlagUpdateSchema):
         """Update a feature flag."""
-        update_data = payload.model_dump(exclude_unset=True)
+        update_data = payload.model_dump_fields(exclude_unset=True)
 
         # Convert enum to string if present
         if update_data.get("flag_type"):

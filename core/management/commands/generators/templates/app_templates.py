@@ -105,12 +105,12 @@ class {model_name}Service:
 
 {create_def}
         """Create an item owned by the user."""
-        return {model_name}.objects.create(user=user, **payload.model_dump())
+        return {model_name}.objects.create(user=user, **payload.model_dump_fields())
 
 {update_def}
         """Apply the set fields of the payload to an item owned by the user."""
         item = self.get_for_user(item_id, user)
-        for key, value in payload.model_dump(exclude_unset=True).items():
+        for key, value in payload.model_dump_fields(exclude_unset=True).items():
             setattr(item, key, value)
         item.save()
         return item
