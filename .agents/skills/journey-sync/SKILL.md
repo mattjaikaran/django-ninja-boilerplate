@@ -1,11 +1,13 @@
 ---
 name: journey-sync
 description: >
-  Use when you add or change a product feature, a user journey, or a
-  Playwright e2e test, or when the JOURNEYS gate fails. Keeps
-  docs/product/FEATURES.md, docs/product/journeys/*.md, and the @J-NNN test
-  tags in sync. Use when the user mentions "journey", "feature list",
-  "user story", "Playwright tag", "check off a feature", or "JOURNEYS gate".
+  Keeps docs/product/FEATURES.md, the journey specs in
+  docs/product/journeys/, and the @J-NNN Playwright tags in the frontend repo
+  in sync, and fixes JOURNEYS gate errors from scripts/check_journeys.py. Use
+  when you add, rename or remove a feature, a journey or a journey step,
+  change an API route that a journey step calls, add or retag a Playwright
+  journey test, check off a feature, mark a journey done, or record a known
+  issue.
 ---
 
 # Journey sync
@@ -18,13 +20,32 @@ same files through `journeys/services/spec_service.py`.
 The full format and every rule code live in `docs/product/README.md`. Read it
 before your first edit.
 
-## When to use this skill
+## This repo is backend-only
 
-- You add, rename, or remove a product feature.
-- You add or change a journey or a journey step.
-- You add, retag, or delete a Playwright test in the frontend.
-- A tagged test fails and you cannot fix it in this change.
-- The JOURNEYS gate reports an error.
+- This repo has no frontend and no Playwright tests. The Playwright journey
+  tests live in the frontend repo, built from the maintainer's React
+  boilerplates.
+- In this repo, you edit `docs/product/FEATURES.md`, the journey files, and
+  `docs/tickets/`. You change a Playwright test in the frontend repo.
+- The gate reads the tests from `JOURNEYS_E2E_DIR` (default
+  `../frontend/e2e`) and the results from `JOURNEYS_E2E_REPORT` (default
+  `../frontend/test-results/journeys.json`). When it prints
+  `e2e dir ... (missing)`, point these variables at the frontend checkout.
+- When a backend change alters a route, status code, or response that a
+  journey step calls, update the journey's `## Context` here and change the
+  journey test in the frontend repo.
+
+## Playwright tag rule
+
+Write one test per journey, tagged `@J-NNN`. Wrap each step in
+`test.step('J-NNN-S<n>: ...')`. Do not write a test per step.
+
+```ts
+test('visitor signs up and signs in', { tag: '@J-001' }, async ({ page }) => {
+  await test.step('J-001-S1: create an account', async () => { /* ... */ });
+  await test.step('J-001-S2: sign in', async () => { /* ... */ });
+});
+```
 
 ## Sync checklist
 
@@ -33,12 +54,10 @@ before your first edit.
 2. **Journey.** File `journeys/J-NNN-slug.md`. The file name prefix equals
    `id`. Write real routes and screens in the prose. Keep
    `status: building` until every step is verified.
-3. **Test.** Write one Playwright test per journey, tagged `@J-NNN`. Wrap
-   each step in `test.step('J-NNN-S<n>: ...')`. Do not write a test per
-   step. Remove step titles of deleted steps, or the gate reports
-   `orphan_tag`.
-4. **Step rename or removal.** Update test tags, `known_issues`, and tickets
-   that name the step in the same change.
+3. **Test.** Follow the tag rule above. Remove the step titles of deleted
+   steps, or the gate reports `orphan_tag`.
+4. **Step rename or removal.** Update test step titles, `known_issues`, and
+   tickets that name the step in the same change.
 5. **Failure you cannot fix now.** Create `docs/tickets/T-NNN-slug.md`, then
    add `known_issues: [{step: S<n>, ticket: T-NNN, note: ...}]` to the
    journey. Remove the entry when the test passes.
@@ -46,9 +65,9 @@ before your first edit.
    it is `verified`. Set a journey `done` only when every step is
    `verified`, no `@J-NNN` test fails, and `known_issues` is empty. Code
    that exists is not evidence.
-7. **Verify.** Run the Playwright suite with the JSON reporter, then the
-   gate. Fix every error. Gaps are allowed on `draft` and `building`
-   journeys.
+7. **Verify.** In the frontend repo, run the Playwright suite with the JSON
+   reporter. Then run the gate here. Fix every error. Gaps are allowed on
+   `draft` and `building` journeys.
 
 ## Commands
 

@@ -1,11 +1,12 @@
 ---
 name: ticket-worker
 description: >
-  Use when you are a worker model executing a tier small ticket from
-  docs/tickets/: claim it, change only the files it owns, run its Verify
-  commands, and open a PR. Gives the strict loop and the stop rules. Use when
-  the user mentions "work the queue", "next ticket", "claim", "T-NNN",
-  "overnight loop", or "worker".
+  Executes one tier small ticket from docs/tickets/ as a worker model: update
+  main, claim with scripts/tickets.py, change only the files in owns, run
+  Verify and the quick gauntlet, open a PR, or stop with a redacted draft PR.
+  Use when asked to work the queue, take the next ticket, claim or run a
+  T-NNN ticket, or run the overnight loop. To write or split tickets, use
+  ticket-planner instead.
 ---
 
 # Ticket worker
@@ -13,49 +14,29 @@ description: >
 You execute one small ticket at a time. You follow the ticket exactly. You do
 not design. You do not explore.
 
-## When to use this skill
-
-- You were asked to work the ticket queue
-- You were given a ticket ID such as T-001
-
 ## Rules
 
 - Take only `tier: small` tickets.
-- Read only the ticket file and the files in its `owns` list.
+- Read only the ticket file, the files in its `owns` list, and this skill.
 - Never edit a file outside `owns`. The one exception: set `status: done` in
   your own ticket file.
 - Never push to `main`. Never merge.
 - Never hand-edit `docs/openapi/openapi.json`, migrations, or `uv.lock`.
 - Never add a dependency.
 - Never print secrets: no `env`, `printenv`, `cat .env`, or `gh auth token`.
+- Never put raw command output in a PR. Pass it through
+  `scripts/redact_log.py` first.
 - If you are unsure, stop. Do not guess.
 
 ## Loop
 
-Run from the main checkout of the repo.
+Run from the main checkout of the repo. Do the steps in order. Skip none.
 
-1. Update:
-
-   ```bash
-   git fetch origin main && git merge --ff-only origin/main
-   ```
-
-2. Find work:
-
-   ```bash
-   uv run python scripts/tickets.py next --tier small
-   ```
-
-   Take the first ID. If the list is empty, stop the loop.
-
-3. Claim it:
-
-   ```bash
-   uv run python scripts/tickets.py claim T-NNN
-   ```
-
-   If it says "taken", go to step 2.
-
+1. Update: `git fetch origin main && git merge --ff-only origin/main`
+2. Find work: `uv run python scripts/tickets.py next --tier small`. Take the
+   first ID. If the list is empty, stop the loop.
+3. Claim it: `uv run python scripts/tickets.py claim T-NNN`. If it says
+   "taken", go to step 2.
 4. Make a worktree for the branch and work there:
 
    ```bash
@@ -63,24 +44,33 @@ Run from the main checkout of the repo.
    cd ~/worktrees/<repo>/T-NNN
    ```
 
-5. Read `docs/tickets/T-NNN-*.md`. Do each step in `## Change`, in order.
-6. Run every command in `## Verify`. Compare with the expected output.
-7. Run `just gauntlet-quick`.
-8. In the ticket file, change `status: ready` to `status: done`.
-9. Check that you changed only allowed files:
+5. Start a fresh log: `: > /tmp/verify.log`
+6. Read `docs/tickets/T-NNN-*.md`. Do each step in `## Change`, in order.
+7. Run each command in `## Verify` like this, so its output and exit code
+   go to the log:
 
    ```bash
-   git status --short
+   { <command>; echo "exit=$?"; } 2>&1 | tee -a /tmp/verify.log
    ```
 
-10. Commit with a Conventional Commits message. Put the ticket ID in the body.
+   Compare the output with the expected output in the ticket.
+8. Run the gauntlet the same way. `exit=0` means it passed.
+
+   ```bash
+   { just gauntlet-quick; echo "exit=$?"; } 2>&1 | tee -a /tmp/verify.log
+   ```
+
+9. In the ticket file, change `status: ready` to `status: done`.
+10. Run `git status --short`. Every path must be in `owns` or be your ticket
+    file. If not, follow the stop rules.
+11. Commit with a Conventional Commits message. Put the ticket ID in the body:
 
     ```bash
     git add -A
     git commit -m "fix(todos): return 404 for another user's todo" -m "Ticket: T-NNN"
     ```
 
-11. Push and open the PR:
+12. Push and open the PR:
 
     ```bash
     git push origin <branch>
@@ -90,7 +80,7 @@ Run from the main checkout of the repo.
       --reviewer <maintainer>
     ```
 
-12. Go to step 1.
+13. Go to step 1.
 
 ## Stop rules
 
@@ -104,10 +94,17 @@ Stop the ticket when any of these happen:
 When you stop:
 
 1. Do not set `status: done`. Do not guess a fix.
-2. Write the failure log to `/tmp/T-NNN-failure.md`, outside the repo: the
-   command, the last 50 lines of its output, and one line on what blocked
-   you. Delete any token, password, cookie, or database URL from it first.
-3. Commit what you have, push, and open a draft PR:
+2. Write the failure log, redacted, outside the repo. Name the command that
+   failed, or the file or decision that blocked you:
+
+   ```bash
+   tail -n 50 /tmp/verify.log | uv run python scripts/redact_log.py > /tmp/T-NNN-failure.md
+   echo "Blocked: <one line: what blocked you and why>" >> /tmp/T-NNN-failure.md
+   ```
+
+3. Read `/tmp/T-NNN-failure.md` once. If a token, password, cookie, or
+   database URL is still there, delete it.
+4. Commit what you have, push, and open a draft PR:
 
    ```bash
    gh pr create --draft --label needs-planner --base main --head <branch> \
@@ -115,17 +112,10 @@ When you stop:
      --reviewer <maintainer>
    ```
 
-4. Go to step 1 with the next ticket. Do not retry the stopped one.
+5. Go to step 1 with the next ticket. Do not retry the stopped one.
 
 ## Rebase conflicts
 
-1. `git fetch origin main && git rebase origin/main`
-2. Generated files: take `main`'s version, then regenerate.
-   - `docs/openapi/openapi.json`: `just openapi`
-   - migrations: delete your new migration, then `just makemigrations`
-   - `uv.lock`: `uv lock`
-3. `CHANGELOG.md`: keep both entries under `## [Unreleased]`.
-4. Any other file outside `owns`: `git rebase --abort`, then follow the stop
-   rules.
-5. Run Verify and `just gauntlet-quick` again, then
-   `git push --force-with-lease origin <branch>`.
+When `main` moved under your branch (the PR shows a conflict, or the
+maintainer asks you to rebase), follow
+[references/rebase-conflicts.md](references/rebase-conflicts.md).

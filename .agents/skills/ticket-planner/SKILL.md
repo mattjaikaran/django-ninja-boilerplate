@@ -1,33 +1,61 @@
 ---
 name: ticket-planner
 description: >
-  Use when writing, scoping, splitting or reviewing tickets in docs/tickets/
-  for worker models, or preparing a handoff queue before the planner runs out
-  of limits. Covers tier small rules, owns and shared paths, collision checks
-  with scripts/tickets.py check, and links to journeys and features. Use when
-  the user mentions "ticket", "T-NNN", "handoff", "queue", "worker model",
-  "small model", or "tickets.py".
+  Turns a feature, journey step, bug, spec or large ticket into tier small
+  tickets in docs/tickets/ that a worker model can finish with no design
+  decisions: clarifies open decisions with the human, splits the work into
+  vertical slices, writes owns and Verify blocks, and passes
+  scripts/tickets.py check. Use when you plan, write, split, scope or fix a
+  ticket, fill the queue before a handoff, or answer a needs-planner draft PR,
+  even when the user only says "break this down" or "plan the work".
 ---
 
 # Ticket planner
 
 You are the planner. You write tickets that a small local model can finish
-with no exploration and no design decisions.
+with no exploration and no design decisions. The worker reads only the ticket
+and the files in `owns`, so the ticket must hold every fact and decision.
 
-## When to use this skill
-
-- Turning a feature, journey step or bug into tickets
-- Splitting a large ticket into small ones
-- Filling the queue before a handoff
-- Reviewing a worker PR that was rejected or stopped
-
-## Read first
+Read first:
 
 - `docs/tickets/README.md`: format, lifecycle, collision rules, hot files.
 - `docs/tickets/TEMPLATE.md`: copy it for every new ticket.
 - `docs/AGENT_HANDOFF.md`: roles, the overnight loop, stop rules.
 
+## Pre-flight
+
+Do these steps before you write a ticket file.
+
+1. **Find the facts.** Read the journey, the feature, the code, and the open
+   tickets (`uv run python scripts/tickets.py next --tier small`). Do not ask
+   the human for anything the repo can tell you.
+2. **Clarify the decisions.** List each open decision: behavior, status codes,
+   permissions, data shape, scope edges. Ask the human in one numbered round.
+   Give your recommended answer with each question, and word it so "yes"
+   accepts the recommendation:
+
+   ```text
+   Q1. Another user's todo: return 404, as get_todo does? (Recommended: yes)
+   Q2. Completing a completed todo: return 200 and change nothing? (Recommended: yes)
+   ```
+
+   Ask a second round only for questions that the answers opened. Stop when
+   no decision is open. Do not write a ticket on a guess.
+3. **Slice.** Split the work into vertical slices, then order them. Follow
+   [references/slicing.md](references/slicing.md).
+4. **Size.** Hold each slice against the tier small checklist below. Split
+   again when a line fails.
+5. **Confirm.** Show the human the numbered slice list: title, `depends_on`,
+   and the behavior each delivers. Merge or split until they agree.
+
+When the human is away, write `ready` tickets only for slices with no open
+decision. Write the others with `status: blocked` and put the open question in
+`## Context`.
+
 ## Write a ticket
+
+[references/example-ticket.md](references/example-ticket.md) is a complete
+tier small ticket. Match its shape.
 
 1. Pick the next free number. Copy `docs/tickets/TEMPLATE.md` to
    `docs/tickets/T-NNN-short-slug.md`.
@@ -35,7 +63,7 @@ with no exploration and no design decisions.
    must match.
 3. Link the product spec. Put `J-NNN` in `journeys` and `F-NNN` in
    `features`. In `## Context`, name the journey file and step, for example
-   `docs/product/journeys/J-001-sign-up.md` step S2.
+   `docs/product/journeys/J-001-sign-up-and-sign-in.md` step S2.
 4. List every path the PR may change in `owns`. Use exact files. Use a
    directory or glob only when the files do not exist yet.
 5. List hot files in `shared` and in `owns`: `api/urls.py`,
@@ -64,6 +92,8 @@ Mark a ticket `tier: small` only when every line holds. Otherwise use
 - Verify commands with expected output.
 - No new dependency.
 - No migration, unless the ticket says so and owns `<app>/migrations/`.
+- Tests follow the testing policy in `AGENTS.md`: only for a bug fix, a
+  changed public contract, or a boundary rule; at most one new test file.
 
 ## Avoid collisions
 
