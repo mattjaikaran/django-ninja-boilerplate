@@ -29,6 +29,24 @@ class TestAuthAPI:
             path, json.dumps(payload), content_type="application/json", **extra
         )
 
+    def test_password_reset_confirm_never_logs_the_new_password(
+        self, api_client, user, caplog
+    ):
+        """Regression: camelCase keys (newPassword) slipped past the scrubber."""
+        secret = "Brand-New-Passw0rd!"
+        with caplog.at_level("INFO", logger="api.decorators"):
+            self._post(
+                api_client,
+                "/api/auth/otp/password-reset/confirm",
+                {"email": user.email, "code": "000000", "newPassword": secret},
+            )
+
+        payloads = [r.payload for r in caplog.records if hasattr(r, "payload")]
+        assert payloads == [
+            {"email": user.email, "code": "000000", "newPassword": "***"}
+        ]
+        assert secret not in caplog.text
+
     def test_signup_answer_does_not_reveal_existing_accounts(
         self, api_client, user, mailoutbox
     ):

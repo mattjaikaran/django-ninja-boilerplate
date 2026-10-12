@@ -24,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Generator templates**: the shared template modules are split per generator (`app_templates` for `startapp_extended` and `api_endpoint`, `rbac_templates`, `payments_templates`; the chat realtime template moved into `chat_templates`). Parallel agents can now own one generator's files each. The unused notification and organization realtime templates are gone. Generated output is byte-identical.
 
 ### Fixed
+- **Security:** `@log_api_call(include_payload=True)` logged multi-word secrets in plain text. Schemas dump by their camelCase alias (`newPassword`, `refreshToken`, `apiKey`), and the scrubber only knew snake_case names, so `POST /api/auth/otp/password-reset/confirm` wrote the new password to the logs. Keys are now compared after normalizing case, `_` and `-`, at every depth.
 - `generate_feature redis` left a pending scaffold migration, produced 62 ruff errors, and generated tests that failed on `valkey://` URLs because they built their own redis client. It now generates a staff-only cache health and key-delete API on Django's cache framework (whatever `REDIS_URL` or `VALKEY_URL` configures), with four smoke and permission tests. It no longer adds `redis`, `django-redis`, `hiredis` or `django-rq`, or overwrites `CACHES`. The GENERATORS gate found this.
 - `FeatureFlagAdminController`: `POST /bulk/toggle` came after `PATCH /{flag_id}/toggle`, so it resolved to the PATCH route. It is now declared first.
 

@@ -40,8 +40,28 @@ SENSITIVE_FIELDS = frozenset(
 )
 
 
-def _scrub(data: dict) -> dict:
-    return {k: "***" if k.lower() in SENSITIVE_FIELDS else v for k, v in data.items()}
+def _normalize(key: str) -> str:
+    """`newPassword`, `new_password` and `new-password` compare equal."""
+    return key.replace("_", "").replace("-", "").lower()
+
+
+_SENSITIVE_KEYS = frozenset(_normalize(field) for field in SENSITIVE_FIELDS)
+
+
+def _scrub(data: object) -> object:
+    """Mask sensitive values at any depth.
+
+    Schemas dump by their camelCase alias (`newPassword`), so keys are
+    compared after normalization, not as written.
+    """
+    if isinstance(data, dict):
+        return {
+            k: "***" if _normalize(str(k)) in _SENSITIVE_KEYS else _scrub(v)
+            for k, v in data.items()
+        }
+    if isinstance(data, list):
+        return [_scrub(item) for item in data]
+    return data
 
 
 # Constants
