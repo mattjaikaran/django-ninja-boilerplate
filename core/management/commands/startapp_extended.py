@@ -226,11 +226,6 @@ __all__ = ["{model_name}Controller"]
 
 __all__ = ["{model_name}Admin"]
 """
-        if dir_name == "tests":
-            return f"""from {app_name}.tests.test_{model_name.lower()} import *
-
-__all__ = []
-"""
         return "# This file is intentionally left empty to make the directory a Python package.\n"
 
     def create_model_file(self, app_name, file_path, model_name):
@@ -464,142 +459,41 @@ class Command(BaseCommand):
         return self.create_file(file_path, content)
 
     def create_test_file(self, app_name, file_path, model_name):
-        # Converting to lowercase and pluralizing for variable names
+        # One smoke/permission file per app (AGENTS.md section 10). Playwright
+        # journeys in the frontend verify the feature; see docs/product/README.md.
         objects_name = smart_pluralize(model_name.lower())
-        content = f"""import pytest
-from django.contrib.auth import get_user_model
+        content = f'''"""Smoke and permission tests for the {app_name} API."""
+
+import pytest
+
+from core.tests.factories import UserFactory
+from tests.utils.assertions import assert_validation_error
+
 from {app_name}.models import {model_name}
-from core.tests.test_user import test_user, create_user
-from core.tests.conftest import auth_headers
-
-User = get_user_model()
-
-
-@pytest.fixture
-def {model_name.lower()}_data():
-    return {{"title": "Test {model_name}", "description": "Test Description"}}
-
-
-@pytest.fixture
-def create_{model_name.lower()}(test_user):
-    def make_{model_name.lower()}(**kwargs):
-        {model_name.lower()}_data = {{
-            "title": "Test {model_name}",
-            "description": "Test Description",
-        }}
-        {model_name.lower()}_data.update(kwargs)
-        return {model_name}.objects.create(user=test_user, **{model_name.lower()}_data)
-
-    return make_{model_name.lower()}
-
-
-@pytest.mark.django_db
-class Test{model_name}Model:
-    def test_create_{model_name.lower()}(self, test_user, {model_name.lower()}_data):
-        item = {model_name}.objects.create(user=test_user, **{model_name.lower()}_data)
-        assert item.title == {model_name.lower()}_data["title"]
-        assert item.description == {model_name.lower()}_data["description"]
-        assert item.user == test_user
-
-    def test_{model_name.lower()}_str(self, create_{model_name.lower()}):
-        item = create_{model_name.lower()}()
-        assert str(item) == item.title
-
-    def test_{model_name.lower()}_ordering(self, create_{model_name.lower()}):
-        item1 = create_{model_name.lower()}(title="First {model_name}")
-        item2 = create_{model_name.lower()}(title="Second {model_name}")
-        items = {model_name}.objects.all()
-        assert items[0] == item2  # Most recent first
-        assert items[1] == item1
 
 
 @pytest.mark.django_db
 class Test{model_name}API:
-    @pytest.fixture
-    def api_client(self):
-        from django.test import Client
-        return Client()
+    """Smoke and permission tests for {model_name} endpoints."""
 
-    def test_create_{model_name.lower()}(self, api_client, {model_name.lower()}_data, auth_headers, test_user):
-        response = api_client.post(
-            f"/api/{objects_name}/", {model_name.lower()}_data, content_type="application/json", **auth_headers
-        )
-        assert response.status_code == 201
-        assert {model_name}.objects.filter(user=test_user).exists()
-
-    def test_list_user_{objects_name}(self, api_client, create_{model_name.lower()}, auth_headers, test_user):
-        create_{model_name.lower()}(title="{model_name} 1")
-        create_{model_name.lower()}(title="{model_name} 2")
-
-        # Create item for another user
-        other_user = create_user(username="other", email="other@example.com")
-        {model_name}.objects.create(
-            user=other_user,
-            title="Other's {model_name}",
-            description="This shouldn't be visible",
-        )
-
-        response = api_client.get(f"/api/{objects_name}/", **auth_headers)
+    def test_list_as_owner_returns_200(self, authenticated_client):
+        client, user = authenticated_client
+        {model_name}.objects.create(user=user, title="Mine")
+        response = client.get("/api/{objects_name}/")
         assert response.status_code == 200
-        items = response.json()
-        assert len(items) == 2  # Only test_user's items
-        assert all(item["user_id"] == str(test_user.id) for item in items)
 
-    def test_get_{model_name.lower()}(self, api_client, create_{model_name.lower()}, auth_headers):
-        item = create_{model_name.lower()}(title="Test {model_name}")
-        response = api_client.get(f"/api/{objects_name}/{{item.id}}", **auth_headers)
-        assert response.status_code == 200
-        assert response.json()["title"] == "Test {model_name}"
-
-    def test_update_{model_name.lower()}(self, api_client, create_{model_name.lower()}, auth_headers):
-        item = create_{model_name.lower()}(title="Original Title")
-        update_data = {{
-            "title": "Updated Title",
-            "description": "Updated Description",
-        }}
-        response = api_client.put(
-            f"/api/{objects_name}/{{item.id}}",
-            update_data,
-            content_type="application/json",
-            **auth_headers,
-        )
-        assert response.status_code == 200
-        item.refresh_from_db()
-        assert item.title == update_data["title"]
-
-    def test_delete_{model_name.lower()}(self, api_client, create_{model_name.lower()}, auth_headers):
-        item = create_{model_name.lower()}()
-        response = api_client.delete(f"/api/{objects_name}/{{item.id}}", **auth_headers)
-        assert response.status_code == 204
-        assert not {model_name}.objects.filter(id=item.id).exists()
-
-    def test_cannot_access_others_{model_name.lower()}(self, api_client, auth_headers):
-        # Create an item for another user
-        other_user = create_user(username="other", email="other@example.com")
-        other_item = {model_name}.objects.create(
-            user=other_user,
-            title="Other's {model_name}",
-            description="This shouldn't be accessible",
-        )
-
-        # Try to get
-        response = api_client.get(f"/api/{objects_name}/{{other_item.id}}", **auth_headers)
+    def test_other_user_cannot_read_item(self, authenticated_client):
+        client, _ = authenticated_client
+        other = UserFactory()
+        obj = {model_name}.objects.create(user=other, title="Theirs")
+        response = client.get(f"/api/{objects_name}/{{obj.id}}")
         assert response.status_code == 404
 
-        # Try to update
-        response = api_client.put(
-            f"/api/{objects_name}/{{other_item.id}}",
-            {{"title": "Hacked Title"}},
-            content_type="application/json",
-            **auth_headers,
-        )
-        assert response.status_code == 404
-
-        # Try to delete
-        response = api_client.delete(f"/api/{objects_name}/{{other_item.id}}", **auth_headers)
-        assert response.status_code == 404
-        assert {model_name}.objects.filter(id=other_item.id).exists()
-"""
+    def test_create_with_invalid_payload_returns_422(self, authenticated_client):
+        client, _ = authenticated_client
+        response = client.post("/api/{objects_name}/", {{}}, content_type="application/json")
+        assert_validation_error(response, field="title")
+'''
         return self.create_file(file_path, content)
 
     def create_readme_file(self, app_name, file_path, model_name):
@@ -630,9 +524,9 @@ This app provides functionality for managing {objects_name}.
 ├── schemas/              # API schemas/serializers
 │   ├── __init__.py       # Imports all schemas
 │   └── {model_name.lower()}_schema.py # {model_name}-related schemas
-├── tests/                # Unit and integration tests
-│   ├── __init__.py       # Imports all tests
-│   └── test_{model_name.lower()}.py   # {model_name}-related tests
+├── tests/                # Smoke and permission tests
+│   ├── __init__.py
+│   └── test_{model_name.lower()}.py   # Owner list, cross-user 404, invalid payload 422
 ├── __init__.py           # Main app initialization
 ├── apps.py               # App configuration
 └── README.md             # Documentation for the app
@@ -654,7 +548,7 @@ This app provides functionality for managing {objects_name}.
 
 ### Tests
 
-Comprehensive tests for the {model_name} model and API endpoints.
+One smoke and permission test file. Playwright journeys in the frontend verify the feature; see `docs/product/README.md`.
 
 ### Management Commands
 

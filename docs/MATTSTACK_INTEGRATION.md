@@ -98,33 +98,19 @@ cd ../frontend && bun run gauntlet:quick && \
 cd .. && mattstack audit
 ```
 
-### Combined CI Pipeline
+### Local gates, no hosted CI
 
-```yaml
-# .github/workflows/fullstack-gauntlet.yml
-jobs:
-  backend-gauntlet:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Backend Gauntlet
-        run: cd backend && just gauntlet-ci
+This project has no hosted CI: every gate runs locally through pre-commit hooks. Run `just pre-commit-install` once, and the pre-push hook runs `just gauntlet-quick` before each push.
 
-  frontend-gauntlet:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Frontend Gauntlet
-        run: cd frontend && bun run gauntlet:quick
+## Journeys across the stack
 
-  cross-stack-audit:
-    needs: [backend-gauntlet, frontend-gauntlet]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Mattstack Audit
-        run: mattstack audit --type types,endpoints,dependencies --json
-```
+The backend owns the product spec and the JOURNEYS gate. The frontend owns the Playwright tests that prove each journey.
+
+- Backend: `docs/product/` holds `FEATURES.md` and the journey files, and the JOURNEYS gate checks them against the frontend tests and report.
+- Frontend: write one Playwright test per journey, tag it `@J-NNN`, name each step `test.step('J-NNN-S<n>: ...')`, and write the report to `test-results/journeys.json`.
+- Monorepo: if the frontend directory is not `../frontend`, set `JOURNEYS_E2E_DIR` and `JOURNEYS_E2E_REPORT` to its `e2e/` directory and its `test-results/journeys.json` file.
+
+See [docs/product/README.md](product/README.md) for the full sync rules.
 
 ## The Combined Defense
 

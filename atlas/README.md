@@ -41,7 +41,7 @@ All settings live in `api/settings/common.py`:
 
 | Setting | Default | Purpose |
 | ------- | ------- | ------- |
-| `ATLAS_ENABLED` | `True` | Set `False` to remove the page and its URLs. |
+| `ATLAS_ENABLED` | `True` | Set `False` to make the page redirect to the admin index. The URLs stay registered. |
 | `ATLAS_DATA_PATH` | `BASE_DIR/atlas-data.json` | Where the generated JSON is cached. |
 | `ATLAS_CACHE_TTL` | `3600` | Seconds before the admin page re-scans. |
 | `ATLAS_REAL_SAMPLES` | `True` | Mine masked audit-log request bodies as data packets. |

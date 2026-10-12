@@ -701,7 +701,8 @@ if API_DOCS not in {"public", "staff", "off"}:
 # Codebase Atlas Configuration
 # =============================================================================
 # Interactive isometric architecture map rendered in the admin panel at
-# /admin/atlas/. Set ATLAS_ENABLED=False to disable the page and its URLs.
+# /admin/atlas/. The URLs stay registered; ATLAS_ENABLED=False makes the
+# page redirect to the admin index.
 # The data file caches a scan of the codebase; use the admin Regenerate
 # button or `python manage.py atlas` to refresh it.
 ATLAS_ENABLED = env.bool("ATLAS_ENABLED", default=True)

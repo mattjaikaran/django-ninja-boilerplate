@@ -13,13 +13,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **JOURNEYS gate** (`scripts/check_journeys.py`, `just check-journeys`) and **TICKETS gate** (`scripts/tickets.py check`, `just tickets`).
 - **Ticket handoff for worker models** (`docs/tickets/`, `docs/AGENT_HANDOFF.md`, skills `ticket-planner`, `ticket-worker`, `journey-sync`): file-based tickets with owned paths, atomic claims through `agent/T-NNN-*` branches, collision checks, and a PR-from-bot-account loop. `docs/tickets/PRUNE_PLAN.md` and its tickets remove existing tests that break the testing policy.
 - **Route sweep smoke test**: every parameterless GET route must not return a 5xx or a 422.
-- **TEST-OPTIONAL gate**: runs the `webhooks` and `files` suites with their flags on. The default settings keep those apps off, so their tests never ran.
+- **TEST-OPTIONAL gate** (`just test-optional`): runs the `webhooks` and `files` suites with their flags on. The default settings keep those apps off, so their tests never ran.
+- **`scripts/redact_log.py`**: redacts `.env` secret values, bearer tokens, credentials in URLs, and GitHub, Stripe and JWT tokens from a log before a worker posts it in a PR.
 - **`scripts/adopt.py`** (`just adopt`, `docs/ADOPTING_UPDATES.md`): an existing backend can list portable modules (`journeys`, `tickets`, `testing-policy`, `atlas`), see which are adopted or out of date and the changelog since its recorded version (`.boilerplate.toml`), and copy one module at a time. It never overwrites a changed file without `--force`, refuses dirty files, and never copies secret files. The journeys page shows the commands.
 
 ### Changed
-- **Lean testing policy** (`AGENTS.md` section 10): smoke, contract, permission and regression tests in this repo, Playwright journeys in the frontend, and nothing else. Agent guidance in `.context/`, `.omp/`, `.cursor/`, skills, the PR template and the feature generator follow it.
+- **Lean testing policy** (`AGENTS.md` section 10): smoke, contract, permission and regression tests in this repo, Playwright journeys in the frontend, and nothing else. Agent guidance in `.context/`, `.omp/`, `.cursor/`, skills, the PR template, the feature generator and `startapp_extended` follow it.
+- **Test prune**: worker models ran prune tickets T-001 to T-011, T-013 and T-015 to T-017 and removed 73 mock-only, model-field and duplicate tests. T-012 and T-014 (optional `notifications` and `organizations`) stay `draft`.
+- **Route sweep smoke test** fails on any status of 400 or higher on a parameterless GET (403 allowed for a regular user), and also runs as a staff user.
+- **Skills**: `ticket-planner`, `ticket-worker` and `journey-sync` follow the Agent Skills authoring guidance (trigger-rich descriptions, `references/` files) and add a planner pre-flight with vertical slices and an example ticket.
+
+### Fixed
+- Static GET routes `/completed`, `/pending` and `/search` in all four todo controllers, and `/actions`, `/models` and `/failed-logins` in the audit controller, were shadowed by earlier `/{id}` handlers and returned 400 or 422. Static paths now come first.
+- `api.settings.prod` accepted an empty `CENTRIFUGO_API_KEY` or `CENTRIFUGO_TOKEN_SECRET`. It now rejects them.
+- Settings probe tests removed a variable to simulate "unset", and a local `.env` refilled it; they now blank it.
 
 ### Removed
+- The `unit` pytest marker.
 - The coverage floor (`--cov-fail-under=30`) and `--cov` from the default pytest options. `just test-coverage` still prints a report.
 - The MUTATION gate, `just mutation-test`, `[tool.mutmut]` and the `mutmut` dependency.
 - The legacy pytest journey generator (`scripts/generate_e2e_tests.py`, `tests/user_journeys.example.yaml`, `tests/e2e/`). Playwright journeys replace it.
