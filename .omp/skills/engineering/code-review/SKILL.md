@@ -19,9 +19,9 @@ Confirm: `git diff <fixed>...HEAD` is non-empty. Fail here, not in sub-agents.
 ### 2. Standards sources (always apply)
 
 This repo's standards are:
-- `rule://backend-conventions` — framework identity, decorator order, naming, layer architecture
-- `rule://django-ninja-anti-patterns` — 12 common AI mistakes with wrong/right examples
-- `AGENTS.md` — gauntlet gates, architecture rules, definition of done
+- `AGENTS.md`: rules (section 08), gauntlet gates, architecture rules, definition of done, testing policy
+- `rule://backend-conventions`: imports by layer, base classes, naming tables
+- `rule://django-ninja-anti-patterns`: wrong vs. right examples for common AI mistakes
 - `scripts/check_conventions.py` — 12 deterministic convention checks (run it!)
 
 Plus the **smell baseline** — Fowler code smells that apply regardless of docs:

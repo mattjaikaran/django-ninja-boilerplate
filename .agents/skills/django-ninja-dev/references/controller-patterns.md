@@ -6,10 +6,10 @@ work.
 
 | Pattern | File | Use when |
 |---|---|---|
-| 1 — declarative | `todos/controllers/todo_controller_declarative.py` | Teaching or debugging: every step spelled out with `try/except`. |
-| 2 — basic | `todos/controllers/todo_controller_basic.py` | A throwaway endpoint with no shared logic. |
-| 3 — partial | `todos/controllers/todo_controller_partial.py` | Reads are trivial, writes need error handling. |
-| 4 — full | `todos/controllers/todo_controller.py` | Default. Full decorators plus an injected service. |
+| 1: declarative | `todos/controllers/todo_controller_declarative.py` | Teaching or debugging: every step spelled out with `try/except`. |
+| 2: basic | `todos/controllers/todo_controller_basic.py` | A throwaway endpoint with no shared logic. |
+| 3: partial | `todos/controllers/todo_controller_partial.py` | Reads are trivial, writes need error handling. |
+| 4: full | `todos/controllers/todo_controller.py` | Default. Full decorators plus an injected service. |
 
 ## Pattern 4 in full
 

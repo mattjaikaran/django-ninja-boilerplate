@@ -6,8 +6,8 @@ alwaysApply: false
 
 # Django Ninja Backend Architecture Guidelines
 
-> For complete LLM context, see `.context/SYSTEM_PROMPT.md`, `.context/EXAMPLES.md`, and `.context/ANTI_PATTERNS.md`.
-> This file is a summary — the `.context/` directory has full templates with worked examples.
+> This file is a summary. Rules live in `AGENTS.md`; worked examples in `.context/EXAMPLES.md`;
+> wrong vs. right code in `.omp/rules/django-ninja-anti-patterns.md`.
 
 ## Tech Stack
 

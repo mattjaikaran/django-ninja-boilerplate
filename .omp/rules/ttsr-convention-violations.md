@@ -20,48 +20,27 @@ scope:
   - "tool:write(**/*.py)"
 ---
 
-# STOP — Convention Violation Detected
+# STOP: convention violation
 
-You just generated code that violates project conventions. Fix before continuing.
+Fix this before you continue.
 
-## If decorator order is wrong or you used `handle_exceptions`:
+## You used `handle_exceptions`
 
-Decorator order MUST be:
-```python
-@http_get("/")          # 1st: HTTP method (outermost)
-@log_api_call()         # 2nd: logging
-@validate_request()     # 3rd: optional validation
-@paginate(PageNumberPaginationExtra)  # last, list endpoints only
-def endpoint(self, request):
-    ...
-```
+It does not exist. Remove the import and the decorator. Exception handlers
+are registered once on the shared API in `api/urls.py`: raise an
+`api.exceptions` error or use `get_object_or_404`, and the handler returns the
+structured error. Decorator order stays `@http_*`, `@log_api_call()`,
+`@validate_request()`, `@paginate(PageNumberPaginationExtra)`.
 
-`@http_*` decorators MUST be the outermost decorator.
+## You redeclared a base model field
 
-## If you redeclared a base model field:
-
-You wrote a field that the base model (`SoftDeleteModel`, `TimestampedModel`, etc.) ALREADY provides. NEVER redeclare these:
-
-- `id` — UUID primary key
-- `created_at`, `updated_at` — auto timestamps
-- `created_by`, `updated_by` — ForeignKey to User
-- `is_active` — Boolean (soft delete flag)
-- `deleted_at`, `deleted_by` — soft delete tracking
-- `metadata` — JSONField
-
-Remove the redeclared field. Only declare fields unique to your model:
+`SoftDeleteModel` and its parents already provide `id` (UUID pk),
+`created_at`, `updated_at`, `created_by`, `updated_by`, `is_active`,
+`deleted_at`, `deleted_by` and `metadata`. Remove the field and declare only
+fields unique to your model:
 
 ```python
 class MyModel(SoftDeleteModel):
-    # Only YOUR fields here:
     name = models.CharField(max_length=255)
     description = models.TextField(blank=True)
-    # id, created_at, updated_at, is_active, metadata, etc. come from SoftDeleteModel
 ```
-
-## If you used `handle_exceptions`:
-
-`handle_exceptions` does not exist. Remove the import and the decorator.
-Exception handlers are registered once on the shared API in `api/urls.py`.
-Raise an `api.exceptions` error or use `get_object_or_404`, and the handler
-returns the structured error response.

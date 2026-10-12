@@ -1,88 +1,50 @@
 ---
-description: Django Ninja backend conventions — framework identity, decorator order, layer architecture, schemas, models, services, testing
+description: Reference tables for Django Ninja code here (imports by layer, model base classes, naming, schema fields); rules live in AGENTS.md
 globs: ["**/*.py"]
-alwaysApply: true
 ---
 
-# Django Ninja Backend Conventions
+# Backend reference
 
-## Framework Identity
+Rules live in `AGENTS.md` section 08. This file holds lookup tables only.
 
-| Layer | Technology | Import From |
-|-------|-----------|-------------|
-| API Framework | Django Ninja Extra | `ninja_extra` |
+## Imports by layer
+
+| Layer | Technology | Import from |
+|---|---|---|
 | Routing | Class-based controllers | `ninja_extra.api_controller` |
 | HTTP methods | Decorators | `ninja_extra.http_get`, `http_post`, `http_put`, `http_delete` |
-| Schemas | Pydantic v2 via CamelCaseSchema | `core.schemas.base_schema` |
+| Schemas | Pydantic v2 via `CamelCaseSchema` | `core.schemas.base_schema` |
 | Auth | JWT | `ninja_jwt` |
-| Base Models | SoftDeleteModel hierarchy | `core.models.base` |
+| Base models | `SoftDeleteModel` hierarchy | `core.models.base` |
 | Services | Generic CRUD | `core.services.base_service` |
 | Exceptions | Custom hierarchy | `api.exceptions` |
-| Decorators | Error handling + logging | `api.decorators` |
-| Testing | pytest + Factory Boy | `pytest`, `factory` |
-| Package Manager | uv | NEVER pip, NEVER poetry |
+| Decorators | Logging, validation | `api.decorators` |
+| Tests | pytest + Factory Boy | `pytest`, `factory` |
 
-## Prohibited Patterns
+## Layers
 
-- `from rest_framework import ...` — NOT DRF
-- `from ninja import Router` — use `@api_controller` class-based
-- `from ninja import ModelSchema` — use explicit schemas
-- `class FooSchema(Schema)` — must be `CamelCaseSchema`
-- Redeclaring `id`, `created_at`, `updated_at`, `is_active`, `metadata` in models
-- Business logic in controllers — goes in services
-- `Model.objects.all()` in controllers — must scope to user
-- `pip install`, `poetry add` — use `uv add`
-- `npm install`, `yarn add` — use `bun add`
-- `mocker.patch` on ORM — test real database
-- Model tests, unit tests per function, mock-assert tests, coverage-driven tests (see "Testing policy" in `AGENTS.md`)
-- `black`, `isort`, `flake8` — use `ruff`
+`Request > Controller (HTTP adapter) > Service (business logic, validation,
+querysets) > Model (fields, relationships, Meta) > DB`. Schemas validate and
+serialize requests and responses.
 
-## Decorator Order (STRICT)
+## Model base classes
 
-```
-@http_get("/")          # 1st: HTTP method (outermost)
-@log_api_call()         # 2nd: logging
-@validate_request()     # 3rd: optional validation
-@paginate(PageNumberPaginationExtra)  # last, list endpoints only
-def endpoint(self, request):
-    ...
-```
+| Base class | Use when | Provides |
+|---|---|---|
+| `TimestampedModel` | Lightweight, no audit | UUID pk, `created_at`, `updated_at` |
+| `AuditBaseModel` | User tracking | Above + `created_by`, `updated_by` |
+| `SoftDeleteBaseModel` (alias `AbstractBaseModel`) | Soft delete + audit | Above + `is_active`, `deleted_at`, `deleted_by`, `metadata` |
+| `SoftDeleteModel` | Default | Above + `objects = ActiveManager()`, `all_objects` |
 
-## Layer Architecture
+## Schema fields
 
-```
-Request → Controller (thin HTTP adapter) → Service (business logic) → Model (ORM) → DB
-```
-
-- Controller: accepts request, delegates to service, returns (status_code, data)
-- Service: business logic, validation rules, QuerySet building
-- Model: schema definition, relationships, Meta — nothing else
-- Schema: request/response validation and serialization
-
-## Model Base Classes
-
-| Base Class | Use When | Provides |
-|-----------|----------|----------|
-| `TimestampedModel` | Lightweight, no audit | UUID pk, created_at, updated_at |
-| `AuditBaseModel` | Need user tracking | Above + created_by, updated_by |
-| `SoftDeleteBaseModel` | Soft delete + audit | Above + is_active, deleted_at, metadata |
-| `SoftDeleteModel` | Default choice | Above + ActiveManager, all_objects |
-
-DO NOT redeclare: `id`, `created_at`, `updated_at`, `created_by`, `updated_by`, `is_active`, `deleted_at`, `deleted_by`, `metadata`.
-
-## Schema Rules
-
-- ALWAYS inherit from `CamelCaseSchema` (aliases to camelCase, populate_by_name=True)
-- `from_attributes = True` is already set by CamelCaseSchema — never redeclare
-- 3 schemas per resource: `{Name}Schema` (response), `Create{Name}Schema`, `Update{Name}Schema`
-- UUIDs → `str` in schemas
-- Required fields: `Field(...)`, optional: `Field(None)` or `| None = None`
-- Use `@field_validator` for custom validation
+- `CamelCaseSchema` aliases fields to camelCase with `populate_by_name=True`.
+- Required: `Field(...)`. Optional: `Field(None)` or `| None = None`.
 
 ## Naming
 
 | Type | Convention | Example |
-|------|-----------|---------|
+|---|---|---|
 | Models | PascalCase | `Todo`, `UserProfile` |
 | Schemas | PascalCase + Schema | `TodoSchema`, `CreateTodoSchema` |
 | Controllers | PascalCase + Controller | `TodoController` |
@@ -90,21 +52,4 @@ DO NOT redeclare: `id`, `created_at`, `updated_at`, `created_by`, `updated_by`, 
 | Factories | PascalCase + Factory | `TodoFactory` |
 | Exceptions | PascalCase + Error | `ValidationError` |
 | Files | snake_case | `todo_service.py` |
-| Tests | test_ + snake_case | `test_todo.py` |
-
-## File Exports
-
-Every `__init__.py` MUST export public classes:
-
-```python
-# models/__init__.py
-from .todo import Todo
-__all__ = ["Todo"]
-```
-
-## Controller Registration
-
-Every new controller MUST be registered in `api/urls.py`:
-```python
-api.register_controllers(TodoController)
-```
+| Tests | `test_` + snake_case | `test_todo.py` |

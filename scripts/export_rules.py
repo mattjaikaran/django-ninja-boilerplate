@@ -5,8 +5,8 @@ Creates a directory containing all convention enforcement artifacts
 that can be dropped into any codebase — language and framework agnostic.
 
 The exported bundle includes:
-  - .omp/rules/          → always-apply and TTSR rules
-  - .omp/APPEND_SYSTEM.md → system prompt guardrails
+  - .omp/rules/          → on-demand reference and TTSR rules
+  - .omp/APPEND_SYSTEM.md → system prompt pointer to AGENTS.md
   - scripts/             → convention checker (framework-adaptable)
 
 Usage:
@@ -29,17 +29,17 @@ EXPORT_MANIFEST = [
     (
         ".omp/APPEND_SYSTEM.md",
         ".omp/APPEND_SYSTEM.md",
-        "System prompt guardrails — injects anti-pattern rules into every session",
+        "System prompt pointer: names AGENTS.md as the canonical rule set",
     ),
     (
         ".omp/rules/backend-conventions.md",
         ".omp/rules/backend-conventions.md",
-        "Always-apply rule: framework identity, decorator order, naming, layer architecture",
+        "On-demand rule: imports by layer, model base classes, naming tables",
     ),
     (
         ".omp/rules/django-ninja-anti-patterns.md",
         ".omp/rules/django-ninja-anti-patterns.md",
-        "Always-apply rule: wrong vs. right code examples for 12 common AI mistakes",
+        "On-demand rule: wrong vs. right code examples for common AI mistakes",
     ),
     (
         ".omp/rules/ttsr-framework-identity.md",
@@ -49,7 +49,7 @@ EXPORT_MANIFEST = [
     (
         ".omp/rules/ttsr-convention-violations.md",
         ".omp/rules/ttsr-convention-violations.md",
-        "TTSR rule: interrupts on wrong decorator order, redeclared fields",
+        "TTSR rule: interrupts on handle_exceptions, redeclared base model fields",
     ),
     (
         ".omp/skills/engineering/code-review/SKILL.md",
@@ -99,22 +99,12 @@ EXPORT_MANIFEST = [
     (
         "AGENTS.md",
         "AGENTS.md",
-        "Agent conventions — gauntlet, architecture rules, definition of done",
+        "Canonical agent rules: conventions, gauntlet, definition of done",
     ),
     (
-        ".context/CONVENTIONS.md",
-        ".context/CONVENTIONS.md",
-        "Coding conventions reference — naming, imports, error handling",
-    ),
-    (
-        ".context/ANTI_PATTERNS.md",
-        ".context/ANTI_PATTERNS.md",
-        "Anti-patterns reference — full wrong/right examples",
-    ),
-    (
-        ".context/SYSTEM_PROMPT.md",
-        ".context/SYSTEM_PROMPT.md",
-        "LLM system prompt template — identity, templates, layer contracts",
+        ".context/EXAMPLES.md",
+        ".context/EXAMPLES.md",
+        "Worked vertical slices: CRUD resource, relationships, task, throttling",
     ),
     (
         "docs/PORTABLE_GAUNTLET.md",
@@ -177,11 +167,11 @@ Exported from django-ninja-boilerplate.
 
 {exported} files across 4 layers of defense:
 
-### Layer 1: System Prompt Injection (`.omp/APPEND_SYSTEM.md`)
-Injected into every AI session. Establishes non-negotiable guardrails.
+### Layer 1: Canonical rules (`AGENTS.md`, `.omp/APPEND_SYSTEM.md`)
+Injected into every AI session. `APPEND_SYSTEM.md` points at `AGENTS.md`.
 
-### Layer 2: Always-Apply Rules (`.omp/rules/backend-*.md`)
-Full convention reference injected into every system prompt.
+### Layer 2: On-demand rules (`.omp/rules/backend-conventions.md`, `django-ninja-anti-patterns.md`)
+Reference tables and wrong vs. right examples, loaded by `rule://<name>`.
 
 ### Layer 3: TTSR Mid-Generation Rules (`.omp/rules/ttsr-*.md`)
 Interrupts the model mid-generation when it writes prohibited patterns.

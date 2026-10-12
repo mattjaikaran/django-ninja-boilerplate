@@ -54,14 +54,11 @@ Then:
 3. Add an `<app>/atlas.py` module so the architecture map describes it.
 4. Run `uv run python manage.py makemigrations <app>`.
 
-## Schemas
+## Rules
 
-- Inherit from `CamelCaseSchema` (`core.schemas.base_schema`). Never use
-  `ninja.Schema` or `ModelSchema`.
-- `CamelCaseSchema` already sets `from_attributes = True`. Do not redeclare it.
-- Write three schemas per resource in one file: `{Name}Schema`,
-  `Create{Name}Schema`, `Update{Name}Schema`.
-- Use `str` for UUID fields, not `UUID`.
+Follow `AGENTS.md` section 08 (schemas, controllers, services, models,
+exports, auth, route order) and the testing policy in section 10. The notes
+below add only what those sections do not cover.
 
 ## Controllers
 
@@ -77,46 +74,14 @@ class ItemController:
         return 201, self.service.create(payload, request.user)
 ```
 
-The `@http_*` decorator is outermost. Register exception handlers on the
-shared API instance in `api/urls.py`, not on each operation. This repository
-does not define `@handle_exceptions()`. `@validate_request()` exists in
-`api/decorators.py`; put it after `@log_api_call()`.
+`@validate_request()` lives in `api/decorators.py`; put it after
+`@log_api_call()`. Raise `Http404` or use `get_object_or_404` for missing
+rows; the shared handler maps it to a 404.
 
-Controllers are HTTP adapters. They validate, call a service, and return. Put
-business logic in the service.
-
-## Services
-
-Services hold business logic and own the queryset. Scope every query to the
-user: `Model.objects.filter(user=user)`. Never call `Model.objects.all()` in a
-controller that returns user data.
-
-Raise `Http404` (or use `get_object_or_404`) for missing rows. The shared API
-exception handler maps it to a 404.
-
-## Models
-
-Extend `core.models.SoftDeleteModel` (or `AbstractBaseModel`, its alias). Never
-redeclare `id`, `created_at`, `updated_at`, `created_by`, `updated_by`,
-`is_active`, `deleted_at`, `deleted_by`, or `metadata`.
-
-Add the model module to the `[[tool.mypy.overrides]]` `var-annotated` list in
-`pyproject.toml`; no model in this repo annotates its fields.
-
-## Package exports
-
-Every `models/`, `schemas/`, `services/`, `controllers/`, and `factories/`
-`__init__.py` must import its public classes and set `__all__`. The convention
-checker fails the build otherwise.
-
-## Tests
-
-Write tests only for smoke, auth/permission/ownership boundaries, API
-contract, regressions for real bugs, and security-relevant pure logic (one
-table-driven test). Playwright journeys in the frontend verify features; see
-`docs/product/README.md`. Do not write unit tests per function, model tests,
-or tests that assert on mocks. No coverage target, no mutation testing. Add at
-most one new test file per change. Never mock the database.
+Add each new model module to the `[[tool.mypy.overrides]]` `var-annotated`
+list in `pyproject.toml`; no model in this repo annotates its fields.
+`AbstractBaseModel` is an alias for `SoftDeleteBaseModel`, not
+`SoftDeleteModel`.
 
 ## Verify
 
@@ -128,5 +93,7 @@ uv run python scripts/check_conventions.py
 uv run python scripts/check_architecture.py
 ```
 
-See `references/controller-patterns.md` for the four controller patterns, and
-`scripts/scaffold_controller.sh` to print a starting point.
+See `references/controller-patterns.md` for the four controller patterns,
+`references/layer-reference.md` for exceptions, error bodies, `CRUDService`
+methods, base schemas and test fixtures, and `scripts/scaffold_controller.sh`
+to print a starting point.

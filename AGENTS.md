@@ -1,166 +1,144 @@
 # AGENTS.md
 
-Working notes for agents in this repository. Read this before a non-trivial
-change. This file is harness-agnostic: it is the canonical guidance for any
-agent, and the quality gate is in section 09. `.agents/skills/` holds
-task-specific skills (see `SKILLS.md`).
+Canonical guidance for every agent and harness. Read it before a non-trivial
+change. Skills: `.agents/skills/` (index: `SKILLS.md`).
 
 ## 01 Hi, I'm the maintainer
 
-I'm a solo developer with a design background. I built this boilerplate to be a
-production-ready Django Ninja starting point, and I run it locally on macOS
-(Apple Silicon) and deploy it to a VPS and to PaaS. I care more about the code
-being obviously correct six months from now than about it being clever today.
+Solo developer, design background. I run this production-ready Django Ninja
+boilerplate on macOS (Apple Silicon) and deploy to a VPS and PaaS. I want code
+obviously correct in six months, not clever today.
 
 ## 02 Talking to me
 
-- Write plainly. Short sentences. One word, one meaning.
-- Do not use em dashes in generated content.
-- Lead with the answer, then the evidence.
-- Show the command you ran and what it printed. Do not summarize output you did
-  not read.
+- Write plainly. Short sentences. One word, one meaning. No em dashes in
+  generated content.
+- Lead with the answer, then the evidence: the command you ran and what it
+  printed. Do not summarize output you did not read.
 
 ## 03 Reading my prompts
 
-- I dictate prompts, so expect typos and run-on sentences.
-- Read for intent, not for literal wording. If a phrase looks like a typo,
-  check whether the codebase has a reason for it before "fixing" it.
-- I may refer to a feature by an old name. Match it to what exists.
+- I dictate prompts: expect typos. Read for intent. Before you "fix" an odd
+  phrase, check whether the codebase has a reason for it.
+- I may use an old feature name; match it to what exists.
 
 ## 04 Doing the work
 
-- Infer the intended outcome and carry the change through to a usable state:
-  code, tests, docs, and registration.
-- Resolve routine uncertainty yourself using the repo's conventions rather than
-  stopping to ask.
-- Surface a material risk before implementing, not after.
-- Do not silently reduce scope. If part of the request cannot be done, say which
-  part and why.
+- Carry the change to a usable state: code, tests, docs and registration.
+- Resolve routine uncertainty with repo conventions; do not stop to ask.
+- Surface a material risk before you implement.
+- Do not silently reduce scope. Say which part you cannot do and why.
 
 ## 05 Delegation
 
-When you delegate, give the agent everything it needs: the exact paths it owns,
-the interface it must honor, and how to verify its own work. Tell it to skip
-formatters, linters, and the full test suite. Verify its output before you
-accept it. Do not delegate the top-level plan.
+Give the agent its owned paths, the interface to honor, and how to verify.
+Tell it to skip formatters, linters and the full suite. Verify its output.
+Do not delegate the top-level plan.
 
 ## 06 Verification
 
-- Verify after every meaningful change. Run the thing, don't just reason about
-  it.
-- A passing test suite is not proof of a new feature; run the feature.
-- Inspect actual output. Quote it.
-- Run `just gauntlet-quick` before declaring work complete.
+- Verify each meaningful change by running it; a passing suite does not prove
+  a new feature. Quote the actual output.
+- Run `just gauntlet-quick` before you declare work complete.
 
 ## 07 My environment
 
-- macOS, Apple Silicon. Docker via OrbStack.
-- Local Postgres 17 with pgvector. `.env` points at host services
-  (`DB_HOST=127.0.0.1`); `.env.development` points at the Compose `db`
-  service. `just doctor` warns when they disagree.
-- Tests run on SQLite unless `TEST_DB=postgres`. Agent shells often set
-  `CI=true`; it no longer changes the test database.
-- Start a session with `just doctor` (tools, `.env`, secrets, busy ports,
-  load; exits 1 only on a FAIL) and `just agent-status` (git, tickets,
-  journeys, last gauntlet result). A failed gate prints a one-line fix hint.
-- `just` is the task runner. The old Makefile is `Makefile.legacy`.
-- Ports: django 8000, mcp 8001, mailhog 8025, centrifugo 8800, flower 5555.
-  The Docker stack publishes Postgres on 5433 and Valkey on 6380, offset from
-  the local 5432/6379, so it can run beside local services. When another
-  project holds one of these ports, `just dev` moves it to the next free
-  port and prints which (`just check-ports` previews it).
-  Preview `.env` secret changes with `python3 scripts/env_secrets.py fill
+- Docker via OrbStack. Task runner: `just` (old Makefile: `Makefile.legacy`).
+- Local Postgres 17 with pgvector. `.env` targets host services
+  (`DB_HOST=127.0.0.1`), `.env.development` the Compose `db` service;
+  `just doctor` warns when they disagree.
+- Tests use SQLite unless `TEST_DB=postgres`; `CI=true` does not change that.
+- Start a session with `just doctor` (tools, `.env`, secrets, ports, load;
+  exits 1 only on FAIL) and `just agent-status` (git, tickets, journeys, last
+  gauntlet). Failed gates print a one-line fix hint.
+- Ports: django 8000, mcp 8001, mailhog 8025, centrifugo 8800, flower 5555;
+  Docker Postgres 5433 and Valkey 6380 (beside local 5432/6379). `just dev`
+  moves a busy port to the next free one and prints it (`just check-ports`
+  previews). Dev ports bind `127.0.0.1` (`DEV_BIND_ADDRESS`); only `prod`
+  nginx and the `single` app listen on all interfaces.
+- Preview `.env` secret changes with `python3 scripts/env_secrets.py fill
   --dry-run` before `just setup-env`.
-  Dev ports bind to `127.0.0.1` (`DEV_BIND_ADDRESS`); only the `prod` nginx
-  and the `single` app listen on all interfaces.
 
 ## 08 Patterns We Do Not Use
 
-Agents fill missing context with familiar defaults. Those defaults are often
-wrong here. Do not use them.
+### Django ORM and models
 
-### Django ORM
-
-- Do not access the database from a controller. Use a service.
-- Do not edit an existing migration. Create a new one with `makemigrations`.
-- Do not add fallback behavior that hides invalid state. Fail loud with
+- No database access or `try/except` around ORM lookups in a controller: use
+  a service and `get_object_or_404`.
+- Never edit an existing migration; run `makemigrations`.
+- Never hide invalid state with a fallback. Fail loud with
   `ImproperlyConfigured` or a 500 that carries the real error.
-- Do not put `try/except` around ORM lookups in a controller. Use
-  `get_object_or_404` so the exception handler maps it correctly.
-- Do not use `.raw()` or `.extra()`. Use the ORM, `Subquery`, or `OuterRef`.
-- Do not treat `select_related` and `prefetch_related` as interchangeable.
-  `select_related` is for forward FK and one-to-one; `prefetch_related` is for
-  reverse FK and many-to-many.
+- No `.raw()` or `.extra()`: use the ORM, `Subquery` or `OuterRef`.
+- `select_related`: forward FK and one-to-one. `prefetch_related`: reverse FK
+  and many-to-many.
+- Default base: `SoftDeleteModel` (`core.models.base`; other bases in
+  `rule://backend-conventions`). Never redeclare `id`, `created_at`,
+  `updated_at`, `created_by`, `updated_by`, `is_active`, `deleted_at`,
+  `deleted_by` or `metadata`.
+- Models: `{Name}` in PascalCase, `user` FK with
+  `related_name="{name_plural}"`; fields, relationships and `Meta` only.
 
 ### Django Ninja
 
-- Do not use DRF. No `rest_framework` imports, serializers, or viewsets.
-- Do not use `ninja.Schema`. Every schema inherits `CamelCaseSchema`.
-- Do not use `ModelSchema`. Write explicit Pydantic schemas.
-- Do not use `ninja.Router` function-based views. Use `@api_controller`.
-- Do not use `views.py` for endpoints. Controllers live in
-  `<app>/controllers/<name>_controller.py`.
-- Do not create an `api/` directory inside an app. The root `api/` package is
-  project configuration.
-- Do not use `schemas/request.py` or `schemas/response.py`. Use one
-  `<app>/schemas/<name>_schema.py` per domain, with all three schemas.
-- Do not put business logic in a controller. Controllers validate, call a
-  service, and return.
-- Do not write `Model.objects.all()` in a controller that returns user data.
-  Scope to `request.user`.
-- Do not put more than one controller in a file.
-- Do not register a new controller without adding it to `api/urls.py`.
-- Register exception handlers once on the shared API in `api/urls.py`. Do not
-  import a per-endpoint `handle_exceptions` decorator; it does not exist.
-- Require `JWTAuth` on private controllers and declare public operations with
-  `auth=None`. Give staff-only operations `IsAdminUser`.
-- Review every new anonymous operation before you make it public. After the
-  review, add its `(method, path)` to `PUBLIC_OPERATIONS` in
-  `core/tests/test_route_auth.py`. Do not add routes to make the test pass:
-  the test fails on purpose when an operation is public by mistake.
-- Put static URL paths before every handler on a dynamic `/{id}` path in
-  each controller, including `PUT` and `DELETE`. Ninja binds a path pattern
-  where it first appears, so any earlier `/{id}` handler shadows a later
-  static GET. The CONVENTIONS gate (`ROUTE_ORDER`) and the smoke route sweep
-  catch it; escape a deliberate case with `# route-ok: <reason>`.
-- Do not hide a constraint in a `@field_validator` when `Field(...)`,
-  `Literal`, or an `Enum` can express it. The frontend Zod schemas come from
-  `docs/openapi/openapi.json`; run `just openapi` after any schema or route
-  change and commit the file.
-- Do not exempt an endpoint from CSRF to make a browser call work. Unsafe
-  API methods need `X-CSRFToken` (`docs/COOKIE_AUTH.md`).
+- Django Ninja Extra, not DRF: no `rest_framework`, serializers or viewsets.
+  No `ninja.Router` or `views.py`: one `@api_controller` per file in
+  `<app>/controllers/<name>_controller.py`. No `api/` directory inside an app;
+  root `api/` is project configuration.
+- Schemas inherit `CamelCaseSchema` (`core.schemas.base_schema`; never
+  `ninja.Schema`, `ModelSchema`, or a redeclared `from_attributes = True`).
+  One `<app>/schemas/<name>_schema.py` per domain (no `schemas/request.py` or
+  `schemas/response.py`): `{Name}Schema`, `Create{Name}Schema`,
+  `Update{Name}Schema` (all optional). UUIDs are `str`.
+- Use `Field(...)`, `Literal` or an `Enum` over a hidden `@field_validator`.
+  Frontend Zod schemas come from `docs/openapi/openapi.json`: after a schema
+  or route change, run `just openapi` and commit the file.
+- Controllers validate, call `self.service` (set in `__init__`) and return
+  `(status, data)`; business logic lives in services. Services extend
+  `CRUDService[Model]` (`core.services.base_service`), set `model`, and
+  override `get_queryset()` for related loading.
+- Scope user data to `request.user`, never `Model.objects.all()`.
+- Decorator order: `@http_*`, `@log_api_call()`, `@validate_request()` (if
+  used), `@paginate(PageNumberPaginationExtra)` (list endpoints).
+- Register controllers with `api.register_controllers(...)` in
+  `api/urls.py`, where exception handlers are registered once. Raise
+  `api.exceptions` errors or use `get_object_or_404`; there is no
+  `handle_exceptions` decorator.
+- Each `__init__.py` in `models/`, `schemas/`, `services/`, `controllers/`
+  and `factories/` imports its public classes and sets `__all__`.
+- Private controllers: `JWTAuth`. Public operations: `auth=None`. Staff-only:
+  `IsAdminUser`.
+- Review a new anonymous operation, then add its `(method, path)` to
+  `PUBLIC_OPERATIONS` in `core/tests/test_route_auth.py`. Never add routes
+  just to pass it: it fails on purpose for accidental public operations.
+- Put static paths before every `/{id}` handler (including `PUT` and
+  `DELETE`): Ninja binds a pattern where it first appears, so an earlier
+  `/{id}` shadows a later static GET. CONVENTIONS (`ROUTE_ORDER`) and the
+  smoke route sweep catch it; mark a deliberate case `# route-ok: <reason>`.
+- Never exempt an endpoint from CSRF for a browser call. Unsafe methods need
+  `X-CSRFToken` (`docs/COOKIE_AUTH.md`).
 
-### Infrastructure
+### Tooling, tasks and code
 
-- Do not add a second `docker-compose.yml`. Add a service under a profile.
-- Do not add a service that depends on `db` or `valkey` without adding your
-  profile to that base service's `profiles` list.
-- Do not use `grep -r`. Use `rg`, or the `just search` recipe.
-- Do not use `pip` or `poetry`. Use `uv`.
-- Do not add a dependency without an entry in `DEPENDENCIES.md`.
-- Do not run `scripts/release.py` without `--dry-run` unless you intend to
-  commit and tag. It pushes only with `--push`; unknown flags exit with an
-  error, and `--help` prints usage.
-
-### Task queues
-
-- Import `shared_task` from `api.tasks`, not from Celery.
-- Keep task definitions backend-neutral. Use `.delay()` and raise `.retry()`
-  from the decorated task handle.
-- Add a new task backend as an optional extra and a Compose profile. The loader
-  must fail loud when the package is absent.
-
-### Code organization
-
-- Do not introduce an abstraction before there is a second real use case.
-- Do not use `from module import *`. Explicit imports only.
-- Do not let a file grow past its length cap. Split it.
-- Do not comment out code. Delete it.
+- `uv`, not `pip` or `poetry`. `bun`, not `npm` or `yarn`. `ruff`, not
+  `black`, `isort` or `flake8`. `mypy` for types. `rg` or `just search`, not
+  `grep -r`.
+- Each new dependency needs a `DEPENDENCIES.md` entry.
+- One `docker-compose.yml`: add services under a profile. A service that
+  depends on `db` or `valkey` adds its profile to that service's `profiles`.
+- `scripts/release.py` commits and tags unless `--dry-run`; it pushes only
+  with `--push`, rejects unknown flags, and `--help` prints usage.
+- Import `shared_task` from `api.tasks`, not Celery. Keep tasks
+  backend-neutral: `.delay()`, and raise `.retry()` from the task handle. A
+  new task backend is an optional extra plus a Compose profile; its loader
+  fails loud without the package.
+- No abstraction before a second real use case; no `import *`. Length cap:
+  400 lines by default; `[tool.file-length]` in `pyproject.toml` sets the
+  exceptions (for example 1200 in `scripts/`, 800 in `cli/`). Split, do not
+  raise a cap.
 
 ## 09 The gauntlet (quality gate)
 
-Every change must survive these gates before merge. No exceptions. This is what
-lets us trust generated code without reading every line.
+Every change passes these gates before merge.
 
 | # | Gate | Tool | Catches |
 |---|---|---|---|
@@ -168,169 +146,126 @@ lets us trust generated code without reading every line.
 | 2 | LINT | `ruff check` | Bugs, anti-patterns, dead code |
 | 3 | TYPECHECK | `mypy` | Type errors, missing annotations |
 | 4 | SECURITY | `bandit` | SQLi, XSS, hardcoded secrets |
-| 5 | CONVENTIONS | `scripts/check_conventions.py` | DRF imports, raw `Schema`, decorator order, unscoped queries, redeclared fields, `Any`/bare `dict` schema fields without `# schema-ok:` |
-| 6 | DEPENDENCIES | `scripts/check_dependencies.py` | `pyproject.toml` changed without a `DEPENDENCIES.md` entry |
-| 7 | DRIFT | `scripts/check_version_drift.py` | Python, uv, Postgres, Valkey or hook tool versions that differ between `pyproject.toml`, `uv.lock`, Dockerfiles, Compose and `.pre-commit-config.yaml` |
+| 5 | CONVENTIONS | `scripts/check_conventions.py` | DRF, raw `Schema`, decorator order, unscoped queries, redeclared fields, `Any`/bare `dict` fields without `# schema-ok:` |
+| 6 | DEPENDENCIES | `scripts/check_dependencies.py` | `pyproject.toml` change without a `DEPENDENCIES.md` entry |
+| 7 | DRIFT | `scripts/check_version_drift.py` | Python/uv/Postgres/Valkey/hook versions differ across `pyproject.toml`, `uv.lock`, Dockerfiles, Compose, `.pre-commit-config.yaml` |
 | 8 | ARCHITECTURE | `scripts/check_architecture.py` | Layer violations, cross-app coupling |
-| 9 | OPENAPI | `manage.py export_openapi --check` | `docs/openapi/openapi.json` out of date with the code |
-| 10 | SCHEMA-PARITY | `scripts/check_schema_parity.py` | snake_case or untyped properties, required/nullable mismatches in the OpenAPI contract |
+| 9 | OPENAPI | `manage.py export_openapi --check` | Stale `docs/openapi/openapi.json` |
+| 10 | SCHEMA-PARITY | `scripts/check_schema_parity.py` | snake_case or untyped properties, required/nullable mismatches |
 | 11 | FILELENGTH | `scripts/check_file_length.py` | Files over their cap |
 | 12 | CROSS-STACK | `scripts/check_cross_stack.py` | Naming and schema parity (monorepo only) |
-| 13 | JOURNEYS | `scripts/check_journeys.py` | `FEATURES.md`, journey specs and Playwright tags out of sync; a `done` journey or checked feature without a passing e2e test |
-| 14 | TICKETS | `scripts/tickets.py check` | Bad ticket format, missing dependencies, `ready` tickets that collide on files |
-| 15 | TEST | `pytest` | Broken smoke, contract, permission and regression tests |
-| 16 | TEST-OPTIONAL | `pytest webhooks files` with `WEBHOOKS_ENABLED` and `FILES_ENABLED` | Broken flag-gated apps, kept out of the default settings so their routes stay out of the OpenAPI contract |
+| 13 | JOURNEYS | `scripts/check_journeys.py` | Features, journeys, Playwright tags out of sync; `done`/checked without a passing e2e test |
+| 14 | TICKETS | `scripts/tickets.py check` | Bad format, missing dependencies, colliding `ready` tickets |
+| 15 | TEST | `pytest` | Broken smoke, contract, permission, regression tests |
+| 16 | TEST-OPTIONAL | `pytest webhooks files` with `WEBHOOKS_ENABLED`, `FILES_ENABLED` | Flag-gated apps (kept out of default settings and OpenAPI) |
 | 17 | CLI-TEST | `pytest cli/tests` | Broken `cli/` package |
-| 18 | AI-DB | `scripts/test_ai_db.py` | Postgres-only tests (`core.ai` owner scoping, concurrent refresh) on a throwaway pgvector container; prints a skip reason when Docker is not running |
+| 18 | AI-DB | `scripts/test_ai_db.py` | Postgres-only tests (`core.ai` owner scoping, concurrent refresh) in a throwaway pgvector container; skips without Docker |
 | 19 | DEPLOY-CHECK | `manage.py check --deploy` | Production config issues |
 
-The full gauntlet adds GENERATORS, AUDIT and DOCKER. GENERATORS
-(`scripts/check_generators.py`, `just check-generators`) runs every code
-generator into a throwaway worktree, then `manage.py check`, pending
-migrations, ruff and the generated tests. DOCKER builds the
-production image; it is skipped when Docker is not running. AUDIT runs
-`scripts/audit_dependencies.py`: `pip-audit` on every package in `uv.lock`. It
-always blocks. Put a known advisory with no fix in `pip-audit-allowlist.toml`
-with a reason and an expiry date; an expired entry fails the gate.
+The full gauntlet adds GENERATORS (`scripts/check_generators.py`, `just
+check-generators`: every generator in a throwaway worktree, then
+`manage.py check`, pending migrations, ruff, generated tests), DOCKER
+(production image; skips without Docker) and AUDIT
+(`scripts/audit_dependencies.py`: `pip-audit` on `uv.lock`, always blocking;
+allowlist an unfixed advisory in `pip-audit-allowlist.toml` with a reason and
+expiry, and an expired entry fails).
 
-There is no hosted CI. Every gate runs on your machine. `just pre-commit-install`
-installs the git hooks; the pre-push hook runs `just gauntlet-quick` and the
-audit. All hooks are `repo: local` and run tools through `uv run` (locked
-tools) or a pinned `uvx`/`bunx`, so they cannot drift from the lockfile.
+No hosted CI. `just pre-commit-install` installs pre-commit, commit-msg and
+pre-push hooks; pre-push runs `just gauntlet-quick` and the audit. Hooks are
+`repo: local` via `uv run` or pinned `uvx`/`bunx`, matching the lockfile.
 
 ```bash
 just gauntlet                 # every gate
-just gauntlet-quick           # skip audit, docker (use this while working)
-just gauntlet-ci              # every gate with a JSON report
+just gauntlet-quick           # skip audit, docker (use while working)
+just gauntlet-ci              # every gate, JSON report
 just gauntlet-gate lint       # one gate by name
-just pre-commit-install       # pre-commit, commit-msg and pre-push hooks
-just check-conventions        # convention gate only
-just check-cross-stack        # cross-stack gate only
-just check-arch               # architecture gate only
 just openapi                  # regenerate docs/openapi/openapi.json
-just openapi-check            # OpenAPI staleness + schema parity gates
-just check-drift              # version drift gate only
-just check-journeys           # journeys gate only
-just tickets check            # tickets gate only
-just audit                    # pip-audit on uv.lock (blocking)
-just security-scan            # bandit only
+just openapi-check            # OPENAPI + SCHEMA-PARITY
+just audit                    # pip-audit (blocking)
 just security-full            # optional: bandit, audit, semgrep, SBOM, trivy
-just test-django6             # manual: the suite on Django 6.0 (not supported yet)
+just test-django6             # manual: suite on Django 6.0 (unsupported)
 ```
 
-`make -f Makefile.legacy gauntlet-quick` is the fallback if `just` is missing.
+Single-gate recipes: `just check-conventions`, `check-cross-stack`,
+`check-arch`, `check-drift`, `check-journeys`, `tickets check`,
+`security-scan` (bandit). Without `just`: `make -f Makefile.legacy
+gauntlet-quick`.
 
 ### Architecture rules the checker enforces
 
-1. Layers flow Controllers to Services to Models. No reverse imports.
-2. Models cannot import schemas, services, or controllers.
-3. Cross-app communication goes through services, not controllers.
-4. Migrations cannot import controllers, services, or schemas.
+1. Layers flow Controllers to Services to Models; no reverse imports.
+2. Models never import schemas, services or controllers.
+3. Cross-app calls go through services, not controllers.
+4. Migrations never import controllers, services or schemas.
 
 ## 10 Definition of done
 
-A task is done when all of these hold:
-
-- [ ] The code implements the requirement, not just the happy path
-- [ ] Tests for the change pass (`just test`)
-- [ ] The gauntlet passes (`just gauntlet-quick`)
+- [ ] The requirement works, not just the happy path
+- [ ] `just test` and `just gauntlet-quick` pass
 - [ ] User-visible changes update `docs/product/` and its Playwright tags
 - [ ] A ticket's PR sets `status: done` in its ticket file
-- [ ] No new linter warnings
-- [ ] Architecture constraints respected
-- [ ] Files are under their length cap
+- [ ] No new linter warnings; architecture rules and length caps hold
 - [ ] Type hints on all public interfaces
-- [ ] Commit message follows Conventional Commits (`type(scope): summary`)
+- [ ] Conventional Commits message (`type(scope): summary`)
 
-Rules the gauntlet cannot fully enforce, and that you must follow yourself:
-
-- Follow the testing policy below.
-- No commented-out code, no `print()` in production code.
-- No `# type: ignore`, `# nosec`, or `# noqa` without a written reason.
-- Run `just gauntlet-quick` before declaring work complete.
+Also (not fully gate-enforced): no commented-out code or `print()` in
+production code; no `# type: ignore`, `# nosec` or `# noqa` without a reason.
 
 ### Testing policy
 
-Tests are expensive: they cost run time, review time and tokens. Models write
-too many by default. Write the fewest tests that catch a consumer-visible
-break. The testing stack has three layers and nothing else:
+Write the fewest tests that catch a consumer-visible break, in three layers:
 
 |Layer|Where|Proves|
 |---|---|---|
 |Smoke|`tests/smoke/`|No route returns a 5xx or an unexpected 422|
 |Contract and boundary|`tests/contract/`, `<app>/tests/`|Auth, permissions, ownership, the OpenAPI contract, limits|
-|E2E journeys|Playwright in the frontend|A user journey works end to end (see section 13)|
+|E2E journeys|Playwright in the frontend|A user journey works end to end (section 13)|
 
-Write a test only for one of these:
+Write a test only for: a bug fix (a regression test that fails before the
+fix); a changed public contract (route, schema, status code, error shape, or
+a setting clients or operators rely on); a boundary or permission rule (auth,
+ownership, limits, validation edges); security-relevant pure logic (SSRF
+checks, lockout math) as one table-driven test.
 
-- A bug fix: a regression test that fails before the fix and passes after.
-- A changed public contract: a route, schema, status code, error shape, or
-  setting that a client or operator depends on.
-- A boundary or permission rule: auth, ownership scoping, limits, validation
-  edges.
-- Security-relevant pure logic (SSRF URL checks, lockout math): one
-  table-driven test, not one test per case.
+Do not write: unit tests for functions or helpers; model tests (fields,
+`__str__`, defaults, `Meta`); tests that mock a collaborator (httpx, the ORM,
+an SDK) and assert on the mock; tests of wiring, getters, schema echo,
+defaults or copied constants; tests that repeat an API test or a journey;
+tests for coverage. No coverage floor, no mutation testing.
 
-Do not write:
+Hit the real database (never `mocker.patch` the ORM); use Factory Boy for
+data. Assert on behavior (response, database state, raised error, exact
+value), not `mock.assert_called*`, `is not None`, `isinstance` or
+`len(...) > 0`. At most one new test file per change; throwaway scripts stay
+out of `tests/`. Do not copy tests listed in `docs/tickets/PRUNE_PLAN.md`;
+tickets remove them.
 
-- Unit tests for individual functions, methods or private helpers.
-- Model tests: fields, `__str__`, defaults, `Meta`.
-- Tests that mock a collaborator (httpx, the ORM, an SDK) and assert on the
-  mock.
-- Tests for wiring, getters, schema echo, default values or copied constants.
-- A test that repeats what an API-level test or a Playwright journey already
-  proves.
-- Tests to reach a coverage number. There is no coverage floor and no
-  mutation testing.
-
-A test must assert on behavior (the response, the database state, the raised
-error, the exact returned value), not on `mock.assert_called*`, `is not None`,
-`isinstance` or `len(...) > 0`.
-
-Create at most one new test file per change. Prove a new feature by running
-it; a throwaway script does not belong in `tests/`. Existing tests that break
-these rules are listed in `docs/tickets/PRUNE_PLAN.md` and removed through
-tickets; do not copy their style.
-
-`just test` runs only the tests for the files you changed and stops at the
-first failure. `just test-all` runs every test. `just test-coverage` prints an
-informational report. Two TTSR rules in `.omp/rules/` (`ttsr-test-new-file.md`,
-`ttsr-test-assertions.md`) enforce this policy.
+`just test` runs changed-file tests and stops at the first failure; `just
+test-all` runs all; `just test-coverage` only reports. TTSR rules
+`.omp/rules/ttsr-test-new-file.md` and `ttsr-test-assertions.md` enforce this.
 
 ## 11 Constraint tools
 
-The `scripts/` checkers are deterministic gates: same input, same result, exit 0
-on pass and 1 on fail. They are small on purpose and an agent can extend them.
-
-To add a gate:
-
-1. Write a script in `scripts/` that exits 0 on pass and 1 on fail.
-2. Keep it under its length cap.
-3. Register it in `scripts/gauntlet.py` as a `_gate_*` method.
-4. Add a recipe in the `justfile`.
-5. Document it in the gates table in section 09.
+`scripts/` checkers are deterministic gates (exit 0 pass, 1 fail) an agent
+can extend: add the script under its length cap, a `_gate_*` method in
+`scripts/gauntlet.py`, a `justfile` recipe, and a row in the section 09 table.
 
 ## 12 Where the guidance lives
 
 | Path | Purpose |
 |---|---|
-| `AGENTS.md` | This file. Canonical, harness-agnostic guidance. |
-| `SKILLS.md` | Index of `.agents/skills/`. |
-| `.agents/skills/` | Task-specific Agent Skills, loaded on demand. |
-| `.omp/` | oh-my-pi harness config: `APPEND_SYSTEM.md`, `rules/`, `skills/`. |
-| `.context/` | Longer-form reference: conventions, anti-patterns, examples. |
-| `docs/` | Architecture, migration, realtime, constraint-tool notes. |
-| `docs/product/` | Feature list and user journeys (section 13). |
-| `docs/tickets/` | Scoped tickets for worker models (section 14). |
-| `docs/AGENT_HANDOFF.md` | Planner and worker roles, machines, overnight loop. |
+| `AGENTS.md` | Canonical rules, gates and workflow |
+| `SKILLS.md` | Index of `.agents/skills/` (loaded on demand) |
+| `.omp/` | oh-my-pi: `APPEND_SYSTEM.md`, `rules/` (references, TTSR), `skills/` |
+| `.context/` | `EXAMPLES.md`: worked examples |
+| `docs/` | Architecture, migration, realtime, constraint tools |
+| `docs/product/`, `docs/tickets/` | Features and journeys (section 13); worker tickets (section 14) |
 
-`CLAUDE.md` is gitignored and not part of the repository. Do not add references
-to it, and do not rely on it. Anything that belongs in shared guidance goes in
-this file.
+`CLAUDE.md` is gitignored; never reference or rely on it.
 
 ## 13 Features, journeys and e2e tests
 
-Three artifacts describe what the product does. They must agree.
+These three must agree; change all three together:
 
 |Artifact|Path|Owner|
 |---|---|---|
@@ -338,42 +273,34 @@ Three artifacts describe what the product does. They must agree.
 |User journeys and stories|`docs/product/journeys/J-NNN-*.md`|Planner|
 |Playwright journey tests|Frontend `e2e/`: one test per journey tagged `@J-NNN`, steps titled `J-NNN-S<n>: ...`|Planner or worker|
 
-- A checked feature (`[x]`) and a `done` journey mean "a Playwright test
-  proves it and the last run passed". They never mean "the code exists".
+- A checked feature (`[x]`) or `done` journey means a Playwright test proves
+  it and its last run passed, never "the code exists".
 - A failing journey test is a known issue: set the journey to `building`, add
-  a `known_issues` entry that names a ticket, and fix it before you close the
-  ticket.
-- When you change one artifact, update the other two in the same change.
-- `just check-journeys` (the JOURNEYS gate) enforces these rules. The staff
-  page `/admin/journeys/` shows each journey, step by step, with what is
-  missing.
-- `just sync-frontend <frontend path>` runs the same rules against that
-  frontend's Playwright report and compares its copy of the OpenAPI contract
-  with `docs/openapi/openapi.json`. `--check` exits 1 on drift.
+  a `known_issues` entry naming a ticket, and fix it before closing the ticket.
+- `just check-journeys` (JOURNEYS gate) enforces this; `/admin/journeys/`
+  shows what each step is missing. `just sync-frontend <frontend path>`
+  checks that frontend's Playwright report and OpenAPI copy against
+  `docs/openapi/openapi.json`; `--check` exits 1 on drift.
 
-Format and the sync loop: `docs/product/README.md` and the `journey-sync`
-skill.
+Format and sync loop: `docs/product/README.md`, `journey-sync` skill.
 
 ## 14 Work modes and handoff
 
-- Solo mode: the maintainer and the planner model may commit to `main`.
-- Worker mode: a smaller model (local or remote) executes only `tier: small`
-  tickets from `docs/tickets/`. It never pushes to `main`. It opens a PR from
-  the bot GitHub account, and the maintainer reviews it.
-- The planner keeps the queue full: it writes specs, journeys and tickets that
-  a worker can finish without design decisions. `just tickets check` (the
-  TICKETS gate) blocks tickets that would collide.
-- Each ticket lists the files it owns. A worker never edits outside them.
+- Solo mode: the maintainer and planner model may commit to `main`.
+- Worker mode: a smaller model runs only `tier: small` tickets from
+  `docs/tickets/`, edits only the files its ticket lists, never pushes to
+  `main`, and opens a PR from the bot GitHub account for review.
+- The planner keeps the queue full of tickets that need no design decisions.
+  `just tickets check` (TICKETS gate) blocks collisions.
 
-One worker-loop iteration is `just worker-once` (preview with `--dry-run`):
-claim, run `$WORKER_AGENT_CMD` in a worktree, verify with one retry, then a
-PR or a draft `needs-planner` PR. Machines, the bot account and the
-merge-conflict playbook: `docs/AGENT_HANDOFF.md`. Skills: `ticket-planner`,
+`just worker-once` (preview: `--dry-run`) runs one iteration: claim, run
+`$WORKER_AGENT_CMD` in a worktree, verify with one retry, then open a PR or a
+draft `needs-planner` PR. Roles, machines, bot account, merge conflicts,
+overnight loop: `docs/AGENT_HANDOFF.md`. Skills: `ticket-planner`,
 `ticket-worker`.
 
-This file evolves with the codebase. After a scaffold, the first planner
-session fills `docs/product/` and the first tickets. After each rejected PR,
-add the lesson to the next section.
+After a scaffold, the first planner session fills `docs/product/` and the
+first tickets. After each rejected PR, add the lesson below.
 
 ## When to add to this section
 
@@ -388,5 +315,5 @@ per rule, no paragraphs.
 
 ## Reference library
 
-For agent instruction patterns from leading open-source projects, see
+Agent instruction patterns from open-source projects:
 https://ossrules.md/llms.txt.

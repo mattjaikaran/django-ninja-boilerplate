@@ -111,9 +111,10 @@ After building everything:
 ### Reference Implementation
 
 For a complete working example, see the `django-ninja-boilerplate` project. It has:
-- `.omp/APPEND_SYSTEM.md` — guardrails
-- `.omp/rules/backend-conventions.md` — always-apply conventions
-- `.omp/rules/django-ninja-anti-patterns.md` — 12 anti-patterns
+- `AGENTS.md`: canonical rules, gates and workflow
+- `.omp/APPEND_SYSTEM.md`: a short pointer to `AGENTS.md`
+- `.omp/rules/backend-conventions.md`: on-demand reference tables
+- `.omp/rules/django-ninja-anti-patterns.md`: on-demand wrong vs. right examples
 - `.omp/rules/ttsr-framework-identity.md` — mid-generation interrupts
 - `.omp/rules/ttsr-convention-violations.md` — mid-generation interrupts
 - `scripts/check_conventions.py` — 12 AST/regex checks

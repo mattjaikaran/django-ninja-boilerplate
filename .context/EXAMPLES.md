@@ -1,15 +1,12 @@
-# Complete Worked Examples
+# Worked examples
 
-> These are full vertical-slice examples showing how to build features in this codebase.
-> Copy the relevant example when asking an LLM to build a similar feature.
+> For rules, read [`AGENTS.md`](../AGENTS.md). This file only shows code; the reference app is `todos/`. Each example shows only what earlier examples do not.
 
----
+## Example 1: Notes vertical slice
 
-## Example 1: Simple CRUD — Notes App
+A user-owned resource. Copy this shape for a new owned resource.
 
-A user-scoped notes resource with title, content, and pinned status.
-
-### 1. Model — `notes/models/note.py`
+### Model: `notes/models/note.py`
 
 ```python
 from django.conf import settings
@@ -20,31 +17,24 @@ from core.models import SoftDeleteModel
 
 class Note(SoftDeleteModel):
     user = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
-        related_name="notes",
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="notes"
     )
     title = models.CharField(max_length=255)
     content = models.TextField(blank=True)
-    is_pinned = models.BooleanField(default=False)
-
-    def __str__(self) -> str:
-        return self.title
+    pinned = models.BooleanField(default=False)
 
     class Meta:
-        verbose_name = "Note"
-        verbose_name_plural = "Notes"
-        ordering = ["-is_pinned", "-created_at"]
-        indexes = [
-            models.Index(fields=["user", "-created_at"]),
-            models.Index(fields=["user", "is_pinned"]),
-        ]
+        ordering = ["-pinned", "-created_at"]
+
+    def __str__(self):
+        return self.title
 ```
 
-### 2. Schemas — `notes/schemas/note_schema.py`
+### Schemas: `notes/schemas/note_schema.py`
 
 ```python
 from datetime import datetime
+from uuid import UUID
 
 from pydantic import Field, field_validator
 
@@ -55,141 +45,131 @@ class NoteSchema(CamelCaseSchema):
     id: str
     title: str
     content: str
-    is_pinned: bool
+    pinned: bool
     created_at: datetime
     updated_at: datetime
+
+    @field_validator("id", mode="before")
+    @classmethod
+    def convert_uuid_to_str(cls, v):
+        """Serialize the UUID primary key as a string."""
+        return str(v) if isinstance(v, UUID) else v
 
 
 class CreateNoteSchema(CamelCaseSchema):
     title: str = Field(..., min_length=1, max_length=255)
     content: str = ""
-    is_pinned: bool = False
-
-    @field_validator("title")
-    @classmethod
-    def strip_title(cls, v: str) -> str:
-        return v.strip()
+    pinned: bool = False
 
 
 class UpdateNoteSchema(CamelCaseSchema):
     title: str | None = Field(None, min_length=1, max_length=255)
     content: str | None = None
-    is_pinned: bool | None = None
+    pinned: bool | None = None
 ```
 
-### 3. Service — `notes/services/note_service.py`
+`CamelCaseSchema.model_dump()` always returns camelCase keys. Passing its
+output to the model works only for one-word field names. For a field such as
+`due_date`, build the dict from `dict(payload)`, which has snake_case keys.
+
+### Service: `notes/services/note_service.py`
 
 ```python
-import logging
+from typing import Any
+from uuid import UUID
+
+from django.db.models import QuerySet
+from django.shortcuts import get_object_or_404
 
 from core.services.base_service import CRUDService
-
 from notes.models import Note
-
-logger = logging.getLogger(__name__)
+from notes.schemas import CreateNoteSchema, UpdateNoteSchema
 
 
 class NoteService(CRUDService[Note]):
+    """Owner-scoped CRUD for Note. Another user's note is a 404."""
+
     model = Note
 
-    def get_queryset(self):
-        return super().get_queryset().select_related("user")
+    def list_for_user(self, user: Any, search: str | None = None) -> QuerySet[Note]:
+        queryset = self.get_queryset().filter(user=user)
+        if search:
+            queryset = queryset.filter(title__icontains=search)
+        return queryset
 
-    def get_user_notes(self, user, **filters):
-        qs = self.get_queryset().filter(user=user)
-        if search := filters.get("search"):
-            qs = qs.filter(title__icontains=search)
-        if filters.get("pinned_only"):
-            qs = qs.filter(is_pinned=True)
-        return qs
+    def get_for_user(self, note_id: UUID, user: Any) -> Note:
+        return get_object_or_404(self.get_queryset(), id=note_id, user=user)
 
-    def create_for_user(self, user, data: dict) -> Note:
-        return self.create({**data, "user": user}, user=user)
+    def create_for_user(self, payload: CreateNoteSchema, user: Any) -> Note:
+        return self.create({**payload.model_dump(), "user": user}, user=user)
 
-    def toggle_pin(self, user, note_id: str) -> Note:
-        from api.exceptions import NotFoundError
+    def update_for_user(
+        self, note_id: UUID, payload: UpdateNoteSchema, user: Any
+    ) -> Note:
+        note = self.get_for_user(note_id, user)
+        return self.update(note.pk, payload.model_dump(exclude_unset=True), user=user)
 
-        note = self.get_queryset().filter(id=note_id, user=user).first()
-        if not note:
-            raise NotFoundError(message="Note not found")
-        note.is_pinned = not note.is_pinned
-        note.save(update_fields=["is_pinned", "updated_at"])
-        return note
+    def delete_for_user(self, note_id: UUID, user: Any) -> None:
+        self.delete(self.get_for_user(note_id, user).pk, user=user)  # soft delete
 ```
 
-### 4. Controller — `notes/controllers/note_controller.py`
+`CRUDService` sets `created_by` and `updated_by`, runs `full_clean()`, and
+soft-deletes models that have `is_active`. Its `get_by_id`, `update` and
+`delete` are not owner-scoped, so call `get_for_user` first.
+
+### Controller: `notes/controllers/note_controller.py`
 
 ```python
-import logging
+from uuid import UUID
 
-from django.shortcuts import get_object_or_404
 from ninja_extra import api_controller, http_delete, http_get, http_post, http_put
-
+from ninja_extra.pagination import PageNumberPaginationExtra, paginate
+from ninja_extra.schemas import PaginatedResponseSchema
 from ninja_jwt.authentication import JWTAuth
 
 from api.decorators import log_api_call
-from notes.models import Note
 from notes.schemas import CreateNoteSchema, NoteSchema, UpdateNoteSchema
 from notes.services import NoteService
-
-logger = logging.getLogger(__name__)
 
 
 @api_controller("/notes", tags=["Notes"], auth=JWTAuth())
 class NoteController:
-
     def __init__(self):
         self.service = NoteService()
 
-    @http_get("/", response={200: list[NoteSchema]})
+    @http_get("/", response={200: PaginatedResponseSchema[NoteSchema]})
     @log_api_call()
-    def list_notes(
-        self,
-        request,
-        search: str | None = None,
-        pinned_only: bool = False,
-    ):
-        notes = self.service.get_user_notes(
-            request.user, search=search, pinned_only=pinned_only
-        )
-        return 200, notes
-
-    @http_get("/{note_id}", response={200: NoteSchema, 404: dict})
-    @log_api_call()
-    def get_note(self, request, note_id: str):
-        note = get_object_or_404(Note, id=note_id, user=request.user)
-        return 200, note
+    @paginate(PageNumberPaginationExtra)
+    def list_notes(self, request, search: str | None = None):
+        return self.service.list_for_user(request.user, search=search)
 
     @http_post("/", response={201: NoteSchema, 400: dict})
     @log_api_call(include_payload=True)
     def create_note(self, request, payload: CreateNoteSchema):
-        note = self.service.create_for_user(request.user, payload.model_dump())
-        return 201, note
+        return 201, self.service.create_for_user(payload, request.user)
 
-    @http_put("/{note_id}", response={200: NoteSchema, 404: dict})
-    @log_api_call(include_payload=True)
-    def update_note(self, request, note_id: str, payload: UpdateNoteSchema):
-        note = get_object_or_404(Note, id=note_id, user=request.user)
-        for attr, value in payload.model_dump(exclude_unset=True).items():
-            setattr(note, attr, value)
-        note.save()
-        return 200, note
-
-    @http_post("/{note_id}/toggle-pin", response={200: NoteSchema, 404: dict})
+    @http_get("/{note_id}", response={200: NoteSchema, 404: dict})
     @log_api_call()
-    def toggle_pin(self, request, note_id: str):
-        note = self.service.toggle_pin(request.user, note_id)
-        return 200, note
+    def get_note(self, request, note_id: UUID):
+        return 200, self.service.get_for_user(note_id, request.user)
+
+    @http_put("/{note_id}", response={200: NoteSchema, 400: dict, 404: dict})
+    @log_api_call(include_payload=True)
+    def update_note(self, request, note_id: UUID, payload: UpdateNoteSchema):
+        return 200, self.service.update_for_user(note_id, payload, request.user)
 
     @http_delete("/{note_id}", response={204: None, 404: dict})
     @log_api_call()
-    def delete_note(self, request, note_id: str):
-        note = get_object_or_404(Note, id=note_id, user=request.user)
-        note.soft_delete(user=request.user)
+    def delete_note(self, request, note_id: UUID):
+        self.service.delete_for_user(note_id, request.user)
         return 204, None
 ```
 
-### 5. Factory — `notes/tests/factories/note_factory.py`
+A paginated handler returns the queryset, not a `(status, data)` tuple. The
+body is `{"count", "next", "previous", "results"}`; clients send `?page=` and
+`?page_size=`.
+
+### Factory: `notes/tests/factories/note_factory.py`
 
 ```python
 import factory
@@ -203,559 +183,242 @@ class NoteFactory(factory.django.DjangoModelFactory):
         model = Note
 
     title = factory.Faker("sentence", nb_words=4)
-    content = factory.Faker("text", max_nb_chars=500)
-    is_pinned = False
+    content = factory.Faker("text", max_nb_chars=200)
     user = factory.SubFactory(UserFactory)
-    created_by = factory.SelfAttribute("user")
-    updated_by = factory.SelfAttribute("user")
-
-
-class PinnedNoteFactory(NoteFactory):
-    is_pinned = True
 ```
 
-### 6. Tests — `notes/tests/test_note.py`
+### Tests: `notes/tests/test_note.py`
 
-One smoke/permission test file. Playwright journeys in the frontend verify the feature (see `docs/product/README.md`). No model tests.
+One file: a create contract test and an ownership test, on the real database.
+The `authenticated_client` fixture in `conftest.py` returns `(client, user)`.
 
 ```python
 import pytest
 
 from core.tests.factories import UserFactory
+from notes.models import Note
 from notes.tests.factories import NoteFactory
 
 
 @pytest.mark.django_db
 class TestNoteAPI:
-    """Smoke and permission tests for the Notes API."""
-
-    def test_list_notes_as_owner(self, authenticated_client):
+    def test_create_returns_camel_case_and_stores_owner(self, authenticated_client):
         client, user = authenticated_client
-        NoteFactory(user=user)
-        response = client.get("/api/notes/")
-        assert response.status_code == 200
+        response = client.post(
+            "/api/notes/", {"title": "Plan", "pinned": True}, content_type="application/json"
+        )
+        assert response.status_code == 201
+        body = response.json()
+        assert body["title"] == "Plan"
+        assert body["pinned"] is True
+        assert "createdAt" in body
+        note = Note.objects.get(id=body["id"])
+        assert note.user == user
+        assert note.created_by == user
 
-    def test_cannot_access_other_users_note(self, authenticated_client):
+    def test_other_users_note_is_not_found(self, authenticated_client):
         client, _ = authenticated_client
         note = NoteFactory(user=UserFactory())
-        response = client.get(f"/api/notes/{note.id}")
-        assert response.status_code == 404
-
-    def test_create_with_invalid_payload_returns_422(self, authenticated_client):
-        client, _ = authenticated_client
-        response = client.post("/api/notes/", {}, content_type="application/json")
-        assert response.status_code == 422
+        assert client.get(f"/api/notes/{note.id}").status_code == 404
+        assert client.delete(f"/api/notes/{note.id}").status_code == 404
+        note.refresh_from_db()
+        assert note.is_active is True
 ```
 
-### 7. Admin — `notes/admin/note_admin.py`
+### Registration and exports
+
+Add `"notes"` to `INSTALLED_APPS` in `api/settings/common.py`, run
+`makemigrations notes`, and register the controller in `api/urls.py`:
 
 ```python
-from django.contrib import admin
-from unfold.admin import ModelAdmin
-
-from notes.models import Note
-
-
-@admin.register(Note)
-class NoteAdmin(ModelAdmin):
-    list_display = ["title", "user", "is_pinned", "is_active", "created_at"]
-    list_filter = ["is_pinned", "is_active", "created_at"]
-    search_fields = ["title", "content", "user__email"]
-    readonly_fields = ["id", "created_at", "updated_at"]
-    ordering = ["-created_at"]
-```
-
-### 8. Registration — `api/urls.py`
-
-```python
-# 1. Add import at top of file
 from notes.controllers import NoteController
 
-# 2. Add to api.register_controllers() call
 api.register_controllers(
     # ... existing controllers ...
     NoteController,
 )
 ```
 
-### 9. Module Exports
+Export every public class with `__all__`. Repeat this shape in
+`notes/schemas/`, `notes/services/`, `notes/controllers/` and
+`notes/tests/factories/`:
 
 ```python
 # notes/models/__init__.py
-from .note import Note
+from notes.models.note import Note
 
 __all__ = ["Note"]
-
-# notes/schemas/__init__.py
-from .note_schema import CreateNoteSchema, NoteSchema, UpdateNoteSchema
-
-__all__ = ["NoteSchema", "CreateNoteSchema", "UpdateNoteSchema"]
-
-# notes/services/__init__.py
-from .note_service import NoteService
-
-__all__ = ["NoteService"]
-
-# notes/controllers/__init__.py
-from .note_controller import NoteController
-
-__all__ = ["NoteController"]
-
-# notes/admin/__init__.py
-from .note_admin import NoteAdmin
-
-__all__ = ["NoteAdmin"]
-
-# notes/tests/factories/__init__.py
-from .note_factory import NoteFactory, PinnedNoteFactory
-
-__all__ = ["NoteFactory", "PinnedNoteFactory"]
 ```
 
----
+For an admin page, copy `todos/admin/todo_admin.py` (Unfold `ModelAdmin`).
 
-## Example 2: Resource with Relationships — Projects + Tasks
+## Example 2: Relationships
 
-A project that has many tasks, demonstrating nested resources and cross-model queries.
+A project owns many tasks. `Project` is an owned model like `Note`, with
+`user` and `name`. This example shows only the foreign key, the nested schema
+and the service queryset.
 
-### Model — `projects/models/project.py`
-
-```python
-from django.conf import settings
-from django.db import models
-
-from core.models import SoftDeleteModel
-
-
-class Project(SoftDeleteModel):
-    STATUS_CHOICES = [
-        ("planning", "Planning"),
-        ("active", "Active"),
-        ("paused", "Paused"),
-        ("completed", "Completed"),
-    ]
-
-    user = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
-        related_name="projects",
-    )
-    name = models.CharField(max_length=255)
-    description = models.TextField(blank=True)
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="planning")
-    deadline = models.DateTimeField(null=True, blank=True)
-
-    def __str__(self) -> str:
-        return self.name
-
-    @property
-    def task_count(self) -> int:
-        return self.tasks.filter(is_active=True).count()
-
-    @property
-    def completed_task_count(self) -> int:
-        return self.tasks.filter(is_active=True, is_done=True).count()
-
-    class Meta:
-        verbose_name = "Project"
-        verbose_name_plural = "Projects"
-        ordering = ["-created_at"]
-        indexes = [
-            models.Index(fields=["user", "status"]),
-        ]
-```
-
-### Model — `projects/models/task.py`
+### Child model: `projects/models/task.py`
 
 ```python
-from django.conf import settings
 from django.db import models
 
 from core.models import SoftDeleteModel
 
 
 class Task(SoftDeleteModel):
-    PRIORITY_CHOICES = [
-        ("low", "Low"),
-        ("medium", "Medium"),
-        ("high", "High"),
-        ("urgent", "Urgent"),
-    ]
-
     project = models.ForeignKey(
-        "projects.Project",
-        on_delete=models.CASCADE,
-        related_name="tasks",
-    )
-    user = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
-        related_name="tasks",
+        "projects.Project", on_delete=models.CASCADE, related_name="tasks"
     )
     title = models.CharField(max_length=255)
-    description = models.TextField(blank=True)
-    priority = models.CharField(max_length=10, choices=PRIORITY_CHOICES, default="medium")
-    is_done = models.BooleanField(default=False)
-    due_date = models.DateTimeField(null=True, blank=True)
-
-    def __str__(self) -> str:
-        return self.title
-
-    class Meta:
-        verbose_name = "Task"
-        verbose_name_plural = "Tasks"
-        ordering = ["-priority", "-created_at"]
-        indexes = [
-            models.Index(fields=["project", "is_done"]),
-            models.Index(fields=["user", "is_done"]),
-        ]
+    done = models.BooleanField(default=False)
 ```
 
-### Schema with Nested Objects — `projects/schemas/project_schema.py`
+### Nested schema: `projects/schemas/project_schema.py`
 
 ```python
-from datetime import datetime
+from uuid import UUID
 
-from pydantic import Field, field_validator
+from pydantic import AliasPath, Field, field_validator
 
 from core.schemas.base_schema import CamelCaseSchema
 
 
 class TaskSchema(CamelCaseSchema):
-    id: str
     title: str
-    description: str
-    priority: str
-    is_done: bool
-    due_date: datetime | None
-    created_at: datetime
+    done: bool
 
 
-class ProjectSchema(CamelCaseSchema):
+class ProjectDetailSchema(CamelCaseSchema):
     id: str
     name: str
-    description: str
-    status: str
-    deadline: datetime | None
-    task_count: int
-    completed_task_count: int
-    created_at: datetime
-    updated_at: datetime
-
-
-class ProjectDetailSchema(ProjectSchema):
-    """Project with embedded tasks."""
+    owner_email: str = Field(validation_alias=AliasPath("user", "email"))
     tasks: list[TaskSchema] = []
 
-
-class CreateProjectSchema(CamelCaseSchema):
-    name: str = Field(..., min_length=1, max_length=255)
-    description: str = ""
-    status: str = "planning"
-    deadline: datetime | None = None
-
-    @field_validator("status")
+    @field_validator("id", mode="before")
     @classmethod
-    def validate_status(cls, v: str) -> str:
-        valid = {"planning", "active", "paused", "completed"}
-        if v not in valid:
-            raise ValueError(f"Status must be one of: {', '.join(valid)}")
-        return v
-
-
-class UpdateProjectSchema(CamelCaseSchema):
-    name: str | None = Field(None, min_length=1, max_length=255)
-    description: str | None = None
-    status: str | None = None
-    deadline: datetime | None = None
-
-
-class CreateTaskSchema(CamelCaseSchema):
-    title: str = Field(..., min_length=1, max_length=255)
-    description: str = ""
-    priority: str = "medium"
-    due_date: datetime | None = None
-
-    @field_validator("priority")
-    @classmethod
-    def validate_priority(cls, v: str) -> str:
-        valid = {"low", "medium", "high", "urgent"}
-        if v not in valid:
-            raise ValueError(f"Priority must be one of: {', '.join(valid)}")
-        return v
+    def convert_uuid_to_str(cls, v):
+        return str(v) if isinstance(v, UUID) else v
 ```
 
-### Service — `projects/services/project_service.py`
+`AliasPath("user", "email")` reads a forward foreign key. For `tasks`, the
+Ninja schema getter turns the related manager into a list.
+
+### Service queryset: `projects/services/project_service.py`
 
 ```python
-import logging
+from django.db.models import QuerySet
 
-from api.exceptions import NotFoundError, ValidationError
 from core.services.base_service import CRUDService
-from projects.models import Project, Task
-
-logger = logging.getLogger(__name__)
+from projects.models import Project
 
 
 class ProjectService(CRUDService[Project]):
     model = Project
 
-    def get_queryset(self):
+    def get_queryset(self) -> QuerySet[Project]:
+        # select_related: forward FK, one JOIN.
+        # prefetch_related: reverse FK, one extra query for all rows.
         return super().get_queryset().select_related("user").prefetch_related("tasks")
-
-    def get_user_projects(self, user, **filters):
-        qs = self.get_queryset().filter(user=user)
-        if status := filters.get("status"):
-            qs = qs.filter(status=status)
-        if search := filters.get("search"):
-            qs = qs.filter(name__icontains=search)
-        return qs
-
-    def create_for_user(self, user, data: dict) -> Project:
-        return self.create({**data, "user": user}, user=user)
-
-    def add_task(self, user, project_id: str, task_data: dict) -> Task:
-        project = self.get_queryset().filter(id=project_id, user=user).first()
-        if not project:
-            raise NotFoundError(message="Project not found")
-        if project.status == "completed":
-            raise ValidationError(message="Cannot add tasks to a completed project")
-        return Task.objects.create(
-            project=project,
-            user=user,
-            created_by=user,
-            **task_data,
-        )
-
-    def complete_task(self, user, project_id: str, task_id: str) -> Task:
-        task = Task.objects.filter(
-            id=task_id, project_id=project_id, user=user
-        ).first()
-        if not task:
-            raise NotFoundError(message="Task not found")
-        task.is_done = True
-        task.save(update_fields=["is_done", "updated_at"])
-        return task
 ```
 
-### Controller — `projects/controllers/project_controller.py`
+Every method that starts from `self.get_queryset()` gets the same loading,
+including a `get_for_user` written as in Example 1.
+
+## Example 3: Background task
+
+`shared_task` from `api.tasks` returns a `TaskHandle` that behaves the same on
+every `TASK_BACKEND`. See `docs/TASK_BACKENDS.md`.
+
+### Task: `notes/tasks.py`
 
 ```python
 import logging
 
-from django.shortcuts import get_object_or_404
-from ninja_extra import api_controller, http_delete, http_get, http_post, http_put
+from django.core.mail import send_mail
 
-from ninja_jwt.authentication import JWTAuth
-
-from api.decorators import log_api_call
-from projects.models import Project
-from projects.schemas import (
-    CreateProjectSchema,
-    CreateTaskSchema,
-    ProjectDetailSchema,
-    ProjectSchema,
-    TaskSchema,
-    UpdateProjectSchema,
-)
-from projects.services import ProjectService
+from api.tasks import shared_task
 
 logger = logging.getLogger(__name__)
 
 
-@api_controller("/projects", tags=["Projects"], auth=JWTAuth())
-class ProjectController:
-
-    def __init__(self):
-        self.service = ProjectService()
-
-    @http_get("/", response={200: list[ProjectSchema]})
-    @log_api_call()
-    def list_projects(
-        self,
-        request,
-        status: str | None = None,
-        search: str | None = None,
-    ):
-        return 200, self.service.get_user_projects(
-            request.user, status=status, search=search
-        )
-
-    @http_get("/{project_id}", response={200: ProjectDetailSchema, 404: dict})
-    @log_api_call()
-    def get_project(self, request, project_id: str):
-        project = get_object_or_404(Project, id=project_id, user=request.user)
-        return 200, project
-
-    @http_post("/", response={201: ProjectSchema, 400: dict})
-    @log_api_call(include_payload=True)
-    def create_project(self, request, payload: CreateProjectSchema):
-        project = self.service.create_for_user(request.user, payload.model_dump())
-        return 201, project
-
-    @http_put("/{project_id}", response={200: ProjectSchema, 404: dict})
-    @log_api_call(include_payload=True)
-    def update_project(self, request, project_id: str, payload: UpdateProjectSchema):
-        project = get_object_or_404(Project, id=project_id, user=request.user)
-        for attr, value in payload.model_dump(exclude_unset=True).items():
-            setattr(project, attr, value)
-        project.save()
-        return 200, project
-
-    @http_delete("/{project_id}", response={204: None, 404: dict})
-    @log_api_call()
-    def delete_project(self, request, project_id: str):
-        project = get_object_or_404(Project, id=project_id, user=request.user)
-        project.soft_delete(user=request.user)
-        return 204, None
-
-    # --- Nested Task Endpoints ---
-
-    @http_get("/{project_id}/tasks", response={200: list[TaskSchema], 404: dict})
-    @log_api_call()
-    def list_tasks(self, request, project_id: str):
-        project = get_object_or_404(Project, id=project_id, user=request.user)
-        return 200, project.tasks.filter(is_active=True)
-
-    @http_post("/{project_id}/tasks", response={201: TaskSchema, 400: dict, 404: dict})
-    @log_api_call(include_payload=True)
-    def create_task(self, request, project_id: str, payload: CreateTaskSchema):
-        task = self.service.add_task(request.user, project_id, payload.model_dump())
-        return 201, task
-
-    @http_post(
-        "/{project_id}/tasks/{task_id}/complete",
-        response={200: TaskSchema, 404: dict},
-    )
-    @log_api_call()
-    def complete_task(self, request, project_id: str, task_id: str):
-        task = self.service.complete_task(request.user, project_id, task_id)
-        return 200, task
-```
-
----
-
-## Example 3: Celery Background Task — Email Notifications
-
-### Task — `notifications/tasks.py`
-
-```python
-import logging
-
-from celery import shared_task
-
-logger = logging.getLogger(__name__)
-
-
-@shared_task(name="notifications.send_welcome_email")
-def send_welcome_email(user_id: str) -> dict:
+@shared_task(name="notes.send_pinned_digest", max_retries=3)
+def send_pinned_digest(user_id: str) -> None:
     from django.contrib.auth import get_user_model
 
-    from core.services.email.service import EmailService
+    user = get_user_model().objects.filter(pk=user_id).first()
+    if user is None:
+        logger.error("User %s not found", user_id)
+        return
 
-    User = get_user_model()
+    titles = user.notes.filter(pinned=True).values_list("title", flat=True)
     try:
-        user = User.objects.get(pk=user_id)
-        EmailService().send_templated_email(
-            template_data={
-                "html_template": "emails/welcome.html",
-                "context": {"user": user},
-            },
-            recipient_email=user.email,
-        )
-        logger.info("Welcome email sent to %s", user.email)
-        return {"sent": True, "email": user.email}
-    except User.DoesNotExist:
-        logger.warning("User %s not found for welcome email", user_id)
-        return {"sent": False, "reason": "user_not_found"}
-
-
-@shared_task(
-    name="notifications.send_project_digest",
-    autoretry_for=(Exception,),
-    retry_backoff=True,
-    max_retries=3,
-)
-def send_project_digest(user_id: str) -> dict:
-    from django.contrib.auth import get_user_model
-
-    from core.services.email.service import EmailService
-
-    User = get_user_model()
-    user = User.objects.get(pk=user_id)
-    projects = user.projects.filter(status="active").prefetch_related("tasks")
-
-    summary = []
-    for project in projects:
-        total = project.tasks.filter(is_active=True).count()
-        done = project.tasks.filter(is_active=True, is_done=True).count()
-        summary.append({"name": project.name, "total": total, "done": done})
-
-    EmailService().send_templated_email(
-        template_data={
-            "html_template": "emails/project_digest.html",
-            "context": {"user": user, "projects": summary},
-        },
-        recipient_email=user.email,
-    )
-    logger.info("Project digest sent to %s (%d projects)", user.email, len(summary))
-    return {"sent": True, "projects": len(summary)}
+        send_mail("Your pinned notes", "\n".join(titles), None, [user.email])
+    except Exception as exc:
+        raise send_pinned_digest.retry(user_id, exc=exc, countdown=60)
 ```
 
-### Calling from a Service
+- Pass IDs as strings, not model instances. Load the row in the task.
+- `.retry()` returns a `TaskRetry` signal; `raise` it. After `max_retries`
+  retries, the worker raises `TaskMaxRetriesExceeded`.
+- With `bind=True`, the task gets a `TaskContext` as its first argument.
+
+Dispatch from a service method:
 
 ```python
-# In a service or signal handler
-from notifications.tasks import send_welcome_email
-
-def on_user_registered(user):
-    send_welcome_email.delay(str(user.id))
+def queue_digest(self, user: Any) -> None:  # NoteService
+    send_pinned_digest.delay(str(user.id))
 ```
 
-### Periodic Task Config — `api/celery.py`
+With `TASK_BACKEND=none`, `.delay()` raises `TaskDispatchDisabled`. A direct
+call, `send_pinned_digest(user_id)`, runs in the current process.
+
+### Periodic run (Celery backend only)
+
+Add an entry to `app.conf.beat_schedule` in `api/celery.py`, which already
+imports `crontab`. The `task` value must match the `name=` of the task.
 
 ```python
-from celery.schedules import crontab
-
-app.conf.beat_schedule = {
-    "daily-project-digest": {
-        "task": "notifications.send_project_digest",
-        "schedule": crontab(hour=9, minute=0),  # 9 AM daily
+    "notes-pinned-digest-daily": {
+        "task": "notes.send_pinned_digest",
+        "schedule": crontab(hour=9, minute=0),
     },
-}
 ```
 
----
+## Example 4: Rate limiting and pagination
 
-## Example 4: Endpoint with Rate Limiting + Pagination
+`NINJA_EXTRA["THROTTLE_CLASSES"]` in `api/settings/common.py` applies
+`AnonRateThrottle` and `UserRateThrottle` to every route. Add a scoped
+throttle only for an expensive or abusable operation. For pagination, see the
+`list_notes` handler in Example 1.
+
+### Per-operation throttle
+
+Add this handler to `NoteController`. It is a static path, so put it before
+the first `/{note_id}` handler.
 
 ```python
-from ninja_extra import api_controller, http_get, http_post
-from ninja_extra.pagination import PageNumberPaginationExtra, paginate
-from ninja_extra.schemas import PaginatedResponseSchema
 from ninja_extra.throttling import DynamicRateThrottle, throttle
-from ninja_jwt.authentication import JWTAuth
 
-from api.decorators import log_api_call
+from core.schemas.base_schema import MessageResponse
 
 
-@api_controller("/search", tags=["Search"], auth=JWTAuth())
-class SearchController:
-
-    @http_get("/", response={200: PaginatedResponseSchema[SearchResultSchema]})
+# Inside NoteController:
+    @http_post("/digest", response={202: MessageResponse, 429: dict})
     @log_api_call()
-    @paginate(PageNumberPaginationExtra)
-    def search(self, request, q: str, category: str | None = None):
-        qs = SearchIndex.objects.filter(content__icontains=q)
-        if category:
-            qs = qs.filter(category=category)
-        return qs
-
-    @http_post("/reindex", response={200: dict})
-    @log_api_call()
-    @throttle(DynamicRateThrottle, scope="tasks")
-    def reindex(self, request):
-        from search.tasks import reindex_all
-        reindex_all.delay()
-        return 200, {"message": "Reindex started"}
+    @throttle(DynamicRateThrottle, scope="notes-digest")
+    def send_digest(self, request):
+        self.service.queue_digest(request.user)
+        return 202, {"message": "Digest queued"}
 ```
+
+Add the scope to `NINJA_EXTRA["THROTTLE_RATES"]` in `api/settings/common.py`:
+
+```python
+"notes-digest": "3/hour",
+```
+
+To throttle every route on a controller, pass
+`throttle=DynamicRateThrottle(scope="...")` to `@api_controller`, as
+`core/controllers/otp_controller.py` does. `handle_throttled` in `api/urls.py`
+returns 429 with a `Retry-After` header and a `retry_after` body field.

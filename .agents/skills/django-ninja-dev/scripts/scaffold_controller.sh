@@ -26,7 +26,7 @@ else
 fi
 
 cat <<PY
-"""${resource} controller — HTTP adapter only.
+"""${resource} controller: HTTP adapter only.
 
 Route prefix: /${plural}. Business logic lives in ${resource}Service.
 """

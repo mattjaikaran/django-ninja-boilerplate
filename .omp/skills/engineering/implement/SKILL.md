@@ -17,13 +17,9 @@ Implement the work described by the user.
 
 ## During implementation
 
-- Follow `rule://backend-conventions` for every layer
-- Read `.context/SYSTEM_PROMPT.md` for templates
-- Controllers are thin HTTP adapters — delegate to services
-- Schemas inherit CamelCaseSchema, never raw Schema
-- Never redeclare base model fields
-- Always scope queries to user
-- Never use `pip`, `npm`, `yarn` — only `uv`, `bun`
+- Follow `AGENTS.md` section 08 for every layer
+- Copy the closest slice from `.context/EXAMPLES.md`; look up layer details in
+  `.agents/skills/django-ninja-dev/references/layer-reference.md`
 
 ## Done when
 
