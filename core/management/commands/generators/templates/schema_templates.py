@@ -1,36 +1,47 @@
 """Schema templates for code generation."""
 
-SCHEMA_TEMPLATE = '''"""{app_name} schemas."""
+SCHEMA_TEMPLATE = '''"""{model_name} schemas."""
+
+from datetime import datetime
+from uuid import UUID
+
+from pydantic import field_validator
 
 from core.schemas.base_schema import CamelCaseSchema
-from typing import Optional
-from datetime import datetime
 
 
 class {model_name}Schema(CamelCaseSchema):
-    """Schema for {model_name} responses."""
-
     id: str
-    name: str
+    title: str
     description: str
-    is_active: bool
-    created_at: datetime
-    updated_at: datetime
+    created_at: str
+    updated_at: str
+
+    @field_validator("id", mode="before")
+    @classmethod
+    def convert_uuid_to_str(cls, v):
+        """Serialize the UUID primary key as a string."""
+        if isinstance(v, UUID):
+            return str(v)
+        return v
+
+    @field_validator("created_at", "updated_at", mode="before")
+    @classmethod
+    def convert_datetime_to_str(cls, v):
+        """Serialize timestamps as ISO 8601 strings."""
+        if isinstance(v, datetime):
+            return v.isoformat()
+        return v
 
 
 class Create{model_name}Schema(CamelCaseSchema):
-    """Schema for creating a {model_name}."""
-
-    name: str
-    description: str = ""
+    title: str
+    description: str
 
 
 class Update{model_name}Schema(CamelCaseSchema):
-    """Schema for updating a {model_name}."""
-
-    name: Optional[str] = None
-    description: Optional[str] = None
-    is_active: Optional[bool] = None
+    title: str
+    description: str
 '''
 
 RBAC_SCHEMAS_TEMPLATE = '''"""RBAC schemas."""

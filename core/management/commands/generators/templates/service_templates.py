@@ -1,5 +1,74 @@
 """Service templates for code generation."""
 
+from core.management.commands.generators.codegen import (
+    ResourceNames,
+    from_import,
+    method_def,
+)
+
+# Owner-scoped CRUD service behind CONTROLLER_TEMPLATE. Every query filters on
+# the owner, so another user's item is a 404.
+SERVICE_TEMPLATE = '''"""Business logic for {model_name}. Every query is scoped to the owner."""
+
+from typing import Any
+from uuid import UUID
+
+from django.db.models import QuerySet
+from django.shortcuts import get_object_or_404
+
+from {app_name}.models import {model_name}
+{schema_import}
+
+
+class {model_name}Service:
+    """Owner-scoped CRUD for {model_name}."""
+
+    def list_for_user(self, user: Any) -> QuerySet[{model_name}]:
+        """Return the items that belong to the user, newest first."""
+        return {model_name}.objects.filter(user=user).order_by("-created_at")
+
+    def get_for_user(self, item_id: UUID, user: Any) -> {model_name}:
+        """Return one item owned by the user. Raise Http404 for any other item."""
+        return get_object_or_404({model_name}, id=item_id, user=user)
+
+{create_def}
+        """Create an item owned by the user."""
+        return {model_name}.objects.create(user=user, **payload.model_dump())
+
+{update_def}
+        """Apply the set fields of the payload to an item owned by the user."""
+        item = self.get_for_user(item_id, user)
+        for key, value in payload.model_dump(exclude_unset=True).items():
+            setattr(item, key, value)
+        item.save()
+        return item
+
+    def delete(self, item_id: UUID, user: Any) -> None:
+        """Delete an item owned by the user."""
+        self.get_for_user(item_id, user).delete()
+'''
+
+
+def render_service(names: ResourceNames) -> str:
+    """Render SERVICE_TEMPLATE for one resource."""
+    model = names.model_name
+    schema_import = from_import(
+        f"{names.app_name}.schemas", f"Create{model}Schema", f"Update{model}Schema"
+    )
+    return SERVICE_TEMPLATE.format(
+        schema_import=schema_import,
+        create_def=method_def(
+            "create", f"self, user: Any, payload: Create{model}Schema", model
+        ),
+        update_def=method_def(
+            "update",
+            f"self, item_id: UUID, user: Any, payload: Update{model}Schema",
+            model,
+        ),
+        **names.context(),
+    )
+
+
 RBAC_SERVICE_TEMPLATE = '''"""RBAC permissions system."""
 
 from typing import Any, Optional

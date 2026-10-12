@@ -1,25 +1,30 @@
 """Model templates for code generation."""
 
-MODEL_TEMPLATE = '''"""{app_name} models."""
+# Owned resource behind SERVICE_TEMPLATE: the service scopes every query on
+# the ``user`` foreign key.
+MODEL_TEMPLATE = '''"""{model_name} model."""
 
+from django.conf import settings
 from django.db import models
+
 from core.models import AbstractBaseModel
 
 
 class {model_name}(AbstractBaseModel):
-    """{model_name} model."""
+    """A {model_snake} owned by one user."""
 
-    name = models.CharField(max_length=255)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="{route}"
+    )
+    title = models.CharField(max_length=255)
     description = models.TextField(blank=True)
-    is_active = models.BooleanField(default=True)
 
     class Meta:
         verbose_name = "{model_name}"
-        verbose_name_plural = "{app_name_title}"
-        ordering = ["-created_at"]
+        verbose_name_plural = "{tag}"
 
     def __str__(self):
-        return self.name
+        return self.title
 '''
 
 RBAC_MODELS_TEMPLATE = '''"""RBAC models."""

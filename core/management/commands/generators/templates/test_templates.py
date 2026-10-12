@@ -1,15 +1,18 @@
 """Test templates for code generation."""
 
+from core.management.commands.generators.codegen import (
+    ResourceNames,
+    from_import,
+    import_block,
+)
+
 # Generated features get ONE smoke/permission test file. Playwright journeys in
 # the frontend verify the feature itself; see docs/product/README.md.
 API_ENDPOINT_TESTS_TEMPLATE = '''"""Smoke and permission tests for the {app_name} API."""
 
 import pytest
 
-from core.tests.factories import UserFactory
-from tests.utils.assertions import assert_validation_error
-
-from {app_name}.models import {model_name}
+{first_party_imports}
 
 
 @pytest.mark.django_db
@@ -18,22 +21,35 @@ class Test{model_name}API:
 
     def test_list_as_owner_returns_200(self, authenticated_client):
         client, user = authenticated_client
-        {model_name}.objects.create(name="Mine", created_by=user, updated_by=user)
-        response = client.get("/api/{app_name}/")
+        {model_name}.objects.create(user=user, title="Mine")
+        response = client.get("/api/{route}/")
         assert response.status_code == 200
 
     def test_other_user_cannot_read_item(self, authenticated_client):
         client, _ = authenticated_client
         other = UserFactory()
-        obj = {model_name}.objects.create(name="Theirs", created_by=other, updated_by=other)
-        response = client.get(f"/api/{app_name}/{{obj.id}}")
+        obj = {model_name}.objects.create(user=other, title="Theirs")
+        response = client.get(f"/api/{route}/{{obj.id}}")
         assert response.status_code == 404
 
     def test_create_with_invalid_payload_returns_422(self, authenticated_client):
         client, _ = authenticated_client
-        response = client.post("/api/{app_name}/", {{}}, content_type="application/json")
-        assert_validation_error(response, field="name")
+        response = client.post("/api/{route}/", {{}}, content_type="application/json")
+        assert_validation_error(response, field="title")
 '''
+
+
+def render_api_endpoint_tests(names: ResourceNames) -> str:
+    """Render API_ENDPOINT_TESTS_TEMPLATE with its imports in isort order."""
+    first_party_imports = import_block(
+        "from core.tests.factories import UserFactory",
+        from_import(f"{names.app_name}.models", names.model_name),
+        "from tests.utils.assertions import assert_validation_error",
+    )
+    return API_ENDPOINT_TESTS_TEMPLATE.format(
+        first_party_imports=first_party_imports, **names.context()
+    )
+
 
 RBAC_TESTS_TEMPLATE = '''"""RBAC tests."""
 

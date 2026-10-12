@@ -1,59 +1,94 @@
 """Controller templates for code generation."""
 
-CONTROLLER_TEMPLATE = '''"""{app_name} controllers."""
+from core.management.commands.generators.codegen import (
+    ResourceNames,
+    from_import,
+    import_block,
+    method_def,
+)
 
-import logging
+# AGENTS.md section 08: JWTAuth on the controller, a thin handler per route
+# that calls the owner-scoped service, no try/except around lookups, and
+# static paths before every /{item_id} handler.
+CONTROLLER_TEMPLATE = '''"""{model_name} controller. The service scopes every route to request.user."""
+
 from uuid import UUID
 
-from django.shortcuts import get_object_or_404
 from ninja_extra import api_controller, http_delete, http_get, http_post, http_put
 from ninja_jwt.authentication import JWTAuth
 
-from {app_name}.models import {model_name}
-from {app_name}.schemas import {model_name}Schema, Create{model_name}Schema, Update{model_name}Schema
-
-logger = logging.getLogger(__name__)
+{first_party_imports}
 
 
-@api_controller("/{app_name}", tags=["{app_name_title}"], auth=JWTAuth())
+@api_controller("/{route}", tags=["{tag}"], auth=JWTAuth())
 class {model_name}Controller:
-    """Controller for {model_name} CRUD operations, scoped to the owner."""
+    """CRUD endpoints for the authenticated user's {route}.
+
+    Put static paths before the first /{{item_id}} handler.
+    """
+
+    def __init__(self):
+        self.service = {model_name}Service()
 
     @http_get("/", response={{200: list[{model_name}Schema]}})
-    def list_{app_name}(self, request):
-        """List the user's {app_name}."""
-        return 200, {model_name}.objects.filter(created_by=request.user)
+    @log_api_call()
+    def list_{route}(self, request):
+        """List the user's {route}."""
+        return 200, self.service.list_for_user(request.user)
 
     @http_post("/", response={{201: {model_name}Schema}})
-    def create_{model_name_lower}(self, request, payload: Create{model_name}Schema):
-        """Create a new {model_name_lower}."""
-        {model_name_lower} = {model_name}.objects.create(
-            **payload.model_dump(), created_by=request.user, updated_by=request.user
-        )
-        return 201, {model_name_lower}
+    @log_api_call(include_payload=True)
+{create_def}
+        """Create a {model_snake} for the user."""
+        return 201, self.service.create(request.user, payload)
 
-    @http_get("/{{str:{model_name_lower}_id}}", response={{200: {model_name}Schema, 404: dict}})
-    def get_{model_name_lower}(self, request, {model_name_lower}_id: str):
-        """Get a specific {model_name_lower} by ID."""
-        {model_name_lower} = get_object_or_404({model_name}, id={model_name_lower}_id, created_by=request.user)
-        return 200, {model_name_lower}
+    @http_get("/{{item_id}}", response={{200: {model_name}Schema, 404: dict}})
+    @log_api_call()
+    def get_{model_snake}(self, request, item_id: UUID):
+        """Get one of the user's {route}."""
+        return 200, self.service.get_for_user(item_id, request.user)
 
-    @http_put("/{{str:{model_name_lower}_id}}", response={{200: {model_name}Schema, 404: dict}})
-    def update_{model_name_lower}(self, request, {model_name_lower}_id: str, payload: Update{model_name}Schema):
-        """Update a specific {model_name_lower} by ID."""
-        {model_name_lower} = get_object_or_404({model_name}, id={model_name_lower}_id, created_by=request.user)
-        for key, value in payload.model_dump(exclude_unset=True).items():
-            setattr({model_name_lower}, key, value)
-        {model_name_lower}.save()
-        return 200, {model_name_lower}
+    @http_put("/{{item_id}}", response={{200: {model_name}Schema, 404: dict}})
+    @log_api_call(include_payload=True)
+{update_def}
+        """Update one of the user's {route}."""
+        return 200, self.service.update(item_id, request.user, payload)
 
-    @http_delete("/{{str:{model_name_lower}_id}}", response={{204: dict, 404: dict}})
-    def delete_{model_name_lower}(self, request, {model_name_lower}_id: str):
-        """Delete a specific {model_name_lower} by ID."""
-        {model_name_lower} = get_object_or_404({model_name}, id={model_name_lower}_id, created_by=request.user)
-        {model_name_lower}.delete()
-        return 204, {{"message": "{model_name} deleted successfully"}}
+    @http_delete("/{{item_id}}", response={{204: None, 404: dict}})
+    @log_api_call()
+    def delete_{model_snake}(self, request, item_id: UUID):
+        """Delete one of the user's {route}."""
+        self.service.delete(item_id, request.user)
+        return 204, None
 '''
+
+
+def render_controller(names: ResourceNames) -> str:
+    """Render CONTROLLER_TEMPLATE with its first-party imports in isort order."""
+    model = names.model_name
+    first_party_imports = import_block(
+        "from api.decorators import log_api_call",
+        from_import(
+            f"{names.app_name}.schemas",
+            f"{model}Schema",
+            f"Create{model}Schema",
+            f"Update{model}Schema",
+        ),
+        from_import(f"{names.app_name}.services", f"{model}Service"),
+    )
+    return CONTROLLER_TEMPLATE.format(
+        first_party_imports=first_party_imports,
+        create_def=method_def(
+            f"create_{names.model_snake}",
+            f"self, request, payload: Create{model}Schema",
+        ),
+        update_def=method_def(
+            f"update_{names.model_snake}",
+            f"self, request, item_id: UUID, payload: Update{model}Schema",
+        ),
+        **names.context(),
+    )
+
 
 MODERN_CONTROLLER_TEMPLATE = '''"""{{app_name}} controllers."""
 

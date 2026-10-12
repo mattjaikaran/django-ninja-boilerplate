@@ -248,11 +248,13 @@ class BaseGenerator(ABC):
             self.logger.warning(f"Migration failed: {e.stderr}")
             # Don't raise error for migrations as they might fail for valid reasons
 
-    def update_urls(self, app_name: str) -> None:
+    def update_urls(self, app_name: str, controller_class: str | None = None) -> None:
         """Update main urls.py to include the new app's URLs.
 
         Args:
             app_name: Name of the app
+            controller_class: Controller to register. Defaults to the
+                capitalized app name plus ``Controller``.
         """
         urls_path = self.project_root / "api" / "urls.py"
         if not urls_path.exists():
@@ -264,8 +266,7 @@ class BaseGenerator(ABC):
             original_content = content
             modified = False
 
-            # Generate controller class name (capitalized + Controller)
-            controller_class = f"{app_name.title()}Controller"
+            controller_class = controller_class or f"{app_name.title()}Controller"
             controller_import = f"from {app_name}.controllers import {controller_class}"
             controller_register = f"api.register_controllers({controller_class})"
 

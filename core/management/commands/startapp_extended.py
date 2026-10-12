@@ -2,62 +2,16 @@ import os
 
 from django.core.management.commands.startapp import Command as StartAppCommand
 
+from .generators.codegen import ResourceNames, from_import
+from .generators.templates.controller_templates import render_controller
+from .generators.templates.model_templates import MODEL_TEMPLATE
+from .generators.templates.schema_templates import SCHEMA_TEMPLATE
+from .generators.templates.service_templates import render_service
+from .generators.templates.test_templates import render_api_endpoint_tests
 
-def smart_pluralize(singular):
-    # Handle specific variations
-    specific_variations = {
-        "blog": "Blogs",
-        "message": "Messages",
-        "category": "Categories",
-        "history": "Histories",
-    }
-
-    if singular.lower() in specific_variations:
-        return specific_variations[singular.lower()]
-
-    # Irregular plurals
-    irregulars = {
-        "child": "children",
-        "goose": "geese",
-        "man": "men",
-        "woman": "women",
-        "tooth": "teeth",
-        "foot": "feet",
-        "mouse": "mice",
-        "person": "people",
-        "leaf": "leaves",
-        "sheep": "sheep",
-        "deer": "deer",
-        "fish": "fish",
-    }
-
-    if singular.lower() in irregulars:
-        return irregulars[singular.lower()]
-
-    # Words ending in 'y'
-    if singular.endswith("y"):
-        if singular[-2] in "aeiou":
-            return singular + "s"
-        return singular[:-1] + "ies"
-
-    # Words ending in 'is'
-    if singular.endswith("is"):
-        return singular[:-2] + "es"
-
-    # Words ending in 's', 'ss', 'sh', 'ch', 'x', 'o'
-    if singular.endswith(("s", "ss", "sh", "ch", "x", "o")):
-        return singular + "es"
-
-    # Default case
-    return singular + "s"
-
-
-def get_model_name(app_name):
-    specific_models = {
-        "blogs": "Blog",
-        "messaging": "Message",
-    }
-    return specific_models.get(app_name.lower(), app_name.capitalize())
+PACKAGE_INIT = (
+    "# This file is intentionally left empty to make the directory a Python package.\n"
+)
 
 
 class Command(StartAppCommand):
@@ -76,17 +30,12 @@ class Command(StartAppCommand):
         # Get the actual app directory
         app_directory = os.path.join(target, app_name)
 
-        # Get the model name
-        model_name = get_model_name(app_name)
-
-        # List to store created files
-        created_files = []
+        # "gadgets" and "gadget" both give model Gadget and route /gadgets.
+        names = ResourceNames.from_app_name(app_name)
 
         # Always create advanced structure regardless of the advanced flag
         # This ensures all new apps follow our organized folder pattern
-        created_files.extend(
-            self.create_advanced_structure(app_name, app_directory, model_name)
-        )
+        created_files = self.create_advanced_structure(names, app_directory)
 
         # Print success message
         self.stdout.write(self.style.SUCCESS(f"Successfully created app '{app_name}'"))
@@ -94,6 +43,10 @@ class Command(StartAppCommand):
             self.style.SUCCESS(
                 "Created with organized folder structure: models, admin, controllers, schemas, tests"
             )
+        )
+        self.stdout.write(
+            f"Model: {names.model_name}, controller: {names.model_name}Controller, "
+            f"route: /api/{names.route}/"
         )
 
         # Print list of created files
@@ -107,8 +60,9 @@ class Command(StartAppCommand):
             f.write(content)
         return [path]
 
-    def create_advanced_structure(self, app_name, app_directory, model_name):
+    def create_advanced_structure(self, names, app_directory):
         created_files = []
+        snake = names.model_snake
 
         # Create directory structure
         dirs = [
@@ -130,76 +84,51 @@ class Command(StartAppCommand):
                 parent_init_path = os.path.join(
                     app_directory, parent_dir, "__init__.py"
                 )
-                created_files.extend(
-                    self.create_file(
-                        parent_init_path,
-                        "# This file is intentionally left empty to make the directory a Python package.\n",
-                    )
-                )
+                created_files.extend(self.create_file(parent_init_path, PACKAGE_INIT))
                 init_path = os.path.join(dir_path, "__init__.py")
-                created_files.extend(
-                    self.create_file(
-                        init_path,
-                        "# This file is intentionally left empty to make the directory a Python package.\n",
-                    )
-                )
+                created_files.extend(self.create_file(init_path, PACKAGE_INIT))
             else:
                 init_path = os.path.join(dir_path, "__init__.py")
                 created_files.extend(
-                    self.create_file(
-                        init_path, self.get_init_content(dir_name, model_name, app_name)
-                    )
+                    self.create_file(init_path, self.get_init_content(dir_name, names))
                 )
 
-        # Create models
-        model_file = os.path.join(app_directory, "models", f"{model_name.lower()}.py")
-        created_files.extend(self.create_model_file(app_name, model_file, model_name))
-
-        # Create schemas
-        schema_file = os.path.join(
-            app_directory, "schemas", f"{model_name.lower()}_schema.py"
-        )
-        created_files.extend(self.create_schema_file(app_name, schema_file, model_name))
-
-        # Create service (owner-scoped business logic)
-        service_file = os.path.join(
-            app_directory, "services", f"{model_name.lower()}_service.py"
-        )
-        created_files.extend(
-            self.create_service_file(app_name, service_file, model_name)
-        )
-
-        # Create controller
-        controller_file = os.path.join(
-            app_directory, "controllers", f"{model_name.lower()}_controller.py"
-        )
-        created_files.extend(
-            self.create_controller_file(app_name, controller_file, model_name)
-        )
+        # Models, schemas, the owner-scoped service, the controller and the
+        # tests come from the shared generator templates.
+        rendered = {
+            os.path.join("models", f"{snake}.py"): MODEL_TEMPLATE.format(
+                **names.context()
+            ),
+            os.path.join("schemas", f"{snake}_schema.py"): SCHEMA_TEMPLATE.format(
+                **names.context()
+            ),
+            os.path.join("services", f"{snake}_service.py"): render_service(names),
+            os.path.join("controllers", f"{snake}_controller.py"): render_controller(
+                names
+            ),
+            os.path.join("tests", f"test_{snake}.py"): render_api_endpoint_tests(names),
+        }
+        for relative_path, content in rendered.items():
+            created_files.extend(
+                self.create_file(os.path.join(app_directory, relative_path), content)
+            )
 
         # Create admin file
-        admin_file = os.path.join(
-            app_directory, "admin", f"{model_name.lower()}_admin.py"
-        )
-        created_files.extend(self.create_admin_file(app_name, admin_file, model_name))
+        admin_file = os.path.join(app_directory, "admin", f"{snake}_admin.py")
+        created_files.extend(self.create_admin_file(names, admin_file))
 
         # Create management command
         command_file = os.path.join(
-            app_directory, "management", "commands", f"generate_{app_name}_data.py"
+            app_directory,
+            "management",
+            "commands",
+            f"generate_{names.app_name}_data.py",
         )
-        created_files.extend(
-            self.create_generate_data_command(app_name, command_file, model_name)
-        )
-
-        # Create tests
-        test_file = os.path.join(
-            app_directory, "tests", f"test_{model_name.lower()}.py"
-        )
-        created_files.extend(self.create_test_file(app_name, test_file, model_name))
+        created_files.extend(self.create_generate_data_command(names, command_file))
 
         # Create a README file
         readme_file = os.path.join(app_directory, "README.md")
-        created_files.extend(self.create_readme_file(app_name, readme_file, model_name))
+        created_files.extend(self.create_readme_file(names, readme_file))
 
         # Delete the original files that are no longer needed
         self.delete_original_files(app_directory)
@@ -214,211 +143,42 @@ class Command(StartAppCommand):
             if os.path.exists(file_path):
                 os.remove(file_path)
 
-    def get_init_content(self, dir_name, model_name, app_name):
-        if dir_name == "models":
-            return f"""from {app_name}.models.{model_name.lower()} import {model_name}
+    def get_init_content(self, dir_name, names):
+        app_name = names.app_name
+        model_name = names.model_name
+        snake = names.model_snake
+        exports = {
+            "models": (f"{app_name}.models.{snake}", [model_name]),
+            "schemas": (
+                f"{app_name}.schemas.{snake}_schema",
+                [
+                    f"{model_name}Schema",
+                    f"Create{model_name}Schema",
+                    f"Update{model_name}Schema",
+                ],
+            ),
+            "services": (
+                f"{app_name}.services.{snake}_service",
+                [f"{model_name}Service"],
+            ),
+            "controllers": (
+                f"{app_name}.controllers.{snake}_controller",
+                [f"{model_name}Controller"],
+            ),
+            "admin": (f"{app_name}.admin.{snake}_admin", [f"{model_name}Admin"]),
+        }
+        if dir_name not in exports:
+            return PACKAGE_INIT
+        module, exported = exports[dir_name]
+        all_names = ", ".join(f'"{name}"' for name in exported)
+        return f"{from_import(module, *exported)}\n\n__all__ = [{all_names}]\n"
 
-__all__ = ["{model_name}"]
-"""
-        if dir_name == "schemas":
-            return f"""from {app_name}.schemas.{model_name.lower()}_schema import {model_name}Schema, Create{model_name}Schema, Update{model_name}Schema
-
-__all__ = ["{model_name}Schema", "Create{model_name}Schema", "Update{model_name}Schema"]
-"""
-        if dir_name == "services":
-            return f"""from {app_name}.services.{model_name.lower()}_service import {model_name}Service
-
-__all__ = ["{model_name}Service"]
-"""
-        if dir_name == "controllers":
-            return f"""from {app_name}.controllers.{model_name.lower()}_controller import {model_name}Controller
-
-__all__ = ["{model_name}Controller"]
-"""
-        if dir_name == "admin":
-            return f"""from {app_name}.admin.{model_name.lower()}_admin import {model_name}Admin
-
-__all__ = ["{model_name}Admin"]
-"""
-        return "# This file is intentionally left empty to make the directory a Python package.\n"
-
-    def create_model_file(self, app_name, file_path, model_name):
-        content = f"""from django.db import models
-from django.conf import settings
-from core.models import AbstractBaseModel
-
-
-class {model_name}(AbstractBaseModel):
-    user = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="{smart_pluralize(model_name.lower())}"
-    )
-    title = models.CharField(max_length=255)
-    description = models.TextField(blank=True)
-
-    def __str__(self):
-        return self.title
-
-    class Meta:
-        verbose_name = "{model_name}"
-        verbose_name_plural = "{smart_pluralize(model_name)}"
-"""
-        return self.create_file(file_path, content)
-
-    def create_schema_file(self, app_name, file_path, model_name):
-        content = f"""from datetime import datetime
-from uuid import UUID
-
-from pydantic import field_validator
-
-from core.schemas.base_schema import CamelCaseSchema
-
-
-class {model_name}Schema(CamelCaseSchema):
-    id: str
-    title: str
-    description: str
-    created_at: str
-    updated_at: str
-
-    @field_validator("id", mode="before")
-    @classmethod
-    def convert_uuid_to_str(cls, v):
-        \"\"\"Serialize the UUID primary key as a string.\"\"\"
-        if isinstance(v, UUID):
-            return str(v)
-        return v
-
-    @field_validator("created_at", "updated_at", mode="before")
-    @classmethod
-    def convert_datetime_to_str(cls, v):
-        \"\"\"Serialize timestamps as ISO 8601 strings.\"\"\"
-        if isinstance(v, datetime):
-            return v.isoformat()
-        return v
-
-
-
-class Create{model_name}Schema(CamelCaseSchema):
-    title: str
-    description: str
-
-
-class Update{model_name}Schema(CamelCaseSchema):
-    title: str
-    description: str
-"""
-        return self.create_file(file_path, content)
-
-    def create_service_file(self, app_name, file_path, model_name):
-        content = f'''"""Business logic for {model_name}. Every query is scoped to the owner."""
-
-from typing import Any
-from uuid import UUID
-
-from django.db.models import QuerySet
-from django.shortcuts import get_object_or_404
-
-from {app_name}.models import {model_name}
-from {app_name}.schemas import Create{model_name}Schema, Update{model_name}Schema
-
-
-class {model_name}Service:
-    """Owner-scoped CRUD for {model_name}."""
-
-    def list_for_user(self, user: Any) -> QuerySet[{model_name}]:
-        """Return the items that belong to the user, newest first."""
-        return {model_name}.objects.filter(user=user).order_by("-created_at")
-
-    def get_for_user(self, item_id: UUID, user: Any) -> {model_name}:
-        """Return one item owned by the user. Raise Http404 for any other item."""
-        return get_object_or_404({model_name}, id=item_id, user=user)
-
-    def create(self, user: Any, payload: Create{model_name}Schema) -> {model_name}:
-        """Create an item owned by the user."""
-        return {model_name}.objects.create(user=user, **payload.model_dump())
-
-    def update(
-        self, item_id: UUID, user: Any, payload: Update{model_name}Schema
-    ) -> {model_name}:
-        """Apply the set fields of the payload to an item owned by the user."""
-        item = self.get_for_user(item_id, user)
-        for key, value in payload.model_dump(exclude_unset=True).items():
-            setattr(item, key, value)
-        item.save()
-        return item
-
-    def delete(self, item_id: UUID, user: Any) -> None:
-        """Delete an item owned by the user."""
-        self.get_for_user(item_id, user).delete()
-'''
-        return self.create_file(file_path, content)
-
-    def create_controller_file(self, app_name, file_path, model_name):
-        # Converting to lowercase and pluralizing for URL
-        url_name = smart_pluralize(model_name.lower())
-        model_lower = model_name.lower()
-        # AGENTS.md section 08: JWTAuth on the controller, every query scoped to
-        # request.user in the service, no try/except around lookups, and static
-        # paths before every /{item_id} handler.
-        content = f'''"""{model_name} controller. The service scopes every route to request.user."""
-
-from uuid import UUID
-
-from ninja_extra import api_controller, http_delete, http_get, http_post, http_put
-from ninja_jwt.authentication import JWTAuth
-
-from api.decorators import log_api_call
-from {app_name}.schemas import {model_name}Schema, Create{model_name}Schema, Update{model_name}Schema
-from {app_name}.services import {model_name}Service
-
-
-@api_controller("/{url_name}", tags=["{smart_pluralize(model_name)}"], auth=JWTAuth())
-class {model_name}Controller:
-    """CRUD endpoints for the authenticated user's {url_name}.
-
-    Put static paths before the first /{{item_id}} handler.
-    """
-
-    def __init__(self):
-        self.service = {model_name}Service()
-
-    @http_get("/", response={{200: list[{model_name}Schema]}})
-    @log_api_call()
-    def list_{url_name}(self, request):
-        """List the user's {url_name}."""
-        return 200, self.service.list_for_user(request.user)
-
-    @http_post("/", response={{201: {model_name}Schema}})
-    @log_api_call(include_payload=True)
-    def create_{model_lower}(self, request, payload: Create{model_name}Schema):
-        """Create a {model_lower} for the user."""
-        return 201, self.service.create(request.user, payload)
-
-    @http_get("/{{item_id}}", response={{200: {model_name}Schema, 404: dict}})
-    @log_api_call()
-    def get_{model_lower}(self, request, item_id: UUID):
-        """Get one of the user's {url_name}."""
-        return 200, self.service.get_for_user(item_id, request.user)
-
-    @http_put("/{{item_id}}", response={{200: {model_name}Schema, 404: dict}})
-    @log_api_call(include_payload=True)
-    def update_{model_lower}(self, request, item_id: UUID, payload: Update{model_name}Schema):
-        """Update one of the user's {url_name}."""
-        return 200, self.service.update(item_id, request.user, payload)
-
-    @http_delete("/{{item_id}}", response={{204: None, 404: dict}})
-    @log_api_call()
-    def delete_{model_lower}(self, request, item_id: UUID):
-        """Delete one of the user's {url_name}."""
-        self.service.delete(item_id, request.user)
-        return 204, None
-'''
-        return self.create_file(file_path, content)
-
-    def create_admin_file(self, app_name, file_path, model_name):
+    def create_admin_file(self, names, file_path):
+        model_name = names.model_name
         content = f"""from django.contrib import admin
 from unfold.admin import ModelAdmin
-from {app_name}.models import {model_name}
+
+from {names.app_name}.models import {model_name}
 
 
 @admin.register({model_name})
@@ -429,21 +189,22 @@ class {model_name}Admin(ModelAdmin):
 """
         return self.create_file(file_path, content)
 
-    def create_generate_data_command(self, app_name, file_path, model_name):
-        # Converting to lowercase and pluralizing for variable names
-        objects_name = smart_pluralize(model_name.lower())
-        content = f"""from django.core.management.base import BaseCommand
-from django.contrib.auth import get_user_model
+    def create_generate_data_command(self, names, file_path):
+        model_name = names.model_name
+        snake = names.model_snake
+        objects_name = names.route
+        content = f"""from django.contrib.auth import get_user_model
+from django.core.management.base import BaseCommand
 from faker import Faker
-from {app_name}.models import {model_name}
-import random
+
+from {names.app_name}.models import {model_name}
 
 User = get_user_model()
 fake = Faker()
 
 
 class Command(BaseCommand):
-    help = "Generate sample {model_name.lower()} data for testing and development"
+    help = "Generate sample {snake} data for testing and development"
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -480,24 +241,21 @@ class Command(BaseCommand):
                     )
                 )
                 return
+        # Get a random user or create one if none exist
+        elif not User.objects.exists():
+            user = User.objects.create_user(
+                username=fake.user_name(),
+                email=fake.email(),
+                password="password123",
+                first_name=fake.first_name(),
+                last_name=fake.last_name(),
+            )
+            self.stdout.write(self.style.SUCCESS(f"Created new user: {{user.username}}"))
         else:
-            # Get a random user or create one if none exist
-            if not User.objects.exists():
-                user = User.objects.create_user(
-                    username=fake.user_name(),
-                    email=fake.email(),
-                    password="password123",
-                    first_name=fake.first_name(),
-                    last_name=fake.last_name(),
-                )
-                self.stdout.write(
-                    self.style.SUCCESS(f"Created new user: {{user.username}}")
-                )
-            else:
-                user = User.objects.order_by("?").first()
-                self.stdout.write(
-                    self.style.SUCCESS(f"Using existing user: {{user.username}}")
-                )
+            user = User.objects.order_by("?").first()
+            self.stdout.write(
+                self.style.SUCCESS(f"Using existing user: {{user.username}}")
+            )
 
         # Generate items
         items_created = 0
@@ -508,7 +266,7 @@ class Command(BaseCommand):
                 description=fake.paragraph(nb_sentences=3),
             )
             items_created += 1
-            self.stdout.write(self.style.SUCCESS(f"Created {model_name.lower()}: {{item.title}}"))
+            self.stdout.write(self.style.SUCCESS(f"Created {snake}: {{item.title}}"))
 
         self.stdout.write(
             self.style.SUCCESS(
@@ -518,49 +276,15 @@ class Command(BaseCommand):
 """
         return self.create_file(file_path, content)
 
-    def create_test_file(self, app_name, file_path, model_name):
-        # One smoke/permission file per app (AGENTS.md section 10). Playwright
-        # journeys in the frontend verify the feature; see docs/product/README.md.
-        objects_name = smart_pluralize(model_name.lower())
-        content = f'''"""Smoke and permission tests for the {app_name} API."""
-
-import pytest
-
-from core.tests.factories import UserFactory
-from tests.utils.assertions import assert_validation_error
-
-from {app_name}.models import {model_name}
-
-
-@pytest.mark.django_db
-class Test{model_name}API:
-    """Smoke and permission tests for {model_name} endpoints."""
-
-    def test_list_as_owner_returns_200(self, authenticated_client):
-        client, user = authenticated_client
-        {model_name}.objects.create(user=user, title="Mine")
-        response = client.get("/api/{objects_name}/")
-        assert response.status_code == 200
-
-    def test_other_user_cannot_read_item(self, authenticated_client):
-        client, _ = authenticated_client
-        other = UserFactory()
-        obj = {model_name}.objects.create(user=other, title="Theirs")
-        response = client.get(f"/api/{objects_name}/{{obj.id}}")
-        assert response.status_code == 404
-
-    def test_create_with_invalid_payload_returns_422(self, authenticated_client):
-        client, _ = authenticated_client
-        response = client.post("/api/{objects_name}/", {{}}, content_type="application/json")
-        assert_validation_error(response, field="title")
-'''
-        return self.create_file(file_path, content)
-
-    def create_readme_file(self, app_name, file_path, model_name):
-        objects_name = smart_pluralize(model_name.lower())
+    def create_readme_file(self, names, file_path):
+        app_name = names.app_name
+        model_name = names.model_name
+        snake = names.model_snake
+        objects_name = names.route
         content = f"""# {model_name} App
 
-This app provides functionality for managing {objects_name}.
+This app provides functionality for managing {objects_name}. The API is
+mounted at `/api/{objects_name}/`.
 
 ## Folder Structure
 
@@ -568,28 +292,28 @@ This app provides functionality for managing {objects_name}.
 {app_name}/
 ├── admin/                # Admin interface configurations
 │   ├── __init__.py       # Imports all admin classes
-│   └── {model_name.lower()}_admin.py  # Admin configuration for {model_name.lower()} model
+│   └── {snake}_admin.py  # Admin configuration for {snake} model
 ├── controllers/          # API controllers/endpoints
 │   ├── __init__.py       # Imports all controllers
-│   └── {model_name.lower()}_controller.py # {model_name}-related endpoints (JWTAuth)
+│   └── {snake}_controller.py # {model_name}-related endpoints (JWTAuth)
 ├── management/           # Django management commands
 │   ├── __init__.py
 │   └── commands/         # Custom management commands
 │       ├── __init__.py
-│       └── generate_{app_name}_data.py # Generates sample {model_name.lower()} data
+│       └── generate_{app_name}_data.py # Generates sample {snake} data
 ├── migrations/           # Database migrations
 ├── models/               # Database models
 │   ├── __init__.py       # Imports all models
-│   └── {model_name.lower()}.py        # {model_name} model
+│   └── {snake}.py        # {model_name} model
 ├── schemas/              # API schemas/serializers
 │   ├── __init__.py       # Imports all schemas
-│   └── {model_name.lower()}_schema.py # {model_name}-related schemas
+│   └── {snake}_schema.py # {model_name}-related schemas
 ├── services/             # Business logic, scoped to the owner
 │   ├── __init__.py       # Imports all services
-│   └── {model_name.lower()}_service.py # {model_name} CRUD for request.user
+│   └── {snake}_service.py # {model_name} CRUD for request.user
 ├── tests/                # Smoke and permission tests
 │   ├── __init__.py
-│   └── test_{model_name.lower()}.py   # Owner list, cross-user 404, invalid payload 422
+│   └── test_{snake}.py   # Owner list, cross-user 404, invalid payload 422
 ├── __init__.py           # Main app initialization
 ├── apps.py               # App configuration
 └── README.md             # Documentation for the app
@@ -599,7 +323,7 @@ This app provides functionality for managing {objects_name}.
 
 ### Models
 
-- `{model_name}`: Model representing a {model_name.lower()} with user relationship, title, and description
+- `{model_name}`: Model representing a {snake} with user relationship, title, and description
 
 ### Controllers
 
@@ -607,7 +331,7 @@ This app provides functionality for managing {objects_name}.
 
 ### Services
 
-- `{model_name}Service`: Owner-scoped queries and writes. A request for another user's {model_name.lower()} returns 404.
+- `{model_name}Service`: Owner-scoped queries and writes. A request for another user's {snake} returns 404.
 
 ### Schemas
 
@@ -619,6 +343,6 @@ One smoke and permission test file. Playwright journeys in the frontend verify t
 
 ### Management Commands
 
-- `generate_{app_name}_data`: Generates sample {model_name.lower()} data for development
+- `generate_{app_name}_data`: Generates sample {snake} data for development
 """
         return self.create_file(file_path, content)

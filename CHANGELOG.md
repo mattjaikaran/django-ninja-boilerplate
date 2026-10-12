@@ -31,6 +31,7 @@ Upgrading from 1.13.0? Follow the 1.13.0 to 1.14.0 section of
 - **Security:** `api.settings.prod` accepted an empty `CENTRIFUGO_API_KEY` or `CENTRIFUGO_TOKEN_SECRET`. An empty token secret let anyone sign Centrifugo connection tokens. Production now refuses both.
 - `startapp_extended` generated a controller without `JWTAuth`, with an unscoped `/all` route, `try/except` blocks that turned lookups into 400, and a read schema that rejected UUID and datetime values, so its own tests failed. It now generates a `JWTAuth` controller backed by an owner-scoped service.
 - Settings probe tests removed a variable to simulate "unset", and a local `.env` refilled it; they now blank it.
+- `startapp_extended gadgets` produced model `Gadgets` and route `/gadgetses`, and the `api_endpoint` generator registered a controller class it never created and wrote a second model. Both generators now render one set of templates: a singular model, a plural route, a `JWTAuth` controller, an owner-scoped service and three passing tests, with ruff-clean output. The `api_endpoint` generator now builds the same app as `startapp_extended` (`title`, `description`, `user` owner) and stops if the app folder exists.
 
 ### Removed
 - The `unit` pytest marker.

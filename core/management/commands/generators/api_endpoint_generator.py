@@ -1,144 +1,32 @@
 """API endpoint generator for rapid CRUD development."""
 
-from .base_generator import BaseGenerator
-from .templates.controller_templates import CONTROLLER_TEMPLATE
-from .templates.model_templates import MODEL_TEMPLATE
-from .templates.schema_templates import SCHEMA_TEMPLATE
-from .templates.test_templates import API_ENDPOINT_TESTS_TEMPLATE
+from .base_generator import BaseGenerator, GeneratorError
+from .codegen import ResourceNames
 
 
 class ApiEndpointGenerator(BaseGenerator):
-    """Generator for complete API endpoint with CRUD operations."""
+    """Generator for complete API endpoint with CRUD operations.
+
+    ``startapp_extended`` renders the app from the shared templates (model,
+    schemas, owner-scoped service, ``JWTAuth`` controller and tests). This
+    generator creates that app and registers it in the project.
+    """
 
     def generate(self) -> None:
         """Generate the API endpoint feature."""
-        self.logger.info(f"Generating API endpoint feature for {self.app_name}...")
+        if self.app_path.exists():
+            msg = f"App '{self.app_name}' already exists"
+            raise GeneratorError(msg)
 
-        # Create Django app
+        self.logger.info("Generating API endpoint feature for %s...", self.app_name)
+        names = ResourceNames.from_app_name(self.app_name)
+
         self.create_django_app()
-
-        # Generate files
-        self._generate_models()
-        self._generate_schemas()
-        self._generate_controllers()
-        self._generate_admin()
-        self._generate_tests()
-
-        # Update project files
-        self._update_settings()
-        self._update_urls()
+        self.update_settings(self.app_name, {})
+        self.update_urls(self.app_name, f"{names.model_name}Controller")
 
         self.logger.info(
-            f"Successfully generated API endpoint feature for {self.app_name}"
+            "Successfully generated API endpoint feature for %s at /api/%s/",
+            self.app_name,
+            names.route,
         )
-
-    def _generate_models(self) -> None:
-        """Generate model files."""
-        model_content = MODEL_TEMPLATE.format(
-            app_name=self.app_name,
-            app_name_title=self.app_name.title(),
-            model_name=self.app_name.title().rstrip("s"),
-        )
-
-        models_dir = self.app_path / "models"
-        models_dir.mkdir(exist_ok=True)
-
-        self.create_file(models_dir / f"{self.app_name.rstrip('s')}.py", model_content)
-        self.create_file(
-            models_dir / "__init__.py",
-            f'from .{self.app_name.rstrip("s")} import {self.app_name.title().rstrip("s")}\n\n__all__ = ["{self.app_name.title().rstrip("s")}"]',
-        )
-
-    def _generate_schemas(self) -> None:
-        """Generate schema files."""
-        schema_content = SCHEMA_TEMPLATE.format(
-            app_name=self.app_name,
-            app_name_title=self.app_name.title(),
-            model_name=self.app_name.title().rstrip("s"),
-        )
-
-        schemas_dir = self.app_path / "schemas"
-        schemas_dir.mkdir(exist_ok=True)
-
-        self.create_file(
-            schemas_dir / f"{self.app_name.rstrip('s')}_schema.py", schema_content
-        )
-        self.create_file(
-            schemas_dir / "__init__.py",
-            f"from .{self.app_name.rstrip('s')}_schema import *",
-        )
-
-    def _generate_controllers(self) -> None:
-        """Generate controller files."""
-        controller_content = CONTROLLER_TEMPLATE.format(
-            app_name=self.app_name,
-            app_name_title=self.app_name.title(),
-            model_name=self.app_name.title().rstrip("s"),
-            model_name_lower=self.app_name.rstrip("s"),
-        )
-
-        controllers_dir = self.app_path / "controllers"
-        controllers_dir.mkdir(exist_ok=True)
-
-        self.create_file(
-            controllers_dir / f"{self.app_name.rstrip('s')}_controller.py",
-            controller_content,
-        )
-        self.create_file(
-            controllers_dir / "__init__.py",
-            f'from .{self.app_name.rstrip("s")}_controller import {self.app_name.title().rstrip("s")}Controller\n\n__all__ = ["{self.app_name.title().rstrip("s")}Controller"]',
-        )
-
-    def _generate_admin(self) -> None:
-        """Generate admin files."""
-        admin_content = f'''"""Admin configuration for {self.app_name}."""
-
-from django.contrib import admin
-
-from ..models import {self.app_name.title().rstrip("s")}
-
-
-@admin.register({self.app_name.title().rstrip("s")})
-class {self.app_name.title().rstrip("s")}Admin(admin.ModelAdmin):
-    """Admin interface for {self.app_name.title().rstrip("s")} model."""
-
-    list_display = ["id", "name", "created_at", "updated_at"]
-    list_filter = ["created_at", "updated_at"]
-    search_fields = ["name"]
-    ordering = ["-created_at"]
-    readonly_fields = ["id", "created_at", "updated_at"]
-'''
-
-        admin_dir = self.app_path / "admin"
-        admin_dir.mkdir(exist_ok=True)
-
-        self.create_file(
-            admin_dir / f"{self.app_name.rstrip('s')}_admin.py", admin_content
-        )
-        self.create_file(
-            admin_dir / "__init__.py",
-            f"from .{self.app_name.rstrip('s')}_admin import {self.app_name.title().rstrip('s')}Admin",
-        )
-
-    def _generate_tests(self) -> None:
-        """Generate the single smoke/permission test file."""
-        test_content = API_ENDPOINT_TESTS_TEMPLATE.format(
-            app_name=self.app_name,
-            model_name=self.app_name.title().rstrip("s"),
-        )
-
-        tests_dir = self.app_path / "tests"
-        tests_dir.mkdir(exist_ok=True)
-
-        self.create_file(
-            tests_dir / f"test_{self.app_name.rstrip('s')}_api.py", test_content
-        )
-        self.create_file(tests_dir / "__init__.py", "")
-
-    def _update_settings(self) -> None:
-        """Update Django settings."""
-        self.update_settings(self.app_name, {})
-
-    def _update_urls(self) -> None:
-        """Update URL configuration."""
-        self.update_urls(self.app_name)
