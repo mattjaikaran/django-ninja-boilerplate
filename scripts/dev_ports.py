@@ -10,7 +10,9 @@ free, so a running stack keeps its ports. For each busy port it picks the next
 free port upward.
 
 ``--check`` prints a report and exits 1 when a port is busy. ``--env`` prints
-only ``VAR=port`` lines for the busy ports, for ``export $(...)``.
+only ``VAR=port`` lines for the busy ports, for ``export $(...)``. ``--port
+VAR`` prints the one port ``just dev`` uses for ``VAR``. Other scripts import
+:func:`resolve_ports`.
 The script uses the Python standard library only.
 """
 
@@ -207,6 +209,38 @@ def check_ports(
     return results
 
 
+class Resolution(NamedTuple):
+    """The ports ``just dev`` would publish, from :func:`resolve_ports`."""
+
+    address: str
+    """The host bind address (``DEV_BIND_ADDRESS``)."""
+    own: set[int]
+    """Host ports that running containers of this Compose project publish."""
+    results: list[Result]
+
+
+def resolve_ports(root: Path, profiles: set[str]) -> Resolution:
+    """Resolve the host ports of ``profiles`` the way ``just dev`` does.
+
+    Each variable starts at its environment, ``.env`` or Compose default
+    value and moves to the next free port when another process holds it.
+    Raises ``FileNotFoundError`` without ``docker-compose.yml`` and
+    ``ValueError`` when a configured port is not a number.
+    """
+    compose_text = (root / COMPOSE_FILE).read_text()
+    variables = parse_compose(compose_text, profiles)
+    dotenv = load_env(root / ENV_FILE)
+    values: dict[str, int] = {}
+    for var in variables:
+        raw = setting(var.name, dotenv, str(var.default))
+        if not raw.isdigit():
+            raise ValueError(f"{var.name}={raw} is not a port number.")
+        values[var.name] = int(raw)
+    address = setting("DEV_BIND_ADDRESS", dotenv, DEFAULT_BIND_ADDRESS)
+    own = project_ports(project_name(root, compose_text, dotenv))
+    return Resolution(address, own, check_ports(variables, values, address, own))
+
+
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Find free host ports for the dev Compose stack."
@@ -221,6 +255,11 @@ def _parser() -> argparse.ArgumentParser:
         "--env",
         action="store_true",
         help="print only VAR=port for each busy port",
+    )
+    mode.add_argument(
+        "--port",
+        metavar="VAR",
+        help="print the port `just dev` uses for VAR (for example DJANGO_PORT)",
     )
     parser.add_argument(
         "--profile",
@@ -242,20 +281,18 @@ def main(argv: list[str] | None = None) -> int:
     if not compose_path.is_file():
         print(f"{compose_path} does not exist.", file=sys.stderr)
         return 2
-    compose_text = compose_path.read_text()
-    profiles = set(args.profile or ["dev"])
-    variables = parse_compose(compose_text, profiles)
-    dotenv = load_env(root / ENV_FILE)
-    values: dict[str, int] = {}
-    for var in variables:
-        raw = setting(var.name, dotenv, str(var.default))
-        if not raw.isdigit():
-            print(f"{var.name}={raw} is not a port number.", file=sys.stderr)
-            return 2
-        values[var.name] = int(raw)
-    address = setting("DEV_BIND_ADDRESS", dotenv, DEFAULT_BIND_ADDRESS)
-    own = project_ports(project_name(root, compose_text, dotenv))
-    results = check_ports(variables, values, address, own)
+    try:
+        address, _, results = resolve_ports(root, set(args.profile or ["dev"]))
+    except ValueError as error:
+        print(error, file=sys.stderr)
+        return 2
+    if args.port:
+        for result in results:
+            if result.var.name == args.port:
+                print(result.free_port)
+                return 0
+        print(f"{args.port} is not a published port variable.", file=sys.stderr)
+        return 2
     busy = [result for result in results if result.busy]
     if args.env:
         for result in busy:

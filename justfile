@@ -65,7 +65,14 @@ _stack *args:
     #!/usr/bin/env bash
     set -euo pipefail
     profile="$(just backend-profile)"
-    moved="$(python3 scripts/dev_ports.py --env --profile dev --profile "$profile")"
+    # Also resolve ports for profiles passed in, e.g. `--profile monitoring`.
+    profiles=(--profile dev --profile "$profile")
+    set -- {{ args }}
+    while [ $# -gt 0 ]; do
+        if [ "$1" = "--profile" ] && [ $# -gt 1 ]; then profiles+=(--profile "$2"); shift; fi
+        shift
+    done
+    moved="$(python3 scripts/dev_ports.py --env "${profiles[@]}")"
     while IFS= read -r assignment; do
         [ -n "$assignment" ] || continue
         echo "dev ports: ${assignment%%=*} is busy; using ${assignment#*=}" >&2
@@ -75,7 +82,7 @@ _stack *args:
 
 # Report busy dev stack host ports and the free ports `just dev` would use
 check-ports:
-    python3 scripts/dev_ports.py --check
+    python3 scripts/dev_ports.py --check --profile dev --profile monitoring --profile realtime --profile mail --profile mcp
 
 # Start the dev stack: db, valkey, django, and the configured task worker.
 # `--build` builds missing images and rebuilds images whose inputs changed,
@@ -312,9 +319,10 @@ seed:
 update-architecture:
     {{ dev }} exec {{ django_service }} {{ uv }} run python manage.py atlas
 
-# Validate the development environment
-doctor:
-    ./scripts/doctor.sh
+# Diagnose the dev environment. --fix runs safe repairs; --yes also applies
+# migrations, removes merged agent worktrees and fills .env secrets; --json for agents
+doctor *args:
+    ./scripts/doctor.sh {{ args }}
 
 # Read-only session summary for agents: git, tickets, journeys, gauntlet, OpenAPI
 agent-status *args:
@@ -537,10 +545,7 @@ setup-services:
 wait-for-api:
     #!/usr/bin/env bash
     set -euo pipefail
-    port="$(
-        {{ uv }} run --project cli python -c \
-            'from pathlib import Path; from django_ninja_matt.commands.setup import read_environment_value; print(read_environment_value(Path(".env"), "DJANGO_PORT", "8000"))'
-    )"
+    port="$(python3 scripts/dev_ports.py --port DJANGO_PORT)"
     for _ in $(seq 1 60); do
         if curl -fsS "http://localhost:${port}/api/health/" >/dev/null 2>&1; then
             echo "API is up: http://localhost:${port}/api/docs"

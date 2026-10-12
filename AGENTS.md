@@ -51,9 +51,14 @@ Do not delegate the top-level plan.
   The test gates and `just test*` recipes set `DJANGO_READ_DOT_ENV=0`, so a
   developer's `.env` never changes a test result (`test-integration` still
   reads it for the Compose DB password).
-- Start a session with `just doctor` (tools, `.env`, secrets, ports, load;
-  exits 1 only on FAIL) and `just agent-status` (git, tickets, journeys, last
-  gauntlet). Failed gates print a one-line fix hint.
+- Start a session with `just doctor --fix`. It checks tools, Docker, `.env`
+  and secrets, the venv, git hooks, worktrees, the ports `just dev` will use,
+  live Postgres, Valkey and Django, migrations and OpenAPI, and repairs what
+  is safe (`uv sync`, hooks, `git worktree prune`, a missing `.env`,
+  `just openapi`), printing FIXED, SKIPPED or FAILED per command. `--yes`
+  also applies migrations, removes merged `agent/*` worktrees and fills
+  `.env` secrets; `--json` is for agents. Then run `just agent-status`.
+  Failed gates print a one-line fix hint.
 - Ports: django 8000, mcp 8001, mailhog 8025, centrifugo 8800, flower 5555;
   Docker Postgres 5433 and Valkey 6380 (beside local 5432/6379). `just dev`
   moves a busy port to the next free one and prints it (`just check-ports`

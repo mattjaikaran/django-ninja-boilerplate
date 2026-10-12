@@ -1,6 +1,6 @@
 #!/bin/bash
-# Environment preflight for Django Ninja Boilerplate.
-# Run with: just doctor or ./scripts/doctor.sh
+# Environment preflight and repair for Django Ninja Boilerplate.
+# Run with: just doctor [--fix] [--yes] [--json] or ./scripts/doctor.sh
 # The checks live in scripts/doctor.py (stdlib only, no venv needed).
 set -euo pipefail
 cd "$(dirname "$0")/.."

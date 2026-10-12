@@ -683,8 +683,9 @@ services:
       retries: 5
       start_period: 20s
     # Pinned to 127.0.0.1, not DEV_BIND_ADDRESS, because of the fallback login.
+    # FLOWER_PORT lets `just dev` move it when another stack holds 5555.
     ports:
-      - "127.0.0.1:5555:5555"
+      - "127.0.0.1:${FLOWER_PORT:-5555}:5555"
     environment:
       - DJANGO_SETTINGS_MODULE=${DJANGO_SETTINGS_MODULE:-api.settings}
       - SECRET_KEY=${SECRET_KEY:?SECRET_KEY must be set}
