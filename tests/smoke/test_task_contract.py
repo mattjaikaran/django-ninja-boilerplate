@@ -15,7 +15,6 @@ from api.tasks.contract import (
     TaskContext,
     TaskHandle,
     TaskMaxRetriesExceeded,
-    TaskRetry,
     execute_task,
     register_task,
 )
@@ -135,16 +134,6 @@ def test_retry_limit_fails_loud() -> None:
     with pytest.raises(TaskMaxRetriesExceeded, match="exceeded 1 retries"):
         execute_task(task.name, (), {}, attempt=1)
     assert recorder.calls == []
-
-
-def test_retry_signal_keeps_exception_and_payload() -> None:
-    error = ValueError("broken")
-    task_retry = TaskRetry("value", exc=error, countdown=7, flag=True)
-
-    assert task_retry.task_args == ("value",)
-    assert task_retry.task_kwargs == {"flag": True}
-    assert task_retry.exc is error
-    assert task_retry.countdown == 7
 
 
 @override_settings(TASK_BACKEND="not-real")

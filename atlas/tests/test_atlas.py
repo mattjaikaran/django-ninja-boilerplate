@@ -8,8 +8,6 @@ real audit log.
 
 from __future__ import annotations
 
-import json
-
 import pytest
 
 from atlas.services.atlas_service import generate_atlas
@@ -41,31 +39,6 @@ class TestAtlasGenerator:
         for edge in data["edges"]:
             assert edge["f"] in ids, edge
             assert edge["t"] in ids, edge
-
-    def test_packets_are_serializable_json(self):
-        data = generate_atlas(include_real_samples=False)
-        for packet in data["packets"]:
-            assert packet["id"]
-            assert packet["label"]
-            json.dumps(packet["payload"])  # must serialize without error
-
-    def test_layout_produces_painter_order(self):
-        data = generate_atlas(include_real_samples=False)
-        nodes = data["structures"] + data["externals"]
-        for node in nodes:
-            assert "gx" in node
-            assert "gy" in node
-            assert "px" in node
-            assert "py" in node
-            assert node["order"] == node["gx"] + node["gy"]
-
-    def test_children_blocks_exist_for_apps_with_components(self):
-        data = generate_atlas(include_real_samples=False)
-        core = next(s for s in data["structures"] if s["id"] == "core")
-        assert core["children"]
-        for child in core["children"]:
-            assert "what" in child
-            assert "h" in child
 
 
 class TestAtlasAdminViews:

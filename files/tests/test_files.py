@@ -34,87 +34,12 @@ def service():
 
 
 # ---------------------------------------------------------------------------
-# Model tests
-# ---------------------------------------------------------------------------
-
-
-@pytest.mark.django_db
-class TestFileUploadModel:
-    def test_create_file_upload(self, user):
-        fu = FileUpload.objects.create(
-            user=user,
-            key="uploads/test/uuid/file.jpg",
-            filename="file.jpg",
-            content_type="image/jpeg",
-        )
-        assert fu.filename == "file.jpg"
-        assert not fu.is_confirmed
-        assert str(fu) == "file.jpg"
-
-    def test_s3_url_none_when_not_confirmed(self, user):
-        fu = FileUpload.objects.create(
-            user=user,
-            key="uploads/test/uuid/file.jpg",
-            filename="file.jpg",
-            content_type="image/jpeg",
-        )
-        assert fu.s3_url is None
-
-    def test_ordering_newest_first(self, user):
-        from datetime import timedelta
-
-        from django.utils import timezone
-
-        fu1 = FileUpload.objects.create(
-            user=user, key="a", filename="a.jpg", content_type="image/jpeg"
-        )
-        fu2 = FileUpload.objects.create(
-            user=user, key="b", filename="b.jpg", content_type="image/jpeg"
-        )
-        FileUpload.objects.filter(id=fu1.id).update(
-            created_at=timezone.now() - timedelta(hours=1)
-        )
-        records = list(FileUpload.objects.filter(user=user))
-        assert records[0].id == fu2.id
-
-
-# ---------------------------------------------------------------------------
 # Service tests — generate presigned URL (local-dev fallback)
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.django_db
 class TestGeneratePresignedUrl:
-    def test_local_dev_fallback(self, user, service):
-        data = GeneratePresignedUrlSchema(
-            filename="test file.jpg",
-            content_type="image/jpeg",
-            size=1024,
-        )
-        result = service.generate_presigned_upload_url(user, data)
-
-        assert "file_id" in result
-        assert "key" in result
-        assert result["expires_in"] == 3600
-        assert "upload_url" in result
-
-        fu = FileUpload.objects.get(id=result["file_id"])
-        assert fu.user == user
-        assert not fu.is_confirmed
-        assert fu.content_type == "image/jpeg"
-        assert fu.filename == "test_file.jpg"
-        assert fu.key.endswith(".jpg")
-
-    def test_filename_sanitized(self, user, service):
-        data = GeneratePresignedUrlSchema(
-            filename="my bad/../../../file name.pdf",
-            content_type="application/pdf",
-        )
-        result = service.generate_presigned_upload_url(user, data)
-        fu = FileUpload.objects.get(id=result["file_id"])
-        assert ".." not in fu.key
-        assert " " not in fu.key
-
     def test_custom_folder(self, user, service):
         data = GeneratePresignedUrlSchema(
             filename="avatar.png",
@@ -132,28 +57,6 @@ class TestGeneratePresignedUrl:
 
 @pytest.mark.django_db
 class TestConfirmUpload:
-    def test_confirm_sets_flags(self, user, service):
-        gen_data = GeneratePresignedUrlSchema(
-            filename="doc.pdf", content_type="application/pdf"
-        )
-        gen_result = service.generate_presigned_upload_url(user, gen_data)
-        file_id = gen_result["file_id"]
-
-        confirm_data = ConfirmUploadSchema(size=5000)
-        fu = service.confirm_upload(file_id, user, confirm_data)
-
-        assert fu.is_confirmed
-        assert fu.confirmed_at is not None
-        assert fu.size == 5000
-
-    def test_confirm_without_size(self, user, service):
-        gen_data = GeneratePresignedUrlSchema(
-            filename="doc.pdf", content_type="application/pdf"
-        )
-        gen_result = service.generate_presigned_upload_url(user, gen_data)
-        fu = service.confirm_upload(gen_result["file_id"], user, ConfirmUploadSchema())
-        assert fu.is_confirmed
-
     def test_confirm_wrong_user_raises(self, service):
         from django.http import Http404
 
@@ -194,15 +97,6 @@ class TestListFiles:
         files = list(service.list_files(user, confirmed_only=True))
         assert len(files) == 1
         assert files[0].filename == "visible.jpg"
-
-    def test_list_all_includes_unconfirmed(self, user, service):
-        for name in ("a.jpg", "b.jpg"):
-            service.generate_presigned_upload_url(
-                user,
-                GeneratePresignedUrlSchema(filename=name, content_type="image/jpeg"),
-            )
-        files = list(service.list_files(user, confirmed_only=False))
-        assert len(files) == 2
 
 
 # ---------------------------------------------------------------------------

@@ -1,7 +1,7 @@
 ---
 id: T-001
 title: Prune helper unit tests from core/tests/test_ai_helpers.py
-status: ready
+status: done
 tier: small
 depends_on: []
 owns:

@@ -57,11 +57,6 @@ def _unhealthy(name: str):
 
 
 class TestLivenessAndBasic:
-    def test_liveness_is_public_and_alive(self, api_client):
-        response = api_client.get("/api/health/liveness")
-        assert response.status_code == 200
-        assert response.json()["alive"] is True
-
     def test_liveness_probes_nothing(self, api_client, django_assert_num_queries):
         """The liveness probe performs no DB or cache I/O."""
         from django.core.cache import cache

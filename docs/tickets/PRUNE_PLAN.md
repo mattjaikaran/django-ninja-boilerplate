@@ -64,14 +64,19 @@ Counts are test functions. A parametrized test counts once. The plan skips
 T-017 updates `core/README.md` after T-002 and T-007 merge, because the README
 names tests that those tickets delete.
 
+## Status
+
+Worker models ran T-001 to T-011, T-013 and T-015 to T-017 as a trial of
+the ticket loop. That cut 73 tests. T-012 and T-014 are `draft`: the
+maintainer leaves the optional `notifications` and `organizations` apps as
+they are.
+
 ## Findings
 
 - `notifications` and `organizations` are not in `INSTALLED_APPS`, and no flag
   installs them. Their test files cannot be collected, so they never run.
-  T-012 and T-014 verify with `ruff`, `py_compile` and a test count.
 - `webhooks` and `files` run only with `WEBHOOKS_ENABLED=true` and
-  `FILES_ENABLED=true`. They are not in the pytest `testpaths`, and neither
-  are `atlas/` and `cli/`. T-011 and T-013 set the flag in their Verify
-  command.
+  `FILES_ENABLED=true`. The TEST-OPTIONAL gate (`just test-optional`) runs
+  them; `atlas/` is in the pytest `testpaths`.
 - The two kept tests in `core/tests/test_ai_helpers.py` skip without Postgres
   and pgvector. `scripts/test_ai_db.py` runs them.

@@ -1,8 +1,7 @@
 """Throttling behaviour tests.
 
-Covers rate-limit buckets, 429 retry metadata, trusted/untrusted proxy chain
-behaviour, spoof resistance, unthrottled probes, and the intact brute-force
-login lockout.
+Covers 429 retry metadata, trusted/untrusted proxy chain behaviour, spoof
+resistance, and unthrottled probes.
 """
 
 from __future__ import annotations
@@ -38,33 +37,6 @@ def _request(remote_addr: str = "127.0.0.1", xff: str | None = None):
 
 
 # =============================================================================
-# Buckets
-# =============================================================================
-
-
-class TestBuckets:
-    def test_throttle_allows_up_to_limit_then_denies(self):
-        throttle = DynamicRateThrottle(rate="3/min", scope="test")
-        request = _request()
-
-        for _ in range(3):
-            assert throttle.allow_request(request) is True
-
-        assert throttle.allow_request(request) is False
-
-    def test_throttle_wait_reports_retry_delay(self):
-        throttle = DynamicRateThrottle(rate="2/min", scope="test")
-        request = _request()
-
-        throttle.allow_request(request)
-        throttle.allow_request(request)
-
-        assert throttle.allow_request(request) is False
-        assert throttle.wait() is not None
-        assert throttle.wait() > 0
-
-
-# =============================================================================
 # 429 retry metadata
 # =============================================================================
 
@@ -97,12 +69,6 @@ class TestTrustedProxyChain:
         throttle = UserRateThrottle()
         request = _request(remote_addr="1.2.3.4", xff="9.9.9.9, 8.8.8.8")
         assert throttle.get_ident(request) == "1.2.3.4"
-
-    def test_one_proxy_uses_last_xff_entry(self, monkeypatch):
-        monkeypatch.setattr(ninja_extra_settings, "NUM_PROXIES", 1)
-        throttle = UserRateThrottle()
-        request = _request(remote_addr="10.0.0.1", xff="forged, 5.6.7.8")
-        assert throttle.get_ident(request) == "5.6.7.8"
 
     def test_attacker_prepended_xff_is_ignored(self, monkeypatch):
         # The trusted proxy appends the real client; the forged first hop
@@ -141,25 +107,3 @@ class TestUnthrottledProbes:
         # Metrics is staff-gated but not throttled; anonymous gets 401, never 429.
         for _ in range(20):
             assert api_client.get("/api/metrics").status_code == 401
-
-
-# =============================================================================
-# Intact brute-force login lockout
-# =============================================================================
-
-
-class TestLoginLockoutIntact:
-    def test_lockout_after_five_failed_attempts(self, api_client, user):
-        payload = {"email": user.email, "password": "definitely-wrong"}
-
-        for _ in range(5):
-            response = api_client.post(
-                "/api/auth/login", payload, content_type="application/json"
-            )
-            assert response.status_code == 400
-
-        # The sixth attempt is rejected by the brute-force lockout.
-        response = api_client.post(
-            "/api/auth/login", payload, content_type="application/json"
-        )
-        assert response.status_code == 429

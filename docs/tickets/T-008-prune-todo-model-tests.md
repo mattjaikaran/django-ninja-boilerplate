@@ -1,7 +1,7 @@
 ---
 id: T-008
 title: Prune model tests from todos/tests/test_todo.py
-status: ready
+status: done
 tier: small
 depends_on: []
 owns:

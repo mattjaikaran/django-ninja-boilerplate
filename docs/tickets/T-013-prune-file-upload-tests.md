@@ -1,7 +1,7 @@
 ---
 id: T-013
 title: Prune model and duplicate tests from files/tests/test_files.py
-status: ready
+status: done
 tier: small
 depends_on: []
 owns:

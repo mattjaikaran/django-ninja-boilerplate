@@ -1,7 +1,7 @@
 ---
 id: T-014
 title: Prune field-echo tests from test_organizations.py
-status: ready
+status: draft  # parked: organizations is an optional app; the maintainer left it as is
 tier: small
 depends_on: []
 owns:

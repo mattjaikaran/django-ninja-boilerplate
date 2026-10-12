@@ -1,7 +1,7 @@
 ---
 id: T-006
 title: Prune mock-assert tests from core/tests/test_tracing_startup.py
-status: ready
+status: done
 tier: small
 depends_on: []
 owns:

@@ -1,7 +1,7 @@
 ---
 id: T-012
 title: Prune model and duplicate tests from test_notifications.py
-status: ready
+status: draft  # parked: notifications is an optional app; the maintainer left it as is
 tier: small
 depends_on: []
 owns:

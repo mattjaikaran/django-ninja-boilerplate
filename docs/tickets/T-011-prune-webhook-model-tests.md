@@ -1,7 +1,7 @@
 ---
 id: T-011
 title: Prune model tests from webhooks/tests/test_webhooks.py
-status: ready
+status: done
 tier: small
 depends_on: []
 owns:

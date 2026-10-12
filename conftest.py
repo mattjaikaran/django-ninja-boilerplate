@@ -357,4 +357,3 @@ def assert_num_queries(django_assert_num_queries):
 # These markers can be used to categorize tests:
 # @pytest.mark.slow - for slow tests
 # @pytest.mark.integration - for integration tests
-# @pytest.mark.unit - for unit tests

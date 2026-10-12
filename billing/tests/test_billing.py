@@ -2,7 +2,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from django.contrib.auth import get_user_model
-from django.db import IntegrityError, transaction
 from django.test import Client
 
 from billing.models import Plan, Subscription
@@ -64,58 +63,6 @@ def subscription(db, user, plan):
 
 
 @pytest.mark.django_db
-class TestPlanModel:
-    def test_is_free_false_for_paid_plan(self, plan):
-        assert not plan.is_free
-
-    def test_is_free_true_for_zero_amount(self, db):
-        free_plan = Plan.objects.create(
-            name="Free",
-            stripe_price_id="price_free",
-            amount="0.00",
-            is_active=True,
-        )
-        assert free_plan.is_free
-
-    def test_str(self, plan):
-        assert str(plan) == "Pro (month)"
-
-    def test_active_filter(self, plan, inactive_plan):
-        active = Plan.objects.filter(is_active=True)
-        assert plan in active
-        assert inactive_plan not in active
-
-    def test_stripe_price_id_unique_only_when_set(self, db):
-        Plan.objects.create(name="Free A", amount="0.00")
-        Plan.objects.create(name="Free B", amount="0.00")
-        Plan.objects.create(name="Pro", stripe_price_id="price_dup", amount="9.00")
-        with pytest.raises(IntegrityError), transaction.atomic():
-            Plan.objects.create(
-                name="Pro 2", stripe_price_id="price_dup", amount="9.00"
-            )
-
-
-@pytest.mark.django_db
-class TestSubscriptionModel:
-    def test_is_active_when_active(self, subscription):
-        assert subscription.is_active
-
-    def test_is_active_when_trialing(self, subscription):
-        subscription.status = "trialing"
-        subscription.save()
-        assert subscription.is_active
-
-    def test_not_active_when_canceled(self, subscription):
-        subscription.status = "canceled"
-        subscription.save()
-        assert not subscription.is_active
-
-    def test_str(self, subscription, user, plan):
-        assert str(user) in str(subscription)
-        assert str(plan) in str(subscription)
-
-
-@pytest.mark.django_db
 class TestListPlansEndpoint:
     def test_list_plans_no_auth_required(self, plan, inactive_plan):
         client = Client()
@@ -126,21 +73,6 @@ class TestListPlansEndpoint:
         ids = [p["stripePriceId"] for p in data]
         assert "price_test_123" in ids
         assert "price_legacy_456" not in ids
-
-    def test_list_plans_returns_active_only(self, plan, inactive_plan):
-        client = Client()
-        response = client.get("/api/billing/plans")
-        assert response.status_code == 200
-        data = response.json()
-        assert all(p["isActive"] for p in data)
-
-    def test_plan_schema_includes_is_free(self, plan):
-        client = Client()
-        response = client.get("/api/billing/plans")
-        assert response.status_code == 200
-        data = response.json()
-        assert len(data) >= 1
-        assert "isFree" in data[0]
 
 
 @pytest.mark.django_db
@@ -272,60 +204,3 @@ class TestWebhookController:
             HTTP_STRIPE_SIGNATURE="t=0,v1=badsig",
         )
         assert response.status_code == 400
-
-    @patch("billing.webhooks.billing_service")
-    @patch("billing.webhooks.stripe")
-    def test_webhook_routes_checkout_completed(self, mock_stripe, mock_service):
-        mock_event = {
-            "type": "checkout.session.completed",
-            "data": {"object": {"id": "cs_test"}},
-        }
-        mock_stripe.Webhook.construct_event.return_value = mock_event
-
-        client = Client()
-        response = client.post(
-            "/api/billing/webhooks/stripe",
-            data=b"{}",
-            content_type="application/json",
-            HTTP_STRIPE_SIGNATURE="t=0,v1=valid",
-        )
-        assert response.status_code == 200
-        mock_service.handle_checkout_completed.assert_called_once()
-
-    @patch("billing.webhooks.billing_service")
-    @patch("billing.webhooks.stripe")
-    def test_webhook_routes_payment_failed(self, mock_stripe, mock_service):
-        mock_event = {
-            "type": "invoice.payment_failed",
-            "data": {"object": {"subscription": "sub_123"}},
-        }
-        mock_stripe.Webhook.construct_event.return_value = mock_event
-
-        client = Client()
-        response = client.post(
-            "/api/billing/webhooks/stripe",
-            data=b"{}",
-            content_type="application/json",
-            HTTP_STRIPE_SIGNATURE="t=0,v1=valid",
-        )
-        assert response.status_code == 200
-        mock_service.handle_invoice_payment_failed.assert_called_once()
-
-    @patch("billing.webhooks.billing_service")
-    @patch("billing.webhooks.stripe")
-    def test_webhook_routes_subscription_deleted(self, mock_stripe, mock_service):
-        mock_event = {
-            "type": "customer.subscription.deleted",
-            "data": {"object": {"id": "sub_123"}},
-        }
-        mock_stripe.Webhook.construct_event.return_value = mock_event
-
-        client = Client()
-        response = client.post(
-            "/api/billing/webhooks/stripe",
-            data=b"{}",
-            content_type="application/json",
-            HTTP_STRIPE_SIGNATURE="t=0,v1=valid",
-        )
-        assert response.status_code == 200
-        mock_service.handle_subscription_deleted.assert_called_once()

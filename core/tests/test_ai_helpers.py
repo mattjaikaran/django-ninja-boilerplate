@@ -1,4 +1,4 @@
-"""Hybrid-search fusion order, owner scoping, and the LLM response cache key."""
+"""Owner scoping for hybrid search and document-link graph walks."""
 
 from typing import Any
 
@@ -8,12 +8,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.models import AnonymousUser
 from django.db import connection
 
-from core.ai.services import (
-    hybrid_search,
-    prompt_cache_key,
-    reachable,
-    reciprocal_rank_fusion,
-)
+from core.ai.services import hybrid_search, reachable
 
 needs_ai_db = pytest.mark.skipif(
     not apps.is_installed("core.ai") or connection.vendor != "postgresql",
@@ -66,29 +61,3 @@ def test_reachable_does_not_walk_into_or_from_other_users_documents():
     assert reachable(DocumentLink, a1.pk, user=bob) == []
     assert reachable(DocumentLink, b1.pk, user=alice) == []
     assert reachable(DocumentLink, a1.pk, user=None) == []
-
-
-def test_rrf_ranks_a_key_found_by_both_rankings_first():
-    lexical = ["both", "text-only"]
-    semantic = ["vector-only", "both"]
-    fused = reciprocal_rank_fusion([lexical, semantic], k=60)
-    # both: 1/61 + 1/62; vector-only: 1/61 (rank 1); text-only: 1/62 (rank 2).
-    assert [key for key, _ in fused] == ["both", "vector-only", "text-only"]
-    assert fused[0][1] == pytest.approx(1 / 61 + 1 / 62)
-
-
-def test_rrf_breaks_ties_by_first_appearance():
-    fused = reciprocal_rank_fusion([["a"], ["b"]], k=60)
-    assert fused == [("a", pytest.approx(1 / 61)), ("b", pytest.approx(1 / 61))]
-
-
-def test_cache_key_ignores_dict_order_but_not_content():
-    messages = [{"role": "user", "content": "hi"}]
-    reordered = [{"content": "hi", "role": "user"}]
-    key = prompt_cache_key("m", messages, temperature=0, max_tokens=5)
-    assert key == prompt_cache_key("m", reordered, max_tokens=5, temperature=0)
-    assert key != prompt_cache_key("other", messages, temperature=0, max_tokens=5)
-    assert key != prompt_cache_key("m", messages, temperature=1, max_tokens=5)
-    assert key != prompt_cache_key(
-        "m", [{"role": "user", "content": "hi!"}], temperature=0, max_tokens=5
-    )

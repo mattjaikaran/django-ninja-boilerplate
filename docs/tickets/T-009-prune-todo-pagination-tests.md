@@ -1,7 +1,7 @@
 ---
 id: T-009
 title: Prune duplicate tests from todos/tests/test_pagination.py
-status: ready
+status: done
 tier: small
 depends_on: []
 owns:

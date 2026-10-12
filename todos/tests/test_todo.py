@@ -15,12 +15,6 @@ def user():
 
 
 @pytest.fixture
-def todo(user):
-    """Create a test todo using factory."""
-    return TodoFactory(user=user)
-
-
-@pytest.fixture
 def auth_headers(user):
     """Create auth headers for authenticated requests."""
     from ninja_jwt.tokens import RefreshToken
@@ -28,39 +22,6 @@ def auth_headers(user):
     refresh = RefreshToken.for_user(user)
     access_token = refresh.access_token
     return {"HTTP_AUTHORIZATION": f"Bearer {access_token}"}
-
-
-@pytest.mark.django_db
-class TestTodoModel:
-    def test_create_todo(self, user):
-        todo = TodoFactory(user=user)
-        assert todo.title
-        assert todo.description
-        assert not todo.completed
-        assert todo.user == user
-
-    def test_todo_str(self, todo):
-        assert str(todo) == todo.title
-
-    def test_todo_ordering(self, user):
-        """Test that todos are ordered by created_at descending (most recent first)."""
-        todo1 = TodoFactory(title="First Todo", user=user)
-        todo2 = TodoFactory(title="Second Todo", user=user)
-
-        # Force different timestamps by updating created_at
-        from datetime import timedelta
-
-        from django.utils import timezone
-
-        Todo.objects.filter(id=todo1.id).update(
-            created_at=timezone.now() - timedelta(hours=1)
-        )
-        todo1.refresh_from_db()
-
-        todos = list(Todo.objects.all())
-        assert len(todos) == 2
-        assert todos[0].id == todo2.id  # Most recent first
-        assert todos[1].id == todo1.id
 
 
 @pytest.mark.django_db

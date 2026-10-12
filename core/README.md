@@ -53,7 +53,7 @@ core/
 │   ├── __init__.py       # Imports all tests
 │   ├── conftest.py       # Shared test fixtures and configuration
 │   ├── test_auth.py      # Authentication-related tests
-│   ├── test_centrifugo.py # Centrifugo token + client tests
+│   ├── test_centrifugo.py # Centrifugo connection token expiry test
 │   └── test_user.py      # User-related tests
 ├── __init__.py           # Main app initialization
 ├── apps.py               # App configuration
@@ -133,10 +133,9 @@ Comprehensive tests for all components including models and API endpoints.
 
 ### Test Structure
 
-The tests are organized into two main classes:
+The tests are organized into test classes:
 
-1. `TestUserModel`: Tests for the User model functionality
-2. `TestUserAPI`: Tests for the API endpoints
+1. `TestUserAPI`: Tests for the API endpoints
 
 ### Reusable Test Fixtures
 
@@ -164,25 +163,21 @@ uv run pytest core/tests/
 uv run pytest core/tests/test_user.py
 
 # Run specific test class
-uv run pytest core/tests/test_user.py::TestUserModel
+uv run pytest core/tests/test_user.py::TestUserAPI
 
 # Run specific test
-uv run pytest core/tests/test_user.py::TestUserModel::test_create_user
+uv run pytest core/tests/test_user.py::TestUserAPI::test_get_user
 ```
 
 ### Test Coverage
 
 The tests cover:
 
-- User creation and validation
-- Password handling
-- Email uniqueness
-- Username uniqueness
-- Full name generation
-- API endpoints
-- Authentication
-- Authorization
-- Data validation
+- Signup, login, and passwordless login
+- Account and IP lockout
+- JWT refresh rotation and logout revocation
+- Route authentication and staff permissions
+- User admin API endpoints
 
 ## Development
 

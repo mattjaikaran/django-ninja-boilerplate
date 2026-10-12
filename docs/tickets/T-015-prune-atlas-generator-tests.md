@@ -1,7 +1,7 @@
 ---
 id: T-015
 title: Prune generator unit tests from atlas/tests/test_atlas.py
-status: ready
+status: done
 tier: small
 depends_on: []
 owns:

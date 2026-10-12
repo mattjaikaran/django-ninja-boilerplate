@@ -1,7 +1,7 @@
 ---
 id: T-016
 title: Prune a duplicate test from tests/smoke/test_task_contract.py
-status: ready
+status: done
 tier: small
 depends_on: []
 owns:

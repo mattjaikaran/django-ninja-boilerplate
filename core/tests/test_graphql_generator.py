@@ -31,7 +31,6 @@ def project(tmp_path, monkeypatch):
     return tmp_path
 
 
-@pytest.mark.unit
 def test_core_app_gets_a_view_module_the_package_cannot_shadow(project):
     GraphQLGenerator("core").generate()
 
@@ -41,7 +40,6 @@ def test_core_app_gets_a_view_module_the_package_cannot_shadow(project):
     assert not (project / "core" / "graphql.py").exists()
 
 
-@pytest.mark.unit
 def test_urls_imports_land_after_a_multiline_import(project):
     GraphQLGenerator("core").generate()
 

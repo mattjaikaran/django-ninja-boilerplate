@@ -1,7 +1,7 @@
 ---
 id: T-003
 title: Prune a duplicate test from core/tests/test_health_endpoints.py
-status: ready
+status: done
 tier: small
 depends_on: []
 owns:

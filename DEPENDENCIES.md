@@ -6,6 +6,8 @@ without a matching entry here.
 
 ## Tooling changes
 
+- Removed the `unit` pytest marker. The lean testing policy has no unit
+  tests, and nothing selects by it. No package changed.
 - Added `pyyaml` (`>=6.0.2`) as a base dependency. The `journeys` admin page
   and `scripts/check_journeys.py` and `scripts/tickets.py` parse YAML
   frontmatter at runtime. It was only a transitive dependency before.

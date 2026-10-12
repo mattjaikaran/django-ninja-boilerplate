@@ -1,7 +1,7 @@
 ---
 id: T-004
 title: Prune dashboard unit tests from test_observability_admin.py
-status: ready
+status: done
 tier: small
 depends_on: []
 owns:

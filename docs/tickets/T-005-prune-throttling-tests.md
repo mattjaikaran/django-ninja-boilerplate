@@ -1,7 +1,7 @@
 ---
 id: T-005
 title: Prune library and duplicate tests from core/tests/test_throttling.py
-status: ready
+status: done
 tier: small
 depends_on: []
 owns:

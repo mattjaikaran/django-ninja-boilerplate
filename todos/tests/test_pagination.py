@@ -1,12 +1,10 @@
-"""Pagination tests — prove list endpoints return the framework pagination
-envelope ({count, next, previous, results}) with page/page_size controls,
-user scoping, and OpenAPI documentation.
+"""Pagination tests: prove the todo list returns the framework pagination
+envelope ({count, next, previous, results}) with page/page_size controls.
 """
 
 import pytest
 from django.test import Client
 
-from core.tests.factories import UserFactory
 from todos.tests.factories import TodoFactory
 
 
@@ -60,41 +58,3 @@ class TestPaginationEnvelope:
         TodoFactory.create_batch(5, user=user)
         response = Client().get("/api/todos/?page_size=201", **auth_headers)
         assert response.status_code == 422  # 200 is the configured maximum
-
-    def test_empty_results(self, auth_headers, user):
-        response = Client().get("/api/todos/", **auth_headers)
-        body = response.json()
-        assert body["count"] == 0
-        assert body["results"] == []
-        assert body["next"] is None
-        assert body["previous"] is None
-
-
-@pytest.mark.django_db
-class TestPaginationUserScope:
-    def test_only_current_users_todos(self, auth_headers, user):
-        TodoFactory.create_batch(2, user=user)
-        other = UserFactory()
-        TodoFactory.create_batch(3, user=other)
-
-        response = Client().get("/api/todos/", **auth_headers)
-        body = response.json()
-        assert body["count"] == 2
-        assert all(item["user"] == str(user.id) for item in body["results"])
-
-
-@pytest.mark.django_db
-class TestPaginationOpenAPI:
-    def test_envelope_declared_in_schema(self):
-        from api.urls import api
-
-        schema = api.get_openapi_schema()
-        response_schema = schema["paths"]["/api/todos/"]["get"]["responses"][200][
-            "content"
-        ]["application/json"]["schema"]
-        # The framework envelope is a component ref with count/next/previous/results.
-        ref = response_schema["$ref"]
-        component = schema["components"]["schemas"][ref.split("/")[-1]]
-        props = component["properties"]
-        assert {"count", "next", "previous", "results"} <= set(props)
-        assert component["required"] == ["count", "next", "previous", "results"]

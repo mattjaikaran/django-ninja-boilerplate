@@ -1,7 +1,7 @@
 ---
 id: T-007
 title: Prune model and duplicate tests from core/tests/test_user.py
-status: ready
+status: done
 tier: small
 depends_on: []
 owns:

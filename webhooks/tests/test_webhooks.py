@@ -61,50 +61,6 @@ def webhook(user):
 
 
 @pytest.mark.django_db
-class TestWebhookModel:
-    def test_create_webhook(self, user):
-        webhook = Webhook.objects.create(
-            name="My Hook",
-            url="https://example.com/hook",
-            events=["order.paid"],
-            created_by=user,
-        )
-        assert webhook.id is not None
-        assert webhook.is_active is True
-        assert "order.paid" in webhook.events
-
-    def test_webhook_str(self, webhook):
-        assert webhook.name in str(webhook)
-        assert webhook.url in str(webhook)
-
-    def test_webhook_delivery_is_successful(self, webhook):
-        delivery = WebhookDelivery.objects.create(
-            webhook=webhook,
-            event="user.created",
-            payload={"user_id": "123"},
-            response_status=200,
-        )
-        assert delivery.is_successful is True
-
-    def test_webhook_delivery_not_successful_on_5xx(self, webhook):
-        delivery = WebhookDelivery.objects.create(
-            webhook=webhook,
-            event="user.created",
-            payload={"user_id": "123"},
-            response_status=500,
-        )
-        assert delivery.is_successful is False
-
-    def test_webhook_delivery_not_successful_when_none(self, webhook):
-        delivery = WebhookDelivery.objects.create(
-            webhook=webhook,
-            event="user.created",
-            payload={"user_id": "123"},
-        )
-        assert delivery.is_successful is False
-
-
-@pytest.mark.django_db
 @pytest.mark.usefixtures("public_dns")
 class TestWebhookAPI:
     @pytest.fixture

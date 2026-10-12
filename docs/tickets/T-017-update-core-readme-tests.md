@@ -1,7 +1,7 @@
 ---
 id: T-017
 title: Update core/README.md test notes after the test prune
-status: ready
+status: done
 tier: small
 depends_on: [T-002, T-007]
 owns:

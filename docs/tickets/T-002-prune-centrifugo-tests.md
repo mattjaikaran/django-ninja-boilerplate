@@ -1,7 +1,7 @@
 ---
 id: T-002
 title: Prune mock-only tests from core/tests/test_centrifugo.py
-status: ready
+status: done
 tier: small
 depends_on: []
 owns:

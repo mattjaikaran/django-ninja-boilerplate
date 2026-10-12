@@ -1,7 +1,7 @@
 ---
 id: T-010
 title: Prune model and mock-assert tests from billing/tests/test_billing.py
-status: ready
+status: done
 tier: small
 depends_on: []
 owns:
