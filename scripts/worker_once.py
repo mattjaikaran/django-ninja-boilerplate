@@ -6,13 +6,14 @@ Steps:
   2. Claim it with the atomic push from scripts/tickets.py.
   3. Create a worktree at ${WORKER_WORKTREES:-~/worktrees/<repo>}/T-NNN.
   4. Run $WORKER_AGENT_CMD in the worktree with a short prompt. The output
-     goes to /tmp/T-NNN-agent.log. Timeout: $WORKER_TIMEOUT seconds (3600).
+     goes to $WORKER_LOG_DIR/T-NNN-agent.log. Timeout: $WORKER_TIMEOUT seconds
+     (3600). $WORKER_LOG_DIR defaults to ~/.cache/worker-once (mode 700).
   5. Run the ticket's `## Verify` commands and `just gauntlet-quick`. The
-     output goes to /tmp/verify.log with `exit=` markers.
+     output goes to $WORKER_LOG_DIR/verify.log with `exit=` markers.
   6. On success: check the diff stays within `owns`, commit leftovers, push,
      and open a PR (`--reviewer $WORKER_REVIEWER` when set).
-  7. On failure: write a redacted /tmp/T-NNN-failure.md, push, and open a
-     draft PR labeled `needs-planner`.
+  7. On failure: write a redacted $WORKER_LOG_DIR/T-NNN-failure.md, push,
+     and open a draft PR labeled `needs-planner`.
 
 Usage:
     uv run python scripts/worker_once.py [--ticket T-NNN] [--dry-run]
@@ -38,7 +39,12 @@ import tickets
 
 ROOT = tickets.PROJECT_ROOT
 SKILL = ".agents/skills/ticket-worker/SKILL.md"
-VERIFY_LOG = Path("/tmp/verify.log")
+# A private per-user directory, not /tmp: another local user could pre-create
+# predictable /tmp paths (bandit B108).
+LOG_DIR = Path(
+    os.environ.get("WORKER_LOG_DIR", str(Path.home() / ".cache" / "worker-once"))
+)
+VERIFY_LOG = LOG_DIR / "verify.log"
 DEFAULT_TIMEOUT = 3600
 PROMPT = (
     "You are a worker model. Read the skill at {skill} and follow it. "
@@ -53,7 +59,7 @@ RETRY_PROMPT = (
     "Verify failed for the ticket at {ticket}: {failure}. Fix only what fails, "
     "within owns. Follow the same rules as before: commit, do not push. If "
     "you cannot fix it, write one line starting with 'Blocked:' to {blocked} "
-    "and exit. Redacted last 50 lines of /tmp/verify.log:\n{log}"
+    "and exit. Redacted last 50 lines of verify.log:\n{log}"
 )
 HERDR_HELP = (
     "Herdr: run one loop per pane. Exit 1 (stopped) moves on, exit 2 ends it:\n"
@@ -159,7 +165,7 @@ def agent_command(runner: Runner) -> list[str]:
 
 
 def blocked_file(ticket: tickets.Ticket) -> Path:
-    return Path(f"/tmp/{ticket.id}-blocked.txt")
+    return LOG_DIR / f"{ticket.id}-blocked.txt"
 
 
 def run_agent(
@@ -168,7 +174,7 @@ def run_agent(
     """Run $WORKER_AGENT_CMD with *prompt*; raise Stop on error or timeout."""
     command = [*agent_command(runner), prompt]
     timeout = int(os.environ.get("WORKER_TIMEOUT", DEFAULT_TIMEOUT))
-    log = Path(f"/tmp/{ticket.id}-agent.log")
+    log = LOG_DIR / f"{ticket.id}-agent.log"
     arrow = ">>" if append else ">"
     runner.show([*command[:-1], "<prompt>"], tree, f"{arrow} {log}, timeout {timeout}s")
     if runner.dry_run:
@@ -319,7 +325,7 @@ def succeed(runner: Runner, ticket: tickets.Ticket, tree: Path) -> int:
     check_owns(runner, ticket, tree)
     commit_leftovers(runner, tree, f"chore(tickets): Complete {ticket.id}", empty=False)
     runner.must(["git", "push", "origin", ticket.branch], tree)
-    body = Path(f"/tmp/{ticket.id}-pr.md")
+    body = LOG_DIR / f"{ticket.id}-pr.md"
     write(
         runner,
         body,
@@ -333,7 +339,7 @@ def succeed(runner: Runner, ticket: tickets.Ticket, tree: Path) -> int:
 
 def stop(runner: Runner, ticket: tickets.Ticket, tree: Path, reason: str) -> int:
     log = "<redacted last 50 lines>" if runner.dry_run else redacted_tail()
-    body = Path(f"/tmp/{ticket.id}-failure.md")
+    body = LOG_DIR / f"{ticket.id}-failure.md"
     write(
         runner,
         body,
@@ -360,6 +366,7 @@ def reset_logs(runner: Runner, ticket: tickets.Ticket) -> None:
     print(f"  reset {VERIFY_LOG}; remove {blocked_file(ticket)}")
     if runner.dry_run:
         return
+    LOG_DIR.mkdir(mode=0o700, parents=True, exist_ok=True)
     VERIFY_LOG.write_text(f"=== {ticket.id}\n", encoding="utf-8")
     blocked_file(ticket).unlink(missing_ok=True)
 

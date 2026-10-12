@@ -109,9 +109,10 @@ checkout of the repo (`~/src/<repo>` here). It:
    the ticket branch.
 4. Runs the worker agent in the worktree with a prompt that points to the
    ticket and the `ticket-worker` skill. The agent commits but does not
-   push. Output goes to `/tmp/T-NNN-agent.log`.
+   push. Logs go to `$WORKER_LOG_DIR` (default `~/.cache/worker-once`,
+   mode 700, never `/tmp`): the agent output to `T-NNN-agent.log`.
 5. Runs each fenced block under the ticket's `## Verify` and
-   `just gauntlet-quick`. Output goes to `/tmp/verify.log` (reset each run)
+   `just gauntlet-quick`. Output goes to `verify.log` (reset each run)
    with `exit=` markers. On the first failure, it runs the agent once more
    with the redacted log and "fix only what fails, within owns", then runs
    Verify again.
@@ -120,7 +121,7 @@ checkout of the repo (`~/src/<repo>` here). It:
    a PR.
 7. On an agent error, a second Verify failure, or an `owns` violation,
    follows the stop rules below: it restores the ticket file from
-   `origin/main`, writes a redacted `/tmp/T-NNN-failure.md`, and opens a
+   `origin/main`, writes a redacted `T-NNN-failure.md`, and opens a
    draft PR labeled `needs-planner`.
 
 Set these variables on the worker machine:
@@ -156,7 +157,7 @@ while uv run python scripts/worker_once.py || [ $? -eq 1 ]; do :; done
 
   ```bash
   gh pr create --draft --label needs-planner --base main --head <branch> \
-    --title "T-NNN <ticket title>" --body-file /tmp/T-NNN-failure.md \
+    --title "T-NNN <ticket title>" --body-file ~/.cache/worker-once/T-NNN-failure.md \
     --reviewer <maintainer>
   ```
 
@@ -215,7 +216,7 @@ committed files. Put real values in your local shell or `gh` config.
   command and its last 50 lines, and pass them through
   `scripts/redact_log.py`. It replaces the values of secret keys in `.env`,
   bearer tokens, credentials in URLs, and GitHub, Stripe and JWT tokens:
-  `tail -n 50 /tmp/verify.log | uv run python scripts/redact_log.py > /tmp/T-NNN-failure.md`.
+  `tail -n 50 ~/.cache/worker-once/verify.log | uv run python scripts/redact_log.py > ~/.cache/worker-once/T-NNN-failure.md`.
   Read the result once before you post it. A PR on a public repository is
   public.
 - **Remote access.** Reach the worker machine over SSH with key

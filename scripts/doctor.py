@@ -13,12 +13,12 @@ Usage:
 
 from __future__ import annotations
 
+import http.client
 import os
 import shutil
 import socket
 import subprocess
 import sys
-import urllib.request
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -220,15 +220,20 @@ def check_services(pg_port: int, valkey_port: int, django_port: int) -> None:
                 "INFO", f"{name} not reachable on 127.0.0.1:{port}", "start it: just up"
             )
     url = f"http://127.0.0.1:{django_port}/api/health/"
+    connection = http.client.HTTPConnection("127.0.0.1", django_port, timeout=2)
     try:
-        with urllib.request.urlopen(url, timeout=2) as response:
-            report("OK", f"Django health endpoint returned {response.status}")
-    except (OSError, ValueError):
+        connection.request("GET", "/api/health/")
+        report(
+            "OK", f"Django health endpoint returned {connection.getresponse().status}"
+        )
+    except (OSError, http.client.HTTPException):
         report(
             "INFO",
             f"Django health endpoint not responding at {url}",
             "start it: just dev",
         )
+    finally:
+        connection.close()
 
 
 def check_project_files() -> None:
