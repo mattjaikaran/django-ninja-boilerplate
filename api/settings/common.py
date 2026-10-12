@@ -57,8 +57,10 @@ env = environ.Env(
     AWS_S3_REGION_NAME=(str, "us-east-1"),
 )
 
-# Read .env file
-environ.Env.read_env(os.path.join(BASE_DIR, ".env"))
+# Read .env file unless DJANGO_READ_DOT_ENV=0 (test runs set it so results do
+# not depend on a developer's local .env).
+if os.environ.get("DJANGO_READ_DOT_ENV", "1") != "0":
+    environ.Env.read_env(os.path.join(BASE_DIR, ".env"))
 
 # Environment setting
 ENVIRONMENT = env("ENVIRONMENT", default="development")

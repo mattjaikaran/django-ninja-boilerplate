@@ -26,7 +26,8 @@ Gates (in order):
                     refresh) on a throwaway pgvector container; skips with a
                     printed reason without Docker
  17. DEPLOY       — django check --deploy (non-blocking)
- 18. GENERATORS   : every code generator, in a throwaway worktree (full run only)
+ 18. GENERATORS   : every code generator, in a throwaway worktree (quick runs
+                    only when generator or base-schema files changed)
  19. AUDIT        — pip-audit on uv.lock, allow-list with expiry (full run only)
  20. DOCKER       — build the production image (full run only, skips without Docker)
 
@@ -59,6 +60,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 os.chdir(PROJECT_ROOT)
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+from gauntlet_gates import BASE_REF, GENERATOR_PATHS, TEST_ENV, generator_changes
 from gauntlet_hints import FIX_HINTS
 
 EXCLUDE_DIRS = {".venv", "venv", "env", "node_modules", ".git", "__pycache__", "cli"}
@@ -224,9 +226,9 @@ class GauntletRunner:
         gates["cli-test"] = self._gate_cli_test
         gates["ai-db"] = self._gate_ai_db
         gates["deploy-check"] = self._gate_deploy_check
+        gates["generators"] = self._gate_generators
 
         if not self.quick:
-            gates["generators"] = self._gate_generators
             gates["audit"] = self._gate_audit
             gates["docker"] = self._gate_docker
         return gates
@@ -337,7 +339,7 @@ class GauntletRunner:
                 "--no-header",
                 "-q",
             ],
-            env_override={"DJANGO_SETTINGS_MODULE": "api.settings.test"},
+            env_override=TEST_ENV,
         )
 
     def _gate_test_optional(self) -> GateResult:
@@ -358,7 +360,7 @@ class GauntletRunner:
                 "-q",
             ],
             env_override={
-                "DJANGO_SETTINGS_MODULE": "api.settings.test",
+                **TEST_ENV,
                 "WEBHOOKS_ENABLED": "true",
                 "FILES_ENABLED": "true",
             },
@@ -383,6 +385,12 @@ class GauntletRunner:
         )
 
     def _gate_generators(self) -> GateResult:
+        if self.quick and not (changed := generator_changes()):
+            paths = ", ".join(GENERATOR_PATHS)
+            reason = f"quick mode: no changes under {paths} (tree or vs {BASE_REF})"
+            return self.skip_gate("GENERATORS", reason)
+        if self.quick:
+            print(f"GENERATORS runs in quick mode: changed {', '.join(changed)}")
         return self.run_gate(
             "GENERATORS", ["uv", "run", "python", "scripts/check_generators.py"]
         )

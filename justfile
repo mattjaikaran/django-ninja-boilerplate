@@ -195,7 +195,7 @@ ty:
 
 # Run the whole suite without coverage
 test-all:
-    {{ uv }} run {{ test_extras }} pytest -q --no-cov
+    DJANGO_READ_DOT_ENV=0 {{ uv }} run {{ test_extras }} pytest -q --no-cov
 
 # Run any target from the legacy Makefile, with its arguments:
 #   just legacy db-dump
@@ -223,15 +223,15 @@ test *paths:
         echo "Changed test targets: ${targets:-none, running the whole suite}"
     fi
     # shellcheck disable=SC2086 # targets is a space-separated path list
-    {{ uv }} run {{ test_extras }} pytest -x -q --no-cov $targets
+    DJANGO_READ_DOT_ENV=0 {{ uv }} run {{ test_extras }} pytest -x -q --no-cov $targets
 
 # Test the flag-gated apps (webhooks, files); the TEST-OPTIONAL gate runs this
 test-optional:
-    WEBHOOKS_ENABLED=true FILES_ENABLED=true {{ uv }} run {{ test_extras }} pytest webhooks files -q --no-cov
+    DJANGO_READ_DOT_ENV=0 WEBHOOKS_ENABLED=true FILES_ENABLED=true {{ uv }} run {{ test_extras }} pytest webhooks files -q --no-cov
 
 # Run the suite with a coverage report (informational; there is no floor)
 test-coverage:
-    {{ uv }} run {{ test_extras }} pytest --cov=core --cov=todos --cov-report=term-missing
+    DJANGO_READ_DOT_ENV=0 {{ uv }} run {{ test_extras }} pytest --cov=core --cov=todos --cov-report=term-missing
 
 # Run the full suite against Postgres, then tear down.
 # Host ports are offset from the defaults so this works while a local
@@ -258,7 +258,7 @@ test-integration:
 # Run the suite on Django 6.0 (manual check only)
 test-django6 *args:
     {{ uv }} run {{ test_extras }} --with "Django~=6.0.0" python -c "import django; print('Django', django.get_version())"
-    {{ uv }} run {{ test_extras }} --with "Django~=6.0.0" pytest -q --no-cov -p no:cacheprovider {{ args }}
+    DJANGO_READ_DOT_ENV=0 {{ uv }} run {{ test_extras }} --with "Django~=6.0.0" pytest -q --no-cov -p no:cacheprovider {{ args }}
 
 # Run the Postgres-only tests (core.ai owner scoping, concurrent refresh) on a
 # throwaway pgvector container. Also the AI-DB gauntlet gate; needs Docker.
@@ -273,7 +273,7 @@ test-watch:
     trap 'rm -f "$stamp"' EXIT
     touch "$stamp"
     while true; do
-        {{ uv }} run {{ test_extras }} pytest -x -q --no-cov || true
+        DJANGO_READ_DOT_ENV=0 {{ uv }} run {{ test_extras }} pytest -x -q --no-cov || true
         while :; do
             sleep 2
             changed=$(find . -path ./.venv -prune -o -name '*.py' -newer "$stamp" -print -quit)

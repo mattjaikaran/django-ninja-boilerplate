@@ -3,7 +3,8 @@
 
 Creates a throwaway ``git worktree`` of HEAD in a temp dir, copies the main
 tree's uncommitted changes into it (so the gate checks the working tree),
-then runs each ``manage.py generate_feature`` generator plus
+then runs each ``manage.py generate_feature`` generator (derived from the
+command's feature_type choices) plus
 ``startapp_extended`` there. It then runs ``manage.py check``,
 ``makemigrations --check --dry-run``, ``ruff check``, ``ruff format --check``
 and ``pytest`` on the generated files. The main tree is never modified.
@@ -16,6 +17,7 @@ Usage:
     python scripts/check_generators.py --only team,chat # a subset
     python scripts/check_generators.py --keep           # keep the worktree
     python scripts/check_generators.py --inject-failure # prove the gate fails
+    python scripts/check_generators.py --list           # print the derived list
 
 Exit: 0 = every step passed, 1 = at least one step failed
 """
@@ -23,6 +25,7 @@ Exit: 0 = every step passed, 1 = at least one step failed
 from __future__ import annotations
 
 import argparse
+import ast
 import os
 import shutil
 import subprocess
@@ -49,34 +52,60 @@ class Generator:
     wired: bool = True
 
 
-GENERATORS: tuple[Generator, ...] = (
-    Generator(
-        "api_endpoint",
-        ("generate_feature", "api_endpoint", "--app-name", "widgets"),
-        "widgets",
-    ),
-    Generator("team", ("generate_feature", "team"), "team"),
-    Generator("rbac", ("generate_feature", "rbac"), "rbac"),
-    Generator("payments", ("generate_feature", "payments"), "payments"),
-    Generator(
-        "notification",
-        ("generate_feature", "notification", "--app-name", "notifs"),
-        "notifs",
-    ),
-    Generator("chat", ("generate_feature", "chat", "--realtime"), "chat"),
-    Generator(
-        "organization",
-        ("generate_feature", "organization", "--app-name", "orgs"),
-        "orgs",
-    ),
-    Generator("graphql", ("generate_feature", "graphql", "--app-name", "core"), "core"),
-    # No --app-name: proves the default app name does not shadow redis.
-    Generator("redis", ("generate_feature", "redis"), "cache_api"),
-    Generator("analytics", ("generate_feature", "analytics"), "analytics"),
-    Generator(
-        "startapp_extended", ("startapp_extended", "gadget"), "gadget", wired=False
-    ),
-)
+GENERATE_FEATURE = ROOT / "core/management/commands/generate_feature.py"
+# Extra manage.py flags per feature. Only features that need them: an
+# --app-name that avoids an existing app, or a flag to exercise.
+EXTRA_ARGS: dict[str, tuple[str, ...]] = {
+    "api_endpoint": ("--app-name", "widgets"),
+    "notification": ("--app-name", "notifs"),
+    "organization": ("--app-name", "orgs"),
+    "graphql": ("--app-name", "core"),
+    "chat": ("--realtime",),
+}
+
+
+def _module_literal(tree: ast.Module, name: str) -> dict[str, object]:
+    """Return the dict literal assigned to module-level ``name`` in ``tree``."""
+    for node in tree.body:
+        if isinstance(node, ast.Assign) and any(
+            isinstance(t, ast.Name) and t.id == name for t in node.targets
+        ):
+            value = ast.literal_eval(node.value)
+            if isinstance(value, dict):
+                return value
+    msg = f"{GENERATE_FEATURE}: no dict literal named {name}"
+    raise SystemExit(msg)
+
+
+def _app_name(argv: tuple[str, ...], default: str) -> str:
+    if "--app-name" in argv:
+        return argv[argv.index("--app-name") + 1]
+    return default
+
+
+def derive_generators() -> tuple[Generator, ...]:
+    """Build the run list from ``generate_feature``'s feature_type choices.
+
+    The choices are ``list(GENERATORS)`` in the command module, so read that
+    dict (and DEFAULT_APP_NAMES) with ast; no Django import is needed. A new
+    choice is covered automatically and runs with default arguments.
+    """
+    tree = ast.parse(GENERATE_FEATURE.read_text())
+    defaults = _module_literal(tree, "DEFAULT_APP_NAMES")
+    gens = []
+    for name in _module_literal(tree, "GENERATORS"):
+        extra = EXTRA_ARGS.get(name, ())
+        app = _app_name(extra, str(defaults.get(name, name)))
+        gens.append(Generator(name, ("generate_feature", name, *extra), app))
+    gens.append(
+        Generator(
+            "startapp_extended", ("startapp_extended", "gadget"), "gadget", wired=False
+        )
+    )
+    return tuple(gens)
+
+
+GENERATORS = derive_generators()
 GENERATOR_NAMES = tuple(gen.name for gen in GENERATORS)
 
 
@@ -130,9 +159,10 @@ def _copy_working_changes(src: Path, dest: Path) -> int:
 
 
 def _env() -> dict[str, str]:
-    """Return the child environment: test settings, no CI or TEST_DB."""
+    """Return the child environment: test settings, no CI, TEST_DB or .env."""
     env = {k: v for k, v in os.environ.items() if k not in {"CI", "TEST_DB"}}
     env["DJANGO_SETTINGS_MODULE"] = "api.settings.test"
+    env["DJANGO_READ_DOT_ENV"] = "0"
     return env
 
 
@@ -263,6 +293,9 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
         action="store_true",
         help="debug: append a syntax error to a generated file before ruff",
     )
+    parser.add_argument(
+        "--list", action="store_true", help="print the derived generator runs and exit"
+    )
     return parser.parse_args(argv)
 
 
@@ -282,6 +315,10 @@ def main(argv: list[str] | None = None) -> int:
     """Run the gate. Return the process exit code."""
     args = _parse_args(argv)
     selected = _select(args.only)
+    if args.list:
+        for gen in selected:
+            print(f"{gen.name}: manage.py {' '.join(gen.argv)} -> app {gen.app}")
+        return 0
     start = time.monotonic()
     tmp = Path(tempfile.mkdtemp(prefix="check-generators-"))
     worktree = tmp / "tree"

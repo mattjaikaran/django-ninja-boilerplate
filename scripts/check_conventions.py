@@ -19,8 +19,10 @@ Checks:
                          earlier /{param} path that shadows them, or an
                          inline "# route-ok: <reason>"
  14. CAMEL_DUMP_TO_ORM — no f(**x.model_dump()) or setattr loop over
-                         x.model_dump().items(); CamelCaseSchema dumps
-                         camelCase keys, so use x.model_dump_fields()
+                         x.model_dump().items(), also via a name assigned
+                         from .model_dump()/.dict() in the same function;
+                         CamelCaseSchema dumps camelCase keys, so use
+                         x.model_dump_fields()
 
 Usage:
     python scripts/check_conventions.py              # check all
@@ -640,41 +642,21 @@ class ConventionChecker:
         """No camelCase model_dump() unpacked into a call or a setattr loop."""
         for fpath in self.collect_files():
             text = fpath.read_text()
-            if "model_dump(" not in text:
+            if "model_dump(" not in text and ".dict(" not in text:
                 continue
             try:
                 tree = ast.parse(text)
             except SyntaxError:
                 continue
-            for node in ast.walk(tree):
-                line = 0
-                if isinstance(node, ast.Call):
-                    line = next(
-                        (
-                            kw.value.lineno
-                            for kw in node.keywords
-                            if kw.arg is None and _is_model_dump(kw.value)
-                        ),
-                        0,
-                    )
-                elif isinstance(node, ast.For) and _is_model_dump_items(node.iter):
-                    if any(
-                        isinstance(sub, ast.Call)
-                        and isinstance(sub.func, ast.Name)
-                        and sub.func.id == "setattr"
-                        for stmt in node.body
-                        for sub in ast.walk(stmt)
-                    ):
-                        line = node.lineno
-                if line:
-                    yield Violation(
-                        "CAMEL_DUMP_TO_ORM",
-                        str(fpath.relative_to(PROJECT_ROOT)),
-                        line,
-                        "CamelCaseSchema.model_dump() has camelCase keys "
-                        "(firstName); use model_dump_fields() for ORM or "
-                        "keyword-argument data",
-                    )
+            for line in sorted(_camel_dump_lines(tree)):
+                yield Violation(
+                    "CAMEL_DUMP_TO_ORM",
+                    str(fpath.relative_to(PROJECT_ROOT)),
+                    line,
+                    "CamelCaseSchema.model_dump() has camelCase keys "
+                    "(firstName); use model_dump_fields() for ORM or "
+                    "keyword-argument data",
+                )
 
     # ── Orchestration ────────────────────────────────────────────────────
 
@@ -754,6 +736,105 @@ def _is_model_dump_items(node: ast.expr) -> bool:
         and node.func.attr == "items"
         and _is_model_dump(node.func.value)
     )
+
+
+def _is_dump_call(node: ast.expr | None) -> bool:
+    """True for ``<expr>.model_dump(...)`` or ``<expr>.dict(...)``.
+
+    ``model_dump_fields()`` returns snake_case keys and is not matched.
+    """
+    return (
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr in {"model_dump", "dict"}
+    )
+
+
+def _has_setattr(loop: ast.For) -> bool:
+    return any(
+        isinstance(sub, ast.Call)
+        and isinstance(sub.func, ast.Name)
+        and sub.func.id == "setattr"
+        for stmt in loop.body
+        for sub in ast.walk(stmt)
+    )
+
+
+def _dumped_names(func: ast.AST) -> set[str]:
+    """Names assigned from a model_dump()/dict() call inside ``func``."""
+    names: set[str] = set()
+    for node in ast.walk(func):
+        if isinstance(node, ast.Assign) and _is_dump_call(node.value):
+            names.update(t.id for t in node.targets if isinstance(t, ast.Name))
+        elif (
+            isinstance(node, ast.AnnAssign)
+            and isinstance(node.target, ast.Name)
+            and _is_dump_call(node.value)
+        ):
+            names.add(node.target.id)
+    return names
+
+
+def _is_name_items(node: ast.expr, names: set[str]) -> bool:
+    """True for ``<name>.items()`` where ``name`` is in ``names``."""
+    return (
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr == "items"
+        and isinstance(node.func.value, ast.Name)
+        and node.func.value.id in names
+    )
+
+
+def _stored_dump_lines(func: ast.AST) -> set[int]:
+    """Lines in ``func`` where a name holding a dump reaches ORM-style use."""
+    names = _dumped_names(func)
+    lines: set[int] = set()
+    if not names:
+        return lines
+    for sub in ast.walk(func):
+        if isinstance(sub, ast.Call):
+            lines.update(
+                kw.value.lineno
+                for kw in sub.keywords
+                if kw.arg is None
+                and isinstance(kw.value, ast.Name)
+                and kw.value.id in names
+            )
+        elif (
+            isinstance(sub, ast.For)
+            and _is_name_items(sub.iter, names)
+            and _has_setattr(sub)
+        ):
+            lines.add(sub.lineno)
+    return lines
+
+
+def _camel_dump_lines(tree: ast.Module) -> set[int]:
+    """Lines where a camelCase dump reaches ``f(**...)`` or a setattr loop.
+
+    Covers the inline form (``create(**p.model_dump())``) and the stored form
+    within one function (``data = p.model_dump()`` then ``create(**data)``,
+    ``Model(**data)``, ``.update(**data)`` or a setattr loop over
+    ``data.items()``).
+    """
+    lines: set[int] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Call):
+            lines.update(
+                kw.value.lineno
+                for kw in node.keywords
+                if kw.arg is None and _is_model_dump(kw.value)
+            )
+        elif (
+            isinstance(node, ast.For)
+            and _is_model_dump_items(node.iter)
+            and _has_setattr(node)
+        ):
+            lines.add(node.lineno)
+        elif isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
+            lines |= _stored_dump_lines(node)
+    return lines
 
 
 def _decorator_name(dec: ast.expr) -> str | None:

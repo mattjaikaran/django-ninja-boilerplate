@@ -48,6 +48,9 @@ Do not delegate the top-level plan.
   (`DB_HOST=127.0.0.1`), `.env.development` the Compose `db` service;
   `just doctor` warns when they disagree.
 - Tests use SQLite unless `TEST_DB=postgres`; `CI=true` does not change that.
+  The test gates and `just test*` recipes set `DJANGO_READ_DOT_ENV=0`, so a
+  developer's `.env` never changes a test result (`test-integration` still
+  reads it for the Compose DB password).
 - Start a session with `just doctor` (tools, `.env`, secrets, ports, load;
   exits 1 only on FAIL) and `just agent-status` (git, tickets, journeys, last
   gauntlet). Failed gates print a one-line fix hint.
@@ -165,8 +168,10 @@ Every change passes these gates before merge.
 | 19 | DEPLOY-CHECK | `manage.py check --deploy` | Production config issues |
 
 The full gauntlet adds GENERATORS (`scripts/check_generators.py`, `just
-check-generators`: every generator in a throwaway worktree, then
-`manage.py check`, pending migrations, ruff, generated tests), DOCKER
+check-generators`: every `generate_feature` choice plus `startapp_extended`
+in a throwaway worktree, then `manage.py check`, pending migrations, ruff,
+generated tests; quick mode runs it too when generator code changed),
+DOCKER
 (production image; skips without Docker) and AUDIT
 (`scripts/audit_dependencies.py`: `pip-audit` on `uv.lock`, always blocking;
 allowlist an unfixed advisory in `pip-audit-allowlist.toml` with a reason and
