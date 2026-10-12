@@ -62,7 +62,10 @@ known_issues:           # optional
 
 ## Playwright tag convention
 
-The Playwright suite lives in the frontend repo. Write one test per journey.
+This repo ships only the backend API. The Playwright suite lives in the
+frontend repo (in a mattstack project, `frontend/` beside `backend/`). The
+React boilerplates do not ship Playwright yet: add `@playwright/test` and the
+JSON reporter below when you add the frontend. Write one test per journey.
 Tag it with the journey ID, and give each step a `test.step` whose title
 starts with the step ID:
 

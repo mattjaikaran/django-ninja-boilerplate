@@ -25,8 +25,9 @@ INLINE_TAG = re.compile(r"@(J-\d{3}(?:-S\d+)?)(?![\w-])")
 BARE_TAG = re.compile(r"^@?(J-\d{3}(?:-S\d+)?)$")
 TAG_PARTS = re.compile(r"^(J-\d{3})(?:-(S\d+))?$")
 # `test.step('J-001-S2: Sign in', ...)` titles locate a step inside one test.
-STEP_TITLE = re.compile(r"^\s*(J-\d{3}-S\d+)(?![\w-])")
-STEP_SOURCE = re.compile(r"\.step\(\s*['\"`](J-\d{3}-S\d+)(?![\w-])")
+# A leading `@` is accepted too.
+STEP_TITLE = re.compile(r"^\s*@?(J-\d{3}-S\d+)(?![\w-])")
+STEP_SOURCE = re.compile(r"\.step\(\s*['\"`]@?(J-\d{3}-S\d+)(?![\w-])")
 
 STATUSES = ("draft", "building", "done")
 E2E_GLOBS = ("**/*.spec.ts", "**/*.spec.js", "**/*.test.ts")
@@ -117,9 +118,16 @@ class E2eResult:
         return f"{self.file} > {self.title}" if self.file else self.title
 
     def outcome_for(self, step_tag: str) -> str:
-        """Return this test's outcome for one step."""
-        if self.step_outcomes:
-            return self.step_outcomes.get(step_tag, SKIPPED)
+        """Return this test's outcome for one step.
+
+        A step tag without a matching ``test.step`` title takes the test
+        result when the test passed (every step ran). After a failure it is
+        unknown, because the test may have stopped before reaching it.
+        """
+        if step_tag in self.step_outcomes:
+            return self.step_outcomes[step_tag]
+        if self.step_outcomes and self.outcome != PASSED:
+            return SKIPPED
         return self.outcome
 
 

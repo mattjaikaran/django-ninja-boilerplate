@@ -140,7 +140,7 @@
         <ul class="jr-list text-sm space-y-1">
           <li>The format and the sync rules live in <span class="jr-mono">docs/product/README.md</span>.</li>
           <li>Agents load the <span class="jr-mono">journey-sync</span> skill (<span class="jr-mono">.agents/skills/journey-sync/SKILL.md</span>) when they change a feature, a journey, or a Playwright test.</li>
-          <li>Tag Playwright tests <span class="jr-mono">@J-001</span> and <span class="jr-mono">@J-001-S1</span>. A step is verified only by a passing tagged test in the JSON report.</li>
+          <li>Write one Playwright test per journey in the frontend, tagged <span class="jr-mono">@J-001</span>, with steps titled <span class="jr-mono">test.step('J-001-S1: ...')</span>. A step is verified only by a passing step in the JSON report.</li>
           <li>Check a feature <span class="jr-mono">[x]</span> or set a journey <span class="jr-mono">done</span> only when every step is verified.</li>
           <li>Run <span class="jr-mono">uv run python scripts/check_journeys.py</span>. Errors fail the JOURNEYS gate.</li>
         </ul>

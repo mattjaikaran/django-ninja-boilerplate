@@ -273,25 +273,29 @@ def _ticket_exists(tickets_dir: Path, ticket: str) -> bool:
 
 
 def _missing_text(step: Step) -> str:
+    journey_tag = step.tag.rsplit("-", 1)[0]
     if step.state == VERIFIED:
-        return "Nothing. Every tagged test passed."
+        return "Nothing. The step passed in the last report."
     if step.state == DOCUMENTED and step.known_issue is not None:
         issue = step.known_issue
         return (
-            f"Known issue {issue.ticket}: {issue.note or 'no note'}. Fix it, make the "
-            f"@{step.tag} test pass, then remove the known_issues entry."
+            f"Known issue {issue.ticket}: {issue.note or 'no note'}. Fix it, make "
+            f"step {step.tag} pass, then remove the known_issues entry."
         )
     if step.state == FAILING:
         return (
-            f"A @{step.tag} test fails. Fix the product or the test, or record a "
+            f"Step {step.tag} fails. Fix the product or the test, or record a "
             "known_issues entry with a ticket."
         )
     if step.state == NO_RESULT:
         return (
-            f"A test carries @{step.tag} but the report has no result for it. Run the "
-            "Playwright suite with the JSON reporter."
+            f"The report has no result for {step.tag}: the suite did not run, or "
+            "an earlier step failed. Run Playwright with the JSON reporter."
         )
-    return f"No Playwright test carries the @{step.tag} tag. Write one."
+    return (
+        f"No test covers it. Add test.step('{step.tag}: ...') to the "
+        f"@{journey_tag} journey test in the frontend."
+    )
 
 
 def _evaluate_step(
