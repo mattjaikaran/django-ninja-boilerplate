@@ -6,11 +6,14 @@ Provides a DASHBOARD_CALLBACK that returns stats cards for the admin index.
 from __future__ import annotations
 
 from datetime import timedelta
+from pathlib import Path
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.urls import reverse
 from django.utils import timezone
+
+from journeys.services import build_report, spec_paths
 
 User = get_user_model()
 
@@ -73,6 +76,17 @@ def dashboard_callback(request, context):
             "color": "orange",
         },
     ]
+    if settings.JOURNEYS_ENABLED:
+        journeys = build_report(spec_paths(Path(settings.BASE_DIR)))
+        context["stats_cards"].append(
+            {
+                "title": "Journeys verified",
+                "value": f"{journeys.verified_journeys}/{len(journeys.journeys)}",
+                "description": f"{len(journeys.errors)} sync errors",
+                "icon": "route",
+                "color": "primary",
+            }
+        )
 
     # ── Recent activity list ─────────────────────────────────────────
     context["recent_activity"] = _get_recent_activity(now)
@@ -101,6 +115,14 @@ def dashboard_callback(request, context):
             "icon": "map",
         },
     ]
+    if settings.JOURNEYS_ENABLED:
+        context["quick_links"].append(
+            {
+                "title": "User Journeys",
+                "url": reverse("journeys_admin"),
+                "icon": "route",
+            }
+        )
     if getattr(settings, "FLOWER_URL", ""):
         context["quick_links"].append(
             {

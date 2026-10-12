@@ -56,6 +56,9 @@ DEBUG = False
 # Production allowed hosts
 ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=[])
 
+# The journeys page reads docs/product/, which the production image excludes.
+JOURNEYS_ENABLED = env.bool("JOURNEYS_ENABLED", default=False)
+
 # The API docs and OpenAPI schema map every route. Off unless the deploy
 # opts in with API_DOCS=staff (admin login) or API_DOCS=public.
 API_DOCS = env("API_DOCS", default="off")

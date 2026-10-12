@@ -1,0 +1,128 @@
+{% extends "unfold/layouts/base.html" %}
+{% load static %}
+
+{% block extrastyle %}
+  <link rel="stylesheet" href="{% static 'journeys/journeys.css' %}">
+{% endblock %}
+
+{% block content %}
+  <div class="flex flex-col gap-6">
+    {# ── Header ──────────────────────────────────────────────────── #}
+    <div class="flex items-center gap-4 p-6 bg-white border border-base-200 rounded-default shadow-xs dark:bg-base-900 dark:border-base-800">
+      <span class="material-symbols-outlined text-4xl text-primary-600 dark:text-primary-500">route</span>
+      <div class="min-w-0">
+        <h2 class="text-xl font-semibold text-important">{{ journey.id }} {{ journey.title }}</h2>
+        <p class="text-sm text-base-500 mt-1 dark:text-base-400">
+          Actor: {{ journey.actor }} &middot;
+          <span class="jr-chip jr-chip--{{ journey.status }}">{{ journey.status }}</span>
+          &middot; {{ journey.verified_steps }} / {{ journey.steps|length }} steps verified
+          &middot; <span class="jr-mono">{{ spec_dir }}/{{ journey.path }}</span>
+        </p>
+      </div>
+      <a href="{% url 'journeys_admin' %}" class="ml-auto shrink-0 inline-flex items-center gap-2 px-3 py-1 bg-white border border-base-200 hover:bg-base-100 rounded text-sm text-base-700 transition-colors dark:bg-base-900 dark:hover:bg-base-800 dark:border-base-800 dark:text-base-300">
+        <span class="material-symbols-outlined text-base">arrow_back</span>
+        All journeys
+      </a>
+    </div>
+
+    {# ── Findings for this journey ───────────────────────────────── #}
+    {% if issues.errors or issues.warnings %}
+      <div class="bg-white border border-base-200 p-6 rounded-default shadow-xs dark:bg-base-900 dark:border-base-800">
+        <h2 class="font-semibold text-important mb-3">Errors and warnings</h2>
+        <ul class="jr-list text-sm">
+          {% for issue in issues.errors %}
+            <li><span class="jr-chip jr-chip--error">{{ issue.code }}</span>{{ issue.message }}</li>
+          {% endfor %}
+          {% for issue in issues.warnings %}
+            <li><span class="jr-chip jr-chip--warning">{{ issue.code }}</span>{{ issue.message }}</li>
+          {% endfor %}
+        </ul>
+      </div>
+    {% endif %}
+
+    {% if journey.failing_tests %}
+      <div class="bg-white border border-base-200 p-6 rounded-default shadow-xs dark:bg-base-900 dark:border-base-800">
+        <h2 class="font-semibold text-important mb-3">Failing full-journey tests (@{{ journey.id }})</h2>
+        <ul class="jr-list text-sm jr-mono">
+          {% for title in journey.failing_tests %}<li>{{ title }}</li>{% endfor %}
+        </ul>
+      </div>
+    {% endif %}
+
+    {# ── Steps in order ──────────────────────────────────────────── #}
+    {% for row in steps %}
+      {% with step=row.step %}
+        <div class="bg-white border border-base-200 p-6 rounded-default shadow-xs dark:bg-base-900 dark:border-base-800">
+          <div class="flex items-center justify-between gap-2 mb-2">
+            <h3 class="font-medium text-important"><span class="jr-mono">{{ step.id }}</span> {{ step.title }}</h3>
+            <span class="jr-chip jr-chip--{{ step.state }}">{{ step.state }}</span>
+          </div>
+          {% if step.story %}<p class="text-sm text-base-600 dark:text-base-300 mb-3">{{ step.story }}</p>{% endif %}
+          <dl class="grid grid-cols-1 gap-3 text-sm md:grid-cols-2">
+            <div>
+              <dt class="text-base-400">Features</dt>
+              <dd>
+                {% for feature_id, feature_title in row.features %}
+                  <div><span class="jr-mono">{{ feature_id }}</span> {{ feature_title }}</div>
+                {% empty %}<span class="text-base-400">none</span>{% endfor %}
+              </dd>
+            </div>
+            <div>
+              <dt class="text-base-400">Acceptance</dt>
+              <dd>
+                <ul class="jr-list">
+                  {% for criterion in step.acceptance %}<li>{{ criterion }}</li>{% empty %}<li>none listed</li>{% endfor %}
+                </ul>
+              </dd>
+            </div>
+            <div>
+              <dt class="text-base-400">Test tag</dt>
+              <dd class="jr-mono">@{{ step.tag }}</dd>
+            </div>
+            <div>
+              <dt class="text-base-400">Spec files</dt>
+              <dd class="jr-mono">
+                {% for file in step.spec_files %}<div>{{ file }}</div>{% empty %}<span class="text-base-400">none</span>{% endfor %}
+              </dd>
+            </div>
+            {% if step.failing_tests %}
+              <div>
+                <dt class="text-base-400">Failing tests</dt>
+                <dd class="jr-mono">{% for title in step.failing_tests %}<div>{{ title }}</div>{% endfor %}</dd>
+              </div>
+            {% endif %}
+            {% if step.passing_tests %}
+              <div>
+                <dt class="text-base-400">Passing tests</dt>
+                <dd class="jr-mono">{% for title in step.passing_tests %}<div>{{ title }}</div>{% endfor %}</dd>
+              </div>
+            {% endif %}
+            {% if step.known_issue %}
+              <div>
+                <dt class="text-base-400">Known issue</dt>
+                <dd><span class="jr-mono">{{ step.known_issue.ticket }}</span> {{ step.known_issue.note }}</dd>
+              </div>
+            {% endif %}
+          </dl>
+          <p class="text-sm mt-3 pt-3 border-t border-base-100 dark:border-base-800">
+            <span class="font-medium text-important">What is missing:</span> {{ step.missing }}
+          </p>
+        </div>
+      {% endwith %}
+    {% endfor %}
+
+    {# ── Journey prose ───────────────────────────────────────────── #}
+    {% if body_blocks %}
+      <div class="bg-white border border-base-200 p-6 rounded-default shadow-xs dark:bg-base-900 dark:border-base-800">
+        <h2 class="font-semibold text-important mb-3">Journey notes</h2>
+        {% for block in body_blocks %}
+          {% if block.kind == "heading" %}
+            <h3 class="font-medium text-important mt-3 mb-1">{{ block.text }}</h3>
+          {% else %}
+            <p class="text-sm jr-prose mb-2">{{ block.text }}</p>
+          {% endif %}
+        {% endfor %}
+      </div>
+    {% endif %}
+  </div>
+{% endblock %}

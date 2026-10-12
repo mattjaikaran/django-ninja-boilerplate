@@ -102,6 +102,7 @@ INSTALLED_APPS = [
     "core",  # core app
     "todos",  # todos app
     "atlas",  # codebase atlas (interactive architecture map in admin)
+    "journeys",  # user journeys (feature and Playwright traceability in admin)
     # Optional apps. Set FILES_ENABLED / WEBHOOKS_ENABLED (below) for files and
     # webhooks; uncomment the others to enable them:
     # "organizations",  # multi-tenancy / org membership
@@ -710,6 +711,11 @@ ATLAS_CACHE_TTL = env.int("ATLAS_CACHE_TTL", default=3600)
 ATLAS_REAL_SAMPLES = env.bool("ATLAS_REAL_SAMPLES", default=True)
 # Optional per-app prose metadata; apps can also ship an atlas.py module
 ATLAS_METADATA: dict = {}
+
+# User journeys page (/admin/journeys/) and its dashboard card. It reads
+# docs/product/ and the frontend Playwright report from disk, so it is a
+# development tool: prod.py turns it off (the image excludes docs/).
+JOURNEYS_ENABLED = env.bool("JOURNEYS_ENABLED", default=True)
 
 # =============================================================================
 # Audit Logging Configuration

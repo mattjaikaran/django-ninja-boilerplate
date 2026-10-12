@@ -43,6 +43,7 @@ from core.observability.admin_views import health_admin_view, metrics_admin_view
 from core.observability.controllers import MetricsController
 from core.security.brute_force import admin_login_with_lockout
 from core.sse.views import sse_endpoint
+from journeys.views import journey_detail_view, journeys_admin_view
 
 # from notifications.controllers import NotificationController
 # from organizations.controllers import OrganizationController
@@ -215,6 +216,13 @@ urlpatterns = [
     # Observability admin pages (must precede the admin catch-all)
     path(f"{_admin}observability/health/", health_admin_view, name="health_admin"),
     path(f"{_admin}observability/metrics/", metrics_admin_view, name="metrics_admin"),
+    # User journeys admin pages (must precede the admin catch-all)
+    path(f"{_admin}journeys/", journeys_admin_view, name="journeys_admin"),
+    path(
+        f"{_admin}journeys/<str:journey_id>/",
+        journey_detail_view,
+        name="journey_detail",
+    ),
     # Admin login with the shared per-account and per-IP lockout.
     path(f"{_admin}login/", admin_login_with_lockout, name="admin_login_lockout"),
     path(_admin, admin.site.urls),

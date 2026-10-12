@@ -13,6 +13,14 @@ from django.urls import reverse_lazy
 # link until the operator configures the dashboard.
 FLOWER_URL = os.environ.get("FLOWER_URL", "").strip()
 
+
+def _journeys_enabled(request: Any) -> bool:
+    """Show the journeys link only when JOURNEYS_ENABLED (off in prod)."""
+    from django.conf import settings
+
+    return bool(settings.JOURNEYS_ENABLED)
+
+
 UNFOLD: dict[str, Any] = {
     "SITE_TITLE": "Django Ninja Admin",
     "SITE_HEADER": "Django Ninja Boilerplate",
@@ -63,6 +71,12 @@ UNFOLD: dict[str, Any] = {
                         "title": "Codebase Atlas",
                         "icon": "map",
                         "link": reverse_lazy("atlas_admin"),
+                    },
+                    {
+                        "title": "User Journeys",
+                        "icon": "route",
+                        "link": reverse_lazy("journeys_admin"),
+                        "permission": _journeys_enabled,
                     },
                 ],
             },
