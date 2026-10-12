@@ -295,6 +295,10 @@ update-architecture:
 doctor:
     ./scripts/doctor.sh
 
+# Read-only session summary for agents: git, tickets, journeys, gauntlet, OpenAPI
+agent-status *args:
+    {{ uv }} run python scripts/agent_status.py {{ args }}
+
 # ---------------------------------------------------------------------------
 # MCP
 # ---------------------------------------------------------------------------

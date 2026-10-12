@@ -61,7 +61,8 @@ accept it. Do not delegate the top-level plan.
 - Tests run on SQLite unless `TEST_DB=postgres`. Agent shells often set
   `CI=true`; it no longer changes the test database.
 - Start a session with `just doctor` (tools, `.env`, secrets, busy ports,
-  load). It exits 1 only on a FAIL.
+  load; exits 1 only on a FAIL) and `just agent-status` (git, tickets,
+  journeys, last gauntlet result). A failed gate prints a one-line fix hint.
 - `just` is the task runner. The old Makefile is `Makefile.legacy`.
 - Ports: django 8000, mcp 8001, mailhog 8025, centrifugo 8800, flower 5555.
   The Docker stack publishes Postgres on 5433 and Valkey on 6380, offset from

@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - **ROUTE_ORDER convention check** (`scripts/check_conventions.py`): flags a static controller path declared after a `/{param}` path that would catch it. Escape with `# route-ok: <reason>`; `--root DIR` scans another tree.
 - **`scripts/doctor.py`** (`just doctor`): one-line OK/INFO/WARN/FAIL preflight for agents: tools, `.env` and its secrets, `.env` and `.env.development` disagreeing on `DB_HOST`/`DB_PORT` (names only), busy dev ports with the holding process, a `CI` variable, machine load, Docker and the journeys frontend.
+- **Gate fix hints**: a failed gauntlet gate prints a one-line hint in the summary, and the JSON report carries it as `fix_hint` (`scripts/gauntlet_hints.py`).
+- **`scripts/agent_status.py`** (`just agent-status`, `--json`): read-only session summary in under a second: git state, tickets, journeys, the last gauntlet report and uncommitted route or schema changes.
 
 ### Changed
 - **Test database switch**: `api.settings.test` uses PostgreSQL only with `TEST_DB=postgres`. It used `CI`, which agent shells and CI runners set for unrelated reasons, so local runs moved to Postgres silently.

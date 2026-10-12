@@ -56,6 +56,9 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 os.chdir(PROJECT_ROOT)
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from gauntlet_hints import FIX_HINTS
 
 EXCLUDE_DIRS = {".venv", "venv", "env", "node_modules", ".git", "__pycache__", "cli"}
 
@@ -490,6 +493,9 @@ class GauntletRunner:
         else:
             failed = [r.name for r in self.results if not r.passed and not r.warning]
             print(f"\n  FAILED GATES: {', '.join(failed)}")
+            for name in failed:
+                if name in FIX_HINTS:
+                    print(f"    {name}: {FIX_HINTS[name]}")
             print("  Fix all failures before merging.")
 
         print("=" * 60)
@@ -512,6 +518,7 @@ class GauntletRunner:
                     "warning": r.warning,
                     "skipped": r.skipped,
                     "skip_reason": r.skip_reason,
+                    "fix_hint": "" if r.passed else FIX_HINTS.get(r.name, ""),
                 }
                 for r in self.results
             ],
