@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+Upgrading from 1.14.0? Follow the 1.14.0 to 1.15.0 section of
+[UPGRADING.md](UPGRADING.md).
+
 ### Added
 - **ROUTE_ORDER convention check** (`scripts/check_conventions.py`): flags a static controller path declared after a `/{param}` path that would catch it. Escape with `# route-ok: <reason>`; `--root DIR` scans another tree.
 - **`CamelCaseSchema.model_dump_fields()`** (`core/schemas/base_schema.py`): dumps with field names (`first_name`) for data that goes to the ORM. `model_dump()` keeps camelCase keys for responses and logs. The new `CAMEL_DUMP_TO_ORM` convention check flags `f(**x.model_dump())` and `setattr` loops over `x.model_dump().items()`.
