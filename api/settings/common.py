@@ -767,7 +767,7 @@ API_KEY_PREFIX = env("API_KEY_PREFIX", default="bnp")
 # Observability Configuration
 # =============================================================================
 # Application version (used in metrics and health checks)
-VERSION = env("APP_VERSION", default="1.13.0")
+VERSION = env("APP_VERSION", default="1.14.0")
 
 # OpenTelemetry Configuration. OTEL_ENABLED starts tracing in CoreConfig.ready()
 # and needs the `observability` extra, which the Docker images install.
