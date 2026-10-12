@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.15.0] - 2026-10-12
+
 Upgrading from 1.14.0? Follow the 1.14.0 to 1.15.0 section of
 [UPGRADING.md](UPGRADING.md).
 
@@ -757,7 +759,8 @@ development.
 | 0.7.0 | 2026-01-20 | JWT auth, UV, Docker dev environment |
 | 0.6.0 | 2026-01-15 | Initial release |
 
-[Unreleased]: https://github.com/mattjaikaran/django-ninja-boilerplate/compare/v1.14.0...HEAD
+[Unreleased]: https://github.com/mattjaikaran/django-ninja-boilerplate/compare/v1.15.0...HEAD
+[1.15.0]: https://github.com/mattjaikaran/django-ninja-boilerplate/compare/v1.14.0...v1.15.0
 [1.14.0]: https://github.com/mattjaikaran/django-ninja-boilerplate/compare/v1.13.0...v1.14.0
 [1.13.0]: https://github.com/mattjaikaran/django-ninja-boilerplate/compare/v1.12.0...v1.13.0
 [1.12.0]: https://github.com/mattjaikaran/django-ninja-boilerplate/compare/v1.11.0...v1.12.0
