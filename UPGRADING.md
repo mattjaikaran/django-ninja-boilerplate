@@ -42,6 +42,17 @@ with a fresh generation, and fix any controller that queries the ORM, wraps
 lookups in `try/except`, or lacks `JWTAuth`. Several generators now stop when
 the app folder exists.
 
+A regenerated app has a different API from one generated before 1.14.0:
+
+| Generator | Difference |
+|---|---|
+| `api_endpoint` | Same app as `startapp_extended`: fields `title` and `description`, owner `user` (was `name` and `created_by`). |
+| `graphql` | Served at `/api/graphql/`; every field needs authentication; `users` is staff-only. |
+| `chat` | Reactions use names (`heart`, `thumbs_up`); the message list uses `@paginate`, newest first. |
+| `organization` | Decline an invitation with `POST /invitations/{id}/decline` (was `DELETE`); change the owner only through transfer-ownership. |
+| `rbac` | Every route needs `IsAdminUser` except `GET /api/rbac/me/permissions`. |
+| `team` | Writes need the team lead role; non-members get `404`. |
+
 ### Tooling and tests
 
 | Change | What to do |
