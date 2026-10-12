@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+Upgrading from 1.13.0? Follow the 1.13.0 to 1.14.0 section of
+[UPGRADING.md](UPGRADING.md).
+
 ### Added
 - **User journeys and feature list** (`docs/product/`): `FEATURES.md` and `journeys/J-NNN-*.md` (YAML frontmatter with steps, stories, features and known issues). The frontend writes one Playwright test per journey, tagged `@J-NNN`, with `test.step('J-NNN-S<n>: ...')` per step; the gate reads step results from the JSON report, so it shows where a journey breaks. A checked feature or a `done` journey requires a passing test in the report.
 - **`journeys` app**: staff pages `/admin/journeys/` and `/admin/journeys/<id>/` show every journey step by step, its verification state and what is missing. Linked from the sidebar and the dashboard. `JOURNEYS_ENABLED` (default on; off in `api.settings.prod`, because the image excludes `docs/`) hides the pages, link and card.
@@ -25,7 +28,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Static GET routes `/completed`, `/pending` and `/search` in all four todo controllers, and `/actions`, `/models` and `/failed-logins` in the audit controller, were shadowed by earlier `/{id}` handlers and returned 400 or 422. Static paths now come first.
-- `api.settings.prod` accepted an empty `CENTRIFUGO_API_KEY` or `CENTRIFUGO_TOKEN_SECRET`. It now rejects them.
+- **Security:** `api.settings.prod` accepted an empty `CENTRIFUGO_API_KEY` or `CENTRIFUGO_TOKEN_SECRET`. An empty token secret let anyone sign Centrifugo connection tokens. Production now refuses both.
+- `startapp_extended` generated a controller without `JWTAuth`, with an unscoped `/all` route, `try/except` blocks that turned lookups into 400, and a read schema that rejected UUID and datetime values, so its own tests failed. It now generates a `JWTAuth` controller backed by an owner-scoped service.
 - Settings probe tests removed a variable to simulate "unset", and a local `.env` refilled it; they now blank it.
 
 ### Removed

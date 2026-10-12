@@ -1,10 +1,55 @@
-# Upgrading a platform from 1.12.0 to 1.13.0
+# Upgrading a platform
 
-Use this guide when you merge 1.13.0 into a platform that derives from this
-boilerplate at 1.12.0 or earlier. Each section lists what changed, who it
-affects, and what to do. `CHANGELOG.md` has the full list.
+Use this guide when you merge a new boilerplate release into a platform that
+derives from it. Each release section lists what changed, who it affects, and
+what to do. Apply the sections in order, oldest first. `CHANGELOG.md` has the
+full list. To copy single modules instead of merging, see
+`docs/ADOPTING_UPDATES.md`.
 
-## Before you start
+## 1.13.0 to 1.14.0
+
+### API changes for clients
+
+| Change | What to do |
+|---|---|
+| `GET /api/todos*/completed`, `/pending` and `/search`, and `GET /api/audit/actions`, `/models` and `/failed-logins`, returned `400` or `422` because an earlier `/{id}` handler caught them. They now return their lists. | Remove any client workaround for those errors. |
+
+### Production configuration
+
+| Setting | Change | What to do |
+|---|---|---|
+| `CENTRIFUGO_API_KEY`, `CENTRIFUGO_TOKEN_SECRET` | `api.settings.prod` now refuses an empty value, as well as the published defaults. An empty token secret let anyone sign connection tokens. | Generate both with `python3 scripts/env_secrets.py fill`. |
+| `JOURNEYS_ENABLED` | New. The `/admin/journeys/` pages are on by default and off in `api.settings.prod`, because the production image excludes `docs/`. | Nothing, unless you want the pages in another environment. |
+
+### Your own controllers
+
+Ninja binds a path pattern where it first appears, so any earlier handler on
+`/{id}` (any method) shadows a later static path such as `/search`. The smoke
+route sweep now fails on any status of `400` or higher on a parameterless GET
+(`403` is allowed for a regular user) and also runs as a staff user.
+
+1. Run `just test tests/smoke/test_smoke.py`.
+2. For each route it lists, move every `/{id}` handler of that controller after
+   the static paths.
+
+### Tooling and tests
+
+| Change | What to do |
+|---|---|
+| No coverage floor and no mutation testing: `--cov-fail-under`, `--cov` in the default pytest options, the MUTATION gate, `just mutation-test`, `[tool.mutmut]` and `mutmut` are gone. | Remove local scripts that call them. `just test-coverage` still prints a report. |
+| The pytest journey generator is gone: `scripts/generate_e2e_tests.py`, `tests/user_journeys.example.yaml`, `tests/e2e/` and the `make` targets `generate-e2e`, `generate-e2e-dry`, `test-e2e`, `local-test-e2e`, `mutation-test`. | Move journeys to `docs/product/` and Playwright (see `docs/product/README.md`). |
+| New gates: JOURNEYS (`just check-journeys`), TICKETS (`just tickets check`) and TEST-OPTIONAL (`just test-optional`). | Keep `docs/product/` and `docs/tickets/` valid, or remove the gates you do not use from `scripts/gauntlet.py`. |
+| `pyyaml` is a base dependency; the `unit` pytest marker is gone. | Run `uv sync`. Remove `@pytest.mark.unit`. |
+| The testing policy in `AGENTS.md` section 10 allows smoke, contract, permission and regression tests only. | Prune unit and mock tests with tickets, as `docs/tickets/PRUNE_PLAN.md` shows. |
+
+### Verify
+
+1. `just gauntlet-quick` passes.
+2. With a production `.env`, `DJANGO_SETTINGS_MODULE=api.settings.prod python manage.py check` starts.
+
+## 1.12.0 to 1.13.0
+
+### Before you start
 
 1. Read every section. Several changes refuse to start the app until you set
    new configuration.
@@ -14,7 +59,7 @@ affects, and what to do. `CHANGELOG.md` has the full list.
 3. Update your frontend and other API clients for the API changes below
    before you deploy the backend.
 
-## API changes for clients
+### API changes for clients
 
 | Change | What to do |
 |---|---|
@@ -28,9 +73,9 @@ affects, and what to do. `CHANGELOG.md` has the full list.
 | `DELETE /api/api-keys/{key_id}` and `POST /api/api-keys/{key_id}/rotate` take a UUID and return `404` for a missing key or another user's key (they returned `500`). A malformed id returns `422`. | Handle `404`. |
 | This release supersedes the cookie-only auth change in commit `619422e`. The bearer routes `/api/token/pair`, `/api/token/refresh` and `/api/token/verify` stay and are throttled with the other credential endpoints. Login responses keep the tokens in the body as well as the cookies. | If you built on `619422e`, follow `docs/COOKIE_AUTH.md`: browsers use cookies and CSRF, other clients use `/api/token/*` or `Authorization: Bearer`. |
 
-## Production configuration
+### Production configuration
 
-### TLS is required
+#### TLS is required
 
 `api/settings/prod.py` refuses to start with `USE_TLS=false`, because cookie
 auth needs HTTPS outside localhost.
@@ -50,7 +95,7 @@ HSTS stays at one year with `USE_TLS=true`. `includeSubDomains` and `preload`
 are now opt-in: set `SECURE_HSTS_INCLUDE_SUBDOMAINS=true` and
 `SECURE_HSTS_PRELOAD=true` only when every subdomain serves HTTPS.
 
-### Client IP: `NINJA_NUM_PROXIES`
+#### Client IP: `NINJA_NUM_PROXIES`
 
 Throttles, the login lockout and the audit log read the client IP from
 `X-Forwarded-For`, trusting `NINJA_NUM_PROXIES` proxies. Set it to the number
@@ -63,7 +108,7 @@ the table in `docs/COOKIE_AUTH.md`.
 Do not set `NINJA_NUM_PROXIES` in a development `.env` that you also use for
 the prod profile: Compose interpolates it into the prod services.
 
-### Other settings
+#### Other settings
 
 | Setting | Change | What to do |
 |---|---|---|
@@ -76,7 +121,7 @@ the prod profile: Compose interpolates it into the prod services.
 | `DJANGO_MCP_AUTH_TOKEN` | The dev `mcp` profile needs a token of 32 or more characters. | Development only. |
 | `FILES_ENABLED`, `WEBHOOKS_ENABLED` | The files and webhooks apps install only when these are `true` (default `false`). | Set them if your platform uses those apps. |
 
-## Database and server
+### Database and server
 
 | Change | What to do |
 |---|---|
@@ -87,7 +132,7 @@ the prod profile: Compose interpolates it into the prod services.
 | The new `core.ai` app (installed with `AI_ENABLED=true`) requires `Document.owner`. | New app: no data to migrate. Pass `user` to `hybrid_search` and `reachable`. |
 | Refresh tokens that the old rotation issued have no `OutstandingToken` row. | Nothing to do: their next refresh records them. |
 
-## Verify
+### Verify
 
 1. `just gauntlet-quick` and `just openapi-check` pass.
 2. `docker compose --profile prod config -q` passes with your deploy `.env`.
