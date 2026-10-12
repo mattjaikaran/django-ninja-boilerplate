@@ -192,9 +192,12 @@ committed files. Put real values in your local shell or `gh` config.
   or `gh auth token`, and must not echo a variable that holds a credential.
   Add these to the worker harness deny list if it has one.
 - **Failure logs.** Before a log goes into a PR body, keep only the failing
-  command and its last 50 lines. Remove anything that looks like a token,
-  password, cookie, `Authorization` header, or database URL. A PR on a
-  public repository is public.
+  command and its last 50 lines, and pass them through
+  `scripts/redact_log.py`. It replaces the values of secret keys in `.env`,
+  bearer tokens, credentials in URLs, and GitHub, Stripe and JWT tokens:
+  `tail -n 50 /tmp/verify.log | uv run python scripts/redact_log.py > /tmp/T-NNN-failure.md`.
+  Read the result once before you post it. A PR on a public repository is
+  public.
 - **Remote access.** Reach the worker machine over SSH with key
   authentication. Do not write its address or user name in this repository.
 - **Leak response.** If a secret reaches a commit or a PR, revoke it first,

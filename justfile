@@ -211,6 +211,10 @@ test *paths:
     # shellcheck disable=SC2086 # targets is a space-separated path list
     {{ uv }} run {{ test_extras }} pytest -x -q --no-cov $targets
 
+# Test the flag-gated apps (webhooks, files); the TEST-OPTIONAL gate runs this
+test-optional:
+    WEBHOOKS_ENABLED=true FILES_ENABLED=true {{ uv }} run {{ test_extras }} pytest webhooks files -q --no-cov
+
 # Run the suite with a coverage report (informational; there is no floor)
 test-coverage:
     {{ uv }} run {{ test_extras }} pytest --cov=core --cov=todos --cov-report=term-missing
