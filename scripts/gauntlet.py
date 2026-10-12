@@ -17,22 +17,24 @@ Gates (in order):
   8. ARCH         — architecture layer enforcement
   9. FILELENGTH   — file length limits
  10. CROSS-STACK  — naming and schema parity (monorepo only, non-blocking)
- 11. TEST         — pytest with coverage threshold
- 12. CLI-TEST     — pytest for the cli/ package
- 13. AI-DB        — Postgres-only tests (core.ai owner scoping, concurrent
+ 11. JOURNEYS     : features, journey specs and Playwright tags stay in sync
+ 12. TICKETS      : ticket format, dependencies and collision rules
+ 13. TEST         : pytest for smoke, contract, permission and regression tests
+ 14. TEST-OPTIONAL: pytest for flag-gated apps (webhooks, files)
+ 15. CLI-TEST     — pytest for the cli/ package
+ 16. AI-DB        — Postgres-only tests (core.ai owner scoping, concurrent
                     refresh) on a throwaway pgvector container; skips with a
                     printed reason without Docker
- 14. DEPLOY       — django check --deploy (non-blocking)
- 15. MUTATION     — mutmut (test quality, full run only, non-blocking)
- 16. AUDIT        — pip-audit on uv.lock, allow-list with expiry (full run only)
- 17. DOCKER       — build the production image (full run only, skips without Docker)
+ 17. DEPLOY       — django check --deploy (non-blocking)
+ 18. AUDIT        — pip-audit on uv.lock, allow-list with expiry (full run only)
+ 19. DOCKER       — build the production image (full run only, skips without Docker)
 
 There is no hosted CI. Every gate runs locally: `just gauntlet-quick` from the
 pre-push hook, `just gauntlet` before a release.
 
 Usage:
     python scripts/gauntlet.py              # full gauntlet
-    python scripts/gauntlet.py --quick      # skip mutation, audit, docker
+    python scripts/gauntlet.py --quick      # skip audit, docker
     python scripts/gauntlet.py --ci --report  # machine run with JSON report
     python scripts/gauntlet.py --fail-fast  # stop on first failure
     python scripts/gauntlet.py --gate lint  # single gate
@@ -76,7 +78,6 @@ class GauntletRunner:
     ci: bool = False
     verbose: bool = False
     fail_fast: bool = False
-    coverage_threshold: int = 30
     _stopped_early: bool = False
 
     def run_gate(
@@ -178,7 +179,6 @@ class GauntletRunner:
         print("=" * 60)
         mode = "CI" if self.ci else "quick" if self.quick else "full"
         print(f"  Mode: {mode}")
-        print(f"  Coverage threshold: {self.coverage_threshold}%")
         print(f"  Fail fast: {self.fail_fast}")
         print(f"  Gates: {len(gates)}")
 
@@ -213,13 +213,15 @@ class GauntletRunner:
         gates["schema-parity"] = self._gate_schema_parity
         gates["filelength"] = self._gate_filelength
         gates["cross-stack"] = self._gate_cross_stack
+        gates["journeys"] = self._gate_journeys
+        gates["tickets"] = self._gate_tickets
         gates["test"] = self._gate_test
+        gates["test-optional"] = self._gate_test_optional
         gates["cli-test"] = self._gate_cli_test
         gates["ai-db"] = self._gate_ai_db
         gates["deploy-check"] = self._gate_deploy_check
 
         if not self.quick:
-            gates["mutation"] = self._gate_mutation
             gates["audit"] = self._gate_audit
             gates["docker"] = self._gate_docker
         return gates
@@ -286,6 +288,16 @@ class GauntletRunner:
             allow_fail=True,  # non-blocking — only applies in monorepos
         )
 
+    def _gate_journeys(self) -> GateResult:
+        return self.run_gate(
+            "JOURNEYS", ["uv", "run", "python", "scripts/check_journeys.py"]
+        )
+
+    def _gate_tickets(self) -> GateResult:
+        return self.run_gate(
+            "TICKETS", ["uv", "run", "python", "scripts/tickets.py", "check"]
+        )
+
     def _gate_filelength(self) -> GateResult:
         py_files = [
             str(f.relative_to(PROJECT_ROOT))
@@ -317,11 +329,34 @@ class GauntletRunner:
                 "dramatiq",
                 "pytest",
                 "--timeout=120",
-                f"--cov-fail-under={self.coverage_threshold}",
                 "--no-header",
                 "-q",
             ],
             env_override={"DJANGO_SETTINGS_MODULE": "api.settings.test"},
+        )
+
+    def _gate_test_optional(self) -> GateResult:
+        # Flag-gated apps stay out of the default settings, so the OpenAPI
+        # export and route contract never see their routes. Test them here.
+        return self.run_gate(
+            "TEST-OPTIONAL",
+            [
+                "uv",
+                "run",
+                "--extra",
+                "dev",
+                "pytest",
+                "webhooks",
+                "files",
+                "--timeout=120",
+                "--no-header",
+                "-q",
+            ],
+            env_override={
+                "DJANGO_SETTINGS_MODULE": "api.settings.test",
+                "WEBHOOKS_ENABLED": "true",
+                "FILES_ENABLED": "true",
+            },
         )
 
     def _gate_cli_test(self) -> GateResult:
@@ -340,33 +375,6 @@ class GauntletRunner:
                 "-p",
                 "no:cacheprovider",
             ],
-        )
-
-    def _gate_mutation(self) -> GateResult:
-        try:
-            subprocess.run(
-                ["uv", "run", "mutmut", "--version"],
-                capture_output=True,
-                check=True,
-            )
-        except (subprocess.CalledProcessError, FileNotFoundError):
-            return self.skip_gate(
-                "MUTATION", "mutmut not installed (uv add --dev mutmut)"
-            )
-
-        return self.run_gate(
-            "MUTATION",
-            [
-                "uv",
-                "run",
-                "mutmut",
-                "run",
-                "--paths-to-mutate=core/,todos/",
-                "--tests-dir=core/tests/,todos/tests/",
-                "--no-progress",
-                "--CI",
-            ],
-            allow_fail=True,
         )
 
     def _gate_audit(self) -> GateResult:
@@ -492,7 +500,6 @@ class GauntletRunner:
         return {
             "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
             "mode": "ci" if self.ci else "quick" if self.quick else "full",
-            "coverage_threshold": self.coverage_threshold,
             "all_passed": all(r.passed for r in self.results),
             "blocking_passed": all(r.passed or r.warning for r in self.results),
             "has_warnings": any(r.warning for r in self.results),
@@ -518,18 +525,12 @@ def main() -> int:
     parser.add_argument(
         "--quick",
         action="store_true",
-        help="Skip slow gates (mutation, audit, docker)",
+        help="Skip slow gates (audit, docker)",
     )
     parser.add_argument(
         "--ci", action="store_true", help="Label the run as CI in the report"
     )
     parser.add_argument("--gate", type=str, help="Run a single gate by name")
-    parser.add_argument(
-        "--coverage",
-        type=int,
-        default=GauntletRunner.coverage_threshold,
-        help="Coverage threshold %% (default: %(default)s, target: 80)",
-    )
     parser.add_argument(
         "--fail-fast", action="store_true", help="Stop on first gate failure"
     )
@@ -555,7 +556,6 @@ def main() -> int:
         ci=args.ci,
         verbose=args.verbose,
         fail_fast=args.fail_fast,
-        coverage_threshold=args.coverage,
     )
 
     passed = runner.run_all(single_gate=args.gate)

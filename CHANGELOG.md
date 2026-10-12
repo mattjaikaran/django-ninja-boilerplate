@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **User journeys and feature list** (`docs/product/`): `FEATURES.md` and `journeys/J-NNN-*.md` (YAML frontmatter with steps, stories, features and known issues). The frontend writes one Playwright test per journey, tagged `@J-NNN`, with `test.step('J-NNN-S<n>: ...')` per step; the gate reads step results from the JSON report, so it shows where a journey breaks. A checked feature or a `done` journey requires a passing test in the report.
+- **`journeys` app**: staff pages `/admin/journeys/` and `/admin/journeys/<id>/` show every journey step by step, its verification state and what is missing. Linked from the sidebar and the dashboard. `JOURNEYS_ENABLED` (default on; off in `api.settings.prod`, because the image excludes `docs/`) hides the pages, link and card.
+- **JOURNEYS gate** (`scripts/check_journeys.py`, `just check-journeys`) and **TICKETS gate** (`scripts/tickets.py check`, `just tickets`).
+- **Ticket handoff for worker models** (`docs/tickets/`, `docs/AGENT_HANDOFF.md`, skills `ticket-planner`, `ticket-worker`, `journey-sync`): file-based tickets with owned paths, atomic claims through `agent/T-NNN-*` branches, collision checks, and a PR-from-bot-account loop. `docs/tickets/PRUNE_PLAN.md` and its tickets remove existing tests that break the testing policy.
+- **Route sweep smoke test**: every parameterless GET route must not return a 5xx or a 422.
+- **TEST-OPTIONAL gate**: runs the `webhooks` and `files` suites with their flags on. The default settings keep those apps off, so their tests never ran.
+- **`scripts/adopt.py`** (`just adopt`, `docs/ADOPTING_UPDATES.md`): an existing backend can list portable modules (`journeys`, `tickets`, `testing-policy`, `atlas`), see which are adopted or out of date and the changelog since its recorded version (`.boilerplate.toml`), and copy one module at a time. It never overwrites a changed file without `--force`, refuses dirty files, and never copies secret files. The journeys page shows the commands.
+
+### Changed
+- **Lean testing policy** (`AGENTS.md` section 10): smoke, contract, permission and regression tests in this repo, Playwright journeys in the frontend, and nothing else. Agent guidance in `.context/`, `.omp/`, `.cursor/`, skills, the PR template and the feature generator follow it.
+
+### Removed
+- The coverage floor (`--cov-fail-under=30`) and `--cov` from the default pytest options. `just test-coverage` still prints a report.
+- The MUTATION gate, `just mutation-test`, `[tool.mutmut]` and the `mutmut` dependency.
+- The legacy pytest journey generator (`scripts/generate_e2e_tests.py`, `tests/user_journeys.example.yaml`, `tests/e2e/`). Playwright journeys replace it.
+
 ## [1.13.0] - 2026-10-06
 
 Upgrading a platform from 1.12.0? Follow [UPGRADING.md](UPGRADING.md): several

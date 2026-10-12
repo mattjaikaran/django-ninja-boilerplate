@@ -6,6 +6,15 @@ without a matching entry here.
 
 ## Tooling changes
 
+- Added `pyyaml` (`>=6.0.2`) as a base dependency. The `journeys` admin page
+  and `scripts/check_journeys.py` and `scripts/tickets.py` parse YAML
+  frontmatter at runtime. It was only a transitive dependency before.
+- Removed `mutmut` from the `dev` extra and the `[tool.mutmut]` config. The
+  lean testing policy drops mutation testing and the coverage floor
+  (`--cov-fail-under`); `pytest-cov` stays for the opt-in
+  `just test-coverage` report.
+- Added `journeys` to the Hatch wheel package list and to ruff
+  `known-first-party` (with `atlas`, which was missing). No package changed.
 - Removed the stale `api.pagination.offset` mypy override. Ninja Extra now
   provides pagination, and this module no longer exists. No package changed.
 - Added `atlas` to the Hatch wheel package list. It is an installed app, so a

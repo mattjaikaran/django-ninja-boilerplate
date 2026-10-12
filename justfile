@@ -179,7 +179,7 @@ format: fmt
 ty:
     {{ uv }} run ty check .
 
-# Run the whole suite without coverage (coverage runs in `just gauntlet`)
+# Run the whole suite without coverage
 test-all:
     {{ uv }} run {{ test_extras }} pytest -q --no-cov
 
@@ -211,7 +211,7 @@ test *paths:
     # shellcheck disable=SC2086 # targets is a space-separated path list
     {{ uv }} run {{ test_extras }} pytest -x -q --no-cov $targets
 
-# Run the test suite with coverage
+# Run the suite with a coverage report (informational; there is no floor)
 test-coverage:
     {{ uv }} run {{ test_extras }} pytest --cov=core --cov=todos --cov-report=term-missing
 
@@ -348,7 +348,7 @@ format-check:
 typecheck:
     {{ uv }} run --extra dev mypy .
 
-# Run the quick gauntlet (skips mutation testing and audit)
+# Run the quick gauntlet (skips audit and docker)
 check-all:
     {{ uv }} run --extra dev python scripts/gauntlet.py --quick --verbose
 
@@ -380,6 +380,18 @@ check-cross-stack:
 check-arch:
     {{ uv }} run python scripts/check_architecture.py --all
 
+# Check that FEATURES.md, journey specs and Playwright tags agree
+check-journeys:
+    {{ uv }} run python scripts/check_journeys.py
+
+# Ticket queue: just tickets check | next --tier small | show T-001 | claim T-001
+tickets *args:
+    {{ uv }} run python scripts/tickets.py {{ args }}
+
+# Compare or copy portable modules into another backend: just adopt status --target ../my-api
+adopt *args:
+    {{ uv }} run python scripts/adopt.py {{ args }}
+
 # Export the OpenAPI contract to docs/openapi/openapi.json (sorted keys)
 openapi:
     DJANGO_SETTINGS_MODULE=api.settings.test SECRET_KEY=openapi-export-not-a-secret {{ uv }} run python manage.py export_openapi
@@ -388,10 +400,6 @@ openapi:
 openapi-check:
     DJANGO_SETTINGS_MODULE=api.settings.test SECRET_KEY=openapi-export-not-a-secret {{ uv }} run python manage.py export_openapi --check
     {{ uv }} run python scripts/check_schema_parity.py
-
-# Run mutation testing
-mutation-test:
-    {{ uv }} run --extra dev mutmut run
 
 # Run the security scan
 security-scan:

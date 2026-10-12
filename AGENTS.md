@@ -162,12 +162,15 @@ lets us trust generated code without reading every line.
 | 10 | SCHEMA-PARITY | `scripts/check_schema_parity.py` | snake_case or untyped properties, required/nullable mismatches in the OpenAPI contract |
 | 11 | FILELENGTH | `scripts/check_file_length.py` | Files over their cap |
 | 12 | CROSS-STACK | `scripts/check_cross_stack.py` | Naming and schema parity (monorepo only) |
-| 13 | TEST | `pytest --cov-fail-under=30` | Broken behaviour, coverage drop |
-| 14 | CLI-TEST | `pytest cli/tests` | Broken `cli/` package |
-| 15 | AI-DB | `scripts/test_ai_db.py` | Postgres-only tests (`core.ai` owner scoping, concurrent refresh) on a throwaway pgvector container; prints a skip reason when Docker is not running |
-| 16 | DEPLOY-CHECK | `manage.py check --deploy` | Production config issues |
+| 13 | JOURNEYS | `scripts/check_journeys.py` | `FEATURES.md`, journey specs and Playwright tags out of sync; a `done` journey or checked feature without a passing e2e test |
+| 14 | TICKETS | `scripts/tickets.py check` | Bad ticket format, missing dependencies, `ready` tickets that collide on files |
+| 15 | TEST | `pytest` | Broken smoke, contract, permission and regression tests |
+| 16 | TEST-OPTIONAL | `pytest webhooks files` with `WEBHOOKS_ENABLED` and `FILES_ENABLED` | Broken flag-gated apps, kept out of the default settings so their routes stay out of the OpenAPI contract |
+| 17 | CLI-TEST | `pytest cli/tests` | Broken `cli/` package |
+| 18 | AI-DB | `scripts/test_ai_db.py` | Postgres-only tests (`core.ai` owner scoping, concurrent refresh) on a throwaway pgvector container; prints a skip reason when Docker is not running |
+| 19 | DEPLOY-CHECK | `manage.py check --deploy` | Production config issues |
 
-The full gauntlet adds MUTATION (`mutmut`), AUDIT and DOCKER (builds the
+The full gauntlet adds AUDIT and DOCKER (builds the
 production image; skipped when Docker is not running). AUDIT runs
 `scripts/audit_dependencies.py`: `pip-audit` on every package in `uv.lock`. It
 always blocks. Put a known advisory with no fix in `pip-audit-allowlist.toml`
@@ -180,7 +183,7 @@ tools) or a pinned `uvx`/`bunx`, so they cannot drift from the lockfile.
 
 ```bash
 just gauntlet                 # every gate
-just gauntlet-quick           # skip mutation, audit, docker (use this while working)
+just gauntlet-quick           # skip audit, docker (use this while working)
 just gauntlet-ci              # every gate with a JSON report
 just gauntlet-gate lint       # one gate by name
 just pre-commit-install       # pre-commit, commit-msg and pre-push hooks
@@ -190,8 +193,9 @@ just check-arch               # architecture gate only
 just openapi                  # regenerate docs/openapi/openapi.json
 just openapi-check            # OpenAPI staleness + schema parity gates
 just check-drift              # version drift gate only
+just check-journeys           # journeys gate only
+just tickets check            # tickets gate only
 just audit                    # pip-audit on uv.lock (blocking)
-just mutation-test            # mutation testing only
 just security-scan            # bandit only
 just security-full            # optional: bandit, audit, semgrep, SBOM, trivy
 just test-django6             # manual: the suite on Django 6.0 (not supported yet)
@@ -213,6 +217,8 @@ A task is done when all of these hold:
 - [ ] The code implements the requirement, not just the happy path
 - [ ] Tests for the change pass (`just test`)
 - [ ] The gauntlet passes (`just gauntlet-quick`)
+- [ ] User-visible changes update `docs/product/` and its Playwright tags
+- [ ] A ticket's PR sets `status: done` in its ticket file
 - [ ] No new linter warnings
 - [ ] Architecture constraints respected
 - [ ] Files are under their length cap
@@ -228,6 +234,16 @@ Rules the gauntlet cannot fully enforce, and that you must follow yourself:
 
 ### Testing policy
 
+Tests are expensive: they cost run time, review time and tokens. Models write
+too many by default. Write the fewest tests that catch a consumer-visible
+break. The testing stack has three layers and nothing else:
+
+|Layer|Where|Proves|
+|---|---|---|
+|Smoke|`tests/smoke/`|No route returns a 5xx or an unexpected 422|
+|Contract and boundary|`tests/contract/`, `<app>/tests/`|Auth, permissions, ownership, the OpenAPI contract, limits|
+|E2E journeys|Playwright in the frontend|A user journey works end to end (see section 13)|
+
 Write a test only for one of these:
 
 - A bug fix: a regression test that fails before the fix and passes after.
@@ -235,21 +251,34 @@ Write a test only for one of these:
   setting that a client or operator depends on.
 - A boundary or permission rule: auth, ownership scoping, limits, validation
   edges.
+- Security-relevant pure logic (SSRF URL checks, lockout math): one
+  table-driven test, not one test per case.
 
-Do not write tests for wiring, getters, schema echo, default values, copied
-constants, or mock calls. Do not copy a test that already exists in another
-file. A test must assert on behavior (the response, the database state, the
-raised error, the exact returned value), not on `mock.assert_called*`,
-`is not None`, `isinstance` or `len(...) > 0`.
+Do not write:
 
-Create at most one new test file per change. Never add a test to reach a
-coverage number. Prove a new feature by running it; a throwaway script does
-not belong in `tests/`.
+- Unit tests for individual functions, methods or private helpers.
+- Model tests: fields, `__str__`, defaults, `Meta`.
+- Tests that mock a collaborator (httpx, the ORM, an SDK) and assert on the
+  mock.
+- Tests for wiring, getters, schema echo, default values or copied constants.
+- A test that repeats what an API-level test or a Playwright journey already
+  proves.
+- Tests to reach a coverage number. There is no coverage floor and no
+  mutation testing.
 
-`just test` runs only the tests for the files you changed, without coverage,
-and stops at the first failure. `just test-all` runs every test without
-coverage. Coverage runs in `just gauntlet`. Two TTSR rules in `.omp/rules/`
-(`ttsr-test-new-file.md`, `ttsr-test-assertions.md`) enforce this policy.
+A test must assert on behavior (the response, the database state, the raised
+error, the exact returned value), not on `mock.assert_called*`, `is not None`,
+`isinstance` or `len(...) > 0`.
+
+Create at most one new test file per change. Prove a new feature by running
+it; a throwaway script does not belong in `tests/`. Existing tests that break
+these rules are listed in `docs/tickets/PRUNE_PLAN.md` and removed through
+tickets; do not copy their style.
+
+`just test` runs only the tests for the files you changed and stops at the
+first failure. `just test-all` runs every test. `just test-coverage` prints an
+informational report. Two TTSR rules in `.omp/rules/` (`ttsr-test-new-file.md`,
+`ttsr-test-assertions.md`) enforce this policy.
 
 ## 11 Constraint tools
 
@@ -274,10 +303,54 @@ To add a gate:
 | `.omp/` | oh-my-pi harness config: `APPEND_SYSTEM.md`, `rules/`, `skills/`. |
 | `.context/` | Longer-form reference: conventions, anti-patterns, examples. |
 | `docs/` | Architecture, migration, realtime, constraint-tool notes. |
+| `docs/product/` | Feature list and user journeys (section 13). |
+| `docs/tickets/` | Scoped tickets for worker models (section 14). |
+| `docs/AGENT_HANDOFF.md` | Planner and worker roles, machines, overnight loop. |
 
 `CLAUDE.md` is gitignored and not part of the repository. Do not add references
 to it, and do not rely on it. Anything that belongs in shared guidance goes in
 this file.
+
+## 13 Features, journeys and e2e tests
+
+Three artifacts describe what the product does. They must agree.
+
+|Artifact|Path|Owner|
+|---|---|---|
+|Feature list|`docs/product/FEATURES.md`|Planner|
+|User journeys and stories|`docs/product/journeys/J-NNN-*.md`|Planner|
+|Playwright journey tests|Frontend `e2e/`: one test per journey tagged `@J-NNN`, steps titled `J-NNN-S<n>: ...`|Planner or worker|
+
+- A checked feature (`[x]`) and a `done` journey mean "a Playwright test
+  proves it and the last run passed". They never mean "the code exists".
+- A failing journey test is a known issue: set the journey to `building`, add
+  a `known_issues` entry that names a ticket, and fix it before you close the
+  ticket.
+- When you change one artifact, update the other two in the same change.
+- `just check-journeys` (the JOURNEYS gate) enforces these rules. The staff
+  page `/admin/journeys/` shows each journey, step by step, with what is
+  missing.
+
+Format and the sync loop: `docs/product/README.md` and the `journey-sync`
+skill.
+
+## 14 Work modes and handoff
+
+- Solo mode: the maintainer and the planner model may commit to `main`.
+- Worker mode: a smaller model (local or remote) executes only `tier: small`
+  tickets from `docs/tickets/`. It never pushes to `main`. It opens a PR from
+  the bot GitHub account, and the maintainer reviews it.
+- The planner keeps the queue full: it writes specs, journeys and tickets that
+  a worker can finish without design decisions. `just tickets check` (the
+  TICKETS gate) blocks tickets that would collide.
+- Each ticket lists the files it owns. A worker never edits outside them.
+
+Machines, the overnight loop, the bot account and the merge-conflict
+playbook: `docs/AGENT_HANDOFF.md`. Skills: `ticket-planner`, `ticket-worker`.
+
+This file evolves with the codebase. After a scaffold, the first planner
+session fills `docs/product/` and the first tickets. After each rejected PR,
+add the lesson to the next section.
 
 ## When to add to this section
 

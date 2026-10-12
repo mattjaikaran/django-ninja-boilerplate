@@ -105,6 +105,7 @@ dependencies = [
     "stripe>=15.1.0",
     "msgpack>=1.2.1",
     "whitenoise>=6.9",
+    "pyyaml>=6.0.2",
 ]
 
 [project.optional-dependencies]
@@ -123,8 +124,6 @@ dev = [
     # Gauntlet: type checking
     "mypy>=1.13.0",
     "django-stubs>=5.1.0",
-    # Gauntlet: mutation testing (Uncle Bob's "do the tests actually catch bugs?")
-    "mutmut>=3.2.0",
     # Gauntlet: security scanning
     "bandit[toml]>=1.8.0",
     # Gauntlet: commit message linting
@@ -194,7 +193,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["api", "atlas", "core", "todos", "billing", "files", "webhooks", "organizations", "notifications"]
+packages = ["api", "atlas", "core", "todos", "journeys", "billing", "files", "webhooks", "organizations", "notifications"]
 
 [tool.ruff]
 target-version = "py313"
@@ -351,7 +350,7 @@ ignore = [
 max-complexity = 10
 
 [tool.ruff.lint.isort]
-known-first-party = ["api", "core", "todos", "billing", "files", "webhooks", "organizations", "notifications"]
+known-first-party = ["api", "atlas", "core", "todos", "journeys", "billing", "files", "webhooks", "organizations", "notifications"]
 known-third-party = ["django"]
 section-order = [
     "future",
@@ -405,13 +404,8 @@ addopts = [
     "--strict-config",
     "--verbose",
     "--tb=short",
-    "--cov=.",
-    "--cov-report=term-missing:skip-covered",
-    "--cov-report=html",
-    "--cov-report=xml",
-    "--cov-fail-under=30",
 ]
-testpaths = ["core", "todos", "billing", "tests/smoke", "tests/contract"]
+testpaths = ["core", "todos", "journeys", "billing", "atlas", "tests/smoke", "tests/contract"]
 filterwarnings = [
     "error",
     "ignore::UserWarning",
@@ -424,7 +418,6 @@ markers = [
     "integration: marks tests as integration tests",
     "unit: marks tests as unit tests",
     "contract: marks tests as API contract tests",
-    "e2e: marks tests as end-to-end tests",
     "smoke: marks tests as smoke tests (basic API liveness checks)",
 ]
 
@@ -567,15 +560,6 @@ skips = ["B101", "B104", "B105", "B106", "B110", "B311", "B324", "B403", "B404",
 # Low severity findings are informational only.
 level = "medium"
 confidence = "medium"
-
-# ===========================================
-# Mutation Testing (mutmut) — "Do your tests actually catch bugs?"
-# ===========================================
-[tool.mutmut]
-paths_to_mutate = "core/,todos/,billing/,files/,webhooks/,organizations/,notifications/"
-tests_dir = "core/tests/,todos/tests/"
-runner = "python -m pytest -x --no-header -q --timeout=30"
-dict_synonyms = "Struct,NamedStruct"
 
 [dependency-groups]
 dev = [
