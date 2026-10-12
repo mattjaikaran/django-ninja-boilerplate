@@ -404,6 +404,11 @@ check-conventions:
 check-cross-stack:
     {{ uv }} run python scripts/check_cross_stack.py
 
+# Run every code generator in a throwaway worktree and test the output
+# (the GENERATORS gate; about 2 minutes). Subset: just check-generators --only team
+check-generators *args:
+    {{ uv }} run python scripts/check_generators.py {{ args }}
+
 # Check architecture constraints
 check-arch:
     {{ uv }} run python scripts/check_architecture.py --all

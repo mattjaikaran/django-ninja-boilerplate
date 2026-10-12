@@ -17,12 +17,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`scripts/sync_frontend.py`** (`just sync-frontend <path>`): checks a frontend repo against this API: the journey sync report against its `e2e/` and Playwright JSON report, and its copy of the OpenAPI contract against `docs/openapi/openapi.json` (added and removed paths, changed operation ids). Read-only; `--check` exits 1 on journey errors or drift.
 - **`scripts/worker_once.py`** (`just worker-once`): one worker-loop iteration. It fast-forwards `main`, claims the next small ticket, runs `$WORKER_AGENT_CMD` in a worktree, runs the ticket's Verify blocks and the quick gauntlet with one agent retry after the first failure, checks the diff stays inside `owns`, and opens a PR, or a redacted draft `needs-planner` PR. `--dry-run` prints every command and changes nothing.
 - **Dev MCP project tools**: `scripts/run_dev_mcp.py` registers read-only `tickets_next`, `tickets_show`, `journeys_report` and `agent_status` on the dev MCP server, behind the same bearer token. Claiming stays a shell action.
+- **GENERATORS gate** (full gauntlet, `just check-generators`, `scripts/check_generators.py`): runs every code generator into a throwaway worktree that mirrors your uncommitted changes, then `manage.py check`, pending migrations, ruff and the generated tests. `--only` picks generators; `--keep` keeps the worktree.
 
 ### Changed
 - **Test database switch**: `api.settings.test` uses PostgreSQL only with `TEST_DB=postgres`. It used `CI`, which agent shells and CI runners set for unrelated reasons, so local runs moved to Postgres silently.
 - **Generator templates**: the shared template modules are split per generator (`app_templates` for `startapp_extended` and `api_endpoint`, `rbac_templates`, `payments_templates`; the chat realtime template moved into `chat_templates`). Parallel agents can now own one generator's files each. The unused notification and organization realtime templates are gone. Generated output is byte-identical.
 
 ### Fixed
+- `generate_feature redis` left a pending scaffold migration, produced 62 ruff errors, and generated tests that failed on `valkey://` URLs because they built their own redis client. It now generates a staff-only cache health and key-delete API on Django's cache framework (whatever `REDIS_URL` or `VALKEY_URL` configures), with four smoke and permission tests. It no longer adds `redis`, `django-redis`, `hiredis` or `django-rq`, or overwrites `CACHES`. The GENERATORS gate found this.
 - `FeatureFlagAdminController`: `POST /bulk/toggle` came after `PATCH /{flag_id}/toggle`, so it resolved to the PATCH route. It is now declared first.
 
 ## [1.14.0] - 2026-10-12

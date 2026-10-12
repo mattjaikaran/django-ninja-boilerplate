@@ -26,8 +26,9 @@ Gates (in order):
                     refresh) on a throwaway pgvector container; skips with a
                     printed reason without Docker
  17. DEPLOY       — django check --deploy (non-blocking)
- 18. AUDIT        — pip-audit on uv.lock, allow-list with expiry (full run only)
- 19. DOCKER       — build the production image (full run only, skips without Docker)
+ 18. GENERATORS   : every code generator, in a throwaway worktree (full run only)
+ 19. AUDIT        — pip-audit on uv.lock, allow-list with expiry (full run only)
+ 20. DOCKER       — build the production image (full run only, skips without Docker)
 
 There is no hosted CI. Every gate runs locally: `just gauntlet-quick` from the
 pre-push hook, `just gauntlet` before a release.
@@ -225,6 +226,7 @@ class GauntletRunner:
         gates["deploy-check"] = self._gate_deploy_check
 
         if not self.quick:
+            gates["generators"] = self._gate_generators
             gates["audit"] = self._gate_audit
             gates["docker"] = self._gate_docker
         return gates
@@ -378,6 +380,11 @@ class GauntletRunner:
                 "-p",
                 "no:cacheprovider",
             ],
+        )
+
+    def _gate_generators(self) -> GateResult:
+        return self.run_gate(
+            "GENERATORS", ["uv", "run", "python", "scripts/check_generators.py"]
         )
 
     def _gate_audit(self) -> GateResult:

@@ -184,8 +184,11 @@ lets us trust generated code without reading every line.
 | 18 | AI-DB | `scripts/test_ai_db.py` | Postgres-only tests (`core.ai` owner scoping, concurrent refresh) on a throwaway pgvector container; prints a skip reason when Docker is not running |
 | 19 | DEPLOY-CHECK | `manage.py check --deploy` | Production config issues |
 
-The full gauntlet adds AUDIT and DOCKER (builds the
-production image; skipped when Docker is not running). AUDIT runs
+The full gauntlet adds GENERATORS, AUDIT and DOCKER. GENERATORS
+(`scripts/check_generators.py`, `just check-generators`) runs every code
+generator into a throwaway worktree, then `manage.py check`, pending
+migrations, ruff and the generated tests. DOCKER builds the
+production image; it is skipped when Docker is not running. AUDIT runs
 `scripts/audit_dependencies.py`: `pip-audit` on every package in `uv.lock`. It
 always blocks. Put a known advisory with no fix in `pip-audit-allowlist.toml`
 with a reason and an expiry date; an expired entry fails the gate.
