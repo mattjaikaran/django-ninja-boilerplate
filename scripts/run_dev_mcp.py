@@ -14,6 +14,18 @@ The server then requires ``Authorization: Bearer <token>`` on ``/sse`` and
 ``127.0.0.1``. The host check stops DNS rebinding from a browser on your
 machine and calls from other containers by service name.
 
+On top of the django-ai-boost tools, the server registers four read-only
+project tools that reuse the CLI scripts by import:
+
+- ``tickets_next``: claimable small tickets (``scripts/tickets.py next``).
+- ``tickets_show``: one ticket with its claim blockers (``tickets.py show``).
+- ``journeys_report``: journey counts, errors, and gaps (``check_journeys``).
+- ``agent_status``: the ``scripts/agent_status.py --json`` summary.
+
+Claims come from local ``agent/*`` branches and ``origin`` remote-tracking
+refs, so the tools never contact the remote. Run ``git fetch`` for fresh
+claims. Claiming a ticket stays a shell action: ``just tickets claim T-NNN``.
+
 Usage:
     python scripts/run_dev_mcp.py [--host 0.0.0.0] [--port 8001]
 
@@ -26,8 +38,17 @@ import argparse
 import os
 import sys
 from pathlib import Path
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from fastmcp import FastMCP
+
+    from journeys.services import Issue
 
 PROJECT_ROOT = str(Path(__file__).resolve().parent.parent)
+SCRIPTS_DIR = str(Path(__file__).resolve().parent)
+READ_ONLY = {"readOnlyHint": True, "idempotentHint": True, "openWorldHint": False}
+CLAIM_HINT = "Claim in a shell: just tickets claim <id>"
 
 REQUIRED_SETTINGS = "api.settings.dev"
 TOKEN_ENV = "DJANGO_MCP_AUTH_TOKEN"
@@ -56,8 +77,9 @@ def check_environment() -> str:
             f"{TOKEN_ENV} must hold at least {MIN_TOKEN_LENGTH} characters. "
             "Generate one with `openssl rand -hex 32` and put it in .env."
         )
-    if PROJECT_ROOT not in sys.path:
-        sys.path.insert(0, PROJECT_ROOT)
+    for entry in (PROJECT_ROOT, SCRIPTS_DIR):
+        if entry not in sys.path:
+            sys.path.insert(0, entry)
 
     import django
     from django.conf import settings
@@ -66,6 +88,108 @@ def check_environment() -> str:
     if not settings.DEBUG:
         refuse("settings.DEBUG is false; this server runs only in development.")
     return token
+
+
+def _claims() -> set[str]:
+    """Return ticket ids claimed by local refs, without contacting the remote."""
+    import agent_status as status_script
+
+    return status_script.local_claims()
+
+
+def _issue(issue: Issue) -> str:
+    """Format a journeys finding like ``scripts/check_journeys.py`` does."""
+    where = f" ({issue.path})" if issue.path else ""
+    return f"{issue.code}: {issue.message}{where}"
+
+
+def tickets_next() -> dict[str, Any]:
+    """List claimable small tickets: ready, dependencies done, no claim overlap.
+
+    Claims come from local agent/* branches and origin remote-tracking refs.
+    Run `git fetch` first for fresh claims. Claim in a shell with
+    `just tickets claim <id>`; this server cannot claim.
+    """
+    import tickets
+
+    board = tickets.load_board(tickets.tickets_dir())
+    if board.errors:
+        return {
+            "tickets": [],
+            "board_errors": board.errors,
+            "hint": "Fix the board first: just tickets check",
+        }
+    claimed = _claims()
+    rows = [
+        {"id": ticket.id, "title": ticket.title, "branch": ticket.branch}
+        for ticket in (board.tickets[key] for key in sorted(board.tickets))
+        if ticket.tier == "small" and not tickets.blockers(ticket, board, claimed)
+    ]
+    return {"tickets": rows, "claimed": sorted(claimed), "hint": CLAIM_HINT}
+
+
+def tickets_show(ticket_id: str) -> dict[str, Any]:
+    """Return one ticket file (for example T-001) and why it is not claimable.
+
+    ``claimable`` is null when the board has validation errors.
+    """
+    import tickets
+    from fastmcp.exceptions import ToolError
+
+    board = tickets.load_board(tickets.tickets_dir())
+    ticket = board.tickets.get(ticket_id)
+    if ticket is None:
+        details = "; ".join(board.errors)
+        raise ToolError(f"{ticket_id} not found or invalid. {details}".strip())
+    result: dict[str, Any] = {
+        "id": ticket.id,
+        "path": tickets.display(ticket.path),
+        "text": ticket.path.read_text(encoding="utf-8").rstrip(),
+    }
+    if board.errors:
+        return {**result, "claimable": None, "board_errors": board.errors}
+    reasons = tickets.blockers(ticket, board, _claims())
+    if reasons:
+        return {**result, "claimable": False, "blockers": reasons}
+    hint = CLAIM_HINT.replace("<id>", ticket.id)
+    return {**result, "claimable": True, "blockers": [], "hint": hint}
+
+
+def journeys_report() -> dict[str, Any]:
+    """Summarize the journeys gate: counts, then every error and gap.
+
+    Warnings are counted only. Run `just check-journeys` for the full text.
+    """
+    from journeys.services import build_report, spec_paths
+
+    report = build_report(spec_paths(Path(PROJECT_ROOT)))
+    return {
+        "ok": report.ok,
+        "features": len(report.features),
+        "journeys": len(report.journeys),
+        "verified": report.verified_journeys,
+        "warnings": len(report.warnings),
+        "e2e_dir": report.e2e_dir_exists,
+        "e2e_report": report.report_exists,
+        "errors": [_issue(issue) for issue in report.errors],
+        "gaps": [_issue(issue) for issue in report.gaps],
+    }
+
+
+def agent_status() -> dict[str, Any]:
+    """Return the session summary: git, tickets, journeys, gauntlet, OpenAPI.
+
+    Same data as `just agent-status --json`.
+    """
+    import agent_status as status_script
+
+    return status_script.collect()
+
+
+def register_project_tools(server: FastMCP) -> None:
+    """Register the read-only project tools on *server*."""
+    for fn in (tickets_next, tickets_show, journeys_report, agent_status):
+        server.tool(fn, annotations=READ_ONLY)
 
 
 def main() -> None:
@@ -84,6 +208,7 @@ def main() -> None:
 
     server = FastMCP("Django AI Boost Server", auth=create_auth_provider(token))
     register_tools(server)
+    register_project_tools(server)
     server.run(
         transport="sse",
         host=args.host,

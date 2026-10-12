@@ -186,6 +186,17 @@ django-ai-boost has 12 read-only tools. With them, a caller can:
 - List models, URLs, migrations, and management commands, reverse URLs, run
   system checks, and read recent log lines.
 
+`scripts/run_dev_mcp.py` adds 4 read-only project tools to the same server:
+
+- `tickets_next`: small tickets a worker can claim now.
+- `tickets_show(ticket_id)`: one ticket's file, whether it is claimable, and
+  what blocks it.
+- `journeys_report`: the journey sync counts, errors and gaps.
+- `agent_status`: the same summary as `just agent-status`.
+
+Claims are read from local git refs only. To claim a ticket, run
+`just tickets claim T-NNN` in a shell; the server cannot claim.
+
 Treat access to this server as access to your development database and
 secrets.
 
