@@ -1005,3 +1005,113 @@ def render_chat_files(app_name: str) -> dict[str, str]:
             )
         ),
     }
+
+
+# Centrifugo real-time service (api.centrifugo). Django stays WSGI; Centrifugo
+# handles every WebSocket connection.
+CHAT_REALTIME_SERVICE_TEMPLATE = '''"""Real-time chat service using Centrifugo."""
+
+import logging
+from typing import Any
+
+from api.centrifugo import centrifugo_client, generate_subscription_token
+
+logger = logging.getLogger(__name__)
+
+
+class ChatRealtimeService:
+    """Publish chat events to Centrifugo channels.
+
+    Channel naming: ``chat:<conversation_id>``
+
+    Clients subscribe to their conversation channels after connecting to
+    Centrifugo with a connection token. Subscription tokens are obtained
+    from ``/api/realtime/subscription-token``.
+    """
+
+    NAMESPACE = "chat"
+
+    @classmethod
+    def channel_name(cls, conversation_id: str) -> str:
+        """Build the Centrifugo channel name for a conversation."""
+        return f"{{cls.NAMESPACE}}:{{conversation_id}}"
+
+    @classmethod
+    def publish_message(
+        cls,
+        conversation_id: str,
+        message_data: dict[str, Any],
+    ) -> None:
+        """Publish a new message to the conversation channel."""
+        channel = cls.channel_name(conversation_id)
+        try:
+            centrifugo_client.publish(
+                channel,
+                {{
+                    "type": "chat_message",
+                    "message": message_data,
+                }},
+            )
+        except Exception:
+            logger.exception("Failed to publish chat message to %s", channel)
+
+    @classmethod
+    def publish_typing(
+        cls,
+        conversation_id: str,
+        user_id: str,
+        username: str,
+        is_typing: bool = True,
+    ) -> None:
+        """Publish a typing indicator to the conversation channel."""
+        channel = cls.channel_name(conversation_id)
+        try:
+            centrifugo_client.publish(
+                channel,
+                {{
+                    "type": "typing_indicator",
+                    "user_id": user_id,
+                    "username": username,
+                    "is_typing": is_typing,
+                }},
+            )
+        except Exception:
+            logger.exception("Failed to publish typing indicator to %s", channel)
+
+    @classmethod
+    def publish_read_receipt(
+        cls,
+        conversation_id: str,
+        user_id: str,
+        timestamp: str,
+    ) -> None:
+        """Publish a read receipt to the conversation channel."""
+        channel = cls.channel_name(conversation_id)
+        try:
+            centrifugo_client.publish(
+                channel,
+                {{
+                    "type": "read_receipt",
+                    "user_id": user_id,
+                    "timestamp": timestamp,
+                }},
+            )
+        except Exception:
+            logger.exception("Failed to publish read receipt to %s", channel)
+
+    @classmethod
+    def get_presence(cls, conversation_id: str) -> dict[str, Any]:
+        """Get online users in a conversation."""
+        channel = cls.channel_name(conversation_id)
+        return centrifugo_client.presence(channel)
+
+    @classmethod
+    def get_subscription_token(
+        cls,
+        user_id: str,
+        conversation_id: str,
+    ) -> str:
+        """Generate a subscription token for a chat channel."""
+        channel = cls.channel_name(conversation_id)
+        return generate_subscription_token(user_id=user_id, channel=channel)
+'''

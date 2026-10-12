@@ -3,11 +3,13 @@ import os
 from django.core.management.commands.startapp import Command as StartAppCommand
 
 from .generators.codegen import PACKAGE_INIT, ResourceNames, from_import
-from .generators.templates.controller_templates import render_controller
-from .generators.templates.model_templates import MODEL_TEMPLATE
-from .generators.templates.schema_templates import SCHEMA_TEMPLATE
-from .generators.templates.service_templates import render_service
-from .generators.templates.test_templates import render_api_endpoint_tests
+from .generators.templates.app_templates import (
+    MODEL_TEMPLATE,
+    SCHEMA_TEMPLATE,
+    render_api_endpoint_tests,
+    render_controller,
+    render_service,
+)
 
 APPS_TEMPLATE = """from django.apps import AppConfig
 

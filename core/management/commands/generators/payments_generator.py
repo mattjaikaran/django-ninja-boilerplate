@@ -693,7 +693,7 @@ class PaymentsGenerator(BaseGenerator):
 
     def _generate_controllers(self) -> None:
         """Generate the payment controller."""
-        from .templates.controller_templates import render_payments_controller
+        from .templates.payments_templates import render_payments_controller
 
         controllers_path = self.app_path / "controllers"
         self.create_file(

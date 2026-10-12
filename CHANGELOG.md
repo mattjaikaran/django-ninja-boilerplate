@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - **Test database switch**: `api.settings.test` uses PostgreSQL only with `TEST_DB=postgres`. It used `CI`, which agent shells and CI runners set for unrelated reasons, so local runs moved to Postgres silently.
+- **Generator templates**: the shared template modules are split per generator (`app_templates` for `startapp_extended` and `api_endpoint`, `rbac_templates`, `payments_templates`; the chat realtime template moved into `chat_templates`). Parallel agents can now own one generator's files each. The unused notification and organization realtime templates are gone. Generated output is byte-identical.
 
 ### Fixed
 - `FeatureFlagAdminController`: `POST /bulk/toggle` came after `PATCH /{flag_id}/toggle`, so it resolved to the PATCH route. It is now declared first.

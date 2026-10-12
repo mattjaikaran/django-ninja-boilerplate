@@ -58,7 +58,7 @@ class ChatGenerator(BaseGenerator):
 
     def _generate_realtime_service(self) -> None:
         """Generate the Centrifugo real-time service for chat."""
-        from .templates.websocket_templates import CHAT_REALTIME_SERVICE_TEMPLATE
+        from .templates.chat_templates import CHAT_REALTIME_SERVICE_TEMPLATE
 
         self.create_file(
             self.app_path / "services" / "realtime_service.py",

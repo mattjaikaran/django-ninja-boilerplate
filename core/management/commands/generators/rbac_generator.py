@@ -6,16 +6,16 @@ reads only their own roles and permissions at GET /rbac/me/permissions.
 
 from .base_generator import BaseGenerator
 from .codegen import from_import, import_block, package_init
-from .templates.admin_templates import RBAC_ADMIN_TEMPLATE
-from .templates.controller_templates import RBAC_CONTROLLER_TEMPLATE
-from .templates.decorator_templates import (
+from .templates.rbac_templates import (
+    RBAC_ADMIN_TEMPLATE,
+    RBAC_CONTROLLER_TEMPLATE,
     RBAC_DECORATORS_TEMPLATE,
     RBAC_MIDDLEWARE_TEMPLATE,
+    RBAC_MODELS_TEMPLATE,
+    RBAC_SCHEMAS_TEMPLATE,
+    RBAC_SERVICE_TEMPLATE,
+    RBAC_TESTS_TEMPLATE,
 )
-from .templates.model_templates import RBAC_MODELS_TEMPLATE
-from .templates.schema_templates import RBAC_SCHEMAS_TEMPLATE
-from .templates.service_templates import RBAC_SERVICE_TEMPLATE
-from .templates.test_templates import RBAC_TESTS_TEMPLATE
 
 MODEL_NAMES = ["Permission", "Role", "RolePermission", "UserRole"]
 SCHEMA_NAMES = [
