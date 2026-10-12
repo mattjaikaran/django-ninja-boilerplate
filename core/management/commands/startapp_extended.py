@@ -114,6 +114,7 @@ class Command(StartAppCommand):
         dirs = [
             "models",
             "schemas",
+            "services",
             "controllers",
             "admin",
             "tests",
@@ -159,6 +160,14 @@ class Command(StartAppCommand):
             app_directory, "schemas", f"{model_name.lower()}_schema.py"
         )
         created_files.extend(self.create_schema_file(app_name, schema_file, model_name))
+
+        # Create service (owner-scoped business logic)
+        service_file = os.path.join(
+            app_directory, "services", f"{model_name.lower()}_service.py"
+        )
+        created_files.extend(
+            self.create_service_file(app_name, service_file, model_name)
+        )
 
         # Create controller
         controller_file = os.path.join(
@@ -216,6 +225,11 @@ __all__ = ["{model_name}"]
 
 __all__ = ["{model_name}Schema", "Create{model_name}Schema", "Update{model_name}Schema"]
 """
+        if dir_name == "services":
+            return f"""from {app_name}.services.{model_name.lower()}_service import {model_name}Service
+
+__all__ = ["{model_name}Service"]
+"""
         if dir_name == "controllers":
             return f"""from {app_name}.controllers.{model_name.lower()}_controller import {model_name}Controller
 
@@ -251,7 +265,12 @@ class {model_name}(AbstractBaseModel):
         return self.create_file(file_path, content)
 
     def create_schema_file(self, app_name, file_path, model_name):
-        content = f"""from core.schemas.base_schema import CamelCaseSchema
+        content = f"""from datetime import datetime
+from uuid import UUID
+
+from pydantic import field_validator
+
+from core.schemas.base_schema import CamelCaseSchema
 
 
 class {model_name}Schema(CamelCaseSchema):
@@ -260,6 +279,23 @@ class {model_name}Schema(CamelCaseSchema):
     description: str
     created_at: str
     updated_at: str
+
+    @field_validator("id", mode="before")
+    @classmethod
+    def convert_uuid_to_str(cls, v):
+        \"\"\"Serialize the UUID primary key as a string.\"\"\"
+        if isinstance(v, UUID):
+            return str(v)
+        return v
+
+    @field_validator("created_at", "updated_at", mode="before")
+    @classmethod
+    def convert_datetime_to_str(cls, v):
+        \"\"\"Serialize timestamps as ISO 8601 strings.\"\"\"
+        if isinstance(v, datetime):
+            return v.isoformat()
+        return v
+
 
 
 class Create{model_name}Schema(CamelCaseSchema):
@@ -273,86 +309,110 @@ class Update{model_name}Schema(CamelCaseSchema):
 """
         return self.create_file(file_path, content)
 
+    def create_service_file(self, app_name, file_path, model_name):
+        content = f'''"""Business logic for {model_name}. Every query is scoped to the owner."""
+
+from typing import Any
+from uuid import UUID
+
+from django.db.models import QuerySet
+from django.shortcuts import get_object_or_404
+
+from {app_name}.models import {model_name}
+from {app_name}.schemas import Create{model_name}Schema, Update{model_name}Schema
+
+
+class {model_name}Service:
+    """Owner-scoped CRUD for {model_name}."""
+
+    def list_for_user(self, user: Any) -> QuerySet[{model_name}]:
+        """Return the items that belong to the user, newest first."""
+        return {model_name}.objects.filter(user=user).order_by("-created_at")
+
+    def get_for_user(self, item_id: UUID, user: Any) -> {model_name}:
+        """Return one item owned by the user. Raise Http404 for any other item."""
+        return get_object_or_404({model_name}, id=item_id, user=user)
+
+    def create(self, user: Any, payload: Create{model_name}Schema) -> {model_name}:
+        """Create an item owned by the user."""
+        return {model_name}.objects.create(user=user, **payload.model_dump())
+
+    def update(
+        self, item_id: UUID, user: Any, payload: Update{model_name}Schema
+    ) -> {model_name}:
+        """Apply the set fields of the payload to an item owned by the user."""
+        item = self.get_for_user(item_id, user)
+        for key, value in payload.model_dump(exclude_unset=True).items():
+            setattr(item, key, value)
+        item.save()
+        return item
+
+    def delete(self, item_id: UUID, user: Any) -> None:
+        """Delete an item owned by the user."""
+        self.get_for_user(item_id, user).delete()
+'''
+        return self.create_file(file_path, content)
+
     def create_controller_file(self, app_name, file_path, model_name):
         # Converting to lowercase and pluralizing for URL
         url_name = smart_pluralize(model_name.lower())
-        content = f"""import logging
-from typing import List
-from django.contrib.auth import get_user_model
-from django.shortcuts import get_object_or_404
+        model_lower = model_name.lower()
+        # AGENTS.md section 08: JWTAuth on the controller, every query scoped to
+        # request.user in the service, no try/except around lookups, and static
+        # paths before every /{item_id} handler.
+        content = f'''"""{model_name} controller. The service scopes every route to request.user."""
+
+from uuid import UUID
+
 from ninja_extra import api_controller, http_delete, http_get, http_post, http_put
+from ninja_jwt.authentication import JWTAuth
 
-from {app_name}.models import {model_name}
+from api.decorators import log_api_call
 from {app_name}.schemas import {model_name}Schema, Create{model_name}Schema, Update{model_name}Schema
+from {app_name}.services import {model_name}Service
 
-logger = logging.getLogger(__name__)
 
-
-@api_controller("/{url_name}", tags=["{smart_pluralize(model_name)}"])
+@api_controller("/{url_name}", tags=["{smart_pluralize(model_name)}"], auth=JWTAuth())
 class {model_name}Controller:
-    @http_get("/all", response={{200: List[{model_name}Schema], 400: dict}})
-    def list_all_{url_name}(self, request):
-        try:
-            items = {model_name}.objects.all()
-            return 200, items
-        except Exception as e:
-            logger.error(f"Error listing {url_name}: {{e}}")
-            return 400, {{"error": str(e)}}
+    """CRUD endpoints for the authenticated user's {url_name}.
 
-    @http_get("/", response={{200: List[{model_name}Schema], 400: dict}})
-    def list_user_{url_name}(self, request):
-        try:
-            user = request.user
-            items = {model_name}.objects.filter(user=user)
-            return 200, items
-        except Exception as e:
-            logger.error(f"Error listing user {url_name}: {{e}}")
-            return 400, {{"error": str(e)}}
+    Put static paths before the first /{{item_id}} handler.
+    """
 
-    @http_post("/", response={{201: {model_name}Schema, 400: dict}})
-    def create_{model_name.lower()}(self, request, payload: Create{model_name}Schema):
-        try:
-            user = request.user
-            item = {model_name}.objects.create(user=user, **payload.model_dump())
-            return 201, item
-        except Exception as e:
-            logger.error(f"Error creating {model_name.lower()}: {{e}}")
-            return 400, {{"error": str(e)}}
+    def __init__(self):
+        self.service = {model_name}Service()
 
-    @http_get("/{{str:item_id}}", response={{200: {model_name}Schema, 400: dict, 404: dict}})
-    def get_{model_name.lower()}(self, request, item_id: str):
-        try:
-            user = request.user
-            item = get_object_or_404({model_name}, id=item_id, user=user)
-            return 200, item
-        except Exception as e:
-            logger.error(f"Error getting {model_name.lower()}: {{e}}")
-            return 400, {{"error": str(e)}}
+    @http_get("/", response={{200: list[{model_name}Schema]}})
+    @log_api_call()
+    def list_{url_name}(self, request):
+        """List the user's {url_name}."""
+        return 200, self.service.list_for_user(request.user)
 
-    @http_put("/{{str:item_id}}", response={{200: {model_name}Schema, 400: dict, 404: dict}})
-    def update_{model_name.lower()}(self, request, item_id: str, payload: Update{model_name}Schema):
-        try:
-            user = request.user
-            item = get_object_or_404({model_name}, id=item_id, user=user)
-            for key, value in payload.model_dump().items():
-                setattr(item, key, value)
-            item.save()
-            return 200, item
-        except Exception as e:
-            logger.error(f"Error updating {model_name.lower()}: {{e}}")
-            return 400, {{"error": str(e)}}
+    @http_post("/", response={{201: {model_name}Schema}})
+    @log_api_call(include_payload=True)
+    def create_{model_lower}(self, request, payload: Create{model_name}Schema):
+        """Create a {model_lower} for the user."""
+        return 201, self.service.create(request.user, payload)
 
-    @http_delete("/{{str:item_id}}", response={{204: dict, 400: dict, 404: dict}})
-    def delete_{model_name.lower()}(self, request, item_id: str):
-        try:
-            user = request.user
-            item = get_object_or_404({model_name}, id=item_id, user=user)
-            item.delete()
-            return 204, {{"message": "{model_name} deleted successfully"}}
-        except Exception as e:
-            logger.error(f"Error deleting {model_name.lower()}: {{e}}")
-            return 400, {{"error": str(e)}}
-"""
+    @http_get("/{{item_id}}", response={{200: {model_name}Schema, 404: dict}})
+    @log_api_call()
+    def get_{model_lower}(self, request, item_id: UUID):
+        """Get one of the user's {url_name}."""
+        return 200, self.service.get_for_user(item_id, request.user)
+
+    @http_put("/{{item_id}}", response={{200: {model_name}Schema, 404: dict}})
+    @log_api_call(include_payload=True)
+    def update_{model_lower}(self, request, item_id: UUID, payload: Update{model_name}Schema):
+        """Update one of the user's {url_name}."""
+        return 200, self.service.update(item_id, request.user, payload)
+
+    @http_delete("/{{item_id}}", response={{204: None, 404: dict}})
+    @log_api_call()
+    def delete_{model_lower}(self, request, item_id: UUID):
+        """Delete one of the user's {url_name}."""
+        self.service.delete(item_id, request.user)
+        return 204, None
+'''
         return self.create_file(file_path, content)
 
     def create_admin_file(self, app_name, file_path, model_name):
@@ -511,7 +571,7 @@ This app provides functionality for managing {objects_name}.
 │   └── {model_name.lower()}_admin.py  # Admin configuration for {model_name.lower()} model
 ├── controllers/          # API controllers/endpoints
 │   ├── __init__.py       # Imports all controllers
-│   └── {model_name.lower()}_controller.py # {model_name}-related endpoints
+│   └── {model_name.lower()}_controller.py # {model_name}-related endpoints (JWTAuth)
 ├── management/           # Django management commands
 │   ├── __init__.py
 │   └── commands/         # Custom management commands
@@ -524,6 +584,9 @@ This app provides functionality for managing {objects_name}.
 ├── schemas/              # API schemas/serializers
 │   ├── __init__.py       # Imports all schemas
 │   └── {model_name.lower()}_schema.py # {model_name}-related schemas
+├── services/             # Business logic, scoped to the owner
+│   ├── __init__.py       # Imports all services
+│   └── {model_name.lower()}_service.py # {model_name} CRUD for request.user
 ├── tests/                # Smoke and permission tests
 │   ├── __init__.py
 │   └── test_{model_name.lower()}.py   # Owner list, cross-user 404, invalid payload 422
@@ -540,7 +603,11 @@ This app provides functionality for managing {objects_name}.
 
 ### Controllers
 
-- `{model_name}Controller`: Manages CRUD operations for {objects_name}
+- `{model_name}Controller`: Manages CRUD operations for the authenticated user's {objects_name}. Requires `JWTAuth`.
+
+### Services
+
+- `{model_name}Service`: Owner-scoped queries and writes. A request for another user's {model_name.lower()} returns 404.
 
 ### Schemas
 
