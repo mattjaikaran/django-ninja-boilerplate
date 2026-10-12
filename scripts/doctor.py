@@ -198,7 +198,7 @@ def check_ports(env: dict[str, str]) -> None:
             report(
                 "WARN",
                 f"{name} port {port} is in use{port_owner(port)}",
-                f"stop it, or set {key} in .env if it is not this project's stack",
+                f"`just dev` moves {key} to a free port; `just check-ports` shows it",
             )
         else:
             report("OK", f"{name} port {port} is free")

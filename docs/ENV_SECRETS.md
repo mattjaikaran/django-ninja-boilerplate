@@ -42,8 +42,8 @@ they print variable names and counts only.
 
 | Command | Result | Exit status |
 |---|---|---|
-| `create [--template PATH \| --no-template] [--only A,B \| --exclude A,B] [--set KEY=VALUE ...]` | Writes a new env file with mode `0600` from the template (default `ROOT/.env.example`, or the secrets only with `--no-template`). `--set` adds non-secret values. | 0; 1 when the file exists (it is never replaced); 2 for an unknown secret name. |
-| `fill` | Generates missing, empty, or placeholder secrets in an existing file. | 0; 1 when the file is missing. |
+| `create [--template PATH \| --no-template] [--only A,B \| --exclude A,B] [--set KEY=VALUE ...] [--dry-run]` | Writes a new env file with mode `0600` from the template (default `ROOT/.env.example`, or the secrets only with `--no-template`). `--set` adds non-secret values. | 0; 1 when the file exists (it is never replaced); 2 for an unknown secret name. |
+| `fill [--dry-run]` | Generates missing, empty, or placeholder secrets in an existing file and names the ones it added and replaced. | 0; 1 when the file is missing. |
 | `check` | Names unset, placeholder, or too-short secrets. | 0; 1 when one is weak. |
 | `list [--json]` | Prints the names, or the JSON below. | 0 |
 
@@ -69,6 +69,26 @@ To merge secrets into a file that holds other settings, write those settings
 to a template with empty secret values, then run
 `create --env-file .env --template that-template`. Run `create` once per
 environment file; each call generates new values.
+
+### Preview a change
+
+Add `--dry-run` to `create` or `fill` to see the change before you make it.
+The script writes nothing, neither the env file nor `.gitignore`, and prints
+variable names only:
+
+```console
+$ python3 scripts/env_secrets.py fill --dry-run --root /tmp/envtest
+Dry run: would generate 11 secrets in /tmp/envtest/.env; no file changed.
+  Would add (missing or empty): CENTRIFUGO_ADMIN_SECRET, ...
+  Would replace (placeholder values): SECRET_KEY, NINJA_JWT_SIGNING_KEY, ...
+  Would add .env to /tmp/envtest/.gitignore
+```
+
+- "Add" means the variable is missing, commented out, or empty.
+- "Replace" means the variable holds a published placeholder, or
+  `NINJA_JWT_SIGNING_KEY` equals `SECRET_KEY`.
+- `create --dry-run` names the secrets it would generate and the `--set`
+  keys. It exits 1 when the file exists, like `create`.
 
 ## Rules
 

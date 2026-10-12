@@ -201,8 +201,8 @@ def write_private(path: Path, text: str, *, replace: bool = False) -> None:
         raise
 
 
-def ensure_gitignored(env_file: Path) -> bool:
-    """Make the .gitignore next to ``env_file`` ignore it; True when changed.
+def is_gitignored(env_file: Path) -> bool:
+    """Return True when the .gitignore next to ``env_file`` ignores it.
 
     Patterns are matched like git does: the last matching line wins, so a
     ``!.env.example`` exception does not hide an ignored ``.env``.
@@ -217,8 +217,15 @@ def ensure_gitignored(env_file: Path) -> bool:
         negated = pattern.startswith("!")
         if fnmatch.fnmatchcase(env_file.name, pattern.lstrip("!").lstrip("/")):
             ignored = not negated
-    if ignored:
+    return ignored
+
+
+def ensure_gitignored(env_file: Path) -> bool:
+    """Make the .gitignore next to ``env_file`` ignore it; True when changed."""
+    if is_gitignored(env_file):
         return False
+    gitignore = env_file.parent / ".gitignore"
+    lines = gitignore.read_text().splitlines() if gitignore.exists() else []
     prefix = "\n" if lines and lines[-1].strip() else ""
     with gitignore.open("a") as handle:
         handle.write(f"{prefix}# Local environment and secrets\n{env_file.name}\n")
@@ -247,26 +254,61 @@ def create_env(
     return [s.name for s in SECRETS if s.name in wanted - set(overrides or {})]
 
 
-def fill_env(env_file: Path) -> tuple[list[str], list[str]]:
-    """Generate the unset secrets in an existing ``env_file``.
+class FillPlan(NamedTuple):
+    """The secrets that ``fill`` changes, by name only."""
+
+    added: list[str]
+    """Missing or empty secrets."""
+    replaced: list[str]
+    """Secrets with a published placeholder value, or a JWT key equal to
+    ``SECRET_KEY``."""
+    skipped: list[str]
+    """Stored secrets with a placeholder value, left unchanged."""
+
+    @property
+    def names(self) -> list[str]:
+        """All names that ``fill`` generates, in ``SECRETS`` order."""
+        changed = set(self.added) | set(self.replaced)
+        return [name for name in NAMES if name in changed]
+
+
+def plan_fill(env_file: Path) -> FillPlan:
+    """Return the secrets that ``fill_env`` would change; write nothing.
 
     Only empty, missing or published placeholder values change; a value you
     chose is kept even when it is short. A stored secret (database password)
     with a placeholder value is left alone, because the data volume already
-    uses it. Returns ``(filled, skipped)`` names.
+    uses it.
     """
     current = read_env(env_file)
     unset = [s for s in SECRETS if is_unset(s, current.get(s.name))]
     skipped = [s.name for s in unset if s.stored and current.get(s.name)]
-    values = {s.name: generate(s) for s in unset if s.name not in skipped}
+    changed = {s.name for s in unset if s.name not in skipped}
     jwt_key = current.get("NINJA_JWT_SIGNING_KEY")
     if jwt_key and jwt_key == current.get("SECRET_KEY"):
-        values["NINJA_JWT_SIGNING_KEY"] = generate(SECRETS[1])
+        changed.add("NINJA_JWT_SIGNING_KEY")
+    names = [name for name in NAMES if name in changed]
+    added = [name for name in names if not current.get(name)]
+    replaced = [name for name in names if current.get(name)]
+    return FillPlan(added, replaced, skipped)
+
+
+def fill_env(
+    env_file: Path, plan: FillPlan | None = None
+) -> tuple[list[str], list[str]]:
+    """Generate the unset secrets in an existing ``env_file``.
+
+    ``plan`` (default: ``plan_fill(env_file)``) selects the secrets.
+    Returns ``(filled, skipped)`` names.
+    """
+    plan = plan if plan is not None else plan_fill(env_file)
+    by_name = {s.name: s for s in SECRETS}
+    values = {name: generate(by_name[name]) for name in plan.names}
     if values:
         lines = _apply(env_file.read_text().splitlines(), values)
         write_private(env_file, "\n".join(lines) + "\n", replace=True)
     ensure_gitignored(env_file)
-    return list(values), skipped
+    return plan.names, plan.skipped
 
 
 def weak_secrets(env_file: Path) -> list[str]:
@@ -308,7 +350,17 @@ def _parser() -> argparse.ArgumentParser:
         metavar="KEY=VALUE",
         help="create: non-secret value, e.g. TASK_BACKEND=huey",
     )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="create, fill: print the names that would change; write nothing",
+    )
     return parser
+
+
+def _gitignore_note(env_file: Path) -> None:
+    if not is_gitignored(env_file):
+        print(f"  Would add {env_file.name} to {env_file.parent / '.gitignore'}")
 
 
 def _create(args: argparse.Namespace, env_file: Path) -> int:
@@ -319,6 +371,18 @@ def _create(args: argparse.Namespace, env_file: Path) -> int:
             template = None
     names = args.only or [n for n in NAMES if n not in (args.exclude or [])]
     overrides = dict(item.partition("=")[::2] for item in args.set)
+    if args.dry_run:
+        if env_file.exists():
+            print(f"{env_file} exists; create would leave it unchanged.")
+            return 1
+        generated = [n for n in NAMES if n in set(names) - set(overrides)]
+        source = template or "no template"
+        print(f"Dry run: would create {env_file} (mode 600) from {source}.")
+        print(f"  Would generate {len(generated)} secrets: {', '.join(generated)}")
+        if overrides:
+            print(f"  Would set from --set: {', '.join(overrides)}")
+        _gitignore_note(env_file)
+        return 0
     try:
         created = create_env(env_file, template, overrides, names)
     except FileExistsError:
@@ -330,9 +394,25 @@ def _create(args: argparse.Namespace, env_file: Path) -> int:
     return 0
 
 
-def _fill(env_file: Path) -> int:
-    filled, skipped = fill_env(env_file)
-    print(f"Generated {len(filled)} secrets in {env_file}: {', '.join(filled)}")
+def _fill(env_file: Path, *, dry_run: bool = False) -> int:
+    plan = plan_fill(env_file)
+    if dry_run:
+        print(
+            f"Dry run: would generate {len(plan.names)} secrets in {env_file}; "
+            "no file changed."
+        )
+    else:
+        fill_env(env_file, plan)
+        print(f"Generated {len(plan.names)} secrets in {env_file}.")
+    verb = "Would add" if dry_run else "Added"
+    if plan.added:
+        print(f"  {verb} (missing or empty): {', '.join(plan.added)}")
+    verb = "Would replace" if dry_run else "Replaced"
+    if plan.replaced:
+        print(f"  {verb} (placeholder values): {', '.join(plan.replaced)}")
+    if dry_run:
+        _gitignore_note(env_file)
+    filled, skipped = plan.names, plan.skipped
     stored = [s.name for s in SECRETS if s.stored and s.name in filled]
     if stored:
         print(
@@ -375,7 +455,9 @@ def main(argv: list[str] | None = None) -> int:
             file=sys.stderr,
         )
         return 1
-    return _fill(env_file) if args.command == "fill" else _check(env_file)
+    if args.command == "fill":
+        return _fill(env_file, dry_run=args.dry_run)
+    return _check(env_file)
 
 
 if __name__ == "__main__":

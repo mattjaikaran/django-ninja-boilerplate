@@ -115,6 +115,20 @@ def test_fill_replaces_placeholders_but_keeps_chosen_and_stored_values(
     }
 
 
+def test_fill_dry_run_names_changes_and_writes_nothing(
+    project: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    env_path = project / ".env"
+    env_path.write_text("SECRET_KEY=dev-secret\n")
+
+    assert env_secrets.main(["fill", "--dry-run", "--env-file", str(env_path)]) == 0
+
+    out = capsys.readouterr().out
+    assert "Would replace (placeholder values): SECRET_KEY" in out
+    assert "dev-secret" not in out
+    assert env_path.read_text() == "SECRET_KEY=dev-secret\n"
+
+
 def test_list_json_describes_every_secret(capsys: pytest.CaptureFixture[str]) -> None:
     env_secrets.main(["list", "--json"])
 

@@ -58,11 +58,24 @@ backend-profile:
     esac
 
 # Run Compose with the dev profile plus the task worker profile selected in
-# .env. Every dev stack recipe goes through this one.
+# .env. Every dev stack recipe goes through this one. A host port held by
+# another project (for example its Postgres on 5433) moves to the next free
+# port; ports held by this project's own containers stay.
 _stack *args:
     #!/usr/bin/env bash
     set -euo pipefail
-    {{ compose }} --profile dev --profile "$(just backend-profile)" {{ args }}
+    profile="$(just backend-profile)"
+    moved="$(python3 scripts/dev_ports.py --env --profile dev --profile "$profile")"
+    while IFS= read -r assignment; do
+        [ -n "$assignment" ] || continue
+        echo "dev ports: ${assignment%%=*} is busy; using ${assignment#*=}" >&2
+        export "$assignment"
+    done <<< "$moved"
+    {{ compose }} --profile dev --profile "$profile" {{ args }}
+
+# Report busy dev stack host ports and the free ports `just dev` would use
+check-ports:
+    python3 scripts/dev_ports.py --check
 
 # Start the dev stack: db, valkey, django, and the configured task worker.
 # `--build` builds missing images and rebuilds images whose inputs changed,
@@ -225,8 +238,15 @@ test-coverage:
 test-integration:
     #!/usr/bin/env bash
     set -euo pipefail
-    pg_port="${TEST_POSTGRES_PORT:-5434}"
-    valkey_port="${TEST_VALKEY_PORT:-6381}"
+    export POSTGRES_PORT="${TEST_POSTGRES_PORT:-5434}" VALKEY_PORT="${TEST_VALKEY_PORT:-6381}"
+    moved="$(python3 scripts/dev_ports.py --env --profile test)"
+    while IFS= read -r assignment; do
+        [ -n "$assignment" ] || continue
+        echo "test ports: ${assignment%%=*} is busy; using ${assignment#*=}" >&2
+        export "$assignment"
+    done <<< "$moved"
+    pg_port="$POSTGRES_PORT"
+    valkey_port="$VALKEY_PORT"
     trap 'POSTGRES_PORT=$pg_port VALKEY_PORT=$valkey_port {{ compose }} --profile test down' EXIT
     POSTGRES_PORT=$pg_port VALKEY_PORT=$valkey_port {{ compose }} --profile test up -d --wait {{ db_service }} valkey
     DB_HOST=127.0.0.1 DB_PORT=$pg_port TEST_DB=postgres {{ uv }} run {{ test_extras }} pytest

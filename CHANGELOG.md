@@ -12,6 +12,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`scripts/doctor.py`** (`just doctor`): one-line OK/INFO/WARN/FAIL preflight for agents: tools, `.env` and its secrets, `.env` and `.env.development` disagreeing on `DB_HOST`/`DB_PORT` (names only), busy dev ports with the holding process, a `CI` variable, machine load, Docker and the journeys frontend.
 - **Gate fix hints**: a failed gauntlet gate prints a one-line hint in the summary, and the JSON report carries it as `fix_hint` (`scripts/gauntlet_hints.py`).
 - **`scripts/agent_status.py`** (`just agent-status`, `--json`): read-only session summary in under a second: git state, tickets, journeys, the last gauntlet report and uncommitted route or schema changes.
+- **Automatic dev ports** (`scripts/dev_ports.py`, `just check-ports`): `just dev` and every stack recipe move a host port held by another project (for example its Postgres on 5433) to the next free port and say so; `just test-integration` does the same for its test ports. Ports held by this project's own containers stay.
+- **`env_secrets.py --dry-run`** (`fill`, `create`): lists the secret names it would add or replace, never values, and writes nothing. Run `python3 scripts/env_secrets.py fill --dry-run` before `just setup-env`. A real `fill` now names the replaced placeholders too.
 
 ### Changed
 - **Test database switch**: `api.settings.test` uses PostgreSQL only with `TEST_DB=postgres`. It used `CI`, which agent shells and CI runners set for unrelated reasons, so local runs moved to Postgres silently.
