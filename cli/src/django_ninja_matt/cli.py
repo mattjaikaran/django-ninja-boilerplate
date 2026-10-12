@@ -2,6 +2,7 @@
 """Main CLI application using Typer."""
 
 import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -630,6 +631,30 @@ def logs(
         raise typer.Exit(0)
 
 
+def find_project_root(start: Path) -> Path | None:
+    """Return the nearest directory at or above ``start`` that holds manage.py."""
+    start = start.resolve()
+    for candidate in (start, *start.parents):
+        if (candidate / "manage.py").is_file():
+            return candidate
+    return None
+
+
+def build_add_app_command(name: str, *, wire: bool) -> list[str]:
+    """Build the manage.py argv that scaffolds ``name`` with the project generator."""
+    python = ["uv", "run", "python"] if shutil.which("uv") else [sys.executable]
+    if wire:
+        return [
+            *python,
+            "manage.py",
+            "generate_feature",
+            "api_endpoint",
+            "--app-name",
+            name,
+        ]
+    return [*python, "manage.py", "startapp_extended", name]
+
+
 @app.command(name="add-app")
 def add_app(
     name: Annotated[
@@ -647,304 +672,64 @@ def add_app(
             "--path",
             "-p",
             help=(
-                "Parent directory in which to create the app folder. "
-                "Defaults to the current working directory (project root)."
+                "Directory inside the project. The CLI walks up from here to the "
+                "directory that holds manage.py. Defaults to the current directory."
             ),
         ),
     ] = None,
-    docstrings: Annotated[
+    no_wire: Annotated[
         bool,
         typer.Option(
-            "--docstrings",
+            "--no-wire",
             help=(
-                "Add Google-style docstrings to all generated public classes and "
-                "methods (controller actions, service methods, schema classes). "
-                "Off by default; opt in for self-documenting generated code."
+                "Only scaffold the app (manage.py startapp_extended). Do not edit "
+                "INSTALLED_APPS or api/urls.py, and do not create the migration."
             ),
         ),
     ] = False,
 ) -> None:
-    """Scaffold a new Django app following the boilerplate conventions.
+    """Scaffold a new Django app with the project's own generator.
 
-    Generates the full standard directory structure with stub files for every
-    layer, ready to extend:
-
-    \b
-    <app>/
-    ├── __init__.py
-    ├── apps.py
-    ├── admin.py
-    ├── models/
-    │   ├── __init__.py
-    │   └── <singular>.py      (BaseModel subclass)
-    ├── controllers/
-    │   └── __init__.py        (api_controller with CRUD endpoints)
-    ├── schemas/
-    │   └── __init__.py        (Schema + CreateSchema)
-    ├── services/
-    │   └── __init__.py
-    └── tests/
-        ├── __init__.py
-        └── test_<singular>.py
-
-    After scaffolding, add the app to INSTALLED_APPS and register the controller
-    in [bold]api/urls.py[/bold], then run [bold]dnm migrate --make[/bold].
+    By default this runs [bold]manage.py generate_feature api_endpoint
+    --app-name NAME[/bold] from the project root. That creates the app, adds it
+    to INSTALLED_APPS, registers its controller in api/urls.py, and creates the
+    initial migration. With [bold]--no-wire[/bold] it runs
+    [bold]manage.py startapp_extended NAME[/bold] instead, which only creates
+    the app directory.
 
     Examples:
 
         dnm add-app products
 
-        dnm add-app orders --path apps/
+        dnm add-app orders --path api/
 
-        dnm add-app products --docstrings
+        dnm add-app products --no-wire
     """
-    app_dir = (path or Path.cwd()) / name
-
-    if app_dir.exists():
-        print_error(f"Directory '{app_dir}' already exists")
+    root = find_project_root(path or Path.cwd())
+    if root is None:
+        print_error(
+            f"No manage.py found in '{(path or Path.cwd()).resolve()}' or any parent "
+            "directory. Run add-app inside a django-ninja-boilerplate project."
+        )
         raise typer.Exit(1)
 
-    print_step(f"Scaffolding app '{name}'...")
+    if (root / name).exists():
+        print_error(f"Directory '{root / name}' already exists")
+        raise typer.Exit(1)
 
-    # Create directory structure
-    subdirs = ["models", "controllers", "schemas", "services", "tests"]
-    for subdir in subdirs:
-        (app_dir / subdir).mkdir(parents=True, exist_ok=True)
+    command = build_add_app_command(name, wire=not no_wire)
+    print_step(f"Running: {' '.join(command)}")
+    result = subprocess.run(command, cwd=root, check=False)
+    if result.returncode != 0:
+        print_error(f"Generator failed with exit code {result.returncode}")
+        raise typer.Exit(result.returncode)
 
-    # App __init__.py
-    (app_dir / "__init__.py").write_text("")
-
-    # models/__init__.py with base model
-    model_name = name.rstrip("s").capitalize()
-    (app_dir / "models" / "__init__.py").write_text(
-        f'"""Models for {name} app."""\n\n'
-        f"from .{name.rstrip('s')} import {model_name}  # noqa: F401\n"
-    )
-    (app_dir / "models" / f"{name.rstrip('s')}.py").write_text(
-        f'"""Model for {model_name}."""\n\n'
-        "from api.models import BaseModel\n"
-        "from django.db import models\n\n\n"
-        f"class {model_name}(BaseModel):\n"
-        f'    """Represents a {model_name.lower()}."""\n\n'
-        "    name = models.CharField(max_length=255)\n"
-        '    description = models.TextField(blank=True, default="")\n\n'
-        "    class Meta:\n"
-        f'        verbose_name = "{model_name}"\n'
-        f'        verbose_name_plural = "{model_name}s"\n'
-        '        ordering = ["-created_at"]\n\n'
-        "    def __str__(self) -> str:\n"
-        + (
-            '        """Return a human-readable string representation."""\n'
-            if docstrings
-            else ""
-        )
-        + "        return self.name\n"
-    )
-
-    # Build controller content — optionally with Google-style docstrings
-    singular = name.rstrip("s")
-    if docstrings:
-        controller_content = (
-            f'"""API controllers for {name} app."""\n\n'
-            "from ninja_extra import api_controller, http_delete, http_get, http_post, http_put\n\n"
-            f"from {name}.models import {model_name}\n"
-            f"from {name}.schemas import {model_name}Schema, Create{model_name}Schema\n\n\n"
-            f'@api_controller("/{name}", tags=["{name.capitalize()}"])\n'
-            f"class {model_name}Controller:\n"
-            f'    """Controller exposing CRUD endpoints for {model_name} resources."""\n\n'
-            f'    @http_get("/", response={{200: list[{model_name}Schema]}})\n'
-            f"    def list_{name}(self, request):\n"
-            f'        """Return a list of all {name}.\n\n'
-            f"        Returns:\n"
-            f"            HTTP 200 with a list of {model_name}Schema objects.\n"
-            f'        """\n'
-            f"        return 200, {model_name}.objects.all()\n\n"
-            f'    @http_post("/", response={{201: {model_name}Schema}})\n'
-            f"    def create_{singular}(self, request, payload: Create{model_name}Schema):\n"
-            f'        """Create a new {model_name}.\n\n'
-            f"        Args:\n"
-            f"            payload: Validated fields for the new {model_name}.\n\n"
-            f"        Returns:\n"
-            f"            HTTP 201 with the created {model_name}Schema.\n"
-            f'        """\n'
-            f"        obj = {model_name}.objects.create(**payload.dict())\n"
-            f"        return 201, obj\n\n"
-            f'    @http_get("/{{id}}", response={{200: {model_name}Schema}})\n'
-            f"    def get_{singular}(self, request, id: str):\n"
-            f'        """Retrieve a single {model_name} by ID.\n\n'
-            f"        Args:\n"
-            f"            id: UUID primary key of the {model_name}.\n\n"
-            f"        Returns:\n"
-            f"            HTTP 200 with the matching {model_name}Schema.\n"
-            f'        """\n'
-            f"        return 200, {model_name}.objects.get(id=id)\n\n"
-            f'    @http_put("/{{id}}", response={{200: {model_name}Schema}})\n'
-            f"    def update_{singular}(self, request, id: str, payload: Create{model_name}Schema):\n"
-            f'        """Update an existing {model_name}.\n\n'
-            f"        Args:\n"
-            f"            id: UUID primary key of the {model_name} to update.\n"
-            f"            payload: Updated field values.\n\n"
-            f"        Returns:\n"
-            f"            HTTP 200 with the updated {model_name}Schema.\n"
-            f'        """\n'
-            f"        obj = {model_name}.objects.get(id=id)\n"
-            f"        for attr, value in payload.dict().items():\n"
-            f"            setattr(obj, attr, value)\n"
-            f"        obj.save()\n"
-            f"        return 200, obj\n\n"
-            f'    @http_delete("/{{id}}", response={{204: None}})\n'
-            f"    def delete_{singular}(self, request, id: str):\n"
-            f'        """Delete a {model_name} by ID.\n\n'
-            f"        Args:\n"
-            f"            id: UUID primary key of the {model_name} to delete.\n\n"
-            f"        Returns:\n"
-            f"            HTTP 204 with no content.\n"
-            f'        """\n'
-            f"        {model_name}.objects.filter(id=id).delete()\n"
-            f"        return 204, None\n"
-        )
-    else:
-        controller_content = (
-            f'"""API controllers for {name} app."""\n\n'
-            "from ninja_extra import api_controller, http_delete, http_get, http_post, http_put\n\n"
-            f"from {name}.models import {model_name}\n"
-            f"from {name}.schemas import {model_name}Schema, Create{model_name}Schema\n\n\n"
-            f'@api_controller("/{name}", tags=["{name.capitalize()}"])\n'
-            f"class {model_name}Controller:\n"
-            f'    @http_get("/", response={{200: list[{model_name}Schema]}})\n'
-            f"    def list_{name}(self, request):\n"
-            f"        return 200, {model_name}.objects.all()\n\n"
-            f'    @http_post("/", response={{201: {model_name}Schema}})\n'
-            f"    def create_{singular}(self, request, payload: Create{model_name}Schema):\n"
-            f"        obj = {model_name}.objects.create(**payload.dict())\n"
-            f"        return 201, obj\n\n"
-            f'    @http_get("/{{id}}", response={{200: {model_name}Schema}})\n'
-            f"    def get_{singular}(self, request, id: str):\n"
-            f"        return 200, {model_name}.objects.get(id=id)\n\n"
-            f'    @http_put("/{{id}}", response={{200: {model_name}Schema}})\n'
-            f"    def update_{singular}(self, request, id: str, payload: Create{model_name}Schema):\n"
-            f"        obj = {model_name}.objects.get(id=id)\n"
-            f"        for attr, value in payload.dict().items():\n"
-            f"            setattr(obj, attr, value)\n"
-            f"        obj.save()\n"
-            f"        return 200, obj\n\n"
-            f'    @http_delete("/{{id}}", response={{204: None}})\n'
-            f"    def delete_{singular}(self, request, id: str):\n"
-            f"        {model_name}.objects.filter(id=id).delete()\n"
-            f"        return 204, None\n"
-        )
-
-    # controllers/__init__.py
-    (app_dir / "controllers" / "__init__.py").write_text(controller_content)
-
-    # schemas/__init__.py — optionally with class-level docstrings
-    if docstrings:
-        schema_content = (
-            f'"""Pydantic schemas for {name} app."""\n\n'
-            "from core.schemas.base_schema import CamelCaseSchema\n\n\n"
-            f"class {model_name}Schema(CamelCaseSchema):\n"
-            f'    """Read schema for {model_name} resources.\n\n'
-            "    Attributes:\n"
-            "        id: UUID primary key.\n"
-            "        name: Display name.\n"
-            "        description: Optional longer description.\n"
-            '    """\n\n'
-            "    id: str\n"
-            "    name: str\n"
-            "    description: str\n\n\n"
-            f"class Create{model_name}Schema(CamelCaseSchema):\n"
-            f'    """Write schema used when creating or updating a {model_name}.\n\n'
-            "    Attributes:\n"
-            "        name: Display name (required).\n"
-            "        description: Optional longer description.\n"
-            '    """\n\n'
-            "    name: str\n"
-            '    description: str = ""\n'
-        )
-    else:
-        schema_content = (
-            f'"""Pydantic schemas for {name} app."""\n\n'
-            "from core.schemas.base_schema import CamelCaseSchema\n\n\n"
-            f"class {model_name}Schema(CamelCaseSchema):\n"
-            "    id: str\n"
-            "    name: str\n"
-            "    description: str\n\n\n"
-            f"class Create{model_name}Schema(CamelCaseSchema):\n"
-            "    name: str\n"
-            '    description: str = ""\n'
-        )
-
-    (app_dir / "schemas" / "__init__.py").write_text(schema_content)
-
-    # services/__init__.py — optionally with a service class stub
-    if docstrings:
-        service_content = (
-            f'"""Business logic services for {name} app."""\n\n'
-            f"from {name}.models import {model_name}\n\n\n"
-            f"class {model_name}Service:\n"
-            f'    """Service layer encapsulating business logic for {model_name} resources.\n\n'
-            "    Keep all non-trivial query logic and side-effects here so that\n"
-            "    controllers remain thin and easy to test.\n"
-            '    """\n\n'
-            f"    def get_all(self) -> list[{model_name}]:\n"
-            f'        """Return all {name} ordered by the model default.\n\n'
-            "        Returns:\n"
-            f"            A QuerySet of all {model_name} instances.\n"
-            '        """\n'
-            f"        return list({model_name}.objects.all())\n"
-        )
-    else:
-        service_content = f'"""Business logic services for {name} app."""\n'
-
-    (app_dir / "services" / "__init__.py").write_text(service_content)
-
-    # tests/__init__.py
-    (app_dir / "tests" / "__init__.py").write_text(f'"""Tests for {name} app."""\n')
-    (app_dir / "tests" / f"test_{singular}.py").write_text(
-        f'"""Tests for {model_name} endpoints."""\n\n'
-        "import pytest\n"
-        "from django.test import Client\n\n\n"
-        "pytestmark = pytest.mark.django_db\n\n\n"
-        f"class Test{model_name}Endpoints:\n"
-        + (
-            f'    """Integration tests for the {model_name} API controller."""\n\n'
-            if docstrings
-            else ""
-        )
-        + f"    def test_list_{name}(self, client: Client):\n"
-        + (
-            f'        """GET /api/{name}/ should return HTTP 200 with a list."""\n'
-            if docstrings
-            else ""
-        )
-        + f'        response = client.get("/api/{name}/")\n'
-        + "        assert response.status_code == 200\n"
-    )
-
-    # apps.py
-    (app_dir / "apps.py").write_text(
-        "from django.apps import AppConfig\n\n\n"
-        f"class {name.capitalize()}Config(AppConfig):\n"
-        f'    default_auto_field = "django.db.models.BigAutoField"\n'
-        f'    name = "{name}"\n'
-    )
-
-    # admin.py
-    (app_dir / "admin.py").write_text(
-        "from django.contrib import admin\n\n"
-        f"from {name}.models import {model_name}\n\n\n"
-        f"@admin.register({model_name})\n"
-        f"class {model_name}Admin(admin.ModelAdmin):\n"
-        + (f'    """Admin configuration for {model_name}."""\n\n' if docstrings else "")
-        + '    list_display = ["id", "name", "created_at"]\n'
-        + '    search_fields = ["name"]\n'
-    )
-
-    print_success(f"App '{name}' scaffolded at {app_dir}")
-    print_info("Next steps:")
-    print_info(f"  1. Add '{name}' to INSTALLED_APPS in api/settings/common.py")
-    print_info("  2. Register the controller in api/urls.py")
-    print_info("  3. Run: dnm migrate --make")
+    print_success(f"App '{name}' scaffolded at {root / name}")
+    if no_wire:
+        print_info("Next steps:")
+        print_info(f"  1. Add '{name}' to INSTALLED_APPS in api/settings/common.py")
+        print_info("  2. Register the controller in api/urls.py")
+        print_info("  3. Run: dnm migrate --make")
 
 
 def show_welcome() -> None:

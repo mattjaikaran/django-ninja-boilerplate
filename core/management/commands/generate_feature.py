@@ -112,6 +112,11 @@ class Command(BaseCommand):
                 f"'{app_name}' ({origin}). Pass another name with --app-name."
             )
             raise CommandError(msg)
+        # The generators format their output with ruff. Check before writing
+        # anything, so a venv without the dev extra never leaves a half-wired app.
+        if importlib.util.find_spec("ruff") is None:
+            msg = "generate_feature needs ruff from the dev extra: run `uv sync --extra dev`."
+            raise CommandError(msg)
 
         self.stdout.write(self.style.SUCCESS(f"Generating {feature_type} feature..."))
         try:
