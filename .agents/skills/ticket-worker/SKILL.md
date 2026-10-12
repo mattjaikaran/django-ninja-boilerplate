@@ -46,21 +46,23 @@ steps in order. Skip none.
    cd ~/worktrees/<repo>/T-NNN
    ```
 
-5. Start a fresh log in a private directory (never `/tmp`):
-   `LOG=~/.cache/worker-once && mkdir -p -m 700 "$LOG" && : > "$LOG/verify.log"`
+5. Start a fresh log in a private per-ticket directory (never `/tmp`).
+   Each command may run in a fresh shell, so type the full path every time;
+   do not store it in a variable:
+   `mkdir -p -m 700 ~/.cache/worker-once ~/.cache/worker-once/T-NNN && : > ~/.cache/worker-once/T-NNN/verify.log`
 6. Read `docs/tickets/T-NNN-*.md`. Do each step in `## Change`, in order.
 7. Run each command in `## Verify` like this, so its output and exit code
    go to the log:
 
    ```bash
-   { <command>; echo "exit=$?"; } 2>&1 | tee -a "$LOG/verify.log"
+   { <command>; echo "exit=$?"; } 2>&1 | tee -a ~/.cache/worker-once/T-NNN/verify.log
    ```
 
    Compare the output with the expected output in the ticket.
 8. Run the gauntlet the same way. `exit=0` means it passed.
 
    ```bash
-   { just gauntlet-quick; echo "exit=$?"; } 2>&1 | tee -a "$LOG/verify.log"
+   { just gauntlet-quick; echo "exit=$?"; } 2>&1 | tee -a ~/.cache/worker-once/T-NNN/verify.log
    ```
 
 9. In the ticket file, change `status: ready` to `status: done`.
@@ -101,17 +103,17 @@ When you stop:
    failed, or the file or decision that blocked you:
 
    ```bash
-   tail -n 50 "$LOG/verify.log" | uv run python scripts/redact_log.py > "$LOG/T-NNN-failure.md"
-   echo "Blocked: <one line: what blocked you and why>" >> "$LOG/T-NNN-failure.md"
+   tail -n 50 ~/.cache/worker-once/T-NNN/verify.log | uv run python scripts/redact_log.py > ~/.cache/worker-once/T-NNN/failure.md
+   echo "Blocked: <one line: what blocked you and why>" >> ~/.cache/worker-once/T-NNN/failure.md
    ```
 
-3. Read `$LOG/T-NNN-failure.md` once. If a token, password, cookie, or
-   database URL is still there, delete it.
+3. Read `~/.cache/worker-once/T-NNN/failure.md` once. If a token, password,
+   cookie, or database URL is still there, delete it.
 4. Commit what you have, push, and open a draft PR:
 
    ```bash
    gh pr create --draft --label needs-planner --base main --head <branch> \
-     --title "T-NNN <ticket title>" --body-file "$LOG/T-NNN-failure.md" \
+     --title "T-NNN <ticket title>" --body-file ~/.cache/worker-once/T-NNN/failure.md \
      --reviewer <maintainer>
    ```
 

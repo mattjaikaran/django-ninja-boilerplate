@@ -5,15 +5,18 @@ Steps:
   1. Pick the first claimable `tier: small` ticket, or the one in --ticket.
   2. Claim it with the atomic push from scripts/tickets.py.
   3. Create a worktree at ${WORKER_WORKTREES:-~/worktrees/<repo>}/T-NNN.
-  4. Run $WORKER_AGENT_CMD in the worktree with a short prompt. The output
-     goes to $WORKER_LOG_DIR/T-NNN-agent.log. Timeout: $WORKER_TIMEOUT seconds
-     (3600). $WORKER_LOG_DIR defaults to ~/.cache/worker-once (mode 700).
-  5. Run the ticket's `## Verify` commands and `just gauntlet-quick`. The
-     output goes to $WORKER_LOG_DIR/verify.log with `exit=` markers.
+  4. Run $WORKER_AGENT_CMD (split like a shell command line) in the worktree
+     with a short prompt. Logs go to a per-ticket directory,
+     $WORKER_LOG_DIR/T-NNN/ (mode 700), so parallel panes never share a log.
+     $WORKER_LOG_DIR defaults to ~/.cache/worker-once. The agent output goes
+     to T-NNN/agent.log. Timeout: $WORKER_TIMEOUT seconds (3600).
+  5. Run the ticket's `## Verify` commands and $WORKER_GAUNTLET_CMD (default
+     `just gauntlet-quick`). The output goes to T-NNN/verify.log with
+     `exit=` markers.
   6. On success: check the diff stays within `owns`, commit leftovers, push,
      and open a PR (`--reviewer $WORKER_REVIEWER` when set).
-  7. On failure: write a redacted $WORKER_LOG_DIR/T-NNN-failure.md, push,
-     and open a draft PR labeled `needs-planner`.
+  7. On failure: write a redacted T-NNN/failure.md, push, and open a draft
+     PR labeled `needs-planner`.
 
 Usage:
     uv run python scripts/worker_once.py [--ticket T-NNN] [--dry-run]
@@ -26,6 +29,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import re
 import shlex
 import shutil
 import subprocess
@@ -41,11 +45,13 @@ ROOT = tickets.PROJECT_ROOT
 SKILL = ".agents/skills/ticket-worker/SKILL.md"
 # A private per-user directory, not /tmp: another local user could pre-create
 # predictable /tmp paths (bandit B108).
-LOG_DIR = Path(
+LOG_ROOT = Path(
     os.environ.get("WORKER_LOG_DIR", str(Path.home() / ".cache" / "worker-once"))
 )
-VERIFY_LOG = LOG_DIR / "verify.log"
+DEFAULT_GAUNTLET = "just gauntlet-quick"
 DEFAULT_TIMEOUT = 3600
+# Dry-run placeholders print bare, not shell-quoted.
+PLACEHOLDER_RE = re.compile(r"\$[A-Z_]+|<[\w -]+>")
 PROMPT = (
     "You are a worker model. Read the skill at {skill} and follow it. "
     "Execute the ticket at {ticket}. The ticket is already claimed and this "
@@ -81,7 +87,11 @@ class Runner:
     def show(self, command: list[str], cwd: Path | None, note: str = "") -> None:
         where = f"  (in {cwd})" if cwd and cwd != ROOT else ""
         suffix = f"  # {note}" if note else ""
-        print(f"  $ {shlex.join(command)}{where}{suffix}")
+        shown = " ".join(
+            arg if PLACEHOLDER_RE.fullmatch(arg) else shlex.quote(arg)
+            for arg in command
+        )
+        print(f"  $ {shown}{where}{suffix}")
 
     def run(
         self, command: list[str], cwd: Path = ROOT, note: str = ""
@@ -156,6 +166,7 @@ def within_owns(path: str, ticket: tickets.Ticket, ticket_path: str) -> bool:
 
 
 def agent_command(runner: Runner) -> list[str]:
+    """Return $WORKER_AGENT_CMD split like a shell command line."""
     agent_cmd = os.environ.get("WORKER_AGENT_CMD", "")
     if not agent_cmd and runner.dry_run:
         agent_cmd = "$WORKER_AGENT_CMD"
@@ -164,8 +175,23 @@ def agent_command(runner: Runner) -> list[str]:
     return shlex.split(agent_cmd)
 
 
+def gauntlet_command() -> list[str]:
+    """Return $WORKER_GAUNTLET_CMD split like a shell command line."""
+    command = os.environ.get("WORKER_GAUNTLET_CMD", "").strip()
+    return shlex.split(command or DEFAULT_GAUNTLET)
+
+
+def log_dir(ticket: tickets.Ticket) -> Path:
+    """Return the per-ticket log directory, so parallel panes never share one."""
+    return LOG_ROOT / ticket.id
+
+
+def verify_log(ticket: tickets.Ticket) -> Path:
+    return log_dir(ticket) / "verify.log"
+
+
 def blocked_file(ticket: tickets.Ticket) -> Path:
-    return LOG_DIR / f"{ticket.id}-blocked.txt"
+    return log_dir(ticket) / "blocked.txt"
 
 
 def run_agent(
@@ -174,7 +200,7 @@ def run_agent(
     """Run $WORKER_AGENT_CMD with *prompt*; raise Stop on error or timeout."""
     command = [*agent_command(runner), prompt]
     timeout = int(os.environ.get("WORKER_TIMEOUT", DEFAULT_TIMEOUT))
-    log = LOG_DIR / f"{ticket.id}-agent.log"
+    log = log_dir(ticket) / "agent.log"
     arrow = ">>" if append else ">"
     runner.show([*command[:-1], "<prompt>"], tree, f"{arrow} {log}, timeout {timeout}s")
     if runner.dry_run:
@@ -203,25 +229,25 @@ def run_agent(
 
 
 def verify_steps(ticket: tickets.Ticket) -> list[list[str]]:
-    """One shell per fenced Verify block, then the quick gauntlet."""
+    """One shell per fenced Verify block, then the gauntlet command."""
     text = ticket.sections.get("Verify", "")
     steps = [
         ["bash", "-o", "pipefail", "-c", block.strip()]
         for block in tickets.FENCE_RE.findall(text)
         if block.strip()
     ]
-    steps.append(["just", "gauntlet-quick"])
+    steps.append(gauntlet_command())
     return steps
 
 
 def run_verify(runner: Runner, ticket: tickets.Ticket, tree: Path) -> None:
-    """Run Verify blocks and the quick gauntlet; raise Stop on a failure."""
-    print(f"  Verify (appends to {VERIFY_LOG} with exit= markers):")
+    """Run Verify blocks and the gauntlet command; raise Stop on a failure."""
+    print(f"  Verify (appends to {verify_log(ticket)} with exit= markers):")
     for command in verify_steps(ticket):
         runner.show(command, tree)
         if runner.dry_run:
             continue
-        with VERIFY_LOG.open("a", encoding="utf-8") as log:
+        with verify_log(ticket).open("a", encoding="utf-8") as log:
             log.write(f"$ {shlex.join(command)}\n")
             log.flush()
             # Argument list; Verify blocks are planner-written shell commands.
@@ -234,11 +260,12 @@ def run_verify(runner: Runner, ticket: tickets.Ticket, tree: Path) -> None:
             raise Stop(f"`{shlex.join(command)}` exited {code}")
 
 
-def redacted_tail() -> str:
+def redacted_tail(ticket: tickets.Ticket) -> str:
     """Return the last 50 lines of verify.log, passed through redact_log."""
-    if not VERIFY_LOG.is_file():
+    path = verify_log(ticket)
+    if not path.is_file():
         return ""
-    lines = VERIFY_LOG.read_text(encoding="utf-8", errors="replace").splitlines()
+    lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
     return redact_log.redact("\n".join(lines[-50:]), redact_log.secret_values(ROOT))
 
 
@@ -258,7 +285,9 @@ def attempt(runner: Runner, ticket: tickets.Ticket, tree: Path) -> None:
         first = str(exc)
     print(f"Retry (only after the first Verify failure: {first}):")
     log = (
-        "<redacted last 50 lines of verify.log>" if runner.dry_run else redacted_tail()
+        "<redacted last 50 lines of verify.log>"
+        if runner.dry_run
+        else redacted_tail(ticket)
     )
     retry = RETRY_PROMPT.format(
         ticket=rel, failure=first, log=log, blocked=blocked_file(ticket)
@@ -276,7 +305,7 @@ def check_owns(runner: Runner, ticket: tickets.Ticket, tree: Path) -> None:
         tree,
         "branch changes since the merge base, including uncommitted work",
     )
-    outside = [p for p in out.split() if not within_owns(p, ticket, rel)]
+    outside = [p for p in out.splitlines() if p and not within_owns(p, ticket, rel)]
     if outside:
         raise Stop(f"changed files outside owns: {', '.join(outside)}")
 
@@ -325,11 +354,12 @@ def succeed(runner: Runner, ticket: tickets.Ticket, tree: Path) -> int:
     check_owns(runner, ticket, tree)
     commit_leftovers(runner, tree, f"chore(tickets): Complete {ticket.id}", empty=False)
     runner.must(["git", "push", "origin", ticket.branch], tree)
-    body = LOG_DIR / f"{ticket.id}-pr.md"
+    body = log_dir(ticket) / "pr.md"
+    gauntlet = shlex.join(gauntlet_command())
     write(
         runner,
         body,
-        f"Ticket: {ticket_rel(ticket)}\n\nVerify and `just gauntlet-quick` passed.\n",
+        f"Ticket: {ticket_rel(ticket)}\n\nVerify and `{gauntlet}` passed.\n",
     )
     url = runner.must(pr_command(ticket, body, draft=False), tree).strip()
     if not runner.dry_run:
@@ -338,8 +368,8 @@ def succeed(runner: Runner, ticket: tickets.Ticket, tree: Path) -> int:
 
 
 def stop(runner: Runner, ticket: tickets.Ticket, tree: Path, reason: str) -> int:
-    log = "<redacted last 50 lines>" if runner.dry_run else redacted_tail()
-    body = LOG_DIR / f"{ticket.id}-failure.md"
+    log = "<redacted last 50 lines>" if runner.dry_run else redacted_tail(ticket)
+    body = log_dir(ticket) / "failure.md"
     write(
         runner,
         body,
@@ -363,11 +393,13 @@ def stop(runner: Runner, ticket: tickets.Ticket, tree: Path, reason: str) -> int
 
 def reset_logs(runner: Runner, ticket: tickets.Ticket) -> None:
     """Start this iteration with an empty verify.log and no stale Blocked file."""
-    print(f"  reset {VERIFY_LOG}; remove {blocked_file(ticket)}")
+    print(f"  reset {verify_log(ticket)}; remove {blocked_file(ticket)}")
     if runner.dry_run:
         return
-    LOG_DIR.mkdir(mode=0o700, parents=True, exist_ok=True)
-    VERIFY_LOG.write_text(f"=== {ticket.id}\n", encoding="utf-8")
+    # mkdir(parents=True) skips the mode for parents, so create each level.
+    for directory in (LOG_ROOT, log_dir(ticket)):
+        directory.mkdir(mode=0o700, parents=True, exist_ok=True)
+    verify_log(ticket).write_text(f"=== {ticket.id}\n", encoding="utf-8")
     blocked_file(ticket).unlink(missing_ok=True)
 
 
@@ -402,8 +434,10 @@ def parse_args(argv: list[str] | None) -> argparse.Namespace:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=(
             "Environment: WORKER_AGENT_CMD (required, for example 'claude -p', "
-            "'omp -p', 'opencode run'),\nWORKER_TIMEOUT (default 3600), "
-            "WORKER_WORKTREES, WORKER_REVIEWER, TICKETS_DIR.\n"
+            "'omp -p', 'opencode run'),\nWORKER_GAUNTLET_CMD (default "
+            f"'{DEFAULT_GAUNTLET}'), WORKER_TIMEOUT (default 3600),\n"
+            "WORKER_LOG_DIR (default ~/.cache/worker-once), WORKER_WORKTREES, "
+            "WORKER_REVIEWER, TICKETS_DIR.\n"
             "Exit: 0 PR opened or dry run, 1 stopped with draft PR, "
             "2 nothing to do or setup error.\n\n" + HERDR_HELP
         ),
@@ -425,7 +459,8 @@ def main(argv: list[str] | None = None) -> int:
     runner = Runner(options.dry_run)
     try:
         if not options.dry_run:
-            missing = [t for t in ("git", "gh", "just") if shutil.which(t) is None]
+            tools = ("git", "gh", gauntlet_command()[0])
+            missing = [t for t in tools if shutil.which(t) is None]
             if not os.environ.get("WORKER_AGENT_CMD"):
                 missing.append("WORKER_AGENT_CMD")
             if missing:

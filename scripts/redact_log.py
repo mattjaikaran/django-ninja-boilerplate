@@ -9,7 +9,7 @@ can echo settings, connection strings or tokens. This filter replaces:
 - bearer tokens, URLs with credentials, and common token formats.
 
 Usage:
-    tail -n 50 ~/.cache/worker-once/verify.log | uv run python scripts/redact_log.py > ~/.cache/worker-once/T-NNN-failure.md
+    tail -n 50 ~/.cache/worker-once/T-NNN/verify.log | uv run python scripts/redact_log.py > ~/.cache/worker-once/T-NNN/failure.md
 
 Exit: 0 always; the redacted text goes to stdout.
 """
