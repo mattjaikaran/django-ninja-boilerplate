@@ -107,8 +107,10 @@ wrong here. Do not use them.
   review, add its `(method, path)` to `PUBLIC_OPERATIONS` in
   `core/tests/test_route_auth.py`. Do not add routes to make the test pass:
   the test fails on purpose when an operation is public by mistake.
-- Put static URL paths before dynamic `/{id}` paths in each controller so
-  dynamic paths do not shadow static operations.
+- Put static URL paths before every handler on a dynamic `/{id}` path in
+  each controller, including `PUT` and `DELETE`. Ninja binds a path pattern
+  where it first appears, so any earlier `/{id}` handler shadows a later
+  static GET. The smoke route sweep fails when this happens.
 - Do not hide a constraint in a `@field_validator` when `Field(...)`,
   `Literal`, or an `Enum` can express it. The frontend Zod schemas come from
   `docs/openapi/openapi.json`; run `just openapi` after any schema or route
@@ -357,6 +359,11 @@ add the lesson to the next section.
 When you reject an implementation choice in review, add the lesson here before
 the next session. Format: what not to do, what to do instead, and why. One line
 per rule, no paragraphs.
+
+- Do not let a smoke sweep accept 400 or 404 on a parameterless GET: it hid
+  12 shadowed todo routes and 3 audit routes. Fail on any status of 400 or
+  higher except 403 for regular users, because a list route has no input to
+  reject.
 
 ## Reference library
 

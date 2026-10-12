@@ -78,21 +78,39 @@ def test_todos_partial_list(smoke_client, smoke_auth_headers):
 
 # Routes that depend on an external service unavailable under test settings.
 # Map the OpenAPI path to the reason it is skipped.
-_SWEEP_EXCLUDED: dict[str, str] = {}
+_SWEEP_EXCLUDED: dict[str, str] = {
+    "/api/health/detailed": (
+        "checks Redis, Celery, and other external services; returns 503 "
+        "when they are not running"
+    ),
+}
 
 
 @pytest.mark.smoke
 @pytest.mark.django_db
-def test_get_route_sweep(smoke_client, smoke_auth_headers):
-    """Every parameterless GET returns no 5xx and no 422 for a regular user."""
+def test_get_route_sweep(smoke_client, smoke_auth_headers, staff_user):
+    """Every parameterless GET succeeds for a regular user and a staff user.
+
+    A regular user fails the sweep on any status >= 400 except 403
+    (staff-only routes). A staff user fails on any status >= 400. This
+    catches static routes shadowed by an earlier dynamic ``/{id}`` route.
+    """
+    from ninja_jwt.tokens import RefreshToken
+
     from api.urls import api
 
+    staff_headers = {
+        "HTTP_AUTHORIZATION": f"Bearer {RefreshToken.for_user(staff_user).access_token}"
+    }
+    users = (("user", smoke_auth_headers, {403}), ("staff", staff_headers, set()))
+
     schema = api.get_openapi_schema()
-    offenders: list[tuple[str, int]] = []
+    offenders: list[tuple[str, str, int]] = []
     for path, methods in schema["paths"].items():
         if "get" not in methods or "{" in path or path in _SWEEP_EXCLUDED:
             continue
-        status = smoke_client.get(path, **smoke_auth_headers).status_code
-        if status >= 500 or status == 422:
-            offenders.append((path, status))
+        for kind, headers, allowed in users:
+            status = smoke_client.get(path, **headers).status_code
+            if status >= 400 and status not in allowed:
+                offenders.append((kind, path, status))
     assert offenders == []

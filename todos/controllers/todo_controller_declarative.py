@@ -86,30 +86,6 @@ class TodoControllerDeclarative:
 
         return queryset
 
-    @http_get("/{todo_id}", response={200: TodoSchema, 404: dict, 500: dict})
-    def get_todo(self, request, todo_id: str):
-        """Retrieve a single todo by ID.
-
-        Args:
-            request: The HTTP request object.
-            todo_id: The UUID primary key of the todo.
-
-        Returns:
-            Tuple of (200, todo) on success, (404, error) if not found,
-            or (500, error) on unexpected failure.
-        """
-        try:
-            todo = Todo.objects.select_related("user").get(
-                id=todo_id, user=request.user
-            )
-            return 200, todo
-        except Todo.DoesNotExist:
-            logger.warning("Todo %s not found for user %s", todo_id, request.user.id)
-            return 404, {
-                "error": "Not found",
-                "message": f"Todo with id '{todo_id}' does not exist",
-            }
-
     @http_post("/", response={201: TodoSchema, 400: dict, 500: dict})
     def create_todo(self, request, payload: CreateTodoSchema):
         """Create a new todo for the authenticated user.
@@ -140,64 +116,6 @@ class TodoControllerDeclarative:
         )
 
         return 201, todo
-
-    @http_put("/{todo_id}", response={200: TodoSchema, 404: dict, 500: dict})
-    def update_todo(self, request, todo_id: str, payload: UpdateTodoSchema):
-        """Apply partial updates to an existing todo.
-
-        Args:
-            request: The HTTP request object.
-            todo_id: The UUID primary key of the todo to update.
-            payload: Validated update data (only provided fields are applied).
-
-        Returns:
-            Tuple of (200, todo) on success, (404, error) if not found,
-            or (500, error) on unexpected failure.
-        """
-        try:
-            todo = Todo.objects.get(id=todo_id, user=request.user)
-        except Todo.DoesNotExist:
-            return 404, {
-                "error": "Not found",
-                "message": f"Todo with id '{todo_id}' does not exist",
-            }
-
-        for attr, value in payload.model_dump(exclude_unset=True).items():
-            setattr(todo, attr, value)
-        todo.save()
-
-        logger.info(
-            "Updated todo '%s' (id=%s) for user %s",
-            todo.title,
-            todo.id,
-            request.user.id,
-        )
-
-        return 200, todo
-
-    @http_delete("/{todo_id}", response={204: None, 404: dict, 500: dict})
-    def delete_todo(self, request, todo_id: str):
-        """Delete a todo owned by the authenticated user.
-
-        Args:
-            request: The HTTP request object.
-            todo_id: The UUID primary key of the todo to delete.
-
-        Returns:
-            Tuple of (204, None) on success, (404, error) if not found,
-            or (500, error) on unexpected failure.
-        """
-        try:
-            todo = Todo.objects.get(id=todo_id, user=request.user)
-        except Todo.DoesNotExist:
-            return 404, {
-                "error": "Not found",
-                "message": f"Todo with id '{todo_id}' does not exist",
-            }
-
-        todo.delete()
-        logger.info("Deleted todo %s for user %s", todo_id, request.user.id)
-        return 204, None
 
     @http_get("/completed", response={200: PaginatedResponseSchema[TodoSchema]})
     @paginate(PageNumberPaginationExtra)
@@ -263,3 +181,85 @@ class TodoControllerDeclarative:
             queryset = queryset.filter(completed=completed)
 
         return queryset.order_by("-created_at")
+
+    @http_get("/{todo_id}", response={200: TodoSchema, 404: dict, 500: dict})
+    def get_todo(self, request, todo_id: str):
+        """Retrieve a single todo by ID.
+
+        Args:
+            request: The HTTP request object.
+            todo_id: The UUID primary key of the todo.
+
+        Returns:
+            Tuple of (200, todo) on success, (404, error) if not found,
+            or (500, error) on unexpected failure.
+        """
+        try:
+            todo = Todo.objects.select_related("user").get(
+                id=todo_id, user=request.user
+            )
+            return 200, todo
+        except Todo.DoesNotExist:
+            logger.warning("Todo %s not found for user %s", todo_id, request.user.id)
+            return 404, {
+                "error": "Not found",
+                "message": f"Todo with id '{todo_id}' does not exist",
+            }
+
+    @http_put("/{todo_id}", response={200: TodoSchema, 404: dict, 500: dict})
+    def update_todo(self, request, todo_id: str, payload: UpdateTodoSchema):
+        """Apply partial updates to an existing todo.
+
+        Args:
+            request: The HTTP request object.
+            todo_id: The UUID primary key of the todo to update.
+            payload: Validated update data (only provided fields are applied).
+
+        Returns:
+            Tuple of (200, todo) on success, (404, error) if not found,
+            or (500, error) on unexpected failure.
+        """
+        try:
+            todo = Todo.objects.get(id=todo_id, user=request.user)
+        except Todo.DoesNotExist:
+            return 404, {
+                "error": "Not found",
+                "message": f"Todo with id '{todo_id}' does not exist",
+            }
+
+        for attr, value in payload.model_dump(exclude_unset=True).items():
+            setattr(todo, attr, value)
+        todo.save()
+
+        logger.info(
+            "Updated todo '%s' (id=%s) for user %s",
+            todo.title,
+            todo.id,
+            request.user.id,
+        )
+
+        return 200, todo
+
+    @http_delete("/{todo_id}", response={204: None, 404: dict, 500: dict})
+    def delete_todo(self, request, todo_id: str):
+        """Delete a todo owned by the authenticated user.
+
+        Args:
+            request: The HTTP request object.
+            todo_id: The UUID primary key of the todo to delete.
+
+        Returns:
+            Tuple of (204, None) on success, (404, error) if not found,
+            or (500, error) on unexpected failure.
+        """
+        try:
+            todo = Todo.objects.get(id=todo_id, user=request.user)
+        except Todo.DoesNotExist:
+            return 404, {
+                "error": "Not found",
+                "message": f"Todo with id '{todo_id}' does not exist",
+            }
+
+        todo.delete()
+        logger.info("Deleted todo %s for user %s", todo_id, request.user.id)
+        return 204, None

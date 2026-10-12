@@ -83,21 +83,6 @@ class TodoControllerBasic:
 
         return queryset
 
-    @http_get("/{todo_id}", response={200: TodoSchema, 404: dict})
-    def get_todo(self, request, todo_id: str):
-        """Retrieve a single todo by ID.
-
-        Args:
-            request: The HTTP request object.
-            todo_id: The UUID primary key of the todo.
-
-        Returns:
-            The matching Todo instance, or 404 if not found.
-        """
-        return get_object_or_404(
-            Todo.objects.select_related("user"), id=todo_id, user=request.user
-        )
-
     @http_post("/", response={201: TodoSchema})
     def create_todo(self, request, payload: CreateTodoSchema):
         """Create a new todo for the authenticated user.
@@ -114,41 +99,6 @@ class TodoControllerBasic:
         todo = Todo.objects.create(**todo_data)
         logger.info("Created todo '%s' (id=%s)", todo.title, todo.id)
         return 201, todo
-
-    @http_put("/{todo_id}", response={200: TodoSchema, 404: dict})
-    def update_todo(self, request, todo_id: str, payload: UpdateTodoSchema):
-        """Apply partial updates to an existing todo.
-
-        Args:
-            request: The HTTP request object.
-            todo_id: The UUID primary key of the todo to update.
-            payload: Validated update data; only provided fields are applied.
-
-        Returns:
-            The updated Todo instance, or 404 if not found.
-        """
-        todo = get_object_or_404(Todo, id=todo_id, user=request.user)
-
-        for attr, value in payload.model_dump(exclude_unset=True).items():
-            setattr(todo, attr, value)
-        todo.save()
-
-        return todo
-
-    @http_delete("/{todo_id}", response={204: None, 404: dict})
-    def delete_todo(self, request, todo_id: str):
-        """Delete a todo owned by the authenticated user.
-
-        Args:
-            request: The HTTP request object.
-            todo_id: The UUID primary key of the todo to delete.
-
-        Returns:
-            Tuple of (204, None) on success, or 404 if not found.
-        """
-        todo = get_object_or_404(Todo, id=todo_id, user=request.user)
-        todo.delete()
-        return 204, None
 
     @http_get("/completed", response={200: PaginatedResponseSchema[TodoSchema]})
     @paginate(PageNumberPaginationExtra)
@@ -214,3 +164,53 @@ class TodoControllerBasic:
             queryset = queryset.filter(completed=completed)
 
         return queryset.order_by("-created_at")
+
+    @http_get("/{todo_id}", response={200: TodoSchema, 404: dict})
+    def get_todo(self, request, todo_id: str):
+        """Retrieve a single todo by ID.
+
+        Args:
+            request: The HTTP request object.
+            todo_id: The UUID primary key of the todo.
+
+        Returns:
+            The matching Todo instance, or 404 if not found.
+        """
+        return get_object_or_404(
+            Todo.objects.select_related("user"), id=todo_id, user=request.user
+        )
+
+    @http_put("/{todo_id}", response={200: TodoSchema, 404: dict})
+    def update_todo(self, request, todo_id: str, payload: UpdateTodoSchema):
+        """Apply partial updates to an existing todo.
+
+        Args:
+            request: The HTTP request object.
+            todo_id: The UUID primary key of the todo to update.
+            payload: Validated update data; only provided fields are applied.
+
+        Returns:
+            The updated Todo instance, or 404 if not found.
+        """
+        todo = get_object_or_404(Todo, id=todo_id, user=request.user)
+
+        for attr, value in payload.model_dump(exclude_unset=True).items():
+            setattr(todo, attr, value)
+        todo.save()
+
+        return todo
+
+    @http_delete("/{todo_id}", response={204: None, 404: dict})
+    def delete_todo(self, request, todo_id: str):
+        """Delete a todo owned by the authenticated user.
+
+        Args:
+            request: The HTTP request object.
+            todo_id: The UUID primary key of the todo to delete.
+
+        Returns:
+            Tuple of (204, None) on success, or 404 if not found.
+        """
+        todo = get_object_or_404(Todo, id=todo_id, user=request.user)
+        todo.delete()
+        return 204, None

@@ -120,17 +120,6 @@ class AuditLogController:
 
         return queryset
 
-    @http_get("/{audit_log_id}", response={200: AuditLogSchema, 404: dict})
-    @log_api_call()
-    def get_audit_log(self, audit_log_id: UUID):
-        """Get a specific audit log entry by ID.
-
-        Args:
-            audit_log_id: UUID of the audit log entry
-        """
-        audit_log = get_object_or_404(AuditLog, id=audit_log_id)
-        return 200, AuditLogSchema.model_validate(audit_log)
-
     @http_get("/stats/summary", response={200: AuditLogStatsSchema})
     @log_api_call()
     def get_audit_stats(
@@ -295,3 +284,14 @@ class AuditLogController:
         ).order_by("-timestamp")[:limit]
 
         return [AuditLogListSchema.model_validate(log) for log in queryset]
+
+    @http_get("/{audit_log_id}", response={200: AuditLogSchema, 404: dict})
+    @log_api_call()
+    def get_audit_log(self, audit_log_id: UUID):
+        """Get a specific audit log entry by ID.
+
+        Args:
+            audit_log_id: UUID of the audit log entry
+        """
+        audit_log = get_object_or_404(AuditLog, id=audit_log_id)
+        return 200, AuditLogSchema.model_validate(audit_log)

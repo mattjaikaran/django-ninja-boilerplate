@@ -94,21 +94,6 @@ class TodoControllerPartial:
 
         return queryset
 
-    @http_get("/{todo_id}", response={200: TodoSchema, 404: dict})
-    def get_todo(self, request, todo_id: str):
-        """Retrieve a single todo by ID.
-
-        Args:
-            request: The HTTP request object.
-            todo_id: The UUID primary key of the todo.
-
-        Returns:
-            The matching Todo instance, or 404 if not found.
-        """
-        return get_object_or_404(
-            Todo.objects.select_related("user"), id=todo_id, user=request.user
-        )
-
     @http_get("/completed", response={200: PaginatedResponseSchema[TodoSchema]})
     @paginate(PageNumberPaginationExtra)
     def list_completed_todos(self, request):
@@ -177,6 +162,21 @@ class TodoControllerPartial:
     # ------------------------------------------------------------------
     # Write endpoints — decorated for error handling + observability
     # ------------------------------------------------------------------
+
+    @http_get("/{todo_id}", response={200: TodoSchema, 404: dict})
+    def get_todo(self, request, todo_id: str):
+        """Retrieve a single todo by ID.
+
+        Args:
+            request: The HTTP request object.
+            todo_id: The UUID primary key of the todo.
+
+        Returns:
+            The matching Todo instance, or 404 if not found.
+        """
+        return get_object_or_404(
+            Todo.objects.select_related("user"), id=todo_id, user=request.user
+        )
 
     @http_post("/", response={201: TodoSchema, 400: dict, 500: dict})
     @log_api_call(include_payload=True, include_response=False)

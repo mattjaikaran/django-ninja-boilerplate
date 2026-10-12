@@ -71,20 +71,6 @@ class TodoController:
             ordering=ordering,
         )
 
-    @http_get("/{todo_id}", response={200: TodoSchema, 404: dict, 500: dict})
-    @log_api_call()
-    def get_todo(self, request, todo_id: str):
-        """Retrieve a single todo by ID.
-
-        Args:
-            request: The HTTP request object.
-            todo_id: The UUID primary key of the todo.
-
-        Returns:
-            Tuple of (200, todo) on success.
-        """
-        return 200, self.service.get_todo(todo_id, request.user)
-
     @http_get("/completed", response={200: PaginatedResponseSchema[TodoSchema]})
     @log_api_call()
     @paginate(PageNumberPaginationExtra)
@@ -144,6 +130,20 @@ class TodoController:
     # ------------------------------------------------------------------
     # Mutations
     # ------------------------------------------------------------------
+
+    @http_get("/{todo_id}", response={200: TodoSchema, 404: dict, 500: dict})
+    @log_api_call()
+    def get_todo(self, request, todo_id: str):
+        """Retrieve a single todo by ID.
+
+        Args:
+            request: The HTTP request object.
+            todo_id: The UUID primary key of the todo.
+
+        Returns:
+            Tuple of (200, todo) on success.
+        """
+        return 200, self.service.get_todo(todo_id, request.user)
 
     @http_post("/", response={201: TodoSchema, 400: dict, 500: dict})
     @log_api_call(include_payload=True, include_response=False)
