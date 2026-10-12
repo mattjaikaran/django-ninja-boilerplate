@@ -229,11 +229,11 @@ test-integration:
     valkey_port="${TEST_VALKEY_PORT:-6381}"
     trap 'POSTGRES_PORT=$pg_port VALKEY_PORT=$valkey_port {{ compose }} --profile test down' EXIT
     POSTGRES_PORT=$pg_port VALKEY_PORT=$valkey_port {{ compose }} --profile test up -d --wait {{ db_service }} valkey
-    DB_HOST=127.0.0.1 DB_PORT=$pg_port CI=1 {{ uv }} run {{ test_extras }} pytest
+    DB_HOST=127.0.0.1 DB_PORT=$pg_port TEST_DB=postgres {{ uv }} run {{ test_extras }} pytest
 
 # `uv run --with` layers Django 6.0 over the project environment in uv's cache,
 # so .venv stays on the locked Django 5.2. Not a gate: DEPENDENCIES.md lists
-# the Django 6 blockers. Set CI=1 to run on PostgreSQL instead of SQLite.
+# the Django 6 blockers. Set TEST_DB=postgres to run on PostgreSQL instead of SQLite.
 # Run the suite on Django 6.0 (manual check only)
 test-django6 *args:
     {{ uv }} run {{ test_extras }} --with "Django~=6.0.0" python -c "import django; print('Django', django.get_version())"

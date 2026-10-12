@@ -55,7 +55,13 @@ accept it. Do not delegate the top-level plan.
 ## 07 My environment
 
 - macOS, Apple Silicon. Docker via OrbStack.
-- Local Postgres 17 with pgvector, and `.env` points `DB_HOST=localhost`.
+- Local Postgres 17 with pgvector. `.env` points at host services
+  (`DB_HOST=127.0.0.1`); `.env.development` points at the Compose `db`
+  service. `just doctor` warns when they disagree.
+- Tests run on SQLite unless `TEST_DB=postgres`. Agent shells often set
+  `CI=true`; it no longer changes the test database.
+- Start a session with `just doctor` (tools, `.env`, secrets, busy ports,
+  load). It exits 1 only on a FAIL.
 - `just` is the task runner. The old Makefile is `Makefile.legacy`.
 - Ports: django 8000, mcp 8001, mailhog 8025, centrifugo 8800, flower 5555.
   The Docker stack publishes Postgres on 5433 and Valkey on 6380, offset from

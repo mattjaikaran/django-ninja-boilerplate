@@ -1,7 +1,8 @@
 """Django settings for api project - Test environment.
 
 Uses SQLite by default for fast local testing.
-In CI, PostgreSQL is used via environment variables.
+Set TEST_DB=postgres to use PostgreSQL via the DB_* environment variables.
+CI is ignored on purpose: agent shells and runners set it for unrelated reasons.
 """
 
 import os
@@ -28,9 +29,9 @@ ALLOWED_HOSTS = ["*"]
 if "billing" not in COMMON_INSTALLED_APPS:
     INSTALLED_APPS = [*COMMON_INSTALLED_APPS, "billing"]
 
-# Database: Use PostgreSQL in CI, SQLite locally
-# CI sets the CI=1 env var; locally we fall back to SQLite for zero-setup testing
-if os.environ.get("CI"):
+# Database: SQLite by default, PostgreSQL only when TEST_DB=postgres.
+# Do not key this off CI; many shells set CI=true for unrelated reasons.
+if os.environ.get("TEST_DB", "").lower() == "postgres":
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.postgresql",

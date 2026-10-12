@@ -78,7 +78,7 @@ django-ninja-boilerplate/
 │   │   ├── common.py            # Shared settings
 │   │   ├── dev.py               # Development overrides
 │   │   ├── prod.py              # Production overrides
-│   │   └── test.py              # Test settings (SQLite locally, PostgreSQL in CI)
+│   │   └── test.py              # Test settings (SQLite, or PostgreSQL with TEST_DB=postgres)
 │   ├── throttling/              # Rate limiting
 │   │   ├── limiter.py           # Rate limiter classes
 │   │   └── decorators.py        # Throttle decorators
@@ -149,9 +149,8 @@ To turn on an app:
 
 1. Set the flag to `true` in `.env`.
 2. Run `uv run python manage.py migrate`.
-3. Run the app tests with the flag on, for example
-   `FILES_ENABLED=true WEBHOOKS_ENABLED=true uv run pytest files webhooks`.
-   The default `testpaths` do not include these apps.
+3. Run the app tests with the flag on: `just test-optional`. The default
+   `testpaths` do not include these apps; the TEST-OPTIONAL gate runs them.
 
 #### Webhook SSRF protection
 

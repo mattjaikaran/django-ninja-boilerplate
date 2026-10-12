@@ -74,7 +74,7 @@ def main(argv: list[str]) -> int:
             **os.environ,
             "DJANGO_SETTINGS_MODULE": "api.settings.test",
             "AI_ENABLED": "true",
-            "CI": "1",
+            "TEST_DB": "postgres",
             "DB_HOST": "127.0.0.1",
             "DB_PORT": str(port),
             "DB_NAME": "test_db",

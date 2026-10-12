@@ -12,7 +12,7 @@ from core.ai.services import hybrid_search, reachable
 
 needs_ai_db = pytest.mark.skipif(
     not apps.is_installed("core.ai") or connection.vendor != "postgresql",
-    reason="Needs AI_ENABLED=true and Postgres with pgvector (CI=1).",
+    reason="Needs AI_ENABLED=true and Postgres with pgvector (TEST_DB=postgres).",
 )
 
 
