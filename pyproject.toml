@@ -25,7 +25,7 @@ classifiers = [
 
 dependencies = [
     # Core Django: 5.2 LTS. Django 6 is blocked; see DEPENDENCIES.md.
-    "Django>=5.2,<6",
+    "Django>=5.2,<7",
     "django-environ>=0.13.0",
     # psycopg 3: Django's native pool (DATABASES OPTIONS["pool"]) needs it;
     # psycopg2 ignores the pool option.
