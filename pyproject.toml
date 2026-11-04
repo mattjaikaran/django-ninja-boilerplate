@@ -176,7 +176,7 @@ ai = [
     "pgvector>=0.5.0",
     # App-level MCP server. <2: the dev extra's django-ai-boost needs
     # fastmcp<4, which needs mcp<2.
-    "mcp>=1.28.1,<2",
+    "mcp>=1.28.1,<3",
 ]
 # Sentry or GlitchTip error reporting (core/observability/sentry.py).
 sentry = [
