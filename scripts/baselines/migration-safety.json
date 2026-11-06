@@ -1,0 +1,454 @@
+{
+  "version": 2,
+  "count": 64,
+  "issues": [
+    {
+      "rule_id": "SM019",
+      "app_label": "core",
+      "migration_name": "0001_initial",
+      "operation": "CreateModel(OneTimePassword)",
+      "operation_index": 1
+    },
+    {
+      "rule_id": "SM033",
+      "app_label": "core",
+      "migration_name": "0002_otpratelimit_alter_onetimepassword_options_and_more",
+      "operation": "AddField(onetimepassword.attempts)",
+      "operation_index": 3
+    },
+    {
+      "rule_id": "SM001",
+      "app_label": "core",
+      "migration_name": "0002_otpratelimit_alter_onetimepassword_options_and_more",
+      "operation": "AddField(onetimepassword.code)",
+      "operation_index": 4
+    },
+    {
+      "rule_id": "SM033",
+      "app_label": "core",
+      "migration_name": "0002_otpratelimit_alter_onetimepassword_options_and_more",
+      "operation": "AddField(onetimepassword.delivery_method)",
+      "operation_index": 5
+    },
+    {
+      "rule_id": "SM033",
+      "app_label": "core",
+      "migration_name": "0002_otpratelimit_alter_onetimepassword_options_and_more",
+      "operation": "AddField(onetimepassword.max_attempts)",
+      "operation_index": 7
+    },
+    {
+      "rule_id": "SM033",
+      "app_label": "core",
+      "migration_name": "0002_otpratelimit_alter_onetimepassword_options_and_more",
+      "operation": "AddField(onetimepassword.metadata)",
+      "operation_index": 8
+    },
+    {
+      "rule_id": "SM033",
+      "app_label": "core",
+      "migration_name": "0002_otpratelimit_alter_onetimepassword_options_and_more",
+      "operation": "AddField(onetimepassword.purpose)",
+      "operation_index": 9
+    },
+    {
+      "rule_id": "SM033",
+      "app_label": "core",
+      "migration_name": "0002_otpratelimit_alter_onetimepassword_options_and_more",
+      "operation": "AddField(onetimepassword.user_agent)",
+      "operation_index": 11
+    },
+    {
+      "rule_id": "SM033",
+      "app_label": "core",
+      "migration_name": "0002_otpratelimit_alter_onetimepassword_options_and_more",
+      "operation": "AddField(user.bio)",
+      "operation_index": 13
+    },
+    {
+      "rule_id": "SM033",
+      "app_label": "core",
+      "migration_name": "0002_otpratelimit_alter_onetimepassword_options_and_more",
+      "operation": "AddField(user.email_notifications)",
+      "operation_index": 14
+    },
+    {
+      "rule_id": "SM033",
+      "app_label": "core",
+      "migration_name": "0002_otpratelimit_alter_onetimepassword_options_and_more",
+      "operation": "AddField(user.is_active)",
+      "operation_index": 15
+    },
+    {
+      "rule_id": "SM033",
+      "app_label": "core",
+      "migration_name": "0002_otpratelimit_alter_onetimepassword_options_and_more",
+      "operation": "AddField(user.is_verified)",
+      "operation_index": 16
+    },
+    {
+      "rule_id": "SM033",
+      "app_label": "core",
+      "migration_name": "0002_otpratelimit_alter_onetimepassword_options_and_more",
+      "operation": "AddField(user.location)",
+      "operation_index": 17
+    },
+    {
+      "rule_id": "SM033",
+      "app_label": "core",
+      "migration_name": "0002_otpratelimit_alter_onetimepassword_options_and_more",
+      "operation": "AddField(user.metadata)",
+      "operation_index": 18
+    },
+    {
+      "rule_id": "SM033",
+      "app_label": "core",
+      "migration_name": "0002_otpratelimit_alter_onetimepassword_options_and_more",
+      "operation": "AddField(user.phone)",
+      "operation_index": 19
+    },
+    {
+      "rule_id": "SM033",
+      "app_label": "core",
+      "migration_name": "0002_otpratelimit_alter_onetimepassword_options_and_more",
+      "operation": "AddField(user.push_notifications)",
+      "operation_index": 20
+    },
+    {
+      "rule_id": "SM033",
+      "app_label": "core",
+      "migration_name": "0002_otpratelimit_alter_onetimepassword_options_and_more",
+      "operation": "AddField(user.timezone)",
+      "operation_index": 21
+    },
+    {
+      "rule_id": "SM001",
+      "app_label": "core",
+      "migration_name": "0002_otpratelimit_alter_onetimepassword_options_and_more",
+      "operation": "AddField(user.updated_at)",
+      "operation_index": 22
+    },
+    {
+      "rule_id": "SM033",
+      "app_label": "core",
+      "migration_name": "0002_otpratelimit_alter_onetimepassword_options_and_more",
+      "operation": "AddField(user.website)",
+      "operation_index": 23
+    },
+    {
+      "rule_id": "SM004",
+      "app_label": "core",
+      "migration_name": "0002_otpratelimit_alter_onetimepassword_options_and_more",
+      "operation": "AlterField(user.date_joined)",
+      "operation_index": 29
+    },
+    {
+      "rule_id": "SM004",
+      "app_label": "core",
+      "migration_name": "0002_otpratelimit_alter_onetimepassword_options_and_more",
+      "operation": "AlterField(user.email)",
+      "operation_index": 30
+    },
+    {
+      "rule_id": "SM004",
+      "app_label": "core",
+      "migration_name": "0002_otpratelimit_alter_onetimepassword_options_and_more",
+      "operation": "AlterField(user.username)",
+      "operation_index": 37
+    },
+    {
+      "rule_id": "SM015",
+      "app_label": "core",
+      "migration_name": "0002_otpratelimit_alter_onetimepassword_options_and_more",
+      "operation": "AlterUniqueTogether(otpratelimit)",
+      "operation_index": 50
+    },
+    {
+      "rule_id": "SM054",
+      "app_label": "core",
+      "migration_name": "0002_otpratelimit_alter_onetimepassword_options_and_more",
+      "operation": "Migration",
+      "operation_index": null
+    },
+    {
+      "rule_id": "SM019",
+      "app_label": "core",
+      "migration_name": "0003_feature_flags",
+      "operation": "CreateModel(FeatureFlagAuditLog)",
+      "operation_index": 1
+    },
+    {
+      "rule_id": "SM019",
+      "app_label": "core",
+      "migration_name": "0003_feature_flags",
+      "operation": "CreateModel(AuditLog)",
+      "operation_index": 2
+    },
+    {
+      "rule_id": "SM054",
+      "app_label": "core",
+      "migration_name": "0003_feature_flags",
+      "operation": "Migration",
+      "operation_index": null
+    },
+    {
+      "rule_id": "SM019",
+      "app_label": "core",
+      "migration_name": "0005_api_key",
+      "operation": "CreateModel(APIKey)",
+      "operation_index": 0
+    },
+    {
+      "rule_id": "SM028",
+      "app_label": "django_celery_beat",
+      "migration_name": "0001_initial",
+      "operation": "CreateModel(CrontabSchedule)",
+      "operation_index": 0
+    },
+    {
+      "rule_id": "SM028",
+      "app_label": "django_celery_beat",
+      "migration_name": "0001_initial",
+      "operation": "CreateModel(IntervalSchedule)",
+      "operation_index": 1
+    },
+    {
+      "rule_id": "SM028",
+      "app_label": "django_celery_beat",
+      "migration_name": "0001_initial",
+      "operation": "CreateModel(PeriodicTask)",
+      "operation_index": 2
+    },
+    {
+      "rule_id": "SM028",
+      "app_label": "django_celery_beat",
+      "migration_name": "0001_initial",
+      "operation": "CreateModel(PeriodicTasks)",
+      "operation_index": 3
+    },
+    {
+      "rule_id": "SM028",
+      "app_label": "django_celery_beat",
+      "migration_name": "0002_auto_20161118_0346",
+      "operation": "CreateModel(SolarSchedule)",
+      "operation_index": 0
+    },
+    {
+      "rule_id": "SM015",
+      "app_label": "django_celery_beat",
+      "migration_name": "0003_auto_20161209_0049",
+      "operation": "AlterUniqueTogether(solarschedule)",
+      "operation_index": 1
+    },
+    {
+      "rule_id": "SM054",
+      "app_label": "django_celery_beat",
+      "migration_name": "0006_auto_20180210_1226",
+      "operation": "Migration",
+      "operation_index": null
+    },
+    {
+      "rule_id": "SM033",
+      "app_label": "django_celery_beat",
+      "migration_name": "0006_auto_20180322_0932",
+      "operation": "AddField(crontabschedule.timezone)",
+      "operation_index": 1
+    },
+    {
+      "rule_id": "SM054",
+      "app_label": "django_celery_beat",
+      "migration_name": "0006_auto_20180322_0932",
+      "operation": "Migration",
+      "operation_index": null
+    },
+    {
+      "rule_id": "SM033",
+      "app_label": "django_celery_beat",
+      "migration_name": "0007_auto_20180521_0826",
+      "operation": "AddField(periodictask.one_off)",
+      "operation_index": 0
+    },
+    {
+      "rule_id": "SM054",
+      "app_label": "django_celery_beat",
+      "migration_name": "0008_auto_20180914_1922",
+      "operation": "Migration",
+      "operation_index": null
+    },
+    {
+      "rule_id": "SM033",
+      "app_label": "django_celery_beat",
+      "migration_name": "0009_periodictask_headers",
+      "operation": "AddField(periodictask.headers)",
+      "operation_index": 0
+    },
+    {
+      "rule_id": "SM054",
+      "app_label": "django_celery_beat",
+      "migration_name": "0010_auto_20190429_0326",
+      "operation": "Migration",
+      "operation_index": null
+    },
+    {
+      "rule_id": "SM028",
+      "app_label": "django_celery_beat",
+      "migration_name": "0011_auto_20190508_0153",
+      "operation": "CreateModel(ClockedSchedule)",
+      "operation_index": 0
+    },
+    {
+      "rule_id": "SM002",
+      "app_label": "django_celery_beat",
+      "migration_name": "0014_remove_clockedschedule_enabled",
+      "operation": "RemoveField(clockedschedule.enabled)",
+      "operation_index": 0
+    },
+    {
+      "rule_id": "SM019",
+      "app_label": "todos",
+      "migration_name": "0001_initial",
+      "operation": "CreateModel(Todo)",
+      "operation_index": 0
+    },
+    {
+      "rule_id": "SM033",
+      "app_label": "todos",
+      "migration_name": "0002_add_base_model_fields",
+      "operation": "AddField(todo.is_active)",
+      "operation_index": 1
+    },
+    {
+      "rule_id": "SM033",
+      "app_label": "todos",
+      "migration_name": "0002_add_base_model_fields",
+      "operation": "AddField(todo.metadata)",
+      "operation_index": 2
+    },
+    {
+      "rule_id": "SM004",
+      "app_label": "todos",
+      "migration_name": "0002_add_base_model_fields",
+      "operation": "AlterField(todo.created_at)",
+      "operation_index": 4
+    },
+    {
+      "rule_id": "SM004",
+      "app_label": "todos",
+      "migration_name": "0002_add_base_model_fields",
+      "operation": "AlterField(todo.updated_at)",
+      "operation_index": 6
+    },
+    {
+      "rule_id": "SM054",
+      "app_label": "todos",
+      "migration_name": "0002_add_base_model_fields",
+      "operation": "Migration",
+      "operation_index": null
+    },
+    {
+      "rule_id": "SM054",
+      "app_label": "todos",
+      "migration_name": "0003_todo_deleted_at_todo_deleted_by_and_more",
+      "operation": "Migration",
+      "operation_index": null
+    },
+    {
+      "rule_id": "SM028",
+      "app_label": "token_blacklist",
+      "migration_name": "0001_initial",
+      "operation": "CreateModel(BlacklistedToken)",
+      "operation_index": 0
+    },
+    {
+      "rule_id": "SM019",
+      "app_label": "token_blacklist",
+      "migration_name": "0001_initial",
+      "operation": "CreateModel(OutstandingToken)",
+      "operation_index": 1
+    },
+    {
+      "rule_id": "SM028",
+      "app_label": "token_blacklist",
+      "migration_name": "0001_initial",
+      "operation": "CreateModel(OutstandingToken)",
+      "operation_index": 1
+    },
+    {
+      "rule_id": "SM001",
+      "app_label": "token_blacklist",
+      "migration_name": "0001_initial",
+      "operation": "AddField(blacklistedtoken.token)",
+      "operation_index": 2
+    },
+    {
+      "rule_id": "SM008",
+      "app_label": "token_blacklist",
+      "migration_name": "0003_auto_20171017_2007",
+      "operation": "RunPython",
+      "operation_index": 0
+    },
+    {
+      "rule_id": "SM026",
+      "app_label": "token_blacklist",
+      "migration_name": "0003_auto_20171017_2007",
+      "operation": "RunPython",
+      "operation_index": 0
+    },
+    {
+      "rule_id": "SM004",
+      "app_label": "token_blacklist",
+      "migration_name": "0004_auto_20171017_2013",
+      "operation": "AlterField(outstandingtoken.jti_hex)",
+      "operation_index": 0
+    },
+    {
+      "rule_id": "SM020",
+      "app_label": "token_blacklist",
+      "migration_name": "0004_auto_20171017_2013",
+      "operation": "AlterField(outstandingtoken.jti_hex)",
+      "operation_index": 0
+    },
+    {
+      "rule_id": "SM002",
+      "app_label": "token_blacklist",
+      "migration_name": "0005_remove_outstandingtoken_jti",
+      "operation": "RemoveField(outstandingtoken.jti)",
+      "operation_index": 0
+    },
+    {
+      "rule_id": "SM006",
+      "app_label": "token_blacklist",
+      "migration_name": "0006_auto_20171017_2113",
+      "operation": "RenameField(outstandingtoken.jti_hex)",
+      "operation_index": 0
+    },
+    {
+      "rule_id": "SM029",
+      "app_label": "token_blacklist",
+      "migration_name": "0007_auto_20171017_2214",
+      "operation": "AlterField(outstandingtoken.created_at)",
+      "operation_index": 0
+    },
+    {
+      "rule_id": "SM029",
+      "app_label": "token_blacklist",
+      "migration_name": "0007_auto_20171017_2214",
+      "operation": "AlterField(outstandingtoken.user)",
+      "operation_index": 1
+    },
+    {
+      "rule_id": "SM004",
+      "app_label": "token_blacklist",
+      "migration_name": "0008_migrate_to_bigautofield",
+      "operation": "AlterField(blacklistedtoken.id)",
+      "operation_index": 0
+    },
+    {
+      "rule_id": "SM004",
+      "app_label": "token_blacklist",
+      "migration_name": "0008_migrate_to_bigautofield",
+      "operation": "AlterField(outstandingtoken.id)",
+      "operation_index": 1
+    }
+  ]
+}

@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 5
 requires-python = ">=3.13"
 resolution-markers = [
     "python_full_version >= '3.15' and sys_platform == 'linux'",
@@ -1118,6 +1118,7 @@ dev = [
     { name = "bandit" },
     { name = "commitizen" },
     { name = "django-ai-boost" },
+    { name = "django-safe-migrations" },
     { name = "django-stubs" },
     { name = "factory-boy" },
     { name = "faker" },
@@ -1204,6 +1205,7 @@ requires-dist = [
     { name = "django-q2", marker = "extra == 'django-q'", specifier = ">=1.7.0" },
     { name = "django-redis", specifier = ">=5.4.0" },
     { name = "django-rq", marker = "extra == 'django-rq'", specifier = ">=2.10.0" },
+    { name = "django-safe-migrations", marker = "extra == 'dev'", specifier = "==0.7.1" },
     { name = "django-storages", specifier = ">=1.14.6" },
     { name = "django-stubs", marker = "extra == 'dev'", specifier = ">=5.1.0" },
     { name = "django-unfold", specifier = ">=0.52.0" },
@@ -1360,6 +1362,18 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/b9/9d/7989e0e4df4ea4af1c95a1a6b751bdfe68d1ac0b15465fc1a0bcb679d551/django_rq-4.1.1.tar.gz", hash = "sha256:6976b8f50d22d844d350b2f0a26b209889bd60ece257b9888d4e5b7d17f622c3", size = 48776, upload-time = "2026-07-04T15:11:07.63Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/d7/32/512dfa80fce6390deb390da9492bcbabc4824b3f4574890e68daac13b2d4/django_rq-4.1.1-py3-none-any.whl", hash = "sha256:d10a14eaab06aebd223f0a7e5194d129ea126ac9236125150b2ff86e30f27dea", size = 73412, upload-time = "2026-07-04T15:11:06.068Z" },
+]
+
+[[package]]
+name = "django-safe-migrations"
+version = "0.7.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "django" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/cb/a1/88b7c68ab3bb338edcddc44f099bb6fd03e49b5784b3bd5f214017c6ae87/django_safe_migrations-0.7.1.tar.gz", hash = "sha256:45548dfad05fccafb4c3b36ce076598bf11eb8f6c984f406bc020651b7688995", size = 261739, upload-time = "2026-06-04T23:53:54.276Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/c7/53/39ed34371895d2bb0a5787c1e4a716070f9d0b7801a45fa4e9e7fb075b2f/django_safe_migrations-0.7.1-py3-none-any.whl", hash = "sha256:9be1cc93b2cd3c50defd7b21ae6fcda259e9e35a13d81d2a75d9da9c3d8f3555", size = 110413, upload-time = "2026-06-04T23:53:53.003Z" },
 ]
 
 [[package]]
@@ -3261,10 +3275,10 @@ resolution-markers = [
     "python_full_version < '3.14' and sys_platform != 'linux'",
 ]
 dependencies = [
-    { name = "annotated-types", marker = "python_full_version < '3.14'" },
-    { name = "pydantic-core", version = "2.33.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.14'" },
-    { name = "typing-extensions", version = "4.16.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.14'" },
-    { name = "typing-inspection", version = "0.4.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.14'" },
+    { name = "annotated-types" },
+    { name = "pydantic-core", version = "2.33.2", source = { registry = "https://pypi.org/simple" } },
+    { name = "typing-extensions", version = "4.16.0", source = { registry = "https://pypi.org/simple" } },
+    { name = "typing-inspection", version = "0.4.1", source = { registry = "https://pypi.org/simple" } },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/ff/5d/09a551ba512d7ca404d785072700d3f6727a02f6f3c24ecfd081c7cf0aa8/pydantic-2.11.9.tar.gz", hash = "sha256:6b8ffda597a14812a7975c90b82a8a2e777d9257aba3453f973acd3c032a18e2", size = 788495, upload-time = "2025-09-13T11:26:39.325Z" }
 wheels = [
@@ -3273,7 +3287,7 @@ wheels = [
 
 [package.optional-dependencies]
 email = [
-    { name = "email-validator", marker = "python_full_version < '3.14'" },
+    { name = "email-validator" },
 ]
 
 [[package]]
@@ -3287,11 +3301,11 @@ resolution-markers = [
     "python_full_version == '3.14.*' and sys_platform != 'linux'",
 ]
 dependencies = [
-    { name = "annotated-types", marker = "python_full_version >= '3.14'" },
-    { name = "pydantic-core", version = "2.46.5", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.14'" },
+    { name = "annotated-types" },
+    { name = "pydantic-core", version = "2.46.5", source = { registry = "https://pypi.org/simple" } },
     { name = "typing-extensions", version = "4.15.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.15'" },
-    { name = "typing-extensions", version = "4.16.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.14.*'" },
-    { name = "typing-inspection", version = "0.4.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.14'" },
+    { name = "typing-extensions", version = "4.16.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.15'" },
+    { name = "typing-inspection", version = "0.4.4", source = { registry = "https://pypi.org/simple" } },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/53/ef/fc4f868f4e2cee79f863883abffceff107875f569b848507319842d2a681/pydantic-2.13.5.tar.gz", hash = "sha256:51a9c5f7b2f8e636f04c6cada605d9b6a3bf1348fdf945a3d8869b19bba0ee08", size = 845750, upload-time = "2026-08-28T14:04:00.916Z" }
 wheels = [
@@ -3300,7 +3314,7 @@ wheels = [
 
 [package.optional-dependencies]
 email = [
-    { name = "email-validator", marker = "python_full_version >= '3.14'" },
+    { name = "email-validator" },
 ]
 
 [[package]]
@@ -3312,7 +3326,7 @@ resolution-markers = [
     "python_full_version < '3.14' and sys_platform != 'linux'",
 ]
 dependencies = [
-    { name = "typing-extensions", version = "4.16.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.14'" },
+    { name = "typing-extensions", version = "4.16.0", source = { registry = "https://pypi.org/simple" } },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/ad/88/5f2260bdfae97aabf98f1778d43f69574390ad787afb646292a638c923d4/pydantic_core-2.33.2.tar.gz", hash = "sha256:7cb8bc3605c29176e1b105350d2e6474142d7c1bd1d9327c4a9bdb46bf827acc", size = 435195, upload-time = "2025-04-23T18:33:52.104Z" }
 wheels = [
@@ -3347,7 +3361,7 @@ resolution-markers = [
 ]
 dependencies = [
     { name = "typing-extensions", version = "4.15.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.15'" },
-    { name = "typing-extensions", version = "4.16.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.14.*'" },
+    { name = "typing-extensions", version = "4.16.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.15'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/af/f9/8a06bea35ef8daf588f707784c973a7046e0034c8d8cfb08828eeffb8b75/pydantic_core-2.46.5.tar.gz", hash = "sha256:10416c15b8839ecc4ef4d0885da76da6fd0f67333a0eb8aff6d93c4b8f2910fc", size = 472262, upload-time = "2026-08-28T10:01:31.677Z" }
 wheels = [
@@ -3749,7 +3763,7 @@ name = "pyzstd"
 version = "0.19.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "backports-zstd", marker = "python_full_version < '3.14'" },
+    { name = "backports-zstd" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/4c/66/59fed71d0d2065e02974b40296f836a237c364c8bbe07295f2d0dc33c278/pyzstd-0.19.1.tar.gz", hash = "sha256:36723d3c915b3981de9198d0a2c82b2f5fe3eaa36e4d8d586937830a8afc7d72", size = 69531, upload-time = "2025-12-13T08:15:33.455Z" }
 wheels = [
@@ -4019,8 +4033,8 @@ name = "secretstorage"
 version = "3.5.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "cryptography", marker = "sys_platform == 'linux'" },
-    { name = "jeepney", marker = "sys_platform == 'linux'" },
+    { name = "cryptography" },
+    { name = "jeepney" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/1c/03/e834bcd866f2f8a49a85eaff47340affa3bfa391ee9912a952a1faa68c7b/secretstorage-3.5.0.tar.gz", hash = "sha256:f04b8e4689cbce351744d5537bf6b1329c6fc68f91fa666f60a380edddcd11be", size = 19884, upload-time = "2025-11-23T19:02:53.191Z" }
 wheels = [
@@ -4389,7 +4403,7 @@ resolution-markers = [
     "python_full_version < '3.14' and sys_platform != 'linux'",
 ]
 dependencies = [
-    { name = "typing-extensions", version = "4.16.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.14'" },
+    { name = "typing-extensions", version = "4.16.0", source = { registry = "https://pypi.org/simple" } },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/f8/b1/0c11f5058406b3af7609f121aaa6b609744687f1d158b3c3a5bf4cc94238/typing_inspection-0.4.1.tar.gz", hash = "sha256:6ae134cc0203c33377d43188d4064e9b357dba58cff3185f22924610e70a9d28", size = 75726, upload-time = "2025-05-21T18:55:23.885Z" }
 wheels = [
@@ -4408,7 +4422,7 @@ resolution-markers = [
 ]
 dependencies = [
     { name = "typing-extensions", version = "4.15.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.15'" },
-    { name = "typing-extensions", version = "4.16.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.14.*'" },
+    { name = "typing-extensions", version = "4.16.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.15'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/a3/26/b09b8010994eccc3c09092e6b34058f36a460eea2d4c3e8b910c695975a0/typing_inspection-0.4.4.tar.gz", hash = "sha256:547274fa6b0a561ccf549cc9524b999a578e737d015d8709d021f9d0d13bea47", size = 76928, upload-time = "2026-08-12T12:37:25.997Z" }
 wheels = [

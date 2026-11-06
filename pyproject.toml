@@ -110,6 +110,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
+    "django-safe-migrations==0.7.1",
     "ruff>=0.15.10",
     "pip-audit>=2.7.0",
     "pytest>=9.0.3",

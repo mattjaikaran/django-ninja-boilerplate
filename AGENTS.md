@@ -73,7 +73,21 @@ Do not delegate the top-level plan.
 
 - No database access or `try/except` around ORM lookups in a controller: use
   a service and `get_object_or_404`.
-- Never edit an existing migration; run `makemigrations`.
+- Migrations are linearized, never merged. **Never run
+  `makemigrations --merge`** and never add a merge migration.
+- Never edit a migration that is already on `main`; run `makemigrations`, or
+  renumber your own files.
+- After you add or change a model or a migration, and before you push, run
+  `just migrations-check`.
+- On a migration conflict (two leaf nodes, or the same number as main) run
+  `just migrations-renumber` (dry run), then
+  `just migrations-renumber --apply`. It renames only your own files after
+  main's latest and migrates a scratch DB.
+- When it prints `escalate to owner` (`RunPython`, `RunSQL`, `RemoveField`,
+  `RenameField`, `DeleteModel`, `replaces`, or a clashing `AlterField`), stop
+  and report it. Rule exceptions live in `api/settings/migration_lint.py`;
+  inline `# safe-migrations: ignore` comments are banned. Existing findings
+  live in `scripts/baselines/migration-safety.json`.
 - Never hide invalid state with a fallback. Fail loud with
   `ImproperlyConfigured` or a 500 that carries the real error.
 - No `.raw()` or `.extra()`: use the ORM, `Subquery` or `OuterRef`.
