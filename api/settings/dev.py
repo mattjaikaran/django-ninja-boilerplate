@@ -8,9 +8,12 @@ from .common import *
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env("DEBUG", default=True)
 
-# Allowed hosts for development
+# Allowed hosts for development. `django` is this repo's Compose service;
+# `api-dev` is the service name in mattstack monorepos, whose frontend proxies
+# forward that Host header (issue #43). ALLOWED_HOSTS in .env overrides both.
 ALLOWED_HOSTS = env.list(
-    "ALLOWED_HOSTS", default=["localhost", "127.0.0.1", "0.0.0.0", "django"]
+    "ALLOWED_HOSTS",
+    default=["localhost", "127.0.0.1", "0.0.0.0", "django", "api-dev"],
 )
 
 # Local frontends: port 3000 (Next.js, Rsbuild) and 5173 (Vite), plus

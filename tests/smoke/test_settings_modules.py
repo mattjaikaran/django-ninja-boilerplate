@@ -76,7 +76,10 @@ print("PROBE:" + json.dumps({
 
 
 def _run_probe(
-    module: str, drop: tuple[str, ...] = (), **overrides: str
+    module: str,
+    drop: tuple[str, ...] = (),
+    unset: tuple[str, ...] = (),
+    **overrides: str,
 ) -> subprocess.CompletedProcess:
     """Run the PROBE subprocess for *module* without asserting success.
 
@@ -85,6 +88,9 @@ def _run_probe(
         drop: Environment variable names to blank (simulate an unset
             variable). They are set to "" rather than removed, because
             environ.Env.read_env would refill a removed key from a local .env.
+        unset: Environment variable names to remove, so the settings module
+            falls back to its default. Pair with ``DJANGO_READ_DOT_ENV=0`` so
+            a local .env cannot refill the variable.
         **overrides: Extra environment variables for the subprocess.
 
     Returns:
@@ -97,6 +103,8 @@ def _run_probe(
     env.pop("DJANGO_ENV", None)
     for key in drop:
         env[key] = ""
+    for key in unset:
+        env.pop(key, None)
     env.update(overrides)
 
     return subprocess.run(
@@ -109,11 +117,12 @@ def _run_probe(
     )
 
 
-def probe(module: str, **overrides: str) -> dict:
+def probe(module: str, unset: tuple[str, ...] = (), **overrides: str) -> dict:
     """Import *module* in a subprocess and return the settings it produced.
 
     Args:
         module: Dotted settings module to load.
+        unset: Environment variable names to remove before the import.
         **overrides: Extra environment variables for the subprocess.
 
     Returns:
@@ -122,7 +131,7 @@ def probe(module: str, **overrides: str) -> dict:
     Raises:
         AssertionError: If the subprocess fails to import the module.
     """
-    result = _run_probe(module, **overrides)
+    result = _run_probe(module, unset=unset, **overrides)
     assert result.returncode == 0, (
         f"{module} failed to import with "
         f"{overrides or 'no overrides'}:\n{result.stderr}"
@@ -405,3 +414,14 @@ class TestDevelopmentSettings:
         assert {queue["URL"] for queue in data["rq_queues"].values()} == {
             "redis://localhost:6380/0"
         }
+
+    def test_default_allowed_hosts_accept_the_api_dev_service_name(self):
+        """mattstack monorepos name the API service ``api-dev``; a frontend
+        proxy forwards that Host header to Django (issue #43)."""
+        data = probe(
+            "api.settings.dev",
+            ENVIRONMENT="development",
+            DJANGO_READ_DOT_ENV="0",
+            unset=("ALLOWED_HOSTS",),
+        )
+        assert "api-dev" in data["allowed_hosts"]

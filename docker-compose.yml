@@ -197,7 +197,7 @@ services:
       - FLOWER_URL=${FLOWER_URL:-}
       - UV_PROJECT_ENVIRONMENT=/opt/venv
       - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
-      - ALLOWED_HOSTS=${ALLOWED_HOSTS:-localhost,127.0.0.1,0.0.0.0,django}
+      - ALLOWED_HOSTS=${ALLOWED_HOSTS:-localhost,127.0.0.1,0.0.0.0,django,api-dev}
       # Centrifugo settings
       - CENTRIFUGO_URL=http://centrifugo:8000
       - CENTRIFUGO_API_KEY=${CENTRIFUGO_API_KEY:-}
