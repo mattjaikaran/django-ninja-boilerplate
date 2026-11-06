@@ -130,8 +130,8 @@ Do not delegate the top-level plan.
 ### Tooling, tasks and code
 
 - `uv`, not `pip` or `poetry`. `bun`, not `npm` or `yarn`. `ruff`, not
-  `black`, `isort` or `flake8`. `mypy` for types. `rg` or the `search`
-  recipe, not `grep -r`.
+  `black`, `isort` or `flake8`. `mypy` for types. `rg` or the justfile
+  `search` recipe, not `grep -r`.
 - Each new dependency needs a `DEPENDENCIES.md` entry.
 - One `docker-compose.yml`: add services under a profile. A service that
   depends on `db` or `valkey` adds its profile to that service's `profiles`.
