@@ -141,9 +141,11 @@ uv run python scripts/tickets.py check
 git diff --check origin/main...HEAD
 ```
 
-Expected: 8 tests pass, the OpenAPI contract is current and schema parity
-passes, and the tickets check passes. Finish with `just gauntlet-quick`; on a
-host whose `just` cannot evaluate the justfile, run
+Expected: 13 tests pass in `tests/contract/test_openapi_contract.py` (the 12
+collected today plus `test_info_version_is_the_release_version`), the OpenAPI
+contract is current and schema parity passes, and the tickets check passes.
+Finish with `just gauntlet-quick`; on a host whose `just` cannot evaluate the
+justfile, run
 `uv run --python 3.13 --extra dev python scripts/gauntlet.py --quick --verbose`
 instead and say so in the PR body.
 
