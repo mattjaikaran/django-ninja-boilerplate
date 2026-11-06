@@ -215,7 +215,7 @@ Performance-critical components use Rust under the hood:
 - **[uv](https://docs.astral.sh/uv/)** - Package management (replaces pip/poetry)
 - **[Ruff](https://docs.astral.sh/ruff/)** - Linting and formatting (replaces flake8/black/isort)
 - **[ty](https://github.com/astral-sh/ty)** - Type checking (alongside mypy)
-- **[pydantic-core](https://github.com/pydantic/pydantic-core)** - Validation engine (5-50x faster than v1)
+- **[pydantic-core](https://github.com/pydantic/pydantic-core)** - Validation engine behind Pydantic (direct base dependency in `pyproject.toml`)
 - **[orjson](https://github.com/ijl/orjson)** - JSON serialization (2-10x faster than stdlib)
 - **[django-vcache](https://pypi.org/project/django-vcache/)** - Cache I/O driver (default backend)
 
@@ -1642,7 +1642,7 @@ Export your API specification and generate client SDKs:
 
 ```bash
 # Export OpenAPI specification
-just legacy openapi
+just openapi
 
 # Generate TypeScript and Python SDK clients
 just legacy sdk
@@ -1677,11 +1677,11 @@ python manage.py export_openapi --sdk-python
 
 #### API Changelog
 
-Compare API versions to generate changelogs:
+Compare two exported OpenAPI specs to generate a changelog:
 
 ```bash
-# Generate changelog between two API versions
-just legacy changelog OLD=docs/openapi/openapi-v1.json NEW=docs/openapi/openapi-v2.json
+# Generate changelog between two spec files
+just legacy changelog OLD=old.json NEW=new.json
 
 # Or use the script directly
 python scripts/openapi/generate_changelog.py old.json new.json -o CHANGELOG.md

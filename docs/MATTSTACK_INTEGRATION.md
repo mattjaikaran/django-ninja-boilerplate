@@ -40,9 +40,6 @@ excludes installed dependencies and caches. Nonblocking findings remain
 warnings: JSON distinguishes `all_passed`, `blocking_passed`, and
 `has_warnings`. A zero exit with warnings is not an all-clear.
 
-Keep Gauntlet PR #1 separate. These source scripts and hooks do not require
-or establish the availability of that PR's binary.
-
 For standalone source hooks, run `uv sync --extra dev` before installation.
 The source's audit hook runs `python -m pip_audit` in that project environment
 without syncing. It skips the editable application, not third-party
@@ -68,7 +65,7 @@ Flycast/IAM access, public realtime routing, or bucket provisioning.
 
 ### Use the Gauntlet for:
 - Every commit (`pre-commit` hooks)
-- Every PR (`just gauntlet-quick` in CI)
+- Every push (the pre-push hook runs `just gauntlet-quick`)
 - Catching AI anti-patterns (DRF imports, raw Schema, `as any`, `@ts-ignore`)
 - Framework-specific conventions (decorator order, component patterns)
 - Mid-generation interruption (TTSR rules)
@@ -127,7 +124,7 @@ See [docs/product/README.md](product/README.md) for the full sync rules.
   ┌───────▼────────┐  ┌───────▼────────┐  ┌───────▼────────┐
   │ Backend        │  │ Cross-Stack    │  │ Frontend       │
   │ Gauntlet       │  │ Checker        │  │ Gauntlet       │
-  │ (11 gates)     │  │ (5 checks)     │  │ (6 gates)      │
+  │ (partial list) │  │ (5 checks)     │  │ (6 gates)      │
   │                │  │                │  │                │
   │ format         │  │ naming         │  │ format         │
   │ lint           │  │ schema parity  │  │ lint:strict    │
