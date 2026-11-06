@@ -43,6 +43,7 @@ class SessionController:
     """
 
     @http_get("/csrf", response={200: CsrfTokenSchema}, auth=None)
+    @throttle(DynamicRateThrottle, scope="anon-read")
     def get_csrf_token(self, request):
         """Set the readable ``csrftoken`` cookie and return the same token.
 

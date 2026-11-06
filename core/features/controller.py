@@ -16,6 +16,7 @@ from ninja_extra import (
 )
 from ninja_extra.pagination import PageNumberPaginationExtra, paginate
 from ninja_extra.schemas import PaginatedResponseSchema
+from ninja_extra.throttling import DynamicRateThrottle, throttle
 from ninja_jwt.authentication import JWTAuth
 
 from api.decorators import log_api_call
@@ -245,6 +246,7 @@ class FeatureFlagController:
     """
 
     @http_post("/check", response={200: FlagStatusSchema, 404: dict}, auth=None)
+    @throttle(DynamicRateThrottle, scope="anon-read")
     @log_api_call(include_payload=True)
     def check_flag(self, request, payload: CheckFlagSchema):
         """Check if a feature flag is enabled.
@@ -292,6 +294,7 @@ class FeatureFlagController:
         return 200, UserFlagsSchema(flags=flags)
 
     @http_get("/{flag_name}", response={200: FlagStatusSchema, 404: dict}, auth=None)
+    @throttle(DynamicRateThrottle, scope="anon-read")
     @log_api_call()
     def get_flag_status(self, request, flag_name: str):
         """Get the status of a specific feature flag.

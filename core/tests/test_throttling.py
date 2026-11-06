@@ -92,6 +92,20 @@ class TestTrustedProxyChain:
 
 
 # =============================================================================
+# Public reads
+# =============================================================================
+
+
+class TestPublicReadScope:
+    def test_csrf_public_read_survives_a_page_view_cadence(self, api_client):
+        # A page view calls GET /auth/csrf. The public-read budget is 600/min;
+        # the old 100/day anon budget would 429 long before that.
+        for _ in range(600):
+            assert api_client.get("/api/auth/csrf").status_code == 200
+        assert api_client.get("/api/auth/csrf").status_code == 429
+
+
+# =============================================================================
 # Unthrottled probes
 # =============================================================================
 

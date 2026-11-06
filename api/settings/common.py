@@ -317,7 +317,10 @@ NINJA_EXTRA = {
     ],
     "THROTTLE_RATES": {
         "user": "1000/day",  # authenticated general API
-        "anon": "100/day",  # anonymous general API
+        "anon": "100/day",  # anonymous general API (writes and probes)
+        # Public reads are page views: CSRF bootstrap, feature-flag status.
+        # Keep them off the 100/day anon budget so browsing never 429s.
+        "anon-read": "600/min",
         "anon-auth": "20/min",  # credential endpoints (login, token, verify)
         "anon-email": "5/min",  # magic-link request (email sending)
         "tasks": "60/min",  # task admin endpoints

@@ -424,3 +424,20 @@ To throttle every route on a controller, pass
 `throttle=DynamicRateThrottle(scope="...")` to `@api_controller`, as
 `core/controllers/otp_controller.py` does. `handle_throttled` in `api/urls.py`
 returns 429 with a `Retry-After` header and a `retry_after` body field.
+
+### Public read endpoint
+
+A public read is a page view, so it must not consume the 100/day `anon`
+budget. Declare the operation public and give it the `anon-read` scope
+(600/min per client):
+
+```python
+# Inside NoteController. The path is static, so put it before /{note_id}.
+    @http_get("/public/{slug}", response={200: NoteSchema, 404: dict}, auth=None)
+    @throttle(DynamicRateThrottle, scope="anon-read")
+    @log_api_call()
+    def get_public_note(self, request, slug: str):
+        return 200, self.service.get_public(slug)
+```
+
+`GET /api/auth/csrf` and the feature-flag status reads use the same scope.
