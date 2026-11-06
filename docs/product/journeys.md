@@ -5,10 +5,10 @@ journeys that prove them, the backend surface each journey needs, the backend
 test that proves that surface, and the Playwright test that will prove the
 journey end to end.
 
-`FEATURES.md` and `journeys/J-NNN-slug.md` remain the source of truth for the
-JOURNEYS gate. This file adds the delivery order: build the backend first,
-then the frontend, then the Playwright test. Keep the three in step, as
-[README.md](README.md) describes.
+`FEATURES.md` and the journey files in `docs/product/journeys/` remain the
+source of truth for the JOURNEYS gate. This file adds the delivery order:
+build the backend first, then the frontend, then the Playwright test. Keep
+the three in step, as [README.md](README.md) describes.
 
 Only two layers prove a journey: its backend smoke test and its Playwright
 test. Contract and permission tests guard API boundaries; they do not prove
@@ -71,8 +71,9 @@ Playwright tests for it.
 | J-002 | Manage todos | US-05 | `GET/POST /api/todos/`, `GET/PUT/DELETE /api/todos/{todo_id}`, `GET /api/todos/search`, `GET /api/todos/completed`, `GET /api/todos/pending` | `tests/smoke/test_smoke.py::test_todos_basic_list`; `todos/tests/test_todo.py::TestTodoAPI`; `tests/smoke/test_smoke.py::test_get_route_sweep` for search and filters | `e2e/j002-todos.spec.ts` in the frontend repo |
 | J-003 | Manage API keys | US-04 | `POST/GET /api/api-keys/`, `POST /api/api-keys/{key_id}/rotate`, `DELETE /api/api-keys/{key_id}` | `tests/smoke/test_j003_api_keys.py` | `e2e/j003-api-keys.spec.ts` in the frontend repo |
 
-A journey row is valid only when `journeys/J-NNN-slug.md` exists and the gate
-reports no error. Add the journey file and this row in the same change.
+A journey row is valid only when its journey file exists in
+`docs/product/journeys/` and the gate reports no error. Add the journey file
+and this row in the same change.
 
 ## Backend smoke tests
 
@@ -92,8 +93,8 @@ they catch a consumer-visible break, not a wiring or mock detail. Use the
 
 1. Add the user story to the table if it is new.
 2. Ship the W1 backend surface with its smoke test, and run `just openapi`.
-3. Write `journeys/J-NNN-slug.md` with steps, stories, features and
-   acceptance lines, and add the row above.
+3. Write the journey file in `docs/product/journeys/` with steps, stories,
+   features and acceptance lines, and add the row above.
 4. Ship W2 in the frontend repo, then the tagged W3 Playwright test.
 5. Run `just check-journeys` and fix every error before you set the journey
    to `done`.

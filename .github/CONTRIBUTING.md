@@ -184,7 +184,7 @@ Follow these conventions:
 4. **Naming**:
    - `snake_case` for functions, variables, and modules
    - `PascalCase` for classes
-   - `UPPER_SNAKE_CASE` for constants
+   - UPPER_SNAKE_CASE for constants
 
 **Example:**
 
@@ -238,7 +238,7 @@ Use descriptive branch names:
 
 - `feature/add-user-authentication`
 - `fix/resolve-token-expiration-bug`
-- `docs/update-api-reference`
+- `documentation/update-api-reference`
 - `refactor/simplify-database-queries`
 - `test/add-integration-tests`
 

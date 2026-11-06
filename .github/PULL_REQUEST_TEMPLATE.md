@@ -19,7 +19,7 @@
 - Wave: W1 backend / W2 frontend / W3 Playwright / W4 optional apps and scale
 - Size: S / M / L
 - Batch issues: (list the issues this PR closes together, or n/a)
-- Spec or ticket: `tasks/specs/S-...` or `docs/tickets/T-...` (or n/a)
+- Spec or ticket: S-NNN in `tasks/specs/` or T-NNN in `docs/tickets/` (or n/a)
 
 ## Type of Change
 

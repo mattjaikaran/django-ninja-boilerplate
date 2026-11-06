@@ -215,7 +215,7 @@ visible and reviewable.
    `gh auth login --with-token < bot-token.txt`, then delete the file. `gh`
    keeps the token in the system credential store unless you pass
    `--insecure-storage` ([gh auth login](https://cli.github.com/manual/gh_auth_login)).
-   Do not export `GH_TOKEN` from a shell profile: every process, including
+   Do not export GH_TOKEN from a shell profile: every process, including
    the agent, can read it. Set an expiry date on the token. Never sign in as
    the bot on your own machine.
 4. Protect `main`: require a pull request with one approval before merging.

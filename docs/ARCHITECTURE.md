@@ -81,7 +81,7 @@ before the trigger fires.
 | # | Decision | Reason | Status |
 |---|----------|--------|--------|
 | 1 | Modular monolith for the product domain | One transaction boundary, one auth model, one OpenAPI contract, one deploy. Module boundaries keep the option to extract a service later. | Adopted |
-| 2 | One public API: Django Ninja at `/api`, no version prefix | Clients see one contract. Internal services sit behind it. No gateway until a second public API exists. | Adopted |
+| 2 | One public API: Django Ninja at the /api root, no version prefix | Clients see one contract. Internal services sit behind it. No gateway until a second public API exists. | Adopted |
 | 3 | Bounded-context Django apps behind service interfaces | `core`, `todos`, `organizations`, `notifications`, `billing`, `files`, `webhooks`, `journeys` and `atlas` own their data. Cross-app calls go through a service, never a controller or another app's models. | Adopted, enforced by `scripts/check_architecture.py` |
 | 4 | Module boundaries follow SOLID | One reason to change per controller, service, schema file. Depend on the service interface, not on a concrete collaborator. Extend through a new controller or service, not by editing unrelated apps. Small interfaces beat a general-purpose helper. | Adopted, see [Boundary rules](#boundary-rules) |
 | 5 | Transactional outbox in Postgres, published to Valkey Streams (the Redis Streams API) | Apps react to `TodoCompleted`, `SubscriptionChanged`, `NotificationSent` without importing each other. The outbox commits with the domain row, so the event cannot be lost. The consumer reads a stream and is at-least-once. | Trigger: a second app must react to a domain event |
@@ -224,10 +224,10 @@ The `files` and `webhooks` apps are off by default. Each app has a flag in
 
 | Setting | Default | Purpose |
 |---|---|---|
-| `FILES_ENABLED` | `false` | Installs `files` and registers `/api/files/`. |
+| `FILES_ENABLED` | `false` | Installs `files` and registers its routes under /api/files/. |
 | `FILES_MAX_UPLOAD_BYTES` | `10485760` | Largest accepted upload, in bytes. |
 | `FILES_ALLOWED_CONTENT_TYPES` | JPEG, PNG, GIF, WebP, PDF | Accepted content types. |
-| `WEBHOOKS_ENABLED` | `false` | Installs `webhooks` and registers `/api/webhooks/`. |
+| `WEBHOOKS_ENABLED` | `false` | Installs `webhooks` and registers its routes under /api/webhooks/. |
 | `WEBHOOKS_ALLOW_HTTP` | `false` | Accepts `http://` webhook URLs outside `DEBUG`. |
 
 To turn on an app:
