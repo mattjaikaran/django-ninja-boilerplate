@@ -23,6 +23,12 @@ The script uses the Python standard library only.
 | `NEO4J_PASSWORD` | 32 characters | Compose `:?` guard (`graph` profile). |
 | `SUPERUSER_PASSWORD` | 32 characters | `docker-entrypoint.sh` and `create_superuser` refuse published defaults and passwords shorter than 12 characters outside development. |
 
+`create_superuser` requires `SUPERUSER_EMAIL`, `SUPERUSER_USERNAME`,
+`SUPERUSER_PASSWORD`, `SUPERUSER_FIRST_NAME` and `SUPERUSER_LAST_NAME`. It
+exits non-zero when one is empty, the password is refused, or creation fails,
+and it reports `SUPERUSER_EMAIL` as the login because the user model logs in
+by email.
+
 Values use letters and digits only, so no value needs quoting in `.env`, in a
 `redis://:PASSWORD@host` URL, or in a shell argument, and Compose never
 interpolates a `$`.
