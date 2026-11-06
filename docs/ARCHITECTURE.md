@@ -93,16 +93,29 @@ before the trigger fires.
 
 ### Boundary rules
 
-These rules are what SOLID means in this codebase. The gauntlet checks the
-first three.
+These rules are what SOLID means in this codebase. Two gates enforce part of
+them; the rest is review guidance.
+
+- `scripts/check_architecture.py` (ARCHITECTURE gate) enforces rule 1: models
+  and migrations import no controller, service or schema, and a service
+  imports no controller. It also flags a controller that imports another
+  app's controller (`CROSS-CTRL`), which is one case of rule 5.
+- `scripts/check_conventions.py` (CONVENTIONS gate) enforces the controller
+  shape in rule 2: `ROUTER_USAGE` requires a class-based `@api_controller`,
+  and `CONTROLLER_REG` requires it in `api/urls.py`. `DECORATOR_ORDER` and
+  `UNSCOPED_QUERY` support rules 1 and 4.
+- One controller per file, one schema file per domain, one service per
+  domain, open for extension (rule 3) and depending on the interface (rule 4)
+  are review guidance. No gate checks them.
 
 1. **Layers flow one way.** Controller calls service, service calls model.
    Models import no schema, service or controller. Migrations import no
    controller, service or schema.
-2. **One public class per file.** One `@api_controller` per file in
-   `<app>/controllers/`; one `<Name>Schema`, `Create<Name>Schema` and
-   `Update<Name>Schema` per domain in `<app>/schemas/`; one service extending
-   `CRUDService` in `<app>/services/`.
+2. **One responsibility per file.** One `@api_controller` per file in
+   `<app>/controllers/`; one schema file per domain,
+   `<app>/schemas/<name>_schema.py`, holding `<Name>Schema`,
+   `Create<Name>Schema` and `Update<Name>Schema` together as AGENTS.md
+   requires; one service extending `CRUDService` in `<app>/services/`.
 3. **Open for extension.** Add a controller or a service method for new
    behaviour. Do not add a mode flag to an existing handler that switches
    between two behaviours.
