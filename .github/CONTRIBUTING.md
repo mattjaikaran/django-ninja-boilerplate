@@ -234,13 +234,16 @@ def get_user_by_email(email: str) -> Optional[User]:
 
 ### Branch Naming
 
-Use descriptive branch names:
+Use a type prefix and a short description:
 
-- `feature/add-user-authentication`
-- `fix/resolve-token-expiration-bug`
-- `documentation/update-api-reference`
-- `refactor/simplify-database-queries`
-- `test/add-integration-tests`
+```
+feature/add-user-authentication
+fix/resolve-token-expiration-bug
+refactor/simplify-database-queries
+docs/update-api-reference
+test/add-integration-tests
+chore/update-dependencies
+```
 
 ### Creating a Branch
 
@@ -289,8 +292,8 @@ delivery waves.
 2. Work the waves in order: W1 backend, W2 frontend, W3 Playwright, W4
    optional apps and scale. Do not start W2 for a journey whose backend smoke
    test is missing or failing.
-3. Branch from `main`: `feature/`, `fix/`, `refactor/` or `chore/`. Overnight
-   agents use `agent/<Spec ID>`.
+3. Branch from `main`: `feature/`, `fix/`, `refactor/`, `docs/`, `test/` or
+   `chore/`. Overnight agents use `agent/<Spec ID>`.
 4. Commit with `<type>(<scope>): <Capitalized imperative summary>`. Keep the
    subject at 50 characters or fewer and wrap the body at 72.
 5. Open a PR with the template. Put `Closes #N` for every issue it closes.
