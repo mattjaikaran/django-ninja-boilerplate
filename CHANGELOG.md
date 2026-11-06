@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- OpenAPI `info.version` now reports the release version from the `VERSION` file instead of the hardcoded `0.1`, so a generated client can identify the build that published the schema.
+- Documented the API versioning policy in `README.md` and `docs/ARCHITECTURE.md`: the API mounts once at `/api/` as v1 with no version prefix, and a breaking v2 ships at `/api/v2/` while `/api/` keeps serving v1.
+
 ## [1.14.0] - 2026-10-12
 
 Upgrading from 1.13.0? Follow the 1.13.0 to 1.14.0 section of
