@@ -389,9 +389,11 @@ imports `crontab`. The `task` value must match the `name=` of the task.
 
 ## Example 4: Rate limiting and pagination
 
-`NINJA_EXTRA["THROTTLE_CLASSES"]` in `api/settings/common.py` applies
-`AnonRateThrottle` and `UserRateThrottle` to every route. Add a scoped
-throttle only for an expensive or abusable operation. For pagination, see the
+`NINJA_EXTRA["THROTTLE_CLASSES"]` in `api/settings/common.py` is the class
+list a bare `@throttle` (no arguments) uses. It does not throttle a route by
+itself: Ninja Extra applies a throttle only to a controller or a handler that
+names one. Add a scoped throttle for an expensive or abusable operation, and
+for a public read that needs its own budget. For pagination, see the
 `list_notes` handler in Example 1.
 
 ### Per-operation throttle
