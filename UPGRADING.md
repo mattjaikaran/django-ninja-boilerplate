@@ -13,7 +13,7 @@ full list. To copy single modules instead of merging, see
 | Change | What to do |
 |---|---|
 | `GET /api/todos*/completed`, `/pending` and `/search`, and `GET /api/audit/actions`, `/models` and `/failed-logins`, returned `400` or `422` because an earlier `/{id}` handler caught them. They now return their lists. | Remove any client workaround for those errors. |
-| Apps made with `generate_feature graphql` now serve `/api/graphql/` instead of `/graphql/`; the bundled nginx proxies only `/api/` and `/admin/`. Every query needs authentication and `users` is staff-only. | Point GraphQL clients at `/api/graphql/`. Regenerate an existing GraphQL app or port the changes by hand. |
+| Apps made with `generate_feature graphql` now serve /api/graphql/ instead of `/graphql/`; the bundled nginx proxies only /api/ and `/admin/`. Every query needs authentication and `users` is staff-only. | Point GraphQL clients at /api/graphql/. Regenerate an existing GraphQL app or port the changes by hand. |
 
 ### Production configuration
 
@@ -54,7 +54,7 @@ A regenerated app has a different API from one generated before 1.14.0:
 | Generator | Difference |
 |---|---|
 | `api_endpoint` | Same app as `startapp_extended`: fields `title` and `description`, owner `user` (was `name` and `created_by`). |
-| `graphql` | Served at `/api/graphql/`; every field needs authentication; `users` is staff-only. |
+| `graphql` | Served at /api/graphql/; every field needs authentication; `users` is staff-only. |
 | `chat` | Reactions use names (`heart`, `thumbs_up`); the message list uses `@paginate`, newest first. |
 | `organization` | Decline an invitation with `POST /invitations/{id}/decline` (was `DELETE`); change the owner only through transfer-ownership. |
 | `rbac` | Every route needs `IsAdminUser` except `GET /api/rbac/me/permissions`. |
@@ -64,8 +64,8 @@ A regenerated app has a different API from one generated before 1.14.0:
 
 | Change | What to do |
 |---|---|
-| No coverage floor and no mutation testing: `--cov-fail-under`, `--cov` in the default pytest options, the MUTATION gate, `just mutation-test`, `[tool.mutmut]` and `mutmut` are gone. | Remove local scripts that call them. `just test-coverage` still prints a report. |
-| The pytest journey generator is gone: `scripts/generate_e2e_tests.py`, `tests/user_journeys.example.yaml`, `tests/e2e/` and the `make` targets `generate-e2e`, `generate-e2e-dry`, `test-e2e`, `local-test-e2e`, `mutation-test`. | Move journeys to `docs/product/` and Playwright (see `docs/product/README.md`). |
+| No coverage floor and no mutation testing: `--cov-fail-under`, `--cov` in the default pytest options, the MUTATION gate, just mutation-test, `[tool.mutmut]` and `mutmut` are gone. | Remove local scripts that call them. `just test-coverage` still prints a report. |
+| The pytest journey generator is gone: scripts/generate_e2e_tests.py, tests/user_journeys.example.yaml, tests/e2e/ and the `make` targets `generate-e2e`, `generate-e2e-dry`, `test-e2e`, `local-test-e2e`, `mutation-test`. | Move journeys to `docs/product/` and Playwright (see `docs/product/README.md`). |
 | New gates: JOURNEYS (`just check-journeys`), TICKETS (`just tickets check`) and TEST-OPTIONAL (`just test-optional`). | Keep `docs/product/` and `docs/tickets/` valid, or remove the gates you do not use from `scripts/gauntlet.py`. |
 | `pyyaml` is a base dependency; the `unit` pytest marker is gone. | Run `uv sync`. Remove `@pytest.mark.unit`. |
 | The testing policy in `AGENTS.md` section 10 allows smoke, contract, permission and regression tests only. | Prune unit and mock tests with tickets, as `docs/tickets/PRUNE_PLAN.md` shows. |
@@ -98,13 +98,13 @@ A regenerated app has a different API from one generated before 1.14.0:
 |---|---|
 | `POST /api/auth/signup` returns `202` with `{"message": "Check your email to finish signing up.", "success": true}` for every address. It no longer returns `201` with the user, or `400` for a taken email or username. `400` now means only a password validation error. | Show a "check your email" screen. Do not read a user from the signup response. |
 | Every response serialises by its camelCase alias (`userId`, `sessionId`, `stripePriceId`). Some dict responses used to send snake_case. | Read camelCase keys. Regenerate clients from `docs/openapi/openapi.json`. |
-| Unsafe `/api/` requests that carry no `Authorization` or `X-API-Key` header need `X-CSRFToken`, including `/api/auth/login`, `/api/auth/refresh` and `/api/auth/logout`. | Browser clients follow `docs/COOKIE_AUTH.md`. Bearer clients use `/api/token/*` or send `Authorization`. |
+| Unsafe /api/ requests that carry no `Authorization` or `X-API-Key` header need `X-CSRFToken`, including /api/auth/login, /api/auth/refresh and /api/auth/logout. | Browser clients follow `docs/COOKIE_AUTH.md`. Bearer clients use `/api/token/*` or send `Authorization`. |
 | A refresh token presented again more than 30 seconds after its rotation revokes every refresh token of the user and returns `401`. Inside 30 seconds the repeat only gets `401`. | On `401` from refresh, retry once (another tab may have rotated the cookie), then send the user to login. |
 | A password change or reset revokes every refresh token of the user. | Expect `401` on the next refresh after a password change. |
 | Password logins lock an (account, client IP) pair after 5 failures and a client IP after 20, for 15 minutes. Locked requests get `429`, even with the right password. | Show the `429` message. Do not retry automatically. |
 | `POST /api/auth/logout` needs no access token. | Call it even when the access cookie has expired. |
 | `DELETE /api/api-keys/{key_id}` and `POST /api/api-keys/{key_id}/rotate` take a UUID and return `404` for a missing key or another user's key (they returned `500`). A malformed id returns `422`. | Handle `404`. |
-| This release supersedes the cookie-only auth change in commit `619422e`. The bearer routes `/api/token/pair`, `/api/token/refresh` and `/api/token/verify` stay and are throttled with the other credential endpoints. Login responses keep the tokens in the body as well as the cookies. | If you built on `619422e`, follow `docs/COOKIE_AUTH.md`: browsers use cookies and CSRF, other clients use `/api/token/*` or `Authorization: Bearer`. |
+| This release supersedes the cookie-only auth change in commit `619422e`. The bearer routes /api/token/pair, /api/token/refresh and /api/token/verify stay and are throttled with the other credential endpoints. Login responses keep the tokens in the body as well as the cookies. | If you built on `619422e`, follow `docs/COOKIE_AUTH.md`: browsers use cookies and CSRF, other clients use `/api/token/*` or `Authorization: Bearer`. |
 
 ### Production configuration
 
@@ -145,7 +145,7 @@ the prod profile: Compose interpolates it into the prod services.
 
 | Setting | Change | What to do |
 |---|---|---|
-| `API_DOCS` | Production defaults to `off`: `/api/docs` and `/api/openapi.json` return 404. | Set `staff` (admin login) or `public` if you need them. |
+| `API_DOCS` | Production defaults to `off`: /api/docs and /api/openapi.json return 404. | Set `staff` (admin login) or `public` if you need them. |
 | `ADMIN_URL` | Admin mount path, default `admin/`. | To change it, also change `admin` in the nginx `location ~ ^/(api\|admin)/` regex. |
 | `API_CSRF_EXEMPT_PATHS` | Default `["/api/token/", "/api/billing/webhooks/"]`. | Add the prefix of each signed webhook receiver you add. |
 | `SENTRY_DSN` | With a DSN set and `sentry-sdk` missing, every `ENVIRONMENT` except `development` refuses to start. | Install the `sentry` extra (`UV_EXTRAS="sentry"`) or unset the DSN. |

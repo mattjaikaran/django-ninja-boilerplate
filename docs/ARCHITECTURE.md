@@ -239,13 +239,13 @@ a skip instead of a collection error.
 
 | Setting | Default | Purpose |
 |---|---|---|
-| `ORGANIZATIONS_ENABLED` | `false` | Installs `organizations` and registers `/api/organizations/`. |
-| `NOTIFICATIONS_ENABLED` | `false` | Installs `notifications` and registers `/api/notifications/`. |
-| `BILLING_ENABLED` | `false` | Installs `billing` and registers `/api/billing/`, including the Stripe webhook receiver. |
-| `FILES_ENABLED` | `false` | Installs `files` and registers its routes under /api/files/. |
+| `ORGANIZATIONS_ENABLED` | `false` | Installs `organizations` and registers /api/organizations/. |
+| `NOTIFICATIONS_ENABLED` | `false` | Installs `notifications` and registers /api/notifications/. |
+| `BILLING_ENABLED` | `false` | Installs `billing` and registers /api/billing/, including the Stripe webhook receiver. |
+| `FILES_ENABLED` | `false` | Installs `files` and registers /api/files/. |
 | `FILES_MAX_UPLOAD_BYTES` | `10485760` | Largest accepted upload, in bytes. |
 | `FILES_ALLOWED_CONTENT_TYPES` | JPEG, PNG, GIF, WebP, PDF | Accepted content types. |
-| `WEBHOOKS_ENABLED` | `false` | Installs `webhooks` and registers its routes under /api/webhooks/. |
+| `WEBHOOKS_ENABLED` | `false` | Installs `webhooks` and registers /api/webhooks/. |
 | `WEBHOOKS_ALLOW_HTTP` | `false` | Accepts `http://` webhook URLs outside `DEBUG`. |
 
 To turn on an app:
