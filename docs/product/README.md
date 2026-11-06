@@ -16,8 +16,8 @@ docs/product/
 
 `journeys.md` is the plan and the index: personas, user stories, the backend
 surface and smoke test of each journey, its planned Playwright test, and the
-wave order. It is not parsed by the gate. The frontmatter in
-`journeys/J-NNN-slug.md` and the lines in `FEATURES.md` are.
+wave order. It is not parsed by the gate. The frontmatter in each
+file under `docs/product/journeys/` and the lines in `FEATURES.md` are.
 
 ## Features file
 
@@ -36,9 +36,9 @@ per line, exactly:
 
 ## Journey files
 
-Name each file `journeys/J-NNN-slug.md`. The file name prefix must equal the
-`id`. Start the file with YAML frontmatter, then write free prose (Goal,
-Context, Notes).
+Name each file in `docs/product/journeys/` as `J-NNN-slug.md`. The file
+name prefix must equal the `id`. Start the file with YAML frontmatter, then
+write free prose (Goal, Context, Notes).
 
 ```yaml
 ---
@@ -197,9 +197,9 @@ three in step:
 
 When a tagged test fails and you cannot fix it now:
 
-1. Create a ticket `docs/tickets/T-NNN-slug.md`. Follow the format in
-   `docs/tickets/`. List the journey in `journeys:` and the features in
-   `features:`.
+1. Create a ticket file in `docs/tickets/` named `T-NNN-slug.md`. Follow
+   the format in `docs/tickets/`. List the journey in `journeys:` and the
+   features in `features:`.
 2. Add a `known_issues` entry to the journey:
 
    ```yaml
