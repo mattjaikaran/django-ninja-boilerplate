@@ -298,7 +298,7 @@ jobs:
 
 ## Best Practices
 
-1. **Version your API**: Update the version in `api/urls.py` when making changes
+1. **Bump the spec version**: Update `version` in `api/urls.py` when the contract changes. It is OpenAPI metadata; the API is not URL-versioned.
 2. **Generate on release**: Auto-generate docs as part of your release process
 3. **Keep changelogs**: Use `generate_changelog.py` to document API changes
 4. **Validate specs**: Always validate before publishing
