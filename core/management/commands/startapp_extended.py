@@ -1,5 +1,10 @@
 import os
+import re
+import tomllib
+from pathlib import Path
+from typing import Any
 
+from django.core.management.base import CommandError
 from django.core.management.commands.startapp import Command as StartAppCommand
 
 from .generators.codegen import PACKAGE_INIT, ResourceNames, from_import
@@ -18,6 +23,86 @@ class {config}(AppConfig):
     default_auto_field = "django.db.models.BigAutoField"
     name = "{app_name}"
 """
+
+WHEEL_TABLE = "[tool.hatch.build.targets.wheel]"
+PACKAGES_ASSIGNMENT = re.compile(r"\s*packages\s*=")
+
+
+def wheel_packages(data: dict[str, Any]) -> list[str] | None:
+    """Return the Hatch wheel package list, or None when the table has none."""
+    packages = (
+        data.get("tool", {})
+        .get("hatch", {})
+        .get("build", {})
+        .get("targets", {})
+        .get("wheel", {})
+        .get("packages")
+    )
+    return packages if isinstance(packages, list) else None
+
+
+def add_wheel_package(pyproject: Path, app_name: str) -> bool:
+    """Add ``app_name`` to the Hatch wheel packages list in ``pyproject``.
+
+    Return True when the file changed. A project without a wheel packages
+    list, or one that already lists the app, is left alone.
+    """
+    if not pyproject.is_file():
+        return False
+    content = pyproject.read_text(encoding="utf-8")
+    packages = wheel_packages(tomllib.loads(content))
+    if packages is None or app_name in packages:
+        return False
+
+    lines = content.splitlines()
+    header = next(
+        (i for i, line in enumerate(lines) if line.strip() == WHEEL_TABLE), None
+    )
+    if header is None:
+        return False
+    section_end = next(
+        (i for i in range(header + 1, len(lines)) if lines[i].lstrip().startswith("[")),
+        len(lines),
+    )
+    assignment = next(
+        (
+            i
+            for i in range(header + 1, section_end)
+            if PACKAGES_ASSIGNMENT.match(lines[i])
+        ),
+        None,
+    )
+    if assignment is None:
+        return False
+
+    if "]" in lines[assignment]:
+        closing = lines[assignment].rindex("]")
+        head = lines[assignment][:closing].rstrip()
+        separator = "" if head.endswith(("[", ",")) else ","
+        tail = lines[assignment][closing + 1 :]
+        lines[assignment] = f'{head}{separator} "{app_name}"]{tail}'
+    else:
+        closing = next(i for i in range(assignment + 1, section_end) if "]" in lines[i])
+        # TOML needs a comma between the current last entry and the new one.
+        previous = closing - 1
+        while previous > assignment and not lines[previous].strip():
+            previous -= 1
+        if previous > assignment and not lines[previous].rstrip().endswith(","):
+            lines[previous] = f"{lines[previous].rstrip()},"
+        indent = lines[closing][: len(lines[closing]) - len(lines[closing].lstrip())]
+        lines.insert(closing, f'{indent}    "{app_name}",')
+
+    updated = "\n".join(lines) + "\n"
+    try:
+        verified = wheel_packages(tomllib.loads(updated))
+    except tomllib.TOMLDecodeError as exc:
+        msg = f"Could not add {app_name!r} to {WHEEL_TABLE} in {pyproject}: {exc}"
+        raise CommandError(msg) from exc
+    if verified is None or app_name not in verified:
+        msg = f"Could not add {app_name!r} to {WHEEL_TABLE} packages in {pyproject}"
+        raise CommandError(msg)
+    pyproject.write_text(updated, encoding="utf-8")
+    return True
 
 
 class Command(StartAppCommand):
@@ -48,6 +133,14 @@ class Command(StartAppCommand):
         # Always create advanced structure regardless of the advanced flag
         # This ensures all new apps follow our organized folder pattern
         created_files = self.create_advanced_structure(names, app_directory)
+
+        # An installed app missing from the wheel breaks django.setup() there.
+        if add_wheel_package(Path.cwd() / "pyproject.toml", app_name):
+            self.stdout.write(
+                self.style.SUCCESS(
+                    f'Added "{app_name}" to the Hatch wheel packages in pyproject.toml'
+                )
+            )
 
         # Print success message
         self.stdout.write(self.style.SUCCESS(f"Successfully created app '{app_name}'"))
