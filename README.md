@@ -243,7 +243,7 @@ That's it! The setup recipe will:
 - Validate your environment (Docker, Python, etc.)
 - Build the Docker images and start the stack
 - Run migrations
-- Create the superuser from the `SUPERUSER_*` values in `.env` (set `SUPERUSER_PASSWORD` first; the template ships it empty)
+- Create the superuser from the `SUPERUSER_*` values in `.env` (all five are required; set `SUPERUSER_PASSWORD` first because the template ships it empty), then log in with `SUPERUSER_EMAIL`
 - Leave you a login at http://localhost:8000/admin/
 
 Add demo content when you want it:

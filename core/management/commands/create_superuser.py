@@ -1,6 +1,6 @@
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandError
 
 from api.settings.common import env
 
@@ -14,66 +14,71 @@ _PUBLISHED_PASSWORDS = {
     "CHANGE_ME",
 }
 _MIN_PASSWORD_LENGTH = 12
+_REQUIRED_VARIABLES = (
+    "SUPERUSER_EMAIL",
+    "SUPERUSER_USERNAME",
+    "SUPERUSER_PASSWORD",
+    "SUPERUSER_FIRST_NAME",
+    "SUPERUSER_LAST_NAME",
+)
 
 
 class Command(BaseCommand):
     help = "Creates a superuser from environment variables"
 
     def handle(self, *args, **options):
-        # Get the User model
         User = get_user_model()
 
-        # Get superuser details from environment variables
-        email = env("SUPERUSER_EMAIL")
-        username = env("SUPERUSER_USERNAME")
-        password = env("SUPERUSER_PASSWORD")
-        first_name = env("SUPERUSER_FIRST_NAME")
-        last_name = env("SUPERUSER_LAST_NAME")
-
-        # Check if all required fields are provided
-        if not all([email, username, password, first_name, last_name]):
-            self.stdout.write(
-                self.style.ERROR(
-                    "Error: All superuser fields must be provided in the .env file."
-                )
+        # An explicit empty default lets the check below name every missing
+        # variable instead of django-environ raising on the first unset one.
+        values = {name: env(name, default="") for name in _REQUIRED_VARIABLES}
+        missing = [name for name, value in values.items() if not value.strip()]
+        if missing:
+            raise CommandError(
+                "Missing required environment variables: " + ", ".join(missing)
             )
-            return
+
+        email = values["SUPERUSER_EMAIL"].strip()
+        username = values["SUPERUSER_USERNAME"].strip()
+        password = values["SUPERUSER_PASSWORD"]
+        login_field = User.USERNAME_FIELD
 
         # Outside development, refuse a published or short password. The
         # container entrypoint applies the same rule before calling this.
         if env("ENVIRONMENT", default="development") != "development" and (
             password in _PUBLISHED_PASSWORDS or len(password) < _MIN_PASSWORD_LENGTH
         ):
+            raise CommandError(
+                "SUPERUSER_PASSWORD is a published default or shorter than "
+                f"{_MIN_PASSWORD_LENGTH} characters."
+            )
+
+        # Idempotent: `just setup` and the single-image entrypoint both call
+        # this, so a re-run must not report a failure. The user model logs in
+        # by email (USERNAME_FIELD), so email is the existence key.
+        if User.objects.filter(email=email.lower()).exists():
             self.stdout.write(
-                self.style.ERROR(
-                    "Error: SUPERUSER_PASSWORD is a published default or shorter "
-                    f"than {_MIN_PASSWORD_LENGTH} characters."
+                self.style.WARNING(
+                    f"Superuser '{email}' already exists. "
+                    f"Log in with {login_field}: {email}"
                 )
             )
             return
 
-        # Idempotent: `just setup` and the single-image entrypoint both call
-        # this, so a re-run must not report a failure.
-        if User.objects.filter(username=username).exists():
-            self.stdout.write(
-                self.style.WARNING(f"Superuser '{username}' already exists.")
-            )
-            return
-
         try:
-            # Create the superuser
-            superuser = User.objects.create_superuser(
+            User.objects.create_superuser(
                 email=email,
                 username=username,
                 password=password,
-                first_name=first_name,
-                last_name=last_name,
-            )
-            print(superuser)
-            self.stdout.write(
-                self.style.SUCCESS(f"Superuser '{username}' created successfully.")
+                first_name=values["SUPERUSER_FIRST_NAME"],
+                last_name=values["SUPERUSER_LAST_NAME"],
             )
         except ValidationError as e:
-            self.stdout.write(self.style.ERROR(f"Error creating superuser: {e}"))
-        except Exception as e:
-            self.stdout.write(self.style.ERROR(f"An unexpected error occurred: {e}"))
+            raise CommandError(f"Could not create superuser: {e}") from e
+
+        self.stdout.write(
+            self.style.SUCCESS(
+                f"Superuser '{email}' created successfully. "
+                f"Log in with {login_field}: {email}"
+            )
+        )
