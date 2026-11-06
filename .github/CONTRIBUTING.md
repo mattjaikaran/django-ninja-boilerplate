@@ -9,6 +9,7 @@ Thank you for your interest in contributing to Django Ninja Boilerplate! This do
 - [Development Setup](#development-setup)
 - [Code Style Guidelines](#code-style-guidelines)
 - [Making Changes](#making-changes)
+- [Work Flow](#work-flow)
 - [Pull Request Process](#pull-request-process)
 - [Testing Requirements](#testing-requirements)
 - [Documentation](#documentation)
@@ -278,6 +279,55 @@ Fixes #123
 - `test`: Adding or updating tests
 - `chore`: Maintenance tasks
 
+## Work Flow
+
+Read [docs/product/journeys.md](../docs/product/journeys.md) before you pick
+up work. It holds the personas, user stories, journeys, backend surface and
+delivery waves.
+
+1. Pick an issue. Each issue names one wave and one size.
+2. Work the waves in order: W1 backend, W2 frontend, W3 Playwright, W4
+   optional apps and scale. Do not start W2 for a journey whose backend smoke
+   test is missing or failing.
+3. Branch from `main`: `feature/`, `fix/`, `refactor/` or `chore/`. Overnight
+   agents use `agent/<Spec ID>`.
+4. Commit with `<type>(<scope>): <Capitalized imperative summary>`. Keep the
+   subject at 50 characters or fewer and wrap the body at 72.
+5. Open a PR with the template. Put `Closes #N` for every issue it closes.
+
+### Sizes
+
+| Size | Work | Who does it |
+|------|------|-------------|
+| S | Exact edits, no design choice, about 300 changed lines or fewer | Overnight agent (small model, for example Haiku or DeepSeek Flash) |
+| M | Fixed design, several files, about 300 changed lines or fewer | Overnight agent (small model, for example Haiku or DeepSeek Flash) |
+| L | Open design, a new service or a cross-cutting refactor | Supervised session with a frontier model, which splits it into S and M specs |
+
+A frontier model splits an L issue into S and M specs before any executor
+starts. An executor never takes an L issue.
+
+### Batch PRs
+
+Do not open a PR for each small issue. Group similar issues in the same area
+and wave into one batch PR:
+
+- One area per PR: backend, frontend, data or infra.
+- 2,000 changed lines or fewer, excluding lockfiles and generated files.
+- One commit per issue, so a reviewer can read the batch issue by issue.
+- The PR closes every issue in the batch.
+
+### Overnight agents (agent-run)
+
+Unattended work travels as specs in `tasks/specs/S-*.md`. agent-run claims a
+spec whose `Status` is `READY`, runs the coding agent, opens the PR, and asks
+matt-reviewer to review it. See [tasks/specs/README.md](../tasks/specs/README.md)
+for the format and [docs/AGENT_HANDOFF.md](../docs/AGENT_HANDOFF.md) for the
+roles, review order and the canonical delivery path.
+
+The repo also ships a self-hosted ticket worker (`scripts/worker_once.py`
+with `docs/tickets/`). It is a fallback for machines that do not run
+agent-run. Do not run both queues on the same repository at the same time.
+
 ## Pull Request Process
 
 ### Before Submitting
@@ -296,6 +346,8 @@ Fixes #123
    just test              # Tests pass
    just format            # Code is formatted
    just gauntlet-quick    # Full quality gate (recommended)
+   just check-journeys    # Features, journeys and Playwright tags agree
+   just openapi           # After a schema or route change; commit the file
    ```
 
 3. **Update documentation** if needed
@@ -318,10 +370,18 @@ Fixes #123
 
 ### PR Review Process
 
-- PRs require at least one approval before merging
-- Address all review comments
-- Keep PRs focused and reasonably sized
-- Squash commits if requested
+The factory accounts already have access: `matt-assistant` opens PRs and
+`matt-reviewer` reviews them. The order is fixed:
+
+1. CI passes. There is no hosted CI, so the pre-push hook runs the quick
+   gauntlet and the dependency audit. Run `just gauntlet-quick` yourself.
+2. `matt-reviewer` reviews the PR and posts the findings. Fix or answer each
+   finding. A coding model cannot approve its own PR.
+3. The owner (`mattjaikaran`) approves.
+
+A PR merges only with both approvals on its current head commit. Rebase,
+never merge `main` into the branch, so the approvals stay valid. Keep PRs
+focused and within the batch size. Rebase merge when possible, else squash.
 
 ### After Merge
 
@@ -365,6 +425,14 @@ uv run pytest -s
 5. **Do not write**: unit tests per function, model tests, tests that assert on mocks, or tests for coverage. There is no coverage floor and no mutation testing
 6. **Size**: Add at most one new test file per change
 7. **Data**: Never mock the database. Use Factory Boy where a test needs data
+
+The platform keeps two kinds of tests: backend smoke tests and Playwright
+journeys. Contract and permission tests guard the API boundaries; unit,
+model and mock tests are not written. A journey's backend smoke test lives
+in `tests/smoke/test_jNNN_<name>.py` and calls the journey's endpoints in
+order. Name an existing app test in
+[`docs/product/journeys.md`](../docs/product/journeys.md) instead of copying
+it.
 
 See `todos/tests/` for examples.
 

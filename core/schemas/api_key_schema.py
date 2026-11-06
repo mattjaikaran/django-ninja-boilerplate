@@ -3,7 +3,7 @@
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import Field
+from pydantic import Field, field_validator
 
 from core.schemas.base_schema import CamelCaseSchema
 
@@ -23,6 +23,14 @@ class APIKeyResponse(CamelCaseSchema):
     last_used_at: datetime | None
     revoked: bool
     created_at: datetime
+
+    @field_validator("id", mode="before")
+    @classmethod
+    def convert_uuid_to_str(cls, v):
+        """Serialise the ORM UUID primary key as a string."""
+        if isinstance(v, UUID):
+            return str(v)
+        return v
 
 
 class APIKeyCreatedResponse(CamelCaseSchema):

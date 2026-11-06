@@ -11,6 +11,16 @@
 ### Why was this change needed?
 
 
+## Delivery
+
+<!-- One wave and one size per PR. See CONTRIBUTING.md and docs/product/journeys.md. -->
+
+- Closes #
+- Wave: W1 backend / W2 frontend / W3 Playwright / W4 optional apps and scale
+- Size: S / M / L
+- Batch issues: (list the issues this PR closes together, or n/a)
+- Spec or ticket: `tasks/specs/S-...` or `docs/tickets/T-...` (or n/a)
+
 ## Type of Change
 
 <!-- Mark the relevant option with an "x" -->
@@ -129,10 +139,17 @@
 ---
 
 <!--
-Reviewer Guidelines:
+Review order:
+1. CI or the local gate passes.
+2. matt-reviewer reviews first and posts findings.
+3. The owner approves.
+A PR merges only with both approvals on its current head commit. Rebase,
+never merge main, so the approvals stay valid.
+
+Reviewer guidelines:
 - Check code quality and adherence to project standards
-- Verify tests are comprehensive and pass
+- Verify the change is smoke, contract or a real-bug regression test
 - Review for security implications
-- Ensure documentation is updated
+- Ensure documentation and the OpenAPI contract are updated
 - Test locally if possible
 -->
