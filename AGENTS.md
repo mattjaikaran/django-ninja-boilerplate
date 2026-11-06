@@ -271,7 +271,8 @@ can extend: add the script under its length cap, a `_gate_*` method in
 | `.omp/` | oh-my-pi: `APPEND_SYSTEM.md`, `rules/` (references, TTSR), `skills/` |
 | `.context/` | `EXAMPLES.md`: worked examples |
 | `docs/` | Architecture, migration, realtime, constraint tools |
-| `docs/product/`, `docs/tickets/` | Features and journeys (section 13); worker tickets (section 14) |
+| `docs/product/`, `docs/tickets/` | Features, journeys and waves (section 13); worker tickets (section 14) |
+| `tasks/specs/` | agent-run specs, the canonical unattended queue (section 14) |
 
 `CLAUDE.md` is gitignored; never reference or rely on it.
 
@@ -285,6 +286,14 @@ These three must agree; change all three together:
 |User journeys and stories|`docs/product/journeys/J-NNN-*.md`|Planner|
 |Playwright journey tests|Frontend `e2e/`: one test per journey tagged `@J-NNN`, steps titled `J-NNN-S<n>: ...`|Planner or worker|
 
+`docs/product/journeys.md` is the plan and the index: personas, user
+stories, each journey's backend surface and smoke test, its planned
+Playwright test, and the wave order. The gate does not parse it. Keep its
+rows in step with the three artifacts above.
+
+- Build the backend first. A journey goes to W2 (frontend) only when its
+  backend smoke test passes on `main`, and to `done` only when its Playwright
+  test passes. Waves: `docs/product/journeys.md`.
 - A checked feature (`[x]`) or `done` journey means a Playwright test proves
   it and its last run passed, never "the code exists".
 - A failing journey test is a known issue: set the journey to `building`, add
@@ -299,20 +308,30 @@ Format and sync loop: `docs/product/README.md`, `journey-sync` skill.
 ## 14 Work modes and handoff
 
 - Solo mode: the maintainer and planner model may commit to `main`.
-- Worker mode: a smaller model runs only `tier: small` tickets from
-  `docs/tickets/`, edits only the files its ticket lists, never pushes to
-  `main`, and opens a PR from the bot GitHub account for review.
-- The planner keeps the queue full of tickets that need no design decisions.
-  `just tickets check` (TICKETS gate) blocks collisions.
+- agent-run mode (canonical for unattended work): the planner writes specs in
+  `tasks/specs/S-*.md` with a size and a wave. agent-run claims a `READY` spec,
+  a small model implements it, `matt-assistant` opens the PR, `matt-reviewer`
+  reviews, and the owner approves. A frontier model splits an `L` issue into
+  `S` and `M` specs. Specs own every path they may change.
+- Worker mode (self-hosted fallback): a smaller model runs only
+  `tier: small` tickets from `docs/tickets/`, edits only the files its ticket
+  lists, never pushes to `main`, and opens a PR from the bot GitHub account
+  for review.
+- The planner keeps both queues full of work that needs no design decisions.
+  `just tickets check` (TICKETS gate) blocks ticket collisions.
+- Never run the agent-run spec queue and the self-hosted ticket queue on the
+  same repository at the same time. They do not know about each other's
+  claims.
 
-`just worker-once` (preview: `--dry-run`) runs one iteration: claim, run
-`$WORKER_AGENT_CMD` in a worktree, verify with one retry, then open a PR or a
-draft `needs-planner` PR. Roles, machines, bot account, merge conflicts,
-overnight loop: `docs/AGENT_HANDOFF.md`. Skills: `ticket-planner`,
+`just worker-once` (preview: `--dry-run`) runs one fallback iteration:
+claim, run `$WORKER_AGENT_CMD` in a worktree, verify with one retry, then
+open a PR or a draft `needs-planner` PR. Roles, machines, bot account, merge
+conflicts, overnight loop and the canonical path: `docs/AGENT_HANDOFF.md`.
+Spec format: `tasks/specs/README.md`. Skills: `ticket-planner`,
 `ticket-worker`.
 
 After a scaffold, the first planner session fills `docs/product/` and the
-first tickets. After each rejected PR, add the lesson below.
+first specs. After each rejected PR, add the lesson below.
 
 ## When to add to this section
 

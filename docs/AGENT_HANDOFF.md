@@ -10,18 +10,45 @@ Related files:
 - [`docs/tickets/README.md`](tickets/README.md): ticket format, lifecycle,
   collision rules, hot files.
 - [`docs/tickets/TEMPLATE.md`](tickets/TEMPLATE.md): a copyable ticket.
+- [`tasks/specs/README.md`](../tasks/specs/README.md): the agent-run spec
+  format and claim rules.
+- [`docs/product/journeys.md`](product/journeys.md): personas, user stories,
+  delivery waves and the journey index.
 - `AGENTS.md` sections 13 and 14: journeys and work modes.
 - Skills: `ticket-planner`, `ticket-worker`, `journey-sync` (see
   [`SKILLS.md`](../SKILLS.md)).
 
 Statements marked **Recommendation** are suggested practice, not repo rules.
 
+## Which path is canonical
+
+Two paths can run unattended work in this repository. They are not equal:
+
+| Path | Queue | Who runs it | Status |
+|------|-------|-------------|--------|
+| agent-run | `tasks/specs/S-*.md` | The factory: `matt-assistant` implements, `matt-reviewer` reviews, `mattjaikaran` approves and merges | Canonical |
+| Self-hosted ticket worker | `docs/tickets/T-*.md` | `scripts/worker_once.py` on your own machine, with `$WORKER_AGENT_CMD` | Supported fallback |
+
+Use agent-run for work you hand off. Write a spec, not a ticket, when the
+work should be claimed overnight. The spec format and the claim rules are in
+[`tasks/specs/README.md`](../tasks/specs/README.md).
+
+The ticket worker is kept for machines that do not run agent-run. It is not
+retired, because the TICKETS gate, the ticket templates and the prune plan
+still use `docs/tickets/`. Do not run both queues on the same repository at
+the same time: they do not know about each other's claims, so they can work
+the same files.
+
+Both paths follow the same review order: matt-reviewer first, then the owner,
+both on the current head commit.
+
 ## Work modes
 
 |Mode|Who|Pushes to `main`|How work lands|
 |---|---|---|---|
 |Solo|The maintainer and the planner model|Yes|Direct commits that follow Conventional Commits and pass `just gauntlet-quick`.|
-|Worker|A worker model|Never|A branch `agent/T-NNN-*` and a PR from the bot account. The maintainer reviews and merges.|
+|agent-run|The factory: `matt-assistant` implements, `matt-reviewer` reviews|Never|A spec branch `agent/<Spec ID>` and a PR. matt-reviewer reviews, the owner approves, agent-run merges.|
+|Worker|A worker model on a self-hosted machine|Never|A branch `agent/T-NNN-*` and a PR from the bot account. The maintainer reviews and merges.|
 
 A worker model never pushes to `main`, even when branch protection would
 allow it.
@@ -32,9 +59,11 @@ allow it.
 
 The planner is the largest model you have access to. It:
 
-- Writes and updates `docs/product/FEATURES.md` and
-  `docs/product/journeys/J-NNN-*.md`.
-- Writes tickets in `docs/tickets/` and keeps `tickets.py check` green.
+- Writes and updates `docs/product/FEATURES.md`, `docs/product/journeys.md`
+  and `docs/product/journeys/J-NNN-*.md`.
+- Writes specs in `tasks/specs/S-*.md` for agent-run, and tickets in
+  `docs/tickets/` for the self-hosted worker. Keeps `tickets.py check` green.
+- Splits an `L` issue into `S` and `M` specs before any executor starts.
 - Takes `tier: large` tickets itself, or splits them into small ones.
 - Reviews worker PRs and turns each rejection into a lesson (see
   [How this guide evolves](#how-this-guide-evolves)).
@@ -96,8 +125,9 @@ Remove the worktree after the PR merges:
 git -C ~/src/<repo> worktree remove ~/worktrees/<repo>/T-001
 ```
 
-## Overnight loop
+## Overnight loop (self-hosted fallback)
 
+This loop is the ticket-worker fallback, not the canonical agent-run path.
 `scripts/worker_once.py` runs one iteration of the loop. Run it from a main
 checkout of the repo (`~/src/<repo>` here). It:
 

@@ -9,9 +9,15 @@ read these files and the Playwright JSON report.
 docs/product/
 ├── README.md            # this file: format and rules
 ├── FEATURES.md          # one line per feature
+├── journeys.md          # personas, stories, delivery waves and journey index
 └── journeys/
     └── J-NNN-slug.md    # one file per journey
 ```
+
+`journeys.md` is the plan and the index: personas, user stories, the backend
+surface and smoke test of each journey, its planned Playwright test, and the
+wave order. It is not parsed by the gate. The frontmatter in
+`journeys/J-NNN-slug.md` and the lines in `FEATURES.md` are.
 
 ## Features file
 

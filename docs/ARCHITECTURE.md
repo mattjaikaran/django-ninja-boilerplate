@@ -5,6 +5,7 @@ This document provides a comprehensive overview of the Django Ninja Boilerplate 
 ## Table of Contents
 
 - [System Overview](#system-overview)
+- [Target Architecture](#target-architecture)
 - [Application Architecture](#application-architecture)
 - [Progressive Controller Patterns](#progressive-controller-patterns)
 - [Docker Architecture](#docker-architecture)
@@ -63,6 +64,90 @@ graph TB
 | **Real-Time** | WebSocket messaging | Centrifugo v5 |
 | **Audit Log** | Compliance tracking | Django signals + middleware |
 | **Feature Flags** | Gradual rollouts & A/B testing | Custom service |
+
+---
+
+## Target Architecture
+
+The target is a **modular monolith with satellite services**. Django and
+Postgres are the system of record and the only public API. Work with a
+different runtime or scaling profile runs in its own process and talks to
+Django over an internal contract. Before then, it stays a Django app.
+
+This section records the decisions. A row marked **Trigger** is not built
+yet; the trigger says when the decision applies. Do not build the satellite
+before the trigger fires.
+
+| # | Decision | Reason | Status |
+|---|----------|--------|--------|
+| 1 | Modular monolith for the product domain | One transaction boundary, one auth model, one OpenAPI contract, one deploy. Module boundaries keep the option to extract a service later. | Adopted |
+| 2 | One public API: Django Ninja at `/api`, no version prefix | Clients see one contract. Internal services sit behind it. No gateway until a second public API exists. | Adopted |
+| 3 | Bounded-context Django apps behind service interfaces | `core`, `todos`, `organizations`, `notifications`, `billing`, `files`, `webhooks`, `journeys` and `atlas` own their data. Cross-app calls go through a service, never a controller or another app's models. | Adopted, enforced by `scripts/check_architecture.py` |
+| 4 | Module boundaries follow SOLID | One reason to change per controller, service, schema file. Depend on the service interface, not on a concrete collaborator. Extend through a new controller or service, not by editing unrelated apps. Small interfaces beat a general-purpose helper. | Adopted, see [Boundary rules](#boundary-rules) |
+| 5 | Transactional outbox in Postgres, published to Valkey Streams (the Redis Streams API) | Apps react to `TodoCompleted`, `SubscriptionChanged`, `NotificationSent` without importing each other. The outbox commits with the domain row, so the event cannot be lost. The consumer reads a stream and is at-least-once. | Trigger: a second app must react to a domain event |
+| 6 | FastAPI model service for ML inference and async fan-out | Separate dependencies (PyTorch, model runtimes) and separate scaling. Django calls it over internal HTTP. It never writes Django tables. | Trigger: a model needs a runtime or GPU the API process should not carry |
+| 7 | pgvector and recursive CTEs in Postgres, no separate vector or graph database | `core/ai/` already stores embeddings in Postgres and walks the graph with recursive CTEs. Revisit a dedicated store only for a measured need. | Adopted, see [AI_LAYER.md](./AI_LAYER.md) |
+| 8 | Rust through PyO3 for hot loops | Python stays the product language. A Rust extension is written only after a profile names the hot loop. | Trigger: a profiled loop dominates a request or task |
+| 9 | Stateless API replicas behind a load balancer | JWT auth, cache and task queue live in Valkey, files in object storage. Any replica serves any request, so scale out by adding replicas. | Adopted, see [Performance Considerations](#performance-considerations) |
+| 10 | Docker Compose now, K3s at the multi-host trigger | One compose file and one process per container map to Kubernetes Deployments later. | Compose adopted; K3s trigger: more than one host, or zero-downtime deploys |
+
+### Boundary rules
+
+These rules are what SOLID means in this codebase. The gauntlet checks the
+first three.
+
+1. **Layers flow one way.** Controller calls service, service calls model.
+   Models import no schema, service or controller. Migrations import no
+   controller, service or schema.
+2. **One public class per file.** One `@api_controller` per file in
+   `<app>/controllers/`; one `<Name>Schema`, `Create<Name>Schema` and
+   `Update<Name>Schema` per domain in `<app>/schemas/`; one service extending
+   `CRUDService` in `<app>/services/`.
+3. **Open for extension.** Add a controller or a service method for new
+   behaviour. Do not add a mode flag to an existing handler that switches
+   between two behaviours.
+4. **Depend on the interface.** A service takes the narrow input it needs
+   (a user, a model instance, a plain value) and returns a model or schema
+   value. It does not reach for `request`, a session or a global.
+5. **No cross-app writes.** An app reads another app's data through that
+   app's service. A domain event replaces a direct call when the caller must
+   not wait or must not fail with the writer.
+
+### Extract a service only on a trigger
+
+Extract a module from the monolith only when one of these is true:
+
+- It needs a different scaling profile, such as model inference.
+- It needs a runtime or dependency set the API process should not carry.
+- It needs a separate failure domain.
+- A separate team owns it.
+
+The extraction keeps the API contract. Django remains the public edge and
+the system of record. The new service is called over internal HTTP, and its
+data is either derived from Postgres or written back through a Django
+endpoint. It never writes Django tables directly.
+
+### Scaling
+
+| Tier | How it scales | First limit |
+|------|---------------|-------------|
+| Django API | Replicas behind the load balancer | Postgres connections: size the pool, then add PgBouncer |
+| Task workers | One queue per workload, replicas per queue | Worker memory and database connections |
+| Postgres | Vertical first, then read replicas for read models | Write volume, then partition |
+| Valkey | One primary; Sentinel or a managed service for high availability | Memory |
+| Centrifugo | Replicas with the Valkey engine | Open connections |
+
+### Kubernetes trigger
+
+| Stage | Platform | Move on when |
+|-------|----------|--------------|
+| Now | Docker Compose on one host | More than one host, or zero-downtime deploys needed |
+| Next | K3s (Helm charts in `deploy/kubernetes/`), Traefik ingress | A second engineer on call, or managed high availability needed |
+| Later | Managed Kubernetes (EKS, GKE or DOKS) | Traffic or team size |
+
+Each Compose service maps to one Kubernetes Deployment: one process per
+container, config from environment variables, health checks, and no local
+disk except the uploaded-file volume.
 
 ---
 

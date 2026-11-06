@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Planning and delivery workflow**: `docs/ARCHITECTURE.md` now has a Target Architecture section with the modular monolith, SOLID and module-boundary rules, the outbox to Valkey Streams event bus, a FastAPI model service, pgvector before a separate vector store, Rust through PyO3, stateless replicas and the K3s trigger, each marked adopted or trigger.
+- **`docs/product/journeys.md`**: personas, user stories, the backend surface and backend smoke test for each journey, its planned Playwright test, and the W1 backend to W4 scale wave order. Backend first is a rule: no frontend work for a journey until its smoke test passes.
+- **`tasks/specs/`**: the agent-run spec format, claim rules, size and batch limits, and a copyable template. agent-run is the canonical unattended queue; the self-hosted ticket worker stays as a documented fallback.
+- **Sizes and batch PRs** in `CONTRIBUTING.md`: S and M for a small model, an L issue split by a frontier model, and batch PRs of up to 2,000 changed lines that close every issue. The review order is matt-reviewer, then the owner.
+- **PR template delivery block**: issue, wave, size, batch and the spec or ticket that owns the change, plus the review order.
+- **`tests/smoke/test_j003_api_keys.py`**: calls create, list, rotate and revoke in order for journey J-003.
+
+### Fixed
+- **API key list returned 500**: `GET /api/api-keys/` failed once the user owned a key, because `APIKeyResponse.id` rejected the ORM `UUID`. It now serialises the UUID as a string, as the user schemas do. The new J-003 smoke test caught it.
+
 ## [1.14.0] - 2026-10-12
 
 Upgrading from 1.13.0? Follow the 1.13.0 to 1.14.0 section of
