@@ -228,6 +228,21 @@ repos:
         stages: [pre-push]
 
   # ===========================================
+  # Migrations
+  # ===========================================
+  - repo: local
+    hooks:
+      # Scans the tree itself (always_run, no filenames). --staged: the leaf
+      # check and django-safe-migrations run only when a staged path is a
+      # migration or a model; otherwise only the static checks run.
+      - id: check-no-merge-migrations
+        name: Migrations are linearized, never merged (no merge files, no inline ignore)
+        entry: python3 scripts/db/check_migrations.py --staged
+        language: system
+        pass_filenames: false
+        always_run: true
+
+  # ===========================================
   # Commit messages
   # ===========================================
   - repo: local

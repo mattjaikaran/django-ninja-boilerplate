@@ -30,6 +30,7 @@ Gates (in order):
                     only when generator or base-schema files changed)
  19. AUDIT        — pip-audit on uv.lock, allow-list with expiry (full run only)
  20. DOCKER       — build the production image (full run only, skips without Docker)
+ 21. MIGRATIONS   — no merge migrations, one leaf per app, django-safe-migrations
 
 There is no hosted CI. Every gate runs locally: `just gauntlet-quick` from the
 pre-push hook, `just gauntlet` before a release.
@@ -229,6 +230,7 @@ class GauntletRunner:
         gates["ai-db"] = self._gate_ai_db
         gates["deploy-check"] = self._gate_deploy_check
         gates["generators"] = self._gate_generators
+        gates["migrations"] = self._gate_migrations
 
         if not self.quick:
             gates["audit"] = self._gate_audit
@@ -441,6 +443,13 @@ class GauntletRunner:
                 "django-ninja-boilerplate:gauntlet",
                 ".",
             ],
+        )
+
+    def _gate_migrations(self) -> GateResult:
+        """Migrations are linearized: no merge files, one leaf per app, lint."""
+        return self.run_gate(
+            "MIGRATIONS",
+            ["python3", "scripts/db/check_migrations.py"],
         )
 
     def _gate_deploy_check(self) -> GateResult:

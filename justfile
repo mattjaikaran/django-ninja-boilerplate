@@ -303,6 +303,16 @@ migrate:
 makemigrations:
     {{ dev }} exec {{ django_service }} {{ uv }} run python manage.py makemigrations
 
+# Leaf check, django-safe-migrations on the diff against origin/main, no merge files.
+# Migrations are linearized, never merged: never `makemigrations --merge`.
+migrations-check:
+    python3 scripts/db/check_migrations.py
+
+# Fix a migration conflict: a dry run. `just migrations-renumber --apply` writes the
+# renames, re-checks and migrates a scratch Postgres.
+migrations-renumber *args:
+    python3 scripts/db/renumber_migrations.py {{ args }}
+
 # Open the Django shell
 shell:
     {{ dev }} exec {{ django_service }} {{ uv }} run python manage.py shell
