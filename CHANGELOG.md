@@ -14,6 +14,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Sizes and batch PRs** in `CONTRIBUTING.md`: S and M for a small model, an L issue split by a frontier model, and batch PRs of up to 2,000 changed lines that close every issue. The review order is matt-reviewer, then the owner.
 - **PR template delivery block**: issue, wave, size, batch and the spec or ticket that owns the change, plus the review order.
 - **`tests/smoke/test_j003_api_keys.py`**: calls create, list, rotate and revoke in order for journey J-003.
+- **Optional app switches**: `ORGANIZATIONS_ENABLED`, `NOTIFICATIONS_ENABLED` and `BILLING_ENABLED` install those apps and register their controllers like `FILES_ENABLED` and `WEBHOOKS_ENABLED`, so enabling one no longer means editing settings and URLs by hand. A disabled app's test module skips at collection, so `pytest notifications` reports a skip instead of a collection error. `just test-optional` and the TEST-OPTIONAL gate run all five suites with the flags on.
+
+### Changed
+- `api.settings.test` no longer forces `billing` into `INSTALLED_APPS`; billing tests skip unless `BILLING_ENABLED=true`.
 
 ### Fixed
 - **API key list returned 500**: `GET /api/api-keys/` failed once the user owned a key, because `APIKeyResponse.id` rejected the ORM `UUID`. It now serialises the UUID as a string, as the user schemas do. The new J-003 smoke test caught it.

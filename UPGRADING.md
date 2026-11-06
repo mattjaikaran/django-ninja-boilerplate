@@ -152,7 +152,7 @@ the prod profile: Compose interpolates it into the prod services.
 | `CENTRIFUGO_TOKEN_SECRET`, `CENTRIFUGO_API_KEY` | Production refuses unset values and the published defaults. Compose requires `CENTRIFUGO_API_KEY` for every profile. | Generate both with `scripts/env_secrets.py`. |
 | `SUPERUSER_PASSWORD` | Outside `ENVIRONMENT=development`, `create_superuser` and `docker-entrypoint.sh` refuse published defaults and passwords shorter than 12 characters. | Generate it with `scripts/env_secrets.py`. |
 | `DJANGO_MCP_AUTH_TOKEN` | The dev `mcp` profile needs a token of 32 or more characters. | Development only. |
-| `FILES_ENABLED`, `WEBHOOKS_ENABLED` | The files and webhooks apps install only when these are `true` (default `false`). | Set them if your platform uses those apps. |
+| `ORGANIZATIONS_ENABLED`, `NOTIFICATIONS_ENABLED`, `BILLING_ENABLED`, `FILES_ENABLED`, `WEBHOOKS_ENABLED` | Each optional app installs only when its flag is `true` (default `false`). Their tests skip while the flag is off. | Set the flags your platform uses, then run `migrate`. |
 
 ### Database and server
 

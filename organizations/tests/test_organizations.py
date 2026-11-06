@@ -1,6 +1,11 @@
 import pytest
+from django.conf import settings
 from django.contrib.auth import get_user_model
 
+if not settings.ORGANIZATIONS_ENABLED:
+    pytest.skip("organizations app is disabled", allow_module_level=True)
+
+# Imported after the skip: an uninstalled app has no models to import.
 from organizations.models import OrganizationMembership
 from organizations.schemas import CreateOrganizationSchema, InviteMemberSchema
 from organizations.services import OrganizationService
@@ -158,7 +163,7 @@ class TestLeaveOrganization:
 
         service.leave_organization(str(org.id), second_user)
 
-        membership = OrganizationMembership.objects.get(
+        membership = OrganizationMembership.all_objects.get(
             organization=org, user=second_user
         )
         assert membership.is_active is False
@@ -178,5 +183,5 @@ class TestLeaveOrganization:
 
         service.leave_organization(str(org.id), user)
 
-        membership = OrganizationMembership.objects.get(organization=org, user=user)
+        membership = OrganizationMembership.all_objects.get(organization=org, user=user)
         assert membership.is_active is False

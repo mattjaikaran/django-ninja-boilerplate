@@ -12,7 +12,6 @@ credentials that Compose also takes from .env.
 import os
 
 from .common import *
-from .common import INSTALLED_APPS as COMMON_INSTALLED_APPS
 
 # Test mode
 DEBUG = False
@@ -26,12 +25,6 @@ NINJA_JWT_SIGNING_KEY = "test-jwt-signing-key-not-for-production"
 NINJA_JWT = {**NINJA_JWT, "SIGNING_KEY": NINJA_JWT_SIGNING_KEY}
 
 ALLOWED_HOSTS = ["*"]
-
-# The billing app is commented out of INSTALLED_APPS by default. Install its
-# models so billing/tests runs in the default suite; its routes stay off the
-# main API (and the exported OpenAPI). billing/tests/urls.py mounts them.
-if "billing" not in COMMON_INSTALLED_APPS:
-    INSTALLED_APPS = [*COMMON_INSTALLED_APPS, "billing"]
 
 # Database: SQLite by default, PostgreSQL only when TEST_DB=postgres.
 # Do not key this off CI; many shells set CI=true for unrelated reasons.
