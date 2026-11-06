@@ -7,9 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Fixed
-- **`create_superuser` exit code** (`core/management/commands/create_superuser.py`): missing `SUPERUSER_*` variables, a refused password and a validation error now raise `CommandError`, so the command exits non-zero instead of printing an error and returning 0. It reads each variable with an empty default so the missing-variable check names every one, treats `SUPERUSER_EMAIL` as the existence key because the user model logs in by email, reports that login field on success, and drops the bare `except Exception` and the stray `print()`.
-
 ## [1.14.0] - 2026-10-12
 
 Upgrading from 1.13.0? Follow the 1.13.0 to 1.14.0 section of
