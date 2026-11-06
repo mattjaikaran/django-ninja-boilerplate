@@ -111,11 +111,8 @@ INSTALLED_APPS = [
     "todos",  # todos app
     "atlas",  # codebase atlas (interactive architecture map in admin)
     "journeys",  # user journeys (feature and Playwright traceability in admin)
-    # Optional apps. Set FILES_ENABLED / WEBHOOKS_ENABLED (below) for files and
-    # webhooks; uncomment the others to enable them:
-    # "organizations",  # multi-tenancy / org membership
-    # "notifications",  # in-app + email notifications
-    # "billing",  # Stripe billing
+    # Optional apps (organizations, notifications, billing, files, webhooks)
+    # install only when their flag below is true.
     # third party packages
     #####
     "corsheaders",  # django-cors-headers for cross-origin requests
@@ -123,7 +120,22 @@ INSTALLED_APPS = [
     "csp",  # django-csp for Content-Security-Policy headers
 ]
 
-# Optional apps behind flags. Both default off. See docs/ARCHITECTURE.md.
+# Optional apps behind flags. All default off. Each flag installs the app;
+# api/urls.py registers its controllers only when the flag is on. See
+# docs/ARCHITECTURE.md.
+# organizations: multi-tenancy and org membership.
+ORGANIZATIONS_ENABLED = env.bool("ORGANIZATIONS_ENABLED", default=False)
+if ORGANIZATIONS_ENABLED:
+    INSTALLED_APPS += ["organizations"]
+# notifications: in-app and email notifications.
+NOTIFICATIONS_ENABLED = env.bool("NOTIFICATIONS_ENABLED", default=False)
+if NOTIFICATIONS_ENABLED:
+    INSTALLED_APPS += ["notifications"]
+# billing: Stripe plans and subscriptions.
+BILLING_ENABLED = env.bool("BILLING_ENABLED", default=False)
+if BILLING_ENABLED:
+    INSTALLED_APPS += ["billing"]
+
 # files: S3 presigned upload. Uploads are size-capped and magic-byte checked.
 FILES_ENABLED = env.bool("FILES_ENABLED", default=False)
 if FILES_ENABLED:

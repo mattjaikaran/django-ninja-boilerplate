@@ -229,14 +229,19 @@ django-ninja-boilerplate/
         └── generators/          # Project generators
 ```
 
-### Optional apps: files and webhooks
+### Optional apps: organizations, notifications, billing, files and webhooks
 
-The `files` and `webhooks` apps are off by default. Each app has a flag in
+These apps are off by default. Each app has a flag in
 `api/settings/common.py`. The flag adds the app to `INSTALLED_APPS`, and
-`api/urls.py` registers the controller only when the flag is on.
+`api/urls.py` registers its controllers only when the flag is on. While an app
+is off, its test module skips at collection, so `pytest notifications` reports
+a skip instead of a collection error.
 
 | Setting | Default | Purpose |
 |---|---|---|
+| `ORGANIZATIONS_ENABLED` | `false` | Installs `organizations` and registers `/api/organizations/`. |
+| `NOTIFICATIONS_ENABLED` | `false` | Installs `notifications` and registers `/api/notifications/`. |
+| `BILLING_ENABLED` | `false` | Installs `billing` and registers `/api/billing/`, including the Stripe webhook receiver. |
 | `FILES_ENABLED` | `false` | Installs `files` and registers its routes under /api/files/. |
 | `FILES_MAX_UPLOAD_BYTES` | `10485760` | Largest accepted upload, in bytes. |
 | `FILES_ALLOWED_CONTENT_TYPES` | JPEG, PNG, GIF, WebP, PDF | Accepted content types. |
@@ -247,8 +252,8 @@ To turn on an app:
 
 1. Set the flag to `true` in `.env`.
 2. Run `uv run python manage.py migrate`.
-3. Run the app tests with the flag on: `just test-optional`. The default
-   `testpaths` do not include these apps; the TEST-OPTIONAL gate runs them.
+3. Run the app tests with every flag on: `just test-optional`. The
+   TEST-OPTIONAL gate runs all five suites; while a flag is off its tests skip.
 
 #### Webhook SSRF protection
 

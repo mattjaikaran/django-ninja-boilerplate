@@ -64,6 +64,8 @@ from gauntlet_gates import BASE_REF, GENERATOR_PATHS, TEST_ENV, generator_change
 from gauntlet_hints import FIX_HINTS
 
 EXCLUDE_DIRS = {".venv", "venv", "env", "node_modules", ".git", "__pycache__", "cli"}
+# Apps installed only by their *_ENABLED flag (api/settings/common.py).
+OPTIONAL_APPS = ("webhooks", "files", "organizations", "notifications", "billing")
 
 
 @dataclass
@@ -353,16 +355,14 @@ class GauntletRunner:
                 "--extra",
                 "dev",
                 "pytest",
-                "webhooks",
-                "files",
+                *OPTIONAL_APPS,
                 "--timeout=120",
                 "--no-header",
                 "-q",
             ],
             env_override={
                 **TEST_ENV,
-                "WEBHOOKS_ENABLED": "true",
-                "FILES_ENABLED": "true",
+                **{f"{app.upper()}_ENABLED": "true" for app in OPTIONAL_APPS},
             },
         )
 

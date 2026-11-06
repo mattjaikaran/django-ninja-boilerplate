@@ -1,7 +1,13 @@
 import pytest
+from django.conf import settings
 from django.contrib.auth import get_user_model
 
 from core.tests.factories import UserFactory
+
+if not settings.NOTIFICATIONS_ENABLED:
+    pytest.skip("notifications app is disabled", allow_module_level=True)
+
+# Imported after the skip: an uninstalled app has no models to import.
 from notifications.models import Notification
 from notifications.services import NotificationService, notify
 
@@ -137,7 +143,7 @@ class TestNotificationAPI:
         response = api_client.get("/api/notifications/", **auth_headers)
         assert response.status_code == 200
         data = response.json()
-        assert data["unread_count"] == 2
+        assert data["unreadCount"] == 2
         assert len(data["items"]) == 2
 
     def test_list_unread_only(self, api_client, user, auth_headers, service):

@@ -232,9 +232,9 @@ test *paths:
     # shellcheck disable=SC2086 # targets is a space-separated path list
     DJANGO_READ_DOT_ENV=0 {{ uv }} run {{ test_extras }} pytest -x -q --no-cov $targets
 
-# Test the flag-gated apps (webhooks, files); the TEST-OPTIONAL gate runs this
+# Test the flag-gated apps; the TEST-OPTIONAL gate runs this
 test-optional:
-    DJANGO_READ_DOT_ENV=0 WEBHOOKS_ENABLED=true FILES_ENABLED=true {{ uv }} run {{ test_extras }} pytest webhooks files -q --no-cov
+    DJANGO_READ_DOT_ENV=0 WEBHOOKS_ENABLED=true FILES_ENABLED=true ORGANIZATIONS_ENABLED=true NOTIFICATIONS_ENABLED=true BILLING_ENABLED=true {{ uv }} run {{ test_extras }} pytest webhooks files organizations notifications billing -q --no-cov
 
 # Run the suite with a coverage report (informational; there is no floor)
 test-coverage:

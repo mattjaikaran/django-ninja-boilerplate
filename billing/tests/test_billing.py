@@ -1,11 +1,17 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.test import Client
 
-from billing.models import Plan, Subscription
 from core.tests.factories import UserFactory
+
+if not settings.BILLING_ENABLED:
+    pytest.skip("billing app is disabled", allow_module_level=True)
+
+# Imported after the skip: an uninstalled app has no models to import.
+from billing.models import Plan, Subscription
 
 User = get_user_model()
 

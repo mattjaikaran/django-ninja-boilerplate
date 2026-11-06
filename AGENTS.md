@@ -167,7 +167,7 @@ Every change passes these gates before merge.
 | 13 | JOURNEYS | `scripts/check_journeys.py` | Features, journeys, Playwright tags out of sync; `done`/checked without a passing e2e test |
 | 14 | TICKETS | `scripts/tickets.py check` | Bad format, missing dependencies, colliding `ready` tickets |
 | 15 | TEST | `pytest` | Broken smoke, contract, permission, regression tests |
-| 16 | TEST-OPTIONAL | `pytest webhooks files` with `WEBHOOKS_ENABLED`, `FILES_ENABLED` | Flag-gated apps (kept out of default settings and OpenAPI) |
+| 16 | TEST-OPTIONAL | `pytest webhooks files organizations notifications billing` with their five `*_ENABLED` flags | Flag-gated apps (kept out of default settings and OpenAPI) |
 | 17 | CLI-TEST | `pytest cli/tests` | Broken `cli/` package |
 | 18 | AI-DB | `scripts/test_ai_db.py` | Postgres-only tests (`core.ai` owner scoping, concurrent refresh) in a throwaway pgvector container; skips without Docker |
 | 19 | DEPLOY-CHECK | `manage.py check --deploy` | Production config issues |

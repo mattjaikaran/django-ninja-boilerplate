@@ -24,9 +24,6 @@ from api.healthcheck import HealthCheckController
 from api.parsers import ORJSONParser
 from api.renderers import ORJSONRenderer
 from atlas.views import atlas_admin_view, atlas_data_view, atlas_regenerate_view
-
-# Optional app imports — uncomment to enable:
-# from billing.controllers import BillingController, StripeWebhookController
 from core.controllers import (
     APIKeyController,
     AuditLogController,
@@ -44,9 +41,6 @@ from core.observability.controllers import MetricsController
 from core.security.brute_force import admin_login_with_lockout
 from core.sse.views import sse_endpoint
 from journeys.views import journey_detail_view, journeys_admin_view
-
-# from notifications.controllers import NotificationController
-# from organizations.controllers import OrganizationController
 from todos.controllers import (
     TodoController,
     TodoControllerBasic,
@@ -149,11 +143,6 @@ api.register_controllers(
     TaskController,  # Task status and progress tracking
     TaskSchedulerController,  # Periodic task management
     DeadLetterQueueController,  # Failed task handling
-    # Optional app controllers — uncomment to enable:
-    # OrganizationController,  # organizations app — multi-tenancy
-    # NotificationController,  # notifications app — in-app + email
-    # BillingController,  # billing app — Stripe plans + subscriptions
-    # StripeWebhookController,  # billing app — Stripe webhooks
     # todos app — four controllers demonstrating progressively abstracted patterns
     TodoController,  # Pattern 4: full decorators + service layer (recommended)
     TodoControllerPartial,  # Pattern 3: selective decorators, inline DB ops
@@ -162,7 +151,19 @@ api.register_controllers(
     # Add more controllers here
 )
 
-# Optional apps behind flags in api/settings/common.py. Both default off.
+# Optional apps behind flags in api/settings/common.py. All default off.
+if settings.ORGANIZATIONS_ENABLED:
+    from organizations.controllers import OrganizationController
+
+    api.register_controllers(OrganizationController)  # multi-tenancy + membership
+if settings.NOTIFICATIONS_ENABLED:
+    from notifications.controllers import NotificationController
+
+    api.register_controllers(NotificationController)  # in-app notifications
+if settings.BILLING_ENABLED:
+    from billing.controllers import BillingController, StripeWebhookController
+
+    api.register_controllers(BillingController, StripeWebhookController)  # Stripe
 if settings.FILES_ENABLED:
     from files.controllers import FileController
 
