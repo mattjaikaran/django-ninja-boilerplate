@@ -34,10 +34,10 @@ The `todos` app ships **four controller variants** so you can compare approaches
 
 | #   | Pattern                  | Route Prefix              | File                             | When to Use                                                                                   |
 | --- | ------------------------ | ------------------------- | -------------------------------- | --------------------------------------------------------------------------------------------- |
-| 1   | **Declarative**          | `/api/todos-declarative/` | `todo_controller_declarative.py` | Learning the framework; teams that want every error path explicit with no decorator magic     |
-| 2   | **Basic**                | `/api/todos-basic/`       | `todo_controller_basic.py`       | Small projects; minimal abstraction with `get_object_or_404`                                  |
-| 3   | **Partial**              | `/api/todos-partial/`     | `todo_controller_partial.py`     | Mix-and-match: reads are plain, writes use `log_api_call`               |
-| 4   | **Full (service layer)** | `/api/todos/`             | `todo_controller.py`             | **Recommended for production.** Controller is a thin HTTP adapter; all logic in `TodoService` |
+| 1   | **Declarative**          | /api/todos-declarative/   | `todo_controller_declarative.py` | Learning the framework; teams that want every error path explicit with no decorator magic     |
+| 2   | **Basic**                | /api/todos-basic/         | `todo_controller_basic.py`       | Small projects; minimal abstraction with `get_object_or_404`                                  |
+| 3   | **Partial**              | /api/todos-partial/       | `todo_controller_partial.py`     | Mix-and-match: reads are plain, writes use `log_api_call`               |
+| 4   | **Full (service layer)** | /api/todos/               | `todo_controller.py`             | **Recommended for production.** Controller is a thin HTTP adapter; all logic in `TodoService` |
 
 ```python
 # Pattern 1 — Declarative: every error path is explicit
@@ -366,7 +366,7 @@ build target, command, and volume mounts.
 Use `rg`, not `grep`. It respects `.gitignore`.
 
 ```bash
-just search "TODO"                  # rg --smart-case
+rg --smart-case "TODO"
 ```
 
 See the `rtk-ripgrep` skill for the RTK `exclude_commands` workaround.
@@ -630,7 +630,7 @@ python manage.py generate_feature graphql --app-name=core
 
 This creates:
 
-- `core/graphql/` - GraphQL package with:
+- core/graphql/ - GraphQL package with:
   - `schema.py` - Main schema combining Query and Mutation
   - `queries.py` - `me`, `user(id)` and the staff-only `users` query
   - `mutations.py` - `updateUser` and `deleteAccount` for the current user
@@ -639,8 +639,8 @@ This creates:
   - `permissions.py` - `IsAuthenticated` and `IsStaff` permission classes
   - `user_service.py` - All user queries, scoped to the viewer; resolvers hold
     no ORM code
-- `core/tests/test_graphql.py` - Smoke and permission tests for `/api/graphql/`
-- `core/graphql_view.py` - JWT-authenticated GraphQL view
+- core/tests/test_graphql.py - Smoke and permission tests for /api/graphql/
+- core/graphql_view.py - JWT-authenticated GraphQL view
 
 3. **Access the GraphQL playground:**
 
@@ -1271,7 +1271,7 @@ def process_payment(self, payment_id):
 
 ### Task Status API
 
-Monitor and manage tasks via REST API. Every `/api/tasks/` route requires a staff user: task results are not scoped to an owner.
+Monitor and manage tasks via REST API. Every /api/tasks/ route requires a staff user: task results are not scoped to an owner.
 
 ```bash
 # Get task status and progress
@@ -1466,7 +1466,7 @@ def send_notification(user_id, message):
 
 ### Metrics
 
-Prometheus-format metrics are exposed at `/api/metrics`. The endpoint requires
+Prometheus-format metrics are exposed at /api/metrics. The endpoint requires
 a staff user's JWT, and access tokens expire after 60 minutes, so a Prometheus
 scraper cannot use it as shipped. Add a scrape credential before you rely on it.
 
@@ -1519,7 +1519,7 @@ logger.info("Processing order", extra={"order_id": "456"})
 
 ### Health Checks
 
-Health endpoints live on one controller at `/api/health`. Liveness, basic
+Health endpoints live on one controller at /api/health. Liveness, basic
 health, and readiness are public; detailed, component, system, and metrics
 endpoints require a staff JWT. Deployment probes (`/`, `/liveness`,
 `/readiness`) are public for orchestrators; everything that reports internal
@@ -1627,7 +1627,7 @@ See [`deploy/`](deploy/) for detailed deployment configurations:
 
 - Multi-stage Docker builds
 - Gunicorn with workers
-- Health checks at `/api/health/`
+- Health checks at /api/health/
 - Automatic migrations on deploy
 - Secret management
 
@@ -1638,9 +1638,9 @@ See [`deploy/`](deploy/) for detailed deployment configurations:
 
 ### API Versioning
 
-The API mounts once at `/api/` with no version in the path. That surface is
+The API mounts once at /api/ with no version in the path. That surface is
 v1. It does not move when the project version changes, and there is no
-`/api/v1/` alias. A breaking v2 ships beside it at `/api/v2/`; `/api/` keeps
+/api/v1/ alias. A breaking v2 ships beside it at /api/v2/; /api/ keeps
 serving v1 until it is retired. Contract tests assert that both versioned
 prefixes return 404 (`tests/contract/test_route_access.py`) and that the
 OpenAPI document lists no versioned paths

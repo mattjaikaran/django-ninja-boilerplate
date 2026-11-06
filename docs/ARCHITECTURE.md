@@ -139,10 +139,10 @@ The `files` and `webhooks` apps are off by default. Each app has a flag in
 
 | Setting | Default | Purpose |
 |---|---|---|
-| `FILES_ENABLED` | `false` | Installs `files` and registers `/api/files/`. |
+| `FILES_ENABLED` | `false` | Installs `files` and registers /api/files/. |
 | `FILES_MAX_UPLOAD_BYTES` | `10485760` | Largest accepted upload, in bytes. |
 | `FILES_ALLOWED_CONTENT_TYPES` | JPEG, PNG, GIF, WebP, PDF | Accepted content types. |
-| `WEBHOOKS_ENABLED` | `false` | Installs `webhooks` and registers `/api/webhooks/`. |
+| `WEBHOOKS_ENABLED` | `false` | Installs `webhooks` and registers /api/webhooks/. |
 | `WEBHOOKS_ALLOW_HTTP` | `false` | Accepts `http://` webhook URLs outside `DEBUG`. |
 
 To turn on an app:
@@ -411,15 +411,15 @@ erDiagram
 
 ### Versioning
 
-The API mounts exactly once, at `/api/`, and paths carry no version. The
+The API mounts exactly once, at /api/, and paths carry no version. The
 unversioned surface is v1: it does not move when the project release version
-changes, and `/api/v1/` is not mounted. A breaking change ships as `/api/v2/`
-beside it; `/api/` continues to serve v1 until it is retired. The inactive
-`api/versioning.py` mount and its `API_VERSIONING_ENABLED` switch were removed
+changes, and /api/v1/ is not mounted. A breaking change ships as /api/v2/
+beside it; /api/ continues to serve v1 until it is retired. The inactive
+api/versioning.py mount and its `API_VERSIONING_ENABLED` switch were removed
 and are not coming back.
 
-`tests/contract/test_route_access.py` asserts that the `/api/v1/` and
-`/api/v2/` prefixes return 404, and `tests/contract/test_openapi_contract.py`
+`tests/contract/test_route_access.py` asserts that the /api/v1/ and
+/api/v2/ prefixes return 404, and `tests/contract/test_openapi_contract.py`
 asserts that no versioned path reaches the OpenAPI document.
 
 `info.version` in the OpenAPI document is the release version read from the
