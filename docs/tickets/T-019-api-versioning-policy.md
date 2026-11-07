@@ -1,7 +1,7 @@
 ---
 id: T-019
 title: Document the API versioning policy from issue 50
-status: ready
+status: done
 tier: small
 depends_on: []
 owns:

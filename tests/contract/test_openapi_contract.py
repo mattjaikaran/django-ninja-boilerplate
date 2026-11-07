@@ -1,6 +1,9 @@
 """In-process OpenAPI contract tests for registered routes."""
 
+from pathlib import Path
+
 import pytest
+from django.conf import settings
 from django.test import Client
 
 from api.urls import api
@@ -47,6 +50,12 @@ class TestOpenAPIContract:
     def test_versioned_paths_are_absent(self):
         paths = api.get_openapi_schema()["paths"]
         assert all(not path.startswith(("/api/v1/", "/api/v2/")) for path in paths)
+
+    def test_info_version_is_the_release_version(self):
+        """The OpenAPI version is the ``VERSION`` file's release version."""
+        version_file = Path(settings.BASE_DIR) / "VERSION"
+        expected = version_file.read_text(encoding="utf-8").strip()
+        assert api.get_openapi_schema()["info"]["version"] == expected
 
     def test_component_properties_use_camel_case_aliases(self):
         """CamelCaseSchema aliases must reach the exported contract.
