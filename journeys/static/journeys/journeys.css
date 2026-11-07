@@ -47,6 +47,8 @@
 
 .jr-chip--verified,
 .jr-chip--done,
+.jr-chip--tested,
+.jr-chip--passed,
 .jr-chip--ok {
   background: #dcfce7;
   color: #166534;
@@ -54,24 +56,30 @@
 
 .dark .jr-chip--verified,
 .dark .jr-chip--done,
+.dark .jr-chip--tested,
+.dark .jr-chip--passed,
 .dark .jr-chip--ok {
   background: #052e16;
   color: #86efac;
 }
 
 .jr-chip--failing,
+.jr-chip--failed,
 .jr-chip--error {
   background: #fee2e2;
   color: #991b1b;
 }
 
 .dark .jr-chip--failing,
+.dark .jr-chip--failed,
 .dark .jr-chip--error {
   background: #450a0a;
   color: #fca5a5;
 }
 
 .jr-chip--documented,
+.jr-chip--backend_only,
+.jr-chip--browser_only,
 .jr-chip--partial,
 .jr-chip--building,
 .jr-chip--warning {
@@ -80,6 +88,8 @@
 }
 
 .dark .jr-chip--documented,
+.dark .jr-chip--backend_only,
+.dark .jr-chip--browser_only,
 .dark .jr-chip--partial,
 .dark .jr-chip--building,
 .dark .jr-chip--warning {
@@ -91,6 +101,11 @@
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 0.8125rem;
   word-break: break-all;
+}
+
+.jr-nowrap {
+  white-space: nowrap;
+  word-break: normal;
 }
 
 .jr-prose {
