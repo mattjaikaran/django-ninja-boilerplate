@@ -1,5 +1,6 @@
 import math
 import re
+from pathlib import Path
 
 from django.conf import settings
 from django.conf.urls.static import static
@@ -64,6 +65,12 @@ admin.site.site_url = "/api/docs" if settings.API_DOCS != "off" else None
 # API_DOCS (settings): "public", "staff" (admin login) or "off" (prod default).
 _docs_enabled = settings.API_DOCS != "off"
 
+
+def _release_version() -> str:
+    """The release version from the canonical ``VERSION`` file."""
+    return (Path(settings.BASE_DIR) / "VERSION").read_text(encoding="utf-8").strip()
+
+
 api = NinjaExtraAPI(
     # CSRF for the API lives in core.security.cookie_auth.ApiCsrfMiddleware.
     openapi_extra={
@@ -71,7 +78,7 @@ api = NinjaExtraAPI(
             "termsOfService": "https://example.com/terms/",
         }
     },
-    version="0.1",
+    version=_release_version(),
     title="Django Ninja Boilerplate API",
     description="API documentation for the Django Ninja Boilerplate API",
     urls_namespace="boilerplate_api",

@@ -19,6 +19,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - **Journeys page layout**: `/admin/journeys/` shows a summary header (counts by status) and one responsive card per journey, with a status badge, a short description, the Playwright spec and smoke test as monospace chips with found or missing state, and the endpoint list. Dark mode and narrow screens work.
 - `api.settings.test` no longer forces `billing` into `INSTALLED_APPS`; billing tests skip unless `BILLING_ENABLED=true`.
+- OpenAPI `info.version` now reports the release version from the `VERSION` file instead of the hardcoded `0.1`, so a generated client can identify the build that published the schema.
+- Documented the API versioning policy in `README.md` and `docs/ARCHITECTURE.md`: the API mounts once at /api/ as v1 with no version prefix, and a breaking v2 ships at /api/v2/ while /api/ keeps serving v1.
 
 ### Fixed
 - **API key list returned 500**: `GET /api/api-keys/` failed once the user owned a key, because `APIKeyResponse.id` rejected the ORM `UUID`. It now serialises the UUID as a string, as the user schemas do. The new J-003 smoke test caught it.
