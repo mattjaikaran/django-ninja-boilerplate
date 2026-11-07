@@ -120,6 +120,8 @@ The gate and the admin page resolve the same paths:
 | `JOURNEYS_E2E_DIR` | `<repo>/../frontend/e2e` (scans `**/*.spec.ts`, `**/*.spec.js`, `**/*.test.ts`) |
 | `JOURNEYS_E2E_REPORT` | `<repo>/../frontend/test-results/journeys.json` |
 | `TICKETS_DIR` | `<repo>/docs/tickets` |
+| `JOURNEYS_INDEX_FILE` | `<spec dir>/journeys.md`, else `<repo>/../docs/product/journeys.md` (the journeys table the admin page lists) |
+| `JOURNEYS_SMOKE_DIR` | `<repo>/tests/smoke` (files named `test_jNN_*.py`) |
 
 ## Step states
 
@@ -163,7 +165,10 @@ uv run python scripts/check_journeys.py --json   # full report as JSON
 ```
 
 Staff can open the same report at `/admin/journeys/` (Admin, Monitoring,
-User Journeys).
+User Journeys). The page starts with a table of every journey in
+`journeys.md` (status, smoke test, Playwright spec, endpoints). The sync
+report is in the collapsed "Feature spec sync" section. See
+`journeys/README.md`.
 
 ## Sync loop for agents
 

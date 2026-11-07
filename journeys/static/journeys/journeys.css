@@ -1,4 +1,4 @@
-/* User journeys admin pages: state chips and tables.
+/* User journeys admin pages: state chips, summary tiles and journey cards.
    django-unfold ships a limited Tailwind subset, so the state tints live
    here. Dark mode is class-based: selectors are prefixed with `.dark`. */
 
@@ -47,6 +47,8 @@
 
 .jr-chip--verified,
 .jr-chip--done,
+.jr-chip--tested,
+.jr-chip--passed,
 .jr-chip--ok {
   background: #dcfce7;
   color: #166534;
@@ -54,24 +56,30 @@
 
 .dark .jr-chip--verified,
 .dark .jr-chip--done,
+.dark .jr-chip--tested,
+.dark .jr-chip--passed,
 .dark .jr-chip--ok {
   background: #052e16;
   color: #86efac;
 }
 
 .jr-chip--failing,
+.jr-chip--failed,
 .jr-chip--error {
   background: #fee2e2;
   color: #991b1b;
 }
 
 .dark .jr-chip--failing,
+.dark .jr-chip--failed,
 .dark .jr-chip--error {
   background: #450a0a;
   color: #fca5a5;
 }
 
 .jr-chip--documented,
+.jr-chip--backend_only,
+.jr-chip--browser_only,
 .jr-chip--partial,
 .jr-chip--building,
 .jr-chip--warning {
@@ -80,6 +88,8 @@
 }
 
 .dark .jr-chip--documented,
+.dark .jr-chip--backend_only,
+.dark .jr-chip--browser_only,
 .dark .jr-chip--partial,
 .dark .jr-chip--building,
 .dark .jr-chip--warning {
@@ -93,6 +103,11 @@
   word-break: break-all;
 }
 
+.jr-nowrap {
+  white-space: nowrap;
+  word-break: normal;
+}
+
 .jr-prose {
   white-space: pre-wrap;
   line-height: 1.5;
@@ -101,4 +116,260 @@
 .jr-list {
   list-style: disc;
   padding-left: 1.25rem;
+}
+
+/* ---- Summary header ---------------------------------------------------- */
+
+.jr-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: 0.75rem;
+}
+
+.jr-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--color-base-200, #e2e8f0);
+  border-left-width: 4px;
+  border-radius: 0.5rem;
+  background: #fff;
+}
+
+.dark .jr-stat {
+  background: var(--color-base-900, #0f172a);
+  border-color: var(--color-base-800, #1e293b);
+}
+
+.jr-stat-label {
+  font-size: 0.8125rem;
+  color: var(--color-base-500, #64748b);
+}
+
+.jr-stat-value {
+  font-size: 1.75rem;
+  font-weight: 600;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+.jr-stat--total { border-left-color: #94a3b8; }
+.jr-stat--tested { border-left-color: #22c55e; }
+.jr-stat--backend_only,
+.jr-stat--browser_only { border-left-color: #f59e0b; }
+.jr-stat--planned { border-left-color: #94a3b8; }
+
+.jr-bar {
+  grid-column: 1 / -1;
+  display: flex;
+  height: 0.5rem;
+  overflow: hidden;
+  border-radius: 9999px;
+  background: var(--color-base-200, #e2e8f0);
+}
+
+.dark .jr-bar { background: var(--color-base-800, #1e293b); }
+
+.jr-bar-seg { flex: 1 1 0; min-width: 0.125rem; }
+.jr-bar-seg--tested { background: #22c55e; }
+.jr-bar-seg--backend_only,
+.jr-bar-seg--browser_only { background: #f59e0b; }
+.jr-bar-seg--planned { background: #94a3b8; }
+
+/* ---- Journey cards ----------------------------------------------------- */
+
+.jr-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 26rem), 1fr));
+  gap: 1rem;
+}
+
+.jr-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+  min-width: 0;
+  padding: 1.25rem;
+  border: 1px solid var(--color-base-200, #e2e8f0);
+  border-top-width: 3px;
+  border-radius: 0.5rem;
+  background: #fff;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.04);
+}
+
+.dark .jr-card {
+  background: var(--color-base-900, #0f172a);
+  border-color: var(--color-base-800, #1e293b);
+}
+
+.jr-card--tested { border-top-color: #22c55e; }
+.jr-card--backend_only,
+.jr-card--browser_only { border-top-color: #f59e0b; }
+.jr-card--planned { border-top-color: #94a3b8; }
+
+.jr-card-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.jr-card-title {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.jr-card-title h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.jr-card-badges {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.jr-card-badges .jr-chip { margin: 0 0 0 0.25rem; }
+
+.jr-id {
+  flex: none;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.75rem;
+  color: var(--color-base-500, #64748b);
+}
+
+.jr-desc {
+  font-size: 0.875rem;
+  line-height: 1.45;
+  color: var(--color-base-600, #475569);
+}
+
+.dark .jr-desc { color: var(--color-base-300, #cbd5e1); }
+
+.jr-stories { display: flex; flex-wrap: wrap; gap: 0.25rem; }
+
+.jr-tag {
+  padding: 0 0.375rem;
+  border-radius: 0.25rem;
+  font-size: 0.6875rem;
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.dark .jr-tag { background: #1e293b; color: #94a3b8; }
+
+.jr-tests {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  border-radius: 0.375rem;
+  background: #f8fafc;
+}
+
+.dark .jr-tests { background: rgb(30 41 59 / 0.5); }
+
+.jr-test {
+  display: grid;
+  grid-template-columns: 7.5rem minmax(0, 1fr);
+  gap: 0.5rem;
+  align-items: start;
+  font-size: 0.8125rem;
+}
+
+.jr-test dt { color: var(--color-base-500, #64748b); padding-top: 0.125rem; }
+.jr-test dd { margin: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 0.5rem; }
+.jr-test-file { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 0.5rem; }
+
+.jr-path {
+  padding: 0.125rem 0.5rem;
+  border: 1px solid transparent;
+  border-radius: 0.375rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.75rem;
+  word-break: break-all;
+}
+
+.jr-path--ok { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
+.jr-path--missing { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
+.jr-path--planned { background: #f1f5f9; color: #475569; border-color: #e2e8f0; }
+
+.dark .jr-path--ok { background: #052e16; color: #86efac; border-color: #14532d; }
+.dark .jr-path--missing { background: #450a0a; color: #fca5a5; border-color: #7f1d1d; }
+.dark .jr-path--planned { background: #1e293b; color: #cbd5e1; border-color: #334155; }
+
+.jr-state {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.jr-state--ok { color: #15803d; }
+.jr-state--missing { color: #b91c1c; }
+.jr-state--planned { color: #64748b; }
+
+.dark .jr-state--ok { color: #86efac; }
+.dark .jr-state--missing { color: #fca5a5; }
+.dark .jr-state--planned { color: #94a3b8; }
+
+.jr-note {
+  flex-basis: 100%;
+  font-size: 0.75rem;
+  color: var(--color-base-500, #64748b);
+}
+
+.jr-endpoints h4 {
+  margin-bottom: 0.375rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-base-500, #64748b);
+}
+
+.jr-count {
+  padding: 0 0.375rem;
+  border-radius: 9999px;
+  background: #f1f5f9;
+  color: #475569;
+  letter-spacing: 0;
+}
+
+.dark .jr-count { background: #1e293b; color: #94a3b8; }
+
+.jr-endpoints ul { display: flex; flex-direction: column; gap: 0.125rem; }
+
+.jr-endpoints code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.75rem;
+  word-break: break-all;
+}
+
+.jr-endpoints summary {
+  margin: 0.25rem 0;
+  cursor: pointer;
+  font-size: 0.75rem;
+  color: var(--color-primary-600, #9333ea);
+}
+
+.jr-card-foot {
+  display: flex;
+  gap: 1rem;
+  margin-top: auto;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--color-base-200, #e2e8f0);
+  font-size: 0.8125rem;
+}
+
+.dark .jr-card-foot { border-top-color: var(--color-base-800, #1e293b); }
+
+@media (max-width: 480px) {
+  .jr-test { grid-template-columns: 1fr; gap: 0.125rem; }
+  .jr-card { padding: 1rem; }
 }

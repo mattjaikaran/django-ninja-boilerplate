@@ -1,6 +1,7 @@
 """Staff admin pages for user journeys.
 
-- ``/admin/journeys/`` lists features and journeys with their verification.
+- ``/admin/journeys/`` lists each journey with its tests and endpoints, then
+  the features and journey steps with their verification.
 - ``/admin/journeys/<id>/`` shows one journey step by step.
 
 Both pages read ``docs/product/`` and the Playwright JSON report through
@@ -18,9 +19,12 @@ from django.contrib import admin
 from django.contrib.admin.views.decorators import staff_member_required
 from django.http import Http404, HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
+from django.urls import reverse
 from django.views.decorators.http import require_GET
 
 from journeys.services import Issue, Journey, SyncReport, build_report, spec_paths
+from journeys.services.e2e_evidence import load_results
+from journeys.services.journey_index import STATUS_ORDER, JourneyIndex, build_index
 
 STEP_STATES = ("verified", "documented", "failing", "no_result", "no_spec")
 
@@ -29,13 +33,35 @@ def _report() -> SyncReport:
     return build_report(spec_paths(Path(settings.BASE_DIR)))
 
 
-def _path_rows(report: SyncReport) -> list[dict[str, object]]:
+def _index(report: SyncReport) -> JourneyIndex:
+    """The journeys table of the plan, linked to the step pages that exist."""
+    statuses = {journey.id: journey.status for journey in report.journeys}
+    index = build_index(
+        report.paths,
+        Path(settings.BASE_DIR),
+        load_results(report.paths.e2e_report, []),
+        statuses,
+    )
+    for journey in index.journeys:
+        if journey.id in statuses:
+            journey.detail_url = reverse("journey_detail", args=[journey.id])
+    return index
+
+
+def _path_rows(report: SyncReport, index: JourneyIndex) -> list[dict[str, object]]:
     paths = report.paths
     rows = [
         ("Spec dir", "JOURNEYS_SPEC_DIR", paths.spec_dir, paths.spec_dir.is_dir()),
         ("E2E dir", "JOURNEYS_E2E_DIR", paths.e2e_dir, report.e2e_dir_exists),
         ("E2E report", "JOURNEYS_E2E_REPORT", paths.e2e_report, report.report_exists),
         ("Tickets dir", "TICKETS_DIR", paths.tickets_dir, paths.tickets_dir.is_dir()),
+        ("Journey list", "JOURNEYS_INDEX_FILE", index.path, index.found),
+        (
+            "Smoke tests dir",
+            "JOURNEYS_SMOKE_DIR",
+            paths.smoke_dir,
+            bool(paths.smoke_dir and paths.smoke_dir.is_dir()),
+        ),
     ]
     return [
         {"label": label, "env": env, "path": str(path), "exists": exists}
@@ -83,6 +109,7 @@ def journeys_admin_view(request: HttpRequest) -> HttpResponse:
         }
         for feature in report.features
     ]
+    index = _index(report)
     context = admin.site.each_context(request)
     context.update(
         {
@@ -94,7 +121,11 @@ def journeys_admin_view(request: HttpRequest) -> HttpResponse:
             "step_counts": [
                 (state, step_counts.get(state, 0)) for state in STEP_STATES
             ],
-            "path_rows": _path_rows(report),
+            "path_rows": _path_rows(report, index),
+            "bar_order": list(STATUS_ORDER),
+            "index": index,
+            "api_docs_enabled": settings.API_DOCS != "off",
+            "api_docs_url": settings.ADMIN_SITE_URL,
         }
     )
     return render(request, "journeys/journeys.html", context)

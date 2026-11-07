@@ -51,6 +51,10 @@ class SpecPaths:
     e2e_dir: Path
     e2e_report: Path
     tickets_dir: Path
+    # Optional: the journeys index file and the backend smoke test directory.
+    # None means "use the default" (see `journey_index.find_index_file`).
+    index_file: Path | None = None
+    smoke_dir: Path | None = None
 
     @property
     def features_file(self) -> Path:
@@ -70,6 +74,10 @@ def spec_paths(base_dir: Path, environ: Mapping[str, str] | None = None) -> Spec
         value = env.get(name, "").strip()
         return Path(value).expanduser().resolve() if value else default.resolve()
 
+    def pick_optional(name: str) -> Path | None:
+        value = env.get(name, "").strip()
+        return Path(value).expanduser().resolve() if value else None
+
     return SpecPaths(
         spec_dir=pick("JOURNEYS_SPEC_DIR", base / "docs" / "product"),
         e2e_dir=pick("JOURNEYS_E2E_DIR", base.parent / "frontend" / "e2e"),
@@ -78,6 +86,8 @@ def spec_paths(base_dir: Path, environ: Mapping[str, str] | None = None) -> Spec
             base.parent / "frontend" / "test-results" / "journeys.json",
         ),
         tickets_dir=pick("TICKETS_DIR", base / "docs" / "tickets"),
+        index_file=pick_optional("JOURNEYS_INDEX_FILE"),
+        smoke_dir=pick("JOURNEYS_SMOKE_DIR", base / "tests" / "smoke"),
     )
 
 
@@ -210,6 +220,8 @@ class SyncReport:
                 "e2e_dir": str(self.paths.e2e_dir),
                 "e2e_report": str(self.paths.e2e_report),
                 "tickets_dir": str(self.paths.tickets_dir),
+                "index_file": str(self.paths.index_file or ""),
+                "smoke_dir": str(self.paths.smoke_dir or ""),
             },
             "e2e_dir_exists": self.e2e_dir_exists,
             "report_exists": self.report_exists,

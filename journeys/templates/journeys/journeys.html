@@ -7,155 +7,282 @@
 
 {% block content %}
   <div class="flex flex-col gap-6">
-    {# ── Summary ─────────────────────────────────────────────────── #}
-    <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-      <div class="bg-white border border-base-200 p-6 rounded-default shadow-xs dark:bg-base-900 dark:border-base-800">
-        <h3 class="text-sm text-base-500 dark:text-base-400">Journeys verified</h3>
-        <p class="text-2xl font-semibold text-important">{{ report.verified_journeys }} / {{ report.journeys|length }}</p>
-      </div>
-      <div class="bg-white border border-base-200 p-6 rounded-default shadow-xs dark:bg-base-900 dark:border-base-800">
-        <h3 class="text-sm text-base-500 dark:text-base-400">Features checked</h3>
-        <p class="text-2xl font-semibold text-important">{{ checked_count }} / {{ feature_count }}</p>
-      </div>
-      <div class="bg-white border border-base-200 p-6 rounded-default shadow-xs dark:bg-base-900 dark:border-base-800">
-        <h3 class="text-sm text-base-500 dark:text-base-400">Sync findings</h3>
-        <p class="text-2xl font-semibold text-important">{{ report.errors|length }} errors</p>
-        <p class="text-sm text-base-500 dark:text-base-400">{{ report.warnings|length }} warnings &middot; {{ report.gaps|length }} gaps</p>
-      </div>
-      <div class="bg-white border border-base-200 p-6 rounded-default shadow-xs dark:bg-base-900 dark:border-base-800">
-        <h3 class="text-sm text-base-500 dark:text-base-400 mb-2">Steps by state</h3>
-        {% for state, count in step_counts %}
-          <span class="jr-chip jr-chip--{{ state }}">{{ state }} {{ count }}</span>
+    {# ── What this page is ───────────────────────────────────────── #}
+    <div class="bg-white border border-base-200 p-6 rounded-default shadow-xs dark:bg-base-900 dark:border-base-800">
+      <h2 class="font-semibold text-important mb-1">What this page shows</h2>
+      <p class="text-sm text-base-500 dark:text-base-400">
+        A journey is one thing a user does from start to finish. For each journey this page shows whether a
+        backend smoke test and a Playwright browser test exist, and which API endpoints it uses.
+        Edit the list in <span class="jr-mono">{{ index.path }}</span>.
+        {% if api_docs_enabled %}<a class="text-primary-600 dark:text-primary-500" href="{{ api_docs_url }}">Open the API reference</a>.{% endif %}
+      </p>
+    </div>
+
+    {% if index.found %}
+      {# ── Summary header: counts by status ────────────────────────── #}
+      <section class="jr-summary" aria-label="Journey status summary">
+        <div class="jr-stat jr-stat--total">
+          <span class="jr-stat-label">All journeys</span>
+          <span class="jr-stat-value">{{ index.journeys|length }}</span>
+        </div>
+        {% for status, label, count in index.counts %}
+          <div class="jr-stat jr-stat--{{ status }}">
+            <span class="jr-stat-label">{{ label }}</span>
+            <span class="jr-stat-value">{{ count }}</span>
+          </div>
         {% endfor %}
-      </div>
-    </div>
+        {% if index.journeys %}
+          <div class="jr-bar" role="img" aria-label="Share of journeys by status">
+            {% for status in bar_order %}{% for journey in index.journeys %}{% if journey.status == status %}<span class="jr-bar-seg jr-bar-seg--{{ status }}" title="{{ journey.id }}: {{ journey.status_label }}"></span>{% endif %}{% endfor %}{% endfor %}
+          </div>
+        {% endif %}
+      </section>
 
-    {# ── Errors and warnings ─────────────────────────────────────── #}
-    {% if report.errors or report.warnings %}
+      {# ── One card per journey ────────────────────────────────────── #}
+      <section class="jr-grid" aria-label="Journeys">
+        {% for journey in index.journeys %}
+          <article class="jr-card jr-card--{{ journey.status }}">
+            <header class="jr-card-head">
+              <div class="jr-card-title">
+                <span class="jr-id">{{ journey.id }}</span>
+                <h3>{{ journey.title }}</h3>
+              </div>
+              <div class="jr-card-badges">
+                <span class="jr-chip jr-chip--{{ journey.status }}">{{ journey.status_label }}</span>
+                {% if journey.spec_status %}<span class="jr-chip jr-chip--{{ journey.spec_status }}" title="Status in the feature spec">spec: {{ journey.spec_status }}</span>{% endif %}
+              </div>
+            </header>
+
+            {% if journey.surface %}<p class="jr-desc">{{ journey.surface }}</p>{% endif %}
+            {% if journey.stories %}<p class="jr-stories">{% for story in journey.stories %}<span class="jr-tag">{{ story }}</span>{% endfor %}</p>{% endif %}
+
+            <dl class="jr-tests">
+              <div class="jr-test">
+                <dt>Playwright spec</dt>
+                <dd>
+                  {% if journey.browser_test %}
+                    <code class="jr-path jr-path--{% if journey.browser_test.exists %}ok{% else %}planned{% endif %}">{{ journey.browser_test.path }}</code>
+                    <span class="jr-state jr-state--{% if journey.browser_test.exists %}ok{% else %}planned{% endif %}">{% if journey.browser_test.exists %}found{% else %}planned{% endif %}</span>
+                    {% if journey.last_run %}<span class="jr-chip jr-chip--{{ journey.last_run }}" title="Last run from the Playwright report">last run: {{ journey.last_run_label }}</span>{% endif %}
+                    {% if journey.browser_note %}<p class="jr-note">{{ journey.browser_note }}</p>{% endif %}
+                  {% else %}
+                    <span class="jr-state jr-state--missing">missing</span>
+                  {% endif %}
+                </dd>
+              </div>
+              <div class="jr-test">
+                <dt>Smoke test</dt>
+                <dd>
+                  {% for file in journey.smoke_tests %}
+                    <div class="jr-test-file">
+                      <code class="jr-path jr-path--{% if file.exists %}ok{% else %}missing{% endif %}">{{ file.path }}</code>
+                      <span class="jr-state jr-state--{% if file.exists %}ok{% else %}missing{% endif %}">{% if file.exists %}found{% else %}missing{% endif %}</span>
+                    </div>
+                  {% empty %}
+                    <span class="jr-state jr-state--missing">missing</span>
+                  {% endfor %}
+                </dd>
+              </div>
+            </dl>
+
+            <div class="jr-endpoints">
+              <h4>Endpoints{% if journey.endpoints %} <span class="jr-count">{{ journey.endpoints|length }}</span>{% endif %}</h4>
+              {% if journey.shown_endpoints %}
+                <ul>
+                  {% for endpoint in journey.shown_endpoints %}<li><code>{{ endpoint }}</code></li>{% endfor %}
+                </ul>
+                {% if journey.hidden_endpoint_count %}
+                  <details>
+                    <summary>and {{ journey.hidden_endpoint_count }} more</summary>
+                    <ul>{% for endpoint in journey.endpoints|slice:"6:" %}<li><code>{{ endpoint }}</code></li>{% endfor %}</ul>
+                  </details>
+                {% endif %}
+                <p class="jr-note">From {{ journey.endpoints_source }}.</p>
+              {% else %}
+                <p class="jr-note">None listed.</p>
+              {% endif %}
+            </div>
+
+            {% if journey.detail_url or api_docs_enabled and journey.endpoints %}
+              <footer class="jr-card-foot">
+                {% if journey.detail_url %}<a class="text-primary-600 dark:text-primary-500" href="{{ journey.detail_url }}">Steps</a>{% endif %}
+                {% if api_docs_enabled and journey.endpoints %}<a class="text-primary-600 dark:text-primary-500" href="{{ api_docs_url }}">API reference</a>{% endif %}
+              </footer>
+            {% endif %}
+          </article>
+        {% endfor %}
+      </section>
+    {% else %}
       <div class="bg-white border border-base-200 p-6 rounded-default shadow-xs dark:bg-base-900 dark:border-base-800">
-        <h2 class="font-semibold text-important mb-3">Errors and warnings</h2>
-        <table class="jr-table">
-          <thead><tr><th>Level</th><th>Code</th><th>Ref</th><th>Message</th><th>File</th></tr></thead>
-          <tbody>
-            {% for issue in report.errors %}
-              <tr><td><span class="jr-chip jr-chip--error">error</span></td><td class="jr-mono">{{ issue.code }}</td><td class="jr-mono">{{ issue.ref }}</td><td>{{ issue.message }}</td><td class="jr-mono">{{ issue.path }}</td></tr>
-            {% endfor %}
-            {% for issue in report.warnings %}
-              <tr><td><span class="jr-chip jr-chip--warning">warning</span></td><td class="jr-mono">{{ issue.code }}</td><td class="jr-mono">{{ issue.ref }}</td><td>{{ issue.message }}</td><td class="jr-mono">{{ issue.path }}</td></tr>
-            {% endfor %}
-          </tbody>
-        </table>
+        <h2 class="font-semibold text-important mb-1">No journey list found</h2>
+        <p class="text-sm text-base-500 dark:text-base-400">
+          Expected a journeys table at <span class="jr-mono">{{ index.path }}</span>.
+          Set <span class="jr-mono">JOURNEYS_INDEX_FILE</span> if the file lives elsewhere.
+        </p>
       </div>
     {% endif %}
 
-    {# ── Journeys ────────────────────────────────────────────────── #}
-    <div class="bg-white border border-base-200 p-6 rounded-default shadow-xs dark:bg-base-900 dark:border-base-800">
-      <h2 class="font-semibold text-important mb-3">Journeys</h2>
-      <table class="jr-table">
-        <thead><tr><th>ID</th><th>Title</th><th>Actor</th><th>Status</th><th>Verified</th><th>Steps</th></tr></thead>
-        <tbody>
-          {% for journey in report.journeys %}
-            <tr>
-              <td class="jr-mono"><a class="text-primary-600 dark:text-primary-500" href="{% url 'journey_detail' journey.id %}">{{ journey.id }}</a></td>
-              <td><a class="text-primary-600 dark:text-primary-500" href="{% url 'journey_detail' journey.id %}">{{ journey.title }}</a></td>
-              <td>{{ journey.actor }}</td>
-              <td><span class="jr-chip jr-chip--{{ journey.status }}">{{ journey.status }}</span></td>
-              <td>{{ journey.verified_steps }} / {{ journey.steps|length }}</td>
-              <td>
-                {% for step in journey.steps %}
-                  <span class="jr-chip jr-chip--{{ step.state }}" title="{{ step.title }}">{{ step.id }} {{ step.state }}</span>
-                {% endfor %}
-              </td>
-            </tr>
-          {% empty %}
-            <tr><td colspan="6">No journeys in {{ report.paths.journeys_dir }}.</td></tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-
-    {# ── Features ────────────────────────────────────────────────── #}
-    <div class="bg-white border border-base-200 p-6 rounded-default shadow-xs dark:bg-base-900 dark:border-base-800">
-      <h2 class="font-semibold text-important mb-3">Features</h2>
-      <table class="jr-table">
-        <thead><tr><th>Checked</th><th>ID</th><th>Title</th><th>Area</th><th>Journeys</th><th>Verification</th></tr></thead>
-        <tbody>
-          {% for row in features %}
-            <tr>
-              <td><span class="material-symbols-outlined text-base">{% if row.feature.checked %}check_box{% else %}check_box_outline_blank{% endif %}</span></td>
-              <td class="jr-mono">{{ row.feature.id }}</td>
-              <td>{{ row.feature.title }}</td>
-              <td>{{ row.feature.area }}</td>
-              <td>
-                {% for journey_id in row.journeys %}
-                  <a class="jr-mono text-primary-600 dark:text-primary-500" href="{% url 'journey_detail' journey_id %}">{{ journey_id }}</a>
-                {% empty %}
-                  <span class="text-base-400">none</span>
-                {% endfor %}
-              </td>
-              <td><span class="jr-chip jr-chip--{{ row.feature.verification }}">{{ row.feature.verification }}</span></td>
-            </tr>
-          {% empty %}
-            <tr><td colspan="6">No features in {{ report.paths.features_file }}.</td></tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-
-    {# ── Gaps ────────────────────────────────────────────────────── #}
-    {% if report.gaps %}
-      <div class="bg-white border border-base-200 p-6 rounded-default shadow-xs dark:bg-base-900 dark:border-base-800">
-        <h2 class="font-semibold text-important mb-3">Gaps</h2>
-        <p class="text-sm text-base-500 dark:text-base-400 mb-2">Steps of non-done journeys with no tagged test or no test result. Gaps do not fail the gate.</p>
-        <ul class="jr-list text-sm">
-          {% for gap in report.gaps %}
-            <li><span class="jr-chip jr-chip--{{ gap.code }}">{{ gap.code }}</span>{{ gap.message }}</li>
-          {% endfor %}
-        </ul>
-      </div>
-    {% endif %}
-
-    <div class="grid grid-cols-1 gap-4 xl:grid-cols-2">
-      {# ── Paths ─────────────────────────────────────────────────── #}
-      <div class="bg-white border border-base-200 p-6 rounded-default shadow-xs dark:bg-base-900 dark:border-base-800">
-        <h2 class="font-semibold text-important mb-3">Resolved paths</h2>
-        <table class="jr-table">
-          <thead><tr><th>Path</th><th>Env var</th><th>Location</th><th>Exists</th></tr></thead>
-          <tbody>
-            {% for row in path_rows %}
-              <tr>
-                <td>{{ row.label }}</td>
-                <td class="jr-mono">{{ row.env }}</td>
-                <td class="jr-mono">{{ row.path }}</td>
-                <td>{% if row.exists %}<span class="jr-chip jr-chip--ok">yes</span>{% else %}<span class="jr-chip">no</span>{% endif %}</td>
-              </tr>
+    {# ── Feature spec sync ───────────────────────────────────────── #}
+    <details class="bg-white border border-base-200 rounded-default shadow-xs dark:bg-base-900 dark:border-base-800"{% if not index.found %} open{% endif %}>
+      <summary class="cursor-pointer p-6 font-semibold text-important">Feature spec sync (advanced)</summary>
+      <p class="px-6 text-sm text-base-500 dark:text-base-400">
+        The JOURNEYS gate reads <span class="jr-mono">docs/product/FEATURES.md</span>, the journey files, and the Playwright report.
+        These sections show what it finds. Errors fail the gate.
+      </p>
+      <div class="flex flex-col gap-6 p-6">
+        {# ── Summary ─────────────────────────────────────────────────── #}
+        <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <div class="bg-white border border-base-200 p-6 rounded-default shadow-xs dark:bg-base-900 dark:border-base-800">
+            <h3 class="text-sm text-base-500 dark:text-base-400">Journeys verified</h3>
+            <p class="text-2xl font-semibold text-important">{{ report.verified_journeys }} / {{ report.journeys|length }}</p>
+          </div>
+          <div class="bg-white border border-base-200 p-6 rounded-default shadow-xs dark:bg-base-900 dark:border-base-800">
+            <h3 class="text-sm text-base-500 dark:text-base-400">Features checked</h3>
+            <p class="text-2xl font-semibold text-important">{{ checked_count }} / {{ feature_count }}</p>
+          </div>
+          <div class="bg-white border border-base-200 p-6 rounded-default shadow-xs dark:bg-base-900 dark:border-base-800">
+            <h3 class="text-sm text-base-500 dark:text-base-400">Sync findings</h3>
+            <p class="text-2xl font-semibold text-important">{{ report.errors|length }} errors</p>
+            <p class="text-sm text-base-500 dark:text-base-400">{{ report.warnings|length }} warnings &middot; {{ report.gaps|length }} gaps</p>
+          </div>
+          <div class="bg-white border border-base-200 p-6 rounded-default shadow-xs dark:bg-base-900 dark:border-base-800">
+            <h3 class="text-sm text-base-500 dark:text-base-400 mb-2">Steps by state</h3>
+            {% for state, count in step_counts %}
+              <span class="jr-chip jr-chip--{{ state }}">{{ state }} {{ count }}</span>
             {% endfor %}
-          </tbody>
-        </table>
-      </div>
+          </div>
+        </div>
 
-      {# ── Agent sync loop ───────────────────────────────────────── #}
-      <div class="bg-white border border-base-200 p-6 rounded-default shadow-xs dark:bg-base-900 dark:border-base-800">
-        <h2 class="font-semibold text-important mb-3">How agents keep this in sync</h2>
-        <ul class="jr-list text-sm space-y-1">
-          <li>The format and the sync rules live in <span class="jr-mono">docs/product/README.md</span>.</li>
-          <li>Agents load the <span class="jr-mono">journey-sync</span> skill (<span class="jr-mono">.agents/skills/journey-sync/SKILL.md</span>) when they change a feature, a journey, or a Playwright test.</li>
-          <li>Write one Playwright test per journey in the frontend, tagged <span class="jr-mono">@J-001</span>, with steps titled <span class="jr-mono">test.step('J-001-S1: ...')</span>. A step is verified only by a passing step in the JSON report.</li>
-          <li>Check a feature <span class="jr-mono">[x]</span> or set a journey <span class="jr-mono">done</span> only when every step is verified.</li>
-          <li>Run <span class="jr-mono">uv run python scripts/check_journeys.py</span>. Errors fail the JOURNEYS gate.</li>
-        </ul>
-      </div>
-    </div>
+        {# ── Errors and warnings ─────────────────────────────────────── #}
+        {% if report.errors or report.warnings %}
+          <div class="bg-white border border-base-200 p-6 rounded-default shadow-xs dark:bg-base-900 dark:border-base-800">
+            <h2 class="font-semibold text-important mb-3">Errors and warnings</h2>
+            <table class="jr-table">
+              <thead><tr><th>Level</th><th>Code</th><th>Ref</th><th>Message</th><th>File</th></tr></thead>
+              <tbody>
+                {% for issue in report.errors %}
+                  <tr><td><span class="jr-chip jr-chip--error">error</span></td><td class="jr-mono">{{ issue.code }}</td><td class="jr-mono">{{ issue.ref }}</td><td>{{ issue.message }}</td><td class="jr-mono">{{ issue.path }}</td></tr>
+                {% endfor %}
+                {% for issue in report.warnings %}
+                  <tr><td><span class="jr-chip jr-chip--warning">warning</span></td><td class="jr-mono">{{ issue.code }}</td><td class="jr-mono">{{ issue.ref }}</td><td>{{ issue.message }}</td><td class="jr-mono">{{ issue.path }}</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% endif %}
 
-    {# ── Adoption ────────────────────────────────────────────────── #}
-    <div class="bg-white border border-base-200 p-6 rounded-default shadow-xs dark:bg-base-900 dark:border-base-800">
-      <h2 class="font-semibold text-important mb-3">Use this in another backend</h2>
-      <p class="text-sm text-base-500 dark:text-base-400 mb-2">Run these from a django-ninja-boilerplate checkout next to the other backend. The script copies the files, refuses to overwrite your changes, and prints the wiring. The guide is <span class="jr-mono">docs/ADOPTING_UPDATES.md</span>.</p>
-      <ul class="jr-list text-sm space-y-1">
-        <li><span class="jr-mono">uv run python scripts/adopt.py list</span></li>
-        <li><span class="jr-mono">uv run python scripts/adopt.py status --target ../my-api</span></li>
-        <li><span class="jr-mono">uv run python scripts/adopt.py apply journeys --target ../my-api</span></li>
-      </ul>
-    </div>
+        {# ── Journeys ────────────────────────────────────────────────── #}
+        <div class="bg-white border border-base-200 p-6 rounded-default shadow-xs dark:bg-base-900 dark:border-base-800">
+          <h2 class="font-semibold text-important mb-1">Journey steps</h2>
+          <p class="text-sm text-base-500 dark:text-base-400 mb-3">Each step of a journey in <span class="jr-mono">docs/product/journeys/</span>, and whether a Playwright step proves it.</p>
+          <table class="jr-table">
+            <thead><tr><th>ID</th><th>Title</th><th>Actor</th><th>Status</th><th>Verified</th><th>Steps</th></tr></thead>
+            <tbody>
+              {% for journey in report.journeys %}
+                <tr>
+                  <td class="jr-mono"><a class="text-primary-600 dark:text-primary-500" href="{% url 'journey_detail' journey.id %}">{{ journey.id }}</a></td>
+                  <td><a class="text-primary-600 dark:text-primary-500" href="{% url 'journey_detail' journey.id %}">{{ journey.title }}</a></td>
+                  <td>{{ journey.actor }}</td>
+                  <td><span class="jr-chip jr-chip--{{ journey.status }}">{{ journey.status }}</span></td>
+                  <td>{{ journey.verified_steps }} / {{ journey.steps|length }}</td>
+                  <td>
+                    {% for step in journey.steps %}
+                      <span class="jr-chip jr-chip--{{ step.state }}" title="{{ step.title }}">{{ step.id }} {{ step.state }}</span>
+                    {% endfor %}
+                  </td>
+                </tr>
+              {% empty %}
+                <tr><td colspan="6">No journeys in {{ report.paths.journeys_dir }}.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+        {# ── Features ────────────────────────────────────────────────── #}
+        <div class="bg-white border border-base-200 p-6 rounded-default shadow-xs dark:bg-base-900 dark:border-base-800">
+          <h2 class="font-semibold text-important mb-1">Features</h2>
+          <p class="text-sm text-base-500 dark:text-base-400 mb-3">One line per feature in <span class="jr-mono">docs/product/FEATURES.md</span>. A feature is checked only when a passing browser test proves it.</p>
+          <table class="jr-table">
+            <thead><tr><th>Checked</th><th>ID</th><th>Title</th><th>Area</th><th>Journeys</th><th>Verification</th></tr></thead>
+            <tbody>
+              {% for row in features %}
+                <tr>
+                  <td><span class="material-symbols-outlined text-base">{% if row.feature.checked %}check_box{% else %}check_box_outline_blank{% endif %}</span></td>
+                  <td class="jr-mono">{{ row.feature.id }}</td>
+                  <td>{{ row.feature.title }}</td>
+                  <td>{{ row.feature.area }}</td>
+                  <td>
+                    {% for journey_id in row.journeys %}
+                      <a class="jr-mono text-primary-600 dark:text-primary-500" href="{% url 'journey_detail' journey_id %}">{{ journey_id }}</a>
+                    {% empty %}
+                      <span class="text-base-400">none</span>
+                    {% endfor %}
+                  </td>
+                  <td><span class="jr-chip jr-chip--{{ row.feature.verification }}">{{ row.feature.verification }}</span></td>
+                </tr>
+              {% empty %}
+                <tr><td colspan="6">No features in {{ report.paths.features_file }}.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+        {# ── Gaps ────────────────────────────────────────────────────── #}
+        {% if report.gaps %}
+          <div class="bg-white border border-base-200 p-6 rounded-default shadow-xs dark:bg-base-900 dark:border-base-800">
+            <h2 class="font-semibold text-important mb-3">Missing browser tests</h2>
+            <p class="text-sm text-base-500 dark:text-base-400 mb-2">Steps of non-done journeys with no tagged test or no test result. Gaps do not fail the gate.</p>
+            <ul class="jr-list text-sm">
+              {% for gap in report.gaps %}
+                <li><span class="jr-chip jr-chip--{{ gap.code }}">{{ gap.code }}</span>{{ gap.message }}</li>
+              {% endfor %}
+            </ul>
+          </div>
+        {% endif %}
+
+        <div class="grid grid-cols-1 gap-4 xl:grid-cols-2">
+          {# ── Paths ─────────────────────────────────────────────────── #}
+          <div class="bg-white border border-base-200 p-6 rounded-default shadow-xs dark:bg-base-900 dark:border-base-800">
+            <h2 class="font-semibold text-important mb-3">Resolved paths</h2>
+            <table class="jr-table">
+              <thead><tr><th>Path</th><th>Env var</th><th>Location</th><th>Exists</th></tr></thead>
+              <tbody>
+                {% for row in path_rows %}
+                  <tr>
+                    <td>{{ row.label }}</td>
+                    <td class="jr-mono">{{ row.env }}</td>
+                    <td class="jr-mono">{{ row.path }}</td>
+                    <td>{% if row.exists %}<span class="jr-chip jr-chip--ok">yes</span>{% else %}<span class="jr-chip">no</span>{% endif %}</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+
+          {# ── Agent sync loop ───────────────────────────────────────── #}
+          <div class="bg-white border border-base-200 p-6 rounded-default shadow-xs dark:bg-base-900 dark:border-base-800">
+            <h2 class="font-semibold text-important mb-3">How agents keep this in sync</h2>
+            <ul class="jr-list text-sm space-y-1">
+              <li>The format and the sync rules live in <span class="jr-mono">docs/product/README.md</span>.</li>
+              <li>Agents load the <span class="jr-mono">journey-sync</span> skill (<span class="jr-mono">.agents/skills/journey-sync/SKILL.md</span>) when they change a feature, a journey, or a Playwright test.</li>
+              <li>Write one Playwright test per journey in the frontend, tagged <span class="jr-mono">@J-001</span>, with steps titled <span class="jr-mono">test.step('J-001-S1: ...')</span>. A step is verified only by a passing step in the JSON report.</li>
+              <li>Check a feature <span class="jr-mono">[x]</span> or set a journey <span class="jr-mono">done</span> only when every step is verified.</li>
+              <li>Run <span class="jr-mono">uv run python scripts/check_journeys.py</span>. Errors fail the JOURNEYS gate.</li>
+            </ul>
+          </div>
+        </div>
+
+        {# ── Adoption ────────────────────────────────────────────────── #}
+        <div class="bg-white border border-base-200 p-6 rounded-default shadow-xs dark:bg-base-900 dark:border-base-800">
+          <h2 class="font-semibold text-important mb-3">Reuse this page in another backend</h2>
+          <p class="text-sm text-base-500 dark:text-base-400 mb-2">Run these from a checkout that contains this app, next to the other backend. The script copies the files, refuses to overwrite your changes, and prints the wiring. The guide is <span class="jr-mono">docs/ADOPTING_UPDATES.md</span>.</p>
+          <ul class="jr-list text-sm space-y-1">
+            <li><span class="jr-mono">uv run python scripts/adopt.py list</span></li>
+            <li><span class="jr-mono">uv run python scripts/adopt.py status --target ../my-api</span></li>
+            <li><span class="jr-mono">uv run python scripts/adopt.py apply journeys --target ../my-api</span></li>
+          </ul>
+        </div>
+      </div>
+    </details>
   </div>
 {% endblock %}
