@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Optional app switches**: `ORGANIZATIONS_ENABLED`, `NOTIFICATIONS_ENABLED` and `BILLING_ENABLED` install those apps and register their controllers like `FILES_ENABLED` and `WEBHOOKS_ENABLED`, so enabling one no longer means editing settings and URLs by hand. A disabled app's test module skips at collection, so `pytest notifications` reports a skip instead of a collection error. `just test-optional` and the TEST-OPTIONAL gate run all five suites with the flags on.
 
 ### Changed
+- **Journeys page layout**: `/admin/journeys/` shows a summary header (counts by status) and one responsive card per journey, with a status badge, a short description, the Playwright spec and smoke test as monospace chips with found or missing state, and the endpoint list. Dark mode and narrow screens work.
 - `api.settings.test` no longer forces `billing` into `INSTALLED_APPS`; billing tests skip unless `BILLING_ENABLED=true`.
 
 ### Fixed
