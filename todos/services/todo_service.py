@@ -1,7 +1,7 @@
 """Business logic for the Todo app.
 
-This service layer extracts all database operations and business rules
-from the controller, keeping controllers thin and logic testable.
+This service holds the business rules and delegates database access to
+``TodoRepository``, keeping controllers thin and logic testable.
 """
 
 import logging
@@ -11,6 +11,7 @@ from django.db.models import Q, QuerySet
 from django.http import Http404
 
 from todos.models import Todo
+from todos.repositories import TodoRepository
 from todos.schemas import CreateTodoSchema, UpdateTodoSchema
 
 logger = logging.getLogger(__name__)
@@ -32,8 +33,12 @@ class TodoService:
 
     Handles CRUD operations, filtering, search, and ordering.
     All methods raise Http404 when a resource is not found so the framework
-    maps it to a 404 response.
+    maps it to a 404 response. Database access goes through the repository.
     """
+
+    def __init__(self, repository: TodoRepository | None = None) -> None:
+        """Initialise the service with an optional injected repository."""
+        self.repository = repository or TodoRepository()
 
     # ------------------------------------------------------------------
     # Query helpers
@@ -48,7 +53,7 @@ class TodoService:
         Returns:
             QuerySet of Todo objects owned by the user.
         """
-        return Todo.objects.select_related("user").filter(user=user)
+        return self.repository.get_user_queryset(user)
 
     # ------------------------------------------------------------------
     # CRUD
@@ -106,10 +111,10 @@ class TodoService:
         Raises:
             Http404: If the todo does not exist or belongs to another user.
         """
-        try:
-            return Todo.objects.select_related("user").get(id=todo_id, user=user)
-        except Todo.DoesNotExist as err:
-            raise Http404(f"Todo {todo_id} not found") from err
+        todo = self.repository.get_by_id_and_user(todo_id, user)
+        if todo is None:
+            raise Http404(f"Todo {todo_id} not found")
+        return todo
 
     def create_todo(self, payload: CreateTodoSchema, user: Any) -> Todo:
         """Create a new todo for *user*.
@@ -123,7 +128,7 @@ class TodoService:
         """
         todo_data = payload.model_dump_fields()
         todo_data["user"] = user
-        todo = Todo.objects.create(**todo_data)
+        todo = self.repository.create(todo_data)
         logger.info("Created todo: %s (id=%s)", todo.title, todo.id)
         return todo
 
@@ -142,9 +147,9 @@ class TodoService:
             Http404: If the todo does not exist or belongs to another user.
         """
         todo = self.get_todo(todo_id, user)
-        for attr, value in payload.model_dump_fields(exclude_unset=True).items():
-            setattr(todo, attr, value)
-        todo.save()
+        todo = self.repository.update(
+            todo, payload.model_dump_fields(exclude_unset=True)
+        )
         logger.info("Updated todo: %s (id=%s)", todo.title, todo.id)
         return todo
 
@@ -160,7 +165,7 @@ class TodoService:
         """
         todo = self.get_todo(todo_id, user)
         logger.info("Deleting todo: %s (id=%s)", todo.title, todo.id)
-        todo.delete()
+        self.repository.delete(todo)
 
     # ------------------------------------------------------------------
     # Filtered list helpers
@@ -175,7 +180,7 @@ class TodoService:
         Returns:
             QuerySet of completed Todo objects.
         """
-        return Todo.objects.filter(user=user, completed=True).order_by("-updated_at")
+        return self.repository.completed(user)
 
     def list_pending_todos(self, user: Any) -> QuerySet:
         """Return incomplete todos for *user* ordered by most recently created.
@@ -186,7 +191,7 @@ class TodoService:
         Returns:
             QuerySet of pending Todo objects.
         """
-        return Todo.objects.filter(user=user, completed=False).order_by("-created_at")
+        return self.repository.pending(user)
 
     def search_todos(
         self,
@@ -206,17 +211,4 @@ class TodoService:
         Returns:
             QuerySet of matching Todo objects ordered by newest first.
         """
-        queryset = self.get_user_todos(user)
-
-        if q:
-            queryset = queryset.filter(
-                Q(title__icontains=q) | Q(description__icontains=q)
-            )
-
-        if priority:
-            queryset = queryset.filter(priority__icontains=priority)
-
-        if completed is not None:
-            queryset = queryset.filter(completed=completed)
-
-        return queryset.order_by("-created_at")
+        return self.repository.search(user, q=q, priority=priority, completed=completed)
