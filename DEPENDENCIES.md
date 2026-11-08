@@ -95,8 +95,9 @@ Two locked packages forbid 6.1, so it does not resolve:
 
 **3.13** in the Docker images, `requires-python`, and the tool targets;
 `scripts/check_version_drift.py` keeps them equal. **3.14 is excluded** because
-`pydantic-core` 2.33.2 publishes no cp314 wheels, so the install builds it from
-source and fails without a Rust toolchain. Add 3.14 once pydantic-core ships
+pydantic's pinned `pydantic-core` 2.33.2 publishes no cp314 wheels, so the
+install builds it from source and fails without a Rust toolchain. Add 3.14 once
+[pydantic](https://github.com/pydantic/pydantic) ships a `pydantic-core` with
 cp314 wheels.
 
 ## Base dependencies
