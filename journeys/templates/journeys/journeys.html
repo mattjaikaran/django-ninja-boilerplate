@@ -19,74 +19,99 @@
     </div>
 
     {% if index.found %}
-      {# ── Counts ──────────────────────────────────────────────────── #}
-      <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
-        <div class="bg-white border border-base-200 p-6 rounded-default shadow-xs dark:bg-base-900 dark:border-base-800">
-          <h3 class="text-sm text-base-500 dark:text-base-400">All journeys</h3>
-          <p class="text-2xl font-semibold text-important">{{ index.journeys|length }}</p>
+      {# ── Summary header: counts by status ────────────────────────── #}
+      <section class="jr-summary" aria-label="Journey status summary">
+        <div class="jr-stat jr-stat--total">
+          <span class="jr-stat-label">All journeys</span>
+          <span class="jr-stat-value">{{ index.journeys|length }}</span>
         </div>
         {% for status, label, count in index.counts %}
-          <div class="bg-white border border-base-200 p-6 rounded-default shadow-xs dark:bg-base-900 dark:border-base-800">
-            <h3 class="text-sm text-base-500 dark:text-base-400">{{ label }}</h3>
-            <p class="text-2xl font-semibold text-important">{{ count }}</p>
+          <div class="jr-stat jr-stat--{{ status }}">
+            <span class="jr-stat-label">{{ label }}</span>
+            <span class="jr-stat-value">{{ count }}</span>
           </div>
         {% endfor %}
-      </div>
+        {% if index.journeys %}
+          <div class="jr-bar" role="img" aria-label="Share of journeys by status">
+            {% for status, label, count in index.counts %}{% if count %}<span class="jr-bar-seg jr-bar-seg--{{ status }}" style="flex-grow: {{ count }}" title="{{ label }}: {{ count }}"></span>{% endif %}{% endfor %}
+          </div>
+        {% endif %}
+      </section>
 
-      {# ── Journey table ───────────────────────────────────────────── #}
-      <div class="bg-white border border-base-200 p-6 rounded-default shadow-xs dark:bg-base-900 dark:border-base-800 overflow-x-auto">
-        <h2 class="font-semibold text-important mb-1">Journeys</h2>
-        <p class="text-sm text-base-500 dark:text-base-400 mb-3">
-          Backend test: a smoke test that calls the endpoints against a real database.
-          Browser test: a Playwright test of the same journey in the frontend.
-        </p>
-        <table class="jr-table">
-          <thead>
-            <tr><th>ID</th><th>Journey</th><th>Status</th><th>Backend test</th><th>Browser test</th><th>Endpoints</th><th>Links</th></tr>
-          </thead>
-          <tbody>
-            {% for journey in index.journeys %}
-              <tr>
-                <td class="jr-mono jr-nowrap">{{ journey.id }}</td>
-                <td>
-                  <strong>{{ journey.title }}</strong>
-                  {% if journey.stories %}<div class="text-xs text-base-500 dark:text-base-400">{{ journey.stories|join:", " }}</div>{% endif %}
-                </td>
-                <td>
-                  <span class="jr-chip jr-chip--{{ journey.status }}">{{ journey.status_label }}</span>
-                  {% if journey.spec_status %}<span class="jr-chip jr-chip--{{ journey.spec_status }}" title="Status in the feature spec">spec: {{ journey.spec_status }}</span>{% endif %}
-                </td>
-                <td>
-                  {% for file in journey.smoke_tests %}
-                    <div><span class="jr-mono">{{ file.path }}</span> <span class="jr-chip jr-chip--{% if file.exists %}ok{% else %}failed{% endif %}">{% if file.exists %}found{% else %}missing{% endif %}</span></div>
-                  {% empty %}
-                    <span class="text-base-400">none yet</span>
-                  {% endfor %}
-                </td>
-                <td>
+      {# ── One card per journey ────────────────────────────────────── #}
+      <section class="jr-grid" aria-label="Journeys">
+        {% for journey in index.journeys %}
+          <article class="jr-card jr-card--{{ journey.status }}">
+            <header class="jr-card-head">
+              <div class="jr-card-title">
+                <span class="jr-id">{{ journey.id }}</span>
+                <h3>{{ journey.title }}</h3>
+              </div>
+              <div class="jr-card-badges">
+                <span class="jr-chip jr-chip--{{ journey.status }}">{{ journey.status_label }}</span>
+                {% if journey.spec_status %}<span class="jr-chip jr-chip--{{ journey.spec_status }}" title="Status in the feature spec">spec: {{ journey.spec_status }}</span>{% endif %}
+              </div>
+            </header>
+
+            {% if journey.surface %}<p class="jr-desc">{{ journey.surface }}</p>{% endif %}
+            {% if journey.stories %}<p class="jr-stories">{% for story in journey.stories %}<span class="jr-tag">{{ story }}</span>{% endfor %}</p>{% endif %}
+
+            <dl class="jr-tests">
+              <div class="jr-test">
+                <dt>Playwright spec</dt>
+                <dd>
                   {% if journey.browser_test %}
-                    <div><span class="jr-mono">{{ journey.browser_test.path }}</span> <span class="jr-chip jr-chip--{% if journey.browser_test.exists %}ok{% else %}planned{% endif %}">{% if journey.browser_test.exists %}found{% else %}planned{% endif %}</span></div>
-                    {% if journey.last_run %}<div class="text-xs">Last run: <span class="jr-chip jr-chip--{{ journey.last_run }}">{{ journey.last_run_label }}</span></div>{% endif %}
-                    {% if journey.browser_note %}<div class="text-xs text-base-500 dark:text-base-400">{{ journey.browser_note }}</div>{% endif %}
+                    <code class="jr-path jr-path--{% if journey.browser_test.exists %}ok{% else %}planned{% endif %}">{{ journey.browser_test.path }}</code>
+                    <span class="jr-state jr-state--{% if journey.browser_test.exists %}ok{% else %}planned{% endif %}">{% if journey.browser_test.exists %}found{% else %}planned{% endif %}</span>
+                    {% if journey.last_run %}<span class="jr-chip jr-chip--{{ journey.last_run }}" title="Last run from the Playwright report">last run: {{ journey.last_run_label }}</span>{% endif %}
+                    {% if journey.browser_note %}<p class="jr-note">{{ journey.browser_note }}</p>{% endif %}
                   {% else %}
-                    <span class="text-base-400">none yet</span>
+                    <span class="jr-state jr-state--missing">missing</span>
                   {% endif %}
-                </td>
-                <td>
-                  {% for endpoint in journey.shown_endpoints %}<div class="jr-mono">{{ endpoint }}</div>{% empty %}<span class="text-xs text-base-500 dark:text-base-400">none listed</span>{% endfor %}
-                  {% if journey.hidden_endpoint_count %}<div class="text-xs">and {{ journey.hidden_endpoint_count }} more</div>{% endif %}
-                  {% if journey.endpoints %}<div class="text-xs text-base-500 dark:text-base-400">from {{ journey.endpoints_source }}</div>{% endif %}
-                  {% if journey.surface %}<div class="text-xs text-base-500 dark:text-base-400">{{ journey.surface }}</div>{% endif %}
-                </td>
-                <td>
-                  {% if journey.detail_url %}<div><a class="text-primary-600 dark:text-primary-500" href="{{ journey.detail_url }}">Steps</a></div>{% endif %}
-                  {% if api_docs_enabled and journey.endpoints %}<div><a class="text-primary-600 dark:text-primary-500" href="{{ api_docs_url }}">API reference</a></div>{% endif %}
-                </td>
-              </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
+                </dd>
+              </div>
+              <div class="jr-test">
+                <dt>Smoke test</dt>
+                <dd>
+                  {% for file in journey.smoke_tests %}
+                    <div class="jr-test-file">
+                      <code class="jr-path jr-path--{% if file.exists %}ok{% else %}missing{% endif %}">{{ file.path }}</code>
+                      <span class="jr-state jr-state--{% if file.exists %}ok{% else %}missing{% endif %}">{% if file.exists %}found{% else %}missing{% endif %}</span>
+                    </div>
+                  {% empty %}
+                    <span class="jr-state jr-state--missing">missing</span>
+                  {% endfor %}
+                </dd>
+              </div>
+            </dl>
+
+            <div class="jr-endpoints">
+              <h4>Endpoints{% if journey.endpoints %} <span class="jr-count">{{ journey.endpoints|length }}</span>{% endif %}</h4>
+              {% if journey.shown_endpoints %}
+                <ul>
+                  {% for endpoint in journey.shown_endpoints %}<li><code>{{ endpoint }}</code></li>{% endfor %}
+                </ul>
+                {% if journey.hidden_endpoint_count %}
+                  <details>
+                    <summary>and {{ journey.hidden_endpoint_count }} more</summary>
+                    <ul>{% for endpoint in journey.endpoints|slice:"6:" %}<li><code>{{ endpoint }}</code></li>{% endfor %}</ul>
+                  </details>
+                {% endif %}
+                <p class="jr-note">From {{ journey.endpoints_source }}.</p>
+              {% else %}
+                <p class="jr-note">None listed.</p>
+              {% endif %}
+            </div>
+
+            {% if journey.detail_url or api_docs_enabled and journey.endpoints %}
+              <footer class="jr-card-foot">
+                {% if journey.detail_url %}<a class="text-primary-600 dark:text-primary-500" href="{{ journey.detail_url }}">Steps</a>{% endif %}
+                {% if api_docs_enabled and journey.endpoints %}<a class="text-primary-600 dark:text-primary-500" href="{{ api_docs_url }}">API reference</a>{% endif %}
+              </footer>
+            {% endif %}
+          </article>
+        {% endfor %}
+      </section>
     {% else %}
       <div class="bg-white border border-base-200 p-6 rounded-default shadow-xs dark:bg-base-900 dark:border-base-800">
         <h2 class="font-semibold text-important mb-1">No journey list found</h2>
