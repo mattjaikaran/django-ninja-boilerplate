@@ -215,7 +215,7 @@ Performance-critical components use Rust under the hood:
 - **[uv](https://docs.astral.sh/uv/)** - Package management (replaces pip/poetry)
 - **[Ruff](https://docs.astral.sh/ruff/)** - Linting and formatting (replaces flake8/black/isort)
 - **[ty](https://github.com/astral-sh/ty)** - Type checking (alongside mypy)
-- **[pydantic-core](https://github.com/pydantic/pydantic-core)** - Validation engine behind Pydantic (direct base dependency in `pyproject.toml`)
+- **[Pydantic](https://github.com/pydantic/pydantic)** - Validation engine behind Django Ninja; its Rust core is pinned by Pydantic, not by `pyproject.toml`
 - **[orjson](https://github.com/ijl/orjson)** - JSON serialization (2-10x faster than stdlib)
 - **[django-vcache](https://pypi.org/project/django-vcache/)** - Cache I/O driver (default backend)
 
