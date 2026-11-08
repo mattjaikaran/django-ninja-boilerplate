@@ -41,7 +41,7 @@ class TodoController:
 
 There is no per-endpoint exception decorator. Domain exceptions are mapped to
 HTTP responses by the handlers registered on the shared API instance in
-`api/urls.py` (see `api/exceptions`). Just let exceptions propagate: raising
+`api/urls.py` (see `api/exceptions.py`). Just let exceptions propagate: raising
 `NotFoundError`, `ValidationError`, etc. from a service returns the matching
 status code automatically.
 
