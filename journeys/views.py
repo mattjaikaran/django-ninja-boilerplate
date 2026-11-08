@@ -24,7 +24,7 @@ from django.views.decorators.http import require_GET
 
 from journeys.services import Issue, Journey, SyncReport, build_report, spec_paths
 from journeys.services.e2e_evidence import load_results
-from journeys.services.journey_index import JourneyIndex, build_index
+from journeys.services.journey_index import STATUS_ORDER, JourneyIndex, build_index
 
 STEP_STATES = ("verified", "documented", "failing", "no_result", "no_spec")
 
@@ -122,6 +122,7 @@ def journeys_admin_view(request: HttpRequest) -> HttpResponse:
                 (state, step_counts.get(state, 0)) for state in STEP_STATES
             ],
             "path_rows": _path_rows(report, index),
+            "bar_order": list(STATUS_ORDER),
             "index": index,
             "api_docs_enabled": settings.API_DOCS != "off",
             "api_docs_url": settings.ADMIN_SITE_URL,

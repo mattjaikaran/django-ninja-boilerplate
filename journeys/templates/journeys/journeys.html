@@ -33,7 +33,7 @@
         {% endfor %}
         {% if index.journeys %}
           <div class="jr-bar" role="img" aria-label="Share of journeys by status">
-            {% for status, label, count in index.counts %}{% if count %}<span class="jr-bar-seg jr-bar-seg--{{ status }}" style="flex-grow: {{ count }}" title="{{ label }}: {{ count }}"></span>{% endif %}{% endfor %}
+            {% for status in bar_order %}{% for journey in index.journeys %}{% if journey.status == status %}<span class="jr-bar-seg jr-bar-seg--{{ status }}" title="{{ journey.id }}: {{ journey.status_label }}"></span>{% endif %}{% endfor %}{% endfor %}
           </div>
         {% endif %}
       </section>
