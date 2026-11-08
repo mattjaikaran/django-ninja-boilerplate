@@ -2,9 +2,8 @@
 # file-length-max: 600
 """The Gauntlet — comprehensive quality gate for AI-generated code.
 
-Inspired by Uncle Bob Martin's philosophy: surround agents with extreme
-constraints so you never have to read their code. If it passes the gauntlet,
-it's trustworthy.
+Inspired by Uncle Bob Martin: surround agents with extreme constraints so you
+never have to read their code. If it passes the gauntlet, it's trustworthy.
 
 Gates (in order):
   1. FORMAT       — ruff format --check
@@ -22,18 +21,14 @@ Gates (in order):
  13. TEST         : pytest for smoke, contract, permission and regression tests
  14. TEST-OPTIONAL: pytest for flag-gated apps (webhooks, files)
  15. CLI-TEST     — pytest for the cli/ package
- 16. AI-DB        — Postgres-only tests (core.ai owner scoping, concurrent
-                    refresh) on a throwaway pgvector container; skips with a
-                    printed reason without Docker
+ 16. AI-DB        — Postgres-only tests (core.ai scoping) in a throwaway pgvector container; skips without Docker
  17. DEPLOY       — django check --deploy (non-blocking)
- 18. GENERATORS   : every code generator, in a throwaway worktree (quick runs
-                    only when generator or base-schema files changed)
+ 18. GENERATORS   — every code generator in a throwaway worktree (quick: when generator files changed)
  19. AUDIT        — pip-audit on uv.lock, allow-list with expiry (full run only)
  20. DOCKER       — build the production image (full run only, skips without Docker)
  21. MIGRATIONS   — no merge migrations, one leaf per app, django-safe-migrations
 
-There is no hosted CI. Every gate runs locally: `just gauntlet-quick` from the
-pre-push hook, `just gauntlet` before a release.
+There is no hosted CI. Every gate runs locally: `just gauntlet-quick` from the pre-push hook, `just gauntlet` before a release.
 
 Usage:
     python scripts/gauntlet.py              # full gauntlet

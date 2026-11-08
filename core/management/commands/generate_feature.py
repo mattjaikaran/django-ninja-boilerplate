@@ -129,6 +129,12 @@ class Command(BaseCommand):
                 f"Successfully generated {feature_type} feature in '{app_name}' app"
             )
         )
+        if feature_type not in {"redis", "graphql"}:
+            self.stdout.write(
+                "Every generated model is audited by default. Add append-only "
+                "or high-volume models to AUDIT_EXCLUDED_MODELS, or set "
+                "AUDIT_TRACKED_MODELS. See FEATURE_GENERATION.md."
+            )
 
     def _generator(
         self, feature_type: str, app_name: str, options: dict[str, Any]

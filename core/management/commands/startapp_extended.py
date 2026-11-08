@@ -437,6 +437,14 @@ mounted at `/api/{objects_name}/`.
 
 - `{model_name}`: Model representing a {snake} with user relationship, title, and description
 
+### Audit logging
+
+`{model_name}` is audited by default: every create, update and delete writes
+an `AuditLog` row through `core/audit/signals.py`. If this table is
+append-only or high volume, add `"{model_name}"` to `AUDIT_EXCLUDED_MODELS`
+in `api/settings/common.py`. To audit only a few models, set
+`AUDIT_TRACKED_MODELS` to their names. See `FEATURE_GENERATION.md`.
+
 ### Controllers
 
 - `{model_name}Controller`: Manages CRUD operations for the authenticated user's {objects_name}. Requires `JWTAuth`.
