@@ -231,15 +231,35 @@ def _relative(path: Path, base_dir: Path) -> str:
         return str(path)
 
 
+def _dedicated(ref: FileRef, journey_id: str) -> bool:
+    """Whether the file is named for this journey (``test_j003_*.py``).
+
+    A shared file such as ``test_smoke.py`` proves every journey, so its
+    endpoints belong to none of them.
+    """
+    match = re.match(r"^test_j(\d+)_", Path(ref.path).name)
+    return bool(match) and int(match.group(1)) == int(journey_id[2:])
+
+
+def _normalized(path: str) -> str:
+    """The path with every ``{placeholder}`` as ``{}``, for comparing the
+    plan (``{key_id}``) with the code (``{key_id}``, ``{id}``, ``{new_id}``).
+    """
+    return re.sub(r"\{[^}]*\}", "{}", path)
+
+
 def smoke_endpoints(files: Iterable[FileRef], base_dir: Path) -> list[str]:
     """API paths the smoke test files call, in order, without repeats."""
+    root = base_dir.resolve()
     found: list[str] = []
     for ref in files:
         if not ref.exists:
             continue
         try:
-            text = (base_dir / ref.path).read_text(encoding="utf-8")
-        except OSError:
+            file = (base_dir / ref.path).resolve()
+            file.relative_to(root)
+            text = file.read_text(encoding="utf-8")
+        except (OSError, ValueError):
             continue
         for literal in API_LITERAL.findall(text):
             path = PLACEHOLDER.sub("{id}", literal)
@@ -305,8 +325,13 @@ def build_index(
         )
         smoke = [FileRef(p, (base_dir / p).is_file()) for p in named]
         planned = endpoints_of(row["surface"])
-        plan_paths = {e.split(" ", 1)[1].split("?")[0] for e in planned}
-        called = [c for c in smoke_endpoints(smoke, base_dir) if c not in plan_paths]
+        plan_paths = {_normalized(e.split(" ", 1)[1].split("?")[0]) for e in planned}
+        dedicated = [ref for ref in smoke if _dedicated(ref, journey_id)]
+        called = [
+            c
+            for c in smoke_endpoints(dedicated, base_dir)
+            if _normalized(c) not in plan_paths
+        ]
         spec = _browser_path(row["browser"])
         browser = FileRef(spec, _browser_exists(spec, paths)) if spec else None
         journeys.append(
