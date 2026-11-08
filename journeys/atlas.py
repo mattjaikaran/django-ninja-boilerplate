@@ -8,18 +8,19 @@ ATLAS = {
     "code": "JR",
     "name": "Journeys",
     "what": (
-        "Traces product features to user journeys and to the Playwright "
-        "tests that verify them. Staff see the state of every step."
+        "Lists every user journey with its backend smoke test, Playwright "
+        "test, and endpoints, and traces features to the tests that verify "
+        "them. Staff see the state of every journey and step."
     ),
     "how": (
-        "A pure-Python spec service reads docs/product/ and the frontend "
-        "Playwright JSON report. The admin pages and the JOURNEYS gate "
-        "(scripts/check_journeys.py) share it."
+        "A pure-Python service reads the journeys table and docs/product/ and "
+        "the frontend Playwright JSON report. The admin pages and the "
+        "JOURNEYS gate (scripts/check_journeys.py) share it."
     ),
     "children": {
         "services": {
             "name": "Services",
-            "what": "Spec parser, e2e evidence reader, sync rules",
+            "what": "Journey table reader, spec parser, e2e evidence reader, sync rules",
         },
     },
 }

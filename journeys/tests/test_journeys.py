@@ -12,6 +12,7 @@ from pathlib import Path
 import pytest
 
 from journeys.services import SyncReport, build_report, spec_paths
+from journeys.services.journey_index import build_index
 
 FEATURES = "# Features\n\n## Accounts\n\n- [{mark}] F-001 Sign in\n"
 
@@ -154,6 +155,41 @@ def test_sync_rules(tmp_path, case, expected):
     report = _report(tmp_path, **case)
 
     assert [(issue.code, issue.ref) for issue in report.errors] == expected
+
+
+def test_journey_index_reads_table_and_checks_files(tmp_path):
+    base = tmp_path / "api"
+    (base / "tests" / "smoke").mkdir(parents=True)
+    (base / "tests" / "smoke" / "test_j01_auth.py").write_text(
+        'client.get("/api/auth/me")\nclient.post(f"/api/auth/{x}")\n'
+    )
+    (tmp_path / "web" / "e2e").mkdir(parents=True)
+    (tmp_path / "web" / "e2e" / "j01-auth.spec.ts").write_text("")
+    index = tmp_path / "journeys.md"
+    index.write_text(
+        "| ID | Journey | Stories | Backend surface | Playwright test |\n"
+        "|----|---------|---------|-----------------|-----------------|\n"
+        "| J-01 | Sign in | US-01 | `POST /api/auth/login` | `e2e/j01-auth.spec.ts`: sign in |\n"
+        "| J-02 | Todos | US-02 | list | `e2e/j02-todos.spec.ts` |\n"
+    )
+    paths = spec_paths(
+        base,
+        {
+            "JOURNEYS_INDEX_FILE": str(index),
+            "JOURNEYS_E2E_DIR": str(tmp_path / "web" / "e2e"),
+        },
+    )
+
+    result = build_index(paths, base)
+
+    first, second = result.journeys
+    assert (first.id, first.status) == ("J-01", "tested")
+    assert first.endpoints == [
+        "POST /api/auth/login",
+        "/api/auth/me",
+        "/api/auth/{id}",
+    ]
+    assert (second.status, second.smoke_tests) == ("planned", [])
 
 
 @pytest.mark.django_db
