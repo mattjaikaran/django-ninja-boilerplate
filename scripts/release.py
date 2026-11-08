@@ -10,15 +10,16 @@ Usage:
 The script bumps the version in pyproject.toml, api/settings/common.py
 (APP_VERSION default), the justfile banner, and the VERSION file; retitles
 the CHANGELOG [Unreleased] section to the new version under a fresh, empty
-[Unreleased] heading, and inserts the new compare link; syncs uv.lock; then
-commits and tags vX.Y.Z. It pushes only
-with --push. Unknown arguments exit with an error before any file or git
-change.
+[Unreleased] heading, and inserts the new compare link; syncs uv.lock;
+regenerates docs/openapi/openapi.json with the new VERSION; then commits and
+tags vX.Y.Z. It pushes only with --push. Unknown arguments exit with an error
+before any file or git change.
 """
 
 from __future__ import annotations
 
 import argparse
+import os
 import re
 import subprocess
 import sys
@@ -28,11 +29,23 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 REPO = "mattjaikaran/django-ninja-boilerplate"
 
+# Matches the `just openapi` recipe: the test settings need no database and
+# the SECRET_KEY is a fixed placeholder, not a secret.
+OPENAPI_ENV = {
+    "DJANGO_SETTINGS_MODULE": "api.settings.test",
+    "SECRET_KEY": "openapi-export-not-a-secret",
+}
 
-def run(cmd: list[str]) -> None:
+
+def run(cmd: list[str], env: dict[str, str] | None = None) -> None:
     # Argument list, no shell; callers pass fixed git/uv commands.
     # nosemgrep: python.lang.security.audit.dangerous-subprocess-use-audit
-    subprocess.run(cmd, cwd=ROOT, check=True)
+    subprocess.run(
+        cmd,
+        cwd=ROOT,
+        check=True,
+        env={**os.environ, **env} if env else None,
+    )
 
 
 def parse_args(argv: list[str] | None) -> argparse.Namespace:
@@ -127,6 +140,7 @@ def main(argv: list[str] | None = None) -> None:
         print(f"  api/settings/common.py: APP_VERSION default={version}")
         print(f"  justfile banner: v{version}")
         print(f"  VERSION file: {version}")
+        print(f"  docs/openapi/openapi.json: info.version {version}")
         if has_adopt:
             print(f"  scripts/adopt.py: manifest Unreleased -> {version}")
     else:
@@ -137,6 +151,13 @@ def main(argv: list[str] | None = None) -> None:
         if has_adopt:
             adopt_path.write_text(adopt)
         run(["uv", "lock"])
+        # api/urls.py reads VERSION for OpenAPI info.version, and the exported
+        # contract is committed, so the release commit must carry the export
+        # or `export_openapi --check` (the OPENAPI gate) fails on it.
+        run(
+            ["uv", "run", "python", "manage.py", "export_openapi"],
+            env=OPENAPI_ENV,
+        )
 
     # CHANGELOG: retitle Unreleased (keeping a fresh empty one on top), refresh
     # the HEAD link, and insert the new version's compare link above the
@@ -174,6 +195,7 @@ def main(argv: list[str] | None = None) -> None:
         "VERSION",
         "CHANGELOG.md",
         "uv.lock",
+        "docs/openapi/openapi.json",
     ]
     if has_adopt:
         staged.append("scripts/adopt.py")

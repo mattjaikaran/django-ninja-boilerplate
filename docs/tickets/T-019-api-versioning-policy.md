@@ -10,6 +10,7 @@ owns:
   - api/urls.py
   - docs/ARCHITECTURE.md
   - docs/openapi/openapi.json
+  - scripts/release.py
   - tests/contract/test_openapi_contract.py
 shared:
   - CHANGELOG.md
