@@ -539,7 +539,7 @@ trivy:
 # ---------------------------------------------------------------------------
 
 # Configure through the CLI, then build and prepare the selected stack
-setup +args:
+setup *args:
     {{ uv }} run --project cli dnm setup {{ args }}
 
 # Non-interactive setup stages called by `dnm setup`
