@@ -126,7 +126,7 @@ just doctor    # Check environment
 ├── docker/           # Docker configurations
 ├── scripts/          # Setup and utility scripts
 ├── docker-compose.yml
-├── justfile                    # task runner (Makefile.legacy is kept too)
+├── justfile                    # task runner (Makefile.legacy is the fallback)
 └── pyproject.toml
 ```
 

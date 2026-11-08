@@ -95,8 +95,8 @@ class MonorepoGenerator(BaseGenerator):
 
     def _create_root_files(self) -> None:
         """Create root-level configuration files."""
-        # Root Makefile
-        self._create_root_makefile()
+        # Root justfile
+        self._create_root_justfile()
 
         # Root docker-compose.yml
         self._create_root_docker_compose()
@@ -112,111 +112,132 @@ class MonorepoGenerator(BaseGenerator):
 
         print_success("Created root configuration files")
 
-    def _create_root_makefile(self) -> None:
-        """Create root Makefile for orchestrating both projects."""
-        content = f"""# {self.config.display_name} - Monorepo Makefile
+    def _create_root_justfile(self) -> None:
+        """Create root justfile for orchestrating both projects."""
+        content = f"""# {self.config.display_name} - Monorepo justfile
 # Orchestrates both backend and frontend services.
-# The backend ships a justfile; these targets delegate to it.
+# The backend ships its own justfile; these recipes delegate to it.
 
-.PHONY: help setup up down logs test lint
-
-# Default target
-help: ## Show this help
-	@echo "Available commands:"
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {{FS = ":.*?## "}}; {{printf "\\033[36m%-20s\\033[0m %s\\n", $$1, $$2}}'
+# Show this help
+help:
+    just --list
 
 # ===========================================
 # Full Stack Commands
 # ===========================================
 
-setup: ## Bootstrap the entire development environment
-	@echo "Setting up {self.config.display_name}..."
-	@cd backend && just setup
+# Bootstrap the entire development environment
+setup:
+    @echo "Setting up {self.config.display_name}..."
+    cd backend && just setup
 
-up: ## Start all services
-	docker compose up -d
+# Start all services
+up:
+    docker compose up -d
 
-down: ## Stop all services
-	docker compose down
+# Stop all services
+down:
+    docker compose down
 
-logs: ## View logs for all services
-	docker compose logs -f
+# View logs for all services
+logs:
+    docker compose logs -f
 
-restart: ## Restart all services
-	docker compose restart
+# Restart all services
+restart:
+    docker compose restart
 
 # ===========================================
 # Backend Commands
 # ===========================================
 
-backend-setup: ## Setup backend only
-	@cd backend && just setup
+# Setup backend only
+backend-setup:
+    cd backend && just setup
 
-backend-up: ## Start backend services
-	@cd backend && just up
+# Start backend services
+backend-up:
+    cd backend && just up
 
-backend-down: ## Stop backend services
-	@cd backend && just down
+# Stop backend services
+backend-down:
+    cd backend && just down
 
-backend-logs: ## View backend logs
-	@cd backend && just logs
+# View backend logs
+backend-logs:
+    cd backend && just logs
 
-backend-shell: ## Open Django shell
-	@cd backend && just shell
+# Open Django shell
+backend-shell:
+    cd backend && just shell
 
-backend-test: ## Run backend tests
-	@cd backend && just test
+# Run backend tests
+backend-test:
+    cd backend && just test
 
-backend-lint: ## Lint backend code
-	@cd backend && just lint
+# Lint backend code
+backend-lint:
+    cd backend && just lint
 
-backend-migrate: ## Run backend migrations
-	@cd backend && just migrate
+# Run backend migrations
+backend-migrate:
+    cd backend && just migrate
 
 # ===========================================
 # Frontend Commands
 # ===========================================
 
-frontend-setup: ## Setup frontend only
-	@cd frontend && bun install
+# Setup frontend only
+frontend-setup:
+    cd frontend && bun install
 
-frontend-dev: ## Start frontend dev server
-	@cd frontend && bun run dev
+# Start frontend dev server
+frontend-dev:
+    cd frontend && bun run dev
 
-frontend-build: ## Build frontend for production
-	@cd frontend && bun run build
+# Build frontend for production
+frontend-build:
+    cd frontend && bun run build
 
-frontend-test: ## Run frontend tests
-	@cd frontend && bun run test
+# Run frontend tests
+frontend-test:
+    cd frontend && bun run test
 
-frontend-lint: ## Lint frontend code
-	@cd frontend && bun run lint
+# Lint frontend code
+frontend-lint:
+    cd frontend && bun run lint
 
 # ===========================================
 # Development
 # ===========================================
 
-doctor: ## Check development environment
-	@cd backend && just doctor
+# Check development environment
+doctor:
+    cd backend && just doctor
 
-test: backend-test frontend-test ## Run all tests
+# Run all tests
+test: backend-test frontend-test
 
-lint: backend-lint frontend-lint ## Lint all code
+# Lint all code
+lint: backend-lint frontend-lint
 
 # ===========================================
 # Production
 # ===========================================
 
-prod-build: ## Build production images
-	docker compose -f docker-compose.yml --profile prod build
+# Build production images
+prod-build:
+    docker compose -f docker-compose.yml --profile prod build
 
-prod-up: ## Start production environment
-	docker compose -f docker-compose.yml --profile prod up -d
+# Start production environment
+prod-up:
+    docker compose -f docker-compose.yml --profile prod up -d
 
-prod-down: ## Stop production environment
-	docker compose -f docker-compose.yml --profile prod down
+# Stop production environment
+prod-down:
+    docker compose -f docker-compose.yml --profile prod down
 """
-        (self.config.path / "Makefile").write_text(content)
+        (self.config.path / "justfile").write_text(content)
 
     def _create_root_docker_compose(self) -> None:
         """Create root docker-compose.yml."""
@@ -309,7 +330,7 @@ volumes:
 ├── backend/          # Django Ninja API
 ├── frontend/         # React Vite SPA
 ├── docker-compose.yml
-├── Makefile
+├── justfile
 └── README.md
 ```
 
@@ -320,8 +341,8 @@ volumes:
 just setup
 
 # Or start services individually
-make backend-up    # Start backend services
-make frontend-dev  # Start frontend dev server
+just backend-up    # Start backend services
+just frontend-dev  # Start frontend dev server
 ```
 
 ## Development
