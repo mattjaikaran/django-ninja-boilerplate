@@ -22,6 +22,36 @@ The `payments`, `notification`, `chat`, `organization`, `analytics` and
 `api_endpoint` generators refuse an app name that already exists, so they
 never overwrite an app such as `billing` or `notifications`.
 
+## Audit logging of generated models
+
+Every model is audited by default. The `pre_save`, `post_save` and
+`post_delete` handlers in `core/audit/signals.py` write one `AuditLog` row
+per create, update and delete. That is correct for user-facing records, but
+an append-only or high-volume table (ingest rows, outbox events, event logs,
+line snapshots) writes an audit row for every insert.
+
+Exclude those models in `api/settings/common.py`:
+
+```python
+AUDIT_EXCLUDED_MODELS = [
+    *AUDIT_EXCLUDED_MODELS,
+    "IngestRow",
+    "OutboxEvent",
+    "LineSnapshot",
+]
+```
+
+Or audit only a small allowlist. When `AUDIT_TRACKED_MODELS` is not `None`,
+it replaces the "every model except the exclusions" default:
+
+```python
+AUDIT_TRACKED_MODELS = ["User", "Payment", "Subscription"]
+```
+
+`should_track_model` reads both settings on every signal, so restart the app
+after a change. The generated app README repeats this note for the model it
+creates.
+
 ## App names
 
 Without `--app-name`, the app name is the feature type: `generate_feature team`

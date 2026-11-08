@@ -761,7 +761,8 @@ AUDIT_LOG_BODY = env.bool("AUDIT_LOG_BODY", default=False)
 # Maximum body length to log (bytes)
 AUDIT_LOG_MAX_BODY_LENGTH = 1000
 
-# Models to exclude from automatic audit tracking
+# Models to exclude from automatic audit tracking. Add append-only or
+# high-volume tables here: every change writes one AuditLog row.
 AUDIT_EXCLUDED_MODELS = [
     "AuditLog",
     "Session",

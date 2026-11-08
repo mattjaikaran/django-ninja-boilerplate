@@ -987,7 +987,12 @@ The boilerplate includes a comprehensive audit logging system for compliance tra
 
 ### Automatic Tracking
 
-Model changes are automatically tracked via Django signals:
+Model changes are automatically tracked via Django signals. Every model is
+audited unless it is listed in `AUDIT_EXCLUDED_MODELS`. An append-only or
+high-volume table (ingest rows, outbox events, event logs, snapshots) writes
+one `AuditLog` row per change, so add it to the exclusion list, or set
+`AUDIT_TRACKED_MODELS` to the models you need. See `FEATURE_GENERATION.md`
+for the generated-app note:
 
 ```python
 # Any model changes are automatically logged
