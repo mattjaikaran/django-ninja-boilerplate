@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - **Audit exclusions are documented where apps are generated**: every model is audited by default, so an append-only or high-volume table writes one `AuditLog` row per change. `FEATURE_GENERATION.md`, the generated app README, the `AUDIT_EXCLUDED_MODELS` comment and the `generate_feature` output now point at `AUDIT_EXCLUDED_MODELS` and `AUDIT_TRACKED_MODELS`.
+- **ARCHITECTURE gate knows the repository layer**: `scripts/check_architecture.py` treats `<app>/repositories/` as a layer between services and models. It now fails a repository that imports a controller, service or schema, and a controller that imports a repository. `docs/ARCHITECTURE.md` and `AGENTS.md` name the new layer.
 - **Journeys page layout**: `/admin/journeys/` shows a summary header (counts by status) and one responsive card per journey, with a status badge, a short description, the Playwright spec and smoke test as monospace chips with found or missing state, and the endpoint list. Dark mode and narrow screens work.
 - `api.settings.test` no longer forces `billing` into `INSTALLED_APPS`; billing tests skip unless `BILLING_ENABLED=true`.
 - OpenAPI `info.version` now reports the release version from the `VERSION` file instead of the hardcoded `0.1`, so a generated client can identify the build that published the schema.
