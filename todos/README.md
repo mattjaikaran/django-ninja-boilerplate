@@ -111,8 +111,8 @@ Controller is a thin HTTP adapter. All business logic lives in `TodoService`, in
 ```python
 @api_controller("/todos", tags=["Todos"], auth=JWTAuth())
 class TodoController:
-    def __init__(self):
-        self.service = TodoService()
+    def __init__(self, service: TodoService):
+        self.service = service
 
     @http_post("/", response={201: TodoSchema, 400: dict, 500: dict})
     @log_api_call(include_payload=True, include_response=False)
@@ -147,7 +147,8 @@ class TodoService:
 Key design decisions:
 - Methods raise `Http404` (not `Todo.DoesNotExist`) so the framework returns a 404 response automatically.
 - The service has no knowledge of HTTP — it takes Python types as arguments and returns Django model instances or QuerySets.
-- `TodoService` is instantiated once per controller instance (`self.service = TodoService()`) and reused across requests.
+- Ninja Extra's injector builds `TodoService` and passes it to the controller
+  constructor, so a test or an alternative implementation can supply its own.
 
 ## When to Use Which Pattern
 

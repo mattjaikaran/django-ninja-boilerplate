@@ -2,8 +2,9 @@
 
 This is the most structured pattern in the boilerplate. Controllers are
 thin: they only handle HTTP concerns (auth, status codes, request/response
-binding). All business logic lives in ``TodoService``, which is injected
-via ``__init__`` so it is trivial to swap out or mock in tests.
+binding). All business logic lives in ``TodoService``, which the Ninja Extra
+dependency injector passes to ``__init__`` so it is trivial to swap out or
+mock in tests.
 
 Route prefix: /todos
 """
@@ -26,14 +27,15 @@ logger = logging.getLogger(__name__)
 class TodoController:
     """Todo controller using full decorator stack and an injected service.
 
-    The ``TodoService`` instance is created once in ``__init__`` and reused
-    across all requests. Controller methods are intentionally thin — they
-    delegate to the service and return the appropriate HTTP status code.
+    The Ninja Extra injector builds a ``TodoService`` and passes it to
+    ``__init__``, so a test or another implementation can supply its own.
+    Controller methods are intentionally thin and return the appropriate
+    HTTP status code.
     """
 
-    def __init__(self):
-        """Initialise the controller with an injected TodoService."""
-        self.service = TodoService()
+    def __init__(self, service: TodoService):
+        """Store the injected TodoService."""
+        self.service = service
 
     # ------------------------------------------------------------------
     # List / search
