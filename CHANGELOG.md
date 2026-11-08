@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Documented the API versioning policy in `README.md` and `docs/ARCHITECTURE.md`: the API mounts once at /api/ as v1 with no version prefix, and a breaking v2 ships at /api/v2/ while /api/ keeps serving v1.
 
 ### Fixed
+- **`scripts/release.py` left the OpenAPI export stale**: OpenAPI `info.version` now comes from `VERSION`, so a release bump made `export_openapi --check` (the OPENAPI gate) fail on its own commit. The release script now regenerates `docs/openapi/openapi.json` after writing `VERSION` and stages it.
 - **API key list returned 500**: `GET /api/api-keys/` failed once the user owned a key, because `APIKeyResponse.id` rejected the ORM `UUID`. It now serialises the UUID as a string, as the user schemas do. The new J-003 smoke test caught it.
 
 ## [1.14.0] - 2026-10-12
