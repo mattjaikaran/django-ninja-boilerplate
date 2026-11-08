@@ -16,8 +16,8 @@ work.
 ```python
 @api_controller("/todos", tags=["Todos"], auth=JWTAuth())
 class TodoController:
-    def __init__(self):
-        self.service = TodoService()
+    def __init__(self, service: TodoService):
+        self.service = service
 
     @http_get("/{todo_id}", response={200: TodoSchema, 404: dict, 500: dict})
     @log_api_call()

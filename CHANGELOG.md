@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `api.settings.test` no longer forces `billing` into `INSTALLED_APPS`; billing tests skip unless `BILLING_ENABLED=true`.
 - OpenAPI `info.version` now reports the release version from the `VERSION` file instead of the hardcoded `0.1`, so a generated client can identify the build that published the schema.
 - Documented the API versioning policy in `README.md` and `docs/ARCHITECTURE.md`: the API mounts once at /api/ as v1 with no version prefix, and a breaking v2 ships at /api/v2/ while /api/ keeps serving v1.
+- **`TodoController` takes `TodoService` through the constructor**: Ninja Extra's injector supplies the service instead of the controller constructing it, so a test or an alternative implementation can pass its own. The README and controller-pattern reference show the new constructor.
 
 ### Fixed
 - **`scripts/release.py` left the OpenAPI export stale**: OpenAPI `info.version` now comes from `VERSION`, so a release bump made `export_openapi --check` (the OPENAPI gate) fail on its own commit. The release script now regenerates `docs/openapi/openapi.json` after writing `VERSION` and stages it.

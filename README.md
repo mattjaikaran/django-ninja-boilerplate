@@ -68,8 +68,8 @@ def create_todo(self, request, payload: CreateTodoSchema):
 
 # Pattern 4 — Service layer: controller is a thin HTTP adapter
 class TodoController:
-    def __init__(self):
-        self.service = TodoService()
+    def __init__(self, service: TodoService):
+        self.service = service
 
     @http_post("/", response={201: TodoSchema, 400: dict, 500: dict})
     @log_api_call(include_payload=True, include_response=False)
