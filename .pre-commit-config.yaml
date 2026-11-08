@@ -2,7 +2,8 @@
 # Install: just pre-commit-install (pre-commit, commit-msg and pre-push hooks)
 # Run manually: uv run pre-commit run --all-files
 #
-# There is no hosted CI. The pre-push hook runs `just gauntlet-quick`.
+# CI (.github/workflows/ci.yml) runs the gates in parallel on the self-hosted
+# runner. The pre-push hook runs `just gauntlet-quick`.
 #
 # Every hook is `repo: local` with `language: system`:
 # - Tools in uv.lock (ruff, mypy, pip-audit) run through `uv run`, so a hook
