@@ -104,7 +104,7 @@ cp314 wheels.
 
 | Package | Version | Why |
 |---|---|---|
-| `whitenoise` | `>=6.9` | Serves `/static/` from Gunicorn in the `single` and PaaS image, which has no nginx. Without it the admin and `/api/docs` assets returned 404 there. The `prod` profile's nginx still serves static files first. |
+| `whitenoise` | `>=6.9` | Serves `/static/` from Gunicorn in the `single` and PaaS image, which has no nginx. Without it the admin and the docs page assets returned 404 there. The `prod` profile's nginx still serves static files first. |
 | `psycopg[binary,pool]` | `>=3.2.0` | Replaces `psycopg2-binary`. Django 5.2 pools connections only with psycopg 3 (`OPTIONS["pool"]` is ignored with psycopg2). The binary wheel bundles libpq, so the images no longer install `libpq5`/`libpq-dev`. |
 | `uvicorn-worker` | `>=0.4.0` | Gunicorn worker class that serves `api.asgi:application` through uvicorn. Production moved from WSGI `gthread` to ASGI. Pulls `uvicorn`. |
 | `celery` | `>=5.6.1` (was `>=5.5.2`) | 5.6.1 closes Django connection pools in prefork children. The lock was already on 5.6.2. |
