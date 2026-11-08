@@ -6,10 +6,10 @@ Example app demonstrating **4 API controller patterns** that progress from maxim
 
 | # | Pattern | File | Route Prefix | Description |
 |---|---------|------|-------------|-------------|
-| 1 | Declarative | `controllers/todo_controller_declarative.py` | `/api/todos-declarative/` | Explicit `try/except` in every method. No decorator magic. Maximum visibility. |
-| 2 | Basic | `controllers/todo_controller_basic.py` | `/api/todos-basic/` | No custom decorators. Uses `get_object_or_404`. Cleanest starting point. |
-| 3 | Partial | `controllers/todo_controller_partial.py` | `/api/todos-partial/` | Reads are plain; writes use `@log_api_call`. |
-| 4 | Full (service layer) | `controllers/todo_controller.py` | `/api/todos/` | Full decorator stack + `TodoService` injected via `__init__`. Recommended for production. |
+| 1 | Declarative | `controllers/todo_controller_declarative.py` | /api/todos-declarative/ | Explicit `try/except` in every method. No decorator magic. Maximum visibility. |
+| 2 | Basic | `controllers/todo_controller_basic.py` | /api/todos-basic/ | No custom decorators. Uses `get_object_or_404`. Cleanest starting point. |
+| 3 | Partial | `controllers/todo_controller_partial.py` | /api/todos-partial/ | Reads are plain; writes use `@log_api_call`. |
+| 4 | Full (service layer) | `controllers/todo_controller.py` | /api/todos/ | Full decorator stack + `TodoService` injected via `__init__`. Recommended for production. |
 
 ## App Structure
 
@@ -168,18 +168,19 @@ Production app, multiple features, team of developers?
 
 ## API Endpoints
 
-All four controllers expose the same operations (replace `/todos/` with the appropriate prefix):
+All four controllers expose the same operations under their own route prefix
+from the table above:
 
-| Method | Path | Description |
-|--------|------|-------------|
-| `GET` | `/api/todos/` | List todos (paginated, filterable) |
-| `GET` | `/api/todos/{id}` | Retrieve a single todo |
-| `POST` | `/api/todos/` | Create a todo |
-| `PUT` | `/api/todos/{id}` | Update a todo (partial fields) |
-| `DELETE` | `/api/todos/{id}` | Delete a todo |
-| `GET` | `/api/todos/completed` | List completed todos |
-| `GET` | `/api/todos/pending` | List pending todos |
-| `GET` | `/api/todos/search` | Advanced search |
+| Endpoint | Description |
+|----------|-------------|
+| `GET /api/todos/` | List todos (paginated, filterable) |
+| `GET /api/todos/{id}` | Retrieve a single todo |
+| `POST /api/todos/` | Create a todo |
+| `PUT /api/todos/{id}` | Update a todo (partial fields) |
+| `DELETE /api/todos/{id}` | Delete a todo |
+| `GET /api/todos/completed` | List completed todos |
+| `GET /api/todos/pending` | List pending todos |
+| `GET /api/todos/search` | Advanced search |
 
 Query parameters for list/search endpoints:
 - `search` — case-insensitive substring match on title and description
