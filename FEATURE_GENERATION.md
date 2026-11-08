@@ -66,16 +66,16 @@ example `redis` or `graphql`, and tells you to pass `--app-name`. The
 
 | Feature | Default app | Routes |
 |---|---|---|
-| `payments` | `payments` | `/api/payments/` |
-| `redis` | `cache_api` | `/api/cache/health`, `/api/cache/keys/{key}` |
-| `rbac` | `rbac` | `/api/rbac/` |
-| `organization` | `organization` | `/api/organizations/`, `/api/invitations/` |
-| `team` | `team` | `/api/teams/` |
-| `notification` | `notification` | `/api/notifications/` |
-| `chat` | `chat` | `/api/conversations/`, `/api/messages/` |
-| `analytics` | `analytics` | `/api/analytics/events`, `/api/analytics/summary` |
-| `api_endpoint` | `api_endpoint` | `/api/<plural of the app name>/` |
-| `graphql` | none, pass `--app-name` | `/api/graphql/` |
+| `payments` | `payments` | `/api/payments/*` |
+| `redis` | `cache_api` | `/api/cache/*` |
+| `rbac` | `rbac` | `/api/rbac/*` |
+| `organization` | `organization` | `/api/organizations/*`, `/api/invitations/*` |
+| `team` | `team` | `/api/teams/*` |
+| `notification` | `notification` | `/api/notifications/*` |
+| `chat` | `chat` | `/api/conversations/*`, `/api/messages/*` |
+| `analytics` | `analytics` | `/api/analytics/*` |
+| `api_endpoint` | `api_endpoint` | `/api/<plural of the app name>/*` |
+| `graphql` | none, pass `--app-name` | `POST /api/graphql/` |
 
 ### Payments
 
@@ -90,7 +90,7 @@ This creates:
   SubscriptionPlan and Subscription unless you pass `--no-subscriptions`
 - `PaymentService`: owner-scoped queries and every Stripe call. It raises
   `ImproperlyConfigured` when `STRIPE_SECRET_KEY` is empty
-- `PaymentController` at `/api/payments/` with `JWTAuth`
+- `PaymentController` at `/api/payments/*` with `JWTAuth`
 - Admin interface
 - One smoke and permission test file. The tests do not call Stripe: they
   cover the owner scoping, validation and auth boundary of the Stripe routes
@@ -122,7 +122,7 @@ This creates:
 
 - Role and Permission models
 - User-role assignments, global or on one object
-- A `JWTAuth` controller at `/api/rbac/`. Role, permission and assignment
+- A `JWTAuth` controller at `/api/rbac/*`. Role, permission and assignment
   routes need `IsAdminUser`; a regular user may call only
   `GET /api/rbac/me/permissions` for their own roles and permissions
 - Decorators for permission checking, an RBAC service and middleware
@@ -137,12 +137,12 @@ uv run python manage.py generate_feature organization --minimal
 uv run python manage.py generate_feature team
 ```
 
-- Organizations at `/api/organizations/` and invitations at
-  `/api/invitations/`: members see their organizations, owners and admins
+- Organizations at `/api/organizations/*` and invitations at
+  `/api/invitations/*`: members see their organizations, owners and admins
   manage them, and invited users accept or decline their own invitations.
   The generator adds `ORGANIZATION_INVITATION_EXPIRY_DAYS = 7` and
   `ORGANIZATION_MAX_MEMBERS` to the settings: 1000, or 100 with `--minimal`
-- Teams at `/api/teams/`: members see their teams, team leads manage the
+- Teams at `/api/teams/*`: members see their teams, team leads manage the
   team and its members
 
 ### Notifications
@@ -152,7 +152,7 @@ uv run python manage.py generate_feature notification
 ```
 
 This creates notifications and notification preferences at
-`/api/notifications/`, scoped to the user: list, unread, count, mark one or
+`/api/notifications/*`, scoped to the user: list, unread, count, mark one or
 all as read, delete, and read or update preferences.
 
 ### Chat
@@ -162,7 +162,7 @@ uv run python manage.py generate_feature chat
 uv run python manage.py generate_feature chat --realtime
 ```
 
-This creates messaging at `/api/conversations/` and `/api/messages/`, scoped
+This creates messaging at `/api/conversations/*` and `/api/messages/*`, scoped
 to the conversations the user takes part in. It adds
 `CHAT_MESSAGE_MAX_LENGTH` and `CHAT_CONVERSATION_MAX_PARTICIPANTS` to the
 settings. `--realtime` also creates `ChatRealtimeService` in
@@ -194,7 +194,7 @@ uv run python manage.py generate_feature api_endpoint --app-name widgets
 
 This creates an owner-scoped CRUD resource from the `startapp_extended`
 templates: a `Widget` model, schemas, service and a `JWTAuth` controller at
-`/api/widgets/`.
+`/api/widgets/*`.
 
 ### GraphQL (Strawberry)
 
@@ -210,9 +210,9 @@ This creates:
 
 - `app/graphql/` - GraphQL package with schema, queries, mutations, types,
   permission classes and a user service that scopes every query to the viewer
-- `app/tests/test_graphql.py` - Smoke and permission tests for `/api/graphql/`
-- `core/graphql_view.py` - JWT-authenticated GraphQL view (always in `core`)
-- Automatic URL configuration for the `/api/graphql/` endpoint
+- `app/tests/test_graphql.py` - Smoke and permission tests for `POST /api/graphql/`
+- `graphql_view.py` in `core` - JWT-authenticated GraphQL view
+- Automatic URL configuration for the `POST /api/graphql/` endpoint
 
 Install the dependencies first with `uv sync --extra graphql`. See the main
 [README.md](README.md#graphql-optional) for usage examples.
