@@ -6,7 +6,7 @@
 
 ## 2026 environment hardening
 
-Rules: no GitHub Actions (no CI budget). Every gate runs locally through
+Rules: CI runs on the self-hosted runner only (no hosted-runner budget). Every gate runs locally through
 `just gauntlet` and git hooks. Agents must not write bulk tests (see
 "Test discipline"). Stay on Django 5.2 until the Django 6 blockers clear.
 
