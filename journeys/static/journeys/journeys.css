@@ -171,7 +171,7 @@
 
 .dark .jr-bar { background: var(--color-base-800, #1e293b); }
 
-.jr-bar-seg { min-width: 0.25rem; }
+.jr-bar-seg { flex: 1 1 0; min-width: 0.125rem; }
 .jr-bar-seg--tested { background: #22c55e; }
 .jr-bar-seg--backend_only,
 .jr-bar-seg--browser_only { background: #f59e0b; }
