@@ -2,7 +2,7 @@
 """Architecture enforcement for the Django Ninja Boilerplate.
 
 Validates layered architecture constraints:
-  Controllers → Services → Models (no skipping layers, no reverse deps)
+  Controllers → Services → Repositories → Models (no reverse deps)
 
 Also detects cross-app controller coupling and enforces module boundaries.
 
@@ -24,9 +24,10 @@ from pathlib import Path
 
 # ── Layer definitions ────────────────────────────────────────────────────────
 LAYERS: dict[str, int] = {
-    "controllers": 3,
+    "controllers": 4,
+    "services": 3,
+    "repositories": 2,
     "schemas": 2,
-    "services": 2,
     "tasks": 2,
     "models": 1,
     "migrations": 0,
@@ -55,7 +56,11 @@ FORBIDDEN_LAYER_DEPS = [
     ("models", "controllers"),
     ("models", "services"),
     ("models", "schemas"),
+    ("controllers", "repositories"),
     ("services", "controllers"),
+    ("repositories", "controllers"),
+    ("repositories", "services"),
+    ("repositories", "schemas"),
     ("migrations", "controllers"),
     ("migrations", "services"),
     ("migrations", "schemas"),

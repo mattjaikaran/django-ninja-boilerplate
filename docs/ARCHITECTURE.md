@@ -97,9 +97,11 @@ These rules are what SOLID means in this codebase. Two gates enforce part of
 them; the rest is review guidance.
 
 - `scripts/check_architecture.py` (ARCHITECTURE gate) enforces rule 1: models
-  and migrations import no controller, service or schema, and a service
-  imports no controller. It also flags a controller that imports another
-  app's controller (`CROSS-CTRL`), which is one case of rule 5.
+  and migrations import no controller, service or schema; a repository
+  imports no controller, service or schema; a service imports no controller;
+  and a controller imports no repository. It also flags a controller that
+  imports another app's controller (`CROSS-CTRL`), which is one case of
+  rule 5.
 - `scripts/check_conventions.py` (CONVENTIONS gate) enforces the controller
   shape in rule 2: `ROUTER_USAGE` requires a class-based `@api_controller`,
   and `CONTROLLER_REG` requires it in `api/urls.py`. `DECORATOR_ORDER` and
@@ -108,20 +110,23 @@ them; the rest is review guidance.
   domain, open for extension (rule 3) and depending on the interface (rule 4)
   are review guidance. No gate checks them.
 
-1. **Layers flow one way.** Controller calls service, service calls model.
-   Models import no schema, service or controller. Migrations import no
-   controller, service or schema.
+1. **Layers flow one way.** Controller calls service, service calls
+   repository, repository calls model. Models import no schema, service or
+   controller. Migrations import no controller, service or schema.
 2. **One responsibility per file.** One `@api_controller` per file in
    `<app>/controllers/`; one schema file per domain,
    `<app>/schemas/<name>_schema.py`, holding `<Name>Schema`,
    `Create<Name>Schema` and `Update<Name>Schema` together as AGENTS.md
-   requires; one service extending `CRUDService` in `<app>/services/`.
+   requires; one service per domain in `<app>/services/`, a plain class or a
+   `CRUDService` subclass; one repository per domain in
+   `<app>/repositories/` when the domain needs one.
 3. **Open for extension.** Add a controller or a service method for new
    behaviour. Do not add a mode flag to an existing handler that switches
    between two behaviours.
 4. **Depend on the interface.** A service takes the narrow input it needs
-   (a user, a model instance, a plain value) and returns a model or schema
-   value. It does not reach for `request`, a session or a global.
+   (a user, a model instance, a plain value), asks its repository for data
+   access and returns a model or schema value. A repository returns models
+   or querysets. Neither reaches for `request`, a session or a global.
 5. **No cross-app writes.** An app reads another app's data through that
    app's service. A domain event replaces a direct call when the caller must
    not wait or must not fail with the writer.
@@ -354,12 +359,14 @@ graph TB
     end
 
     subgraph Data["Data Layer"]
+        Repositories["Repositories<br/>(Data Access)"]
         Models["Models<br/>(ORM Entities)"]
         Managers["Managers<br/>(Custom Queries)"]
         QuerySets["QuerySets<br/>(Filtering)"]
     end
 
     Presentation --> Business --> Data
+    Services --> Repositories
 ```
 
 ---

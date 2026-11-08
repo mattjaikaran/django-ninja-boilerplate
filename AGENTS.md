@@ -219,7 +219,7 @@ gauntlet-quick`.
 
 ### Architecture rules the checker enforces
 
-1. Layers flow Controllers to Services to Models; no reverse imports.
+1. Layers flow Controllers to Services to Repositories to Models; no reverse imports.
 2. Models never import schemas, services or controllers.
 3. Cross-app calls go through services, not controllers.
 4. Migrations never import controllers, services or schemas.
