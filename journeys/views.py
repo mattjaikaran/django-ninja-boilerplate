@@ -110,6 +110,9 @@ def journeys_admin_view(request: HttpRequest) -> HttpResponse:
         for feature in report.features
     ]
     index = _index(report)
+    # Both settings belong to this boilerplate, not Django. A backend that
+    # adopts this module only sets JOURNEYS_ENABLED, so read them by default.
+    api_docs_url = getattr(settings, "ADMIN_SITE_URL", "")
     context = admin.site.each_context(request)
     context.update(
         {
@@ -124,8 +127,9 @@ def journeys_admin_view(request: HttpRequest) -> HttpResponse:
             "path_rows": _path_rows(report, index),
             "bar_order": list(STATUS_ORDER),
             "index": index,
-            "api_docs_enabled": settings.API_DOCS != "off",
-            "api_docs_url": settings.ADMIN_SITE_URL,
+            "api_docs_enabled": bool(api_docs_url)
+            and getattr(settings, "API_DOCS", "off") != "off",
+            "api_docs_url": api_docs_url,
         }
     )
     return render(request, "journeys/journeys.html", context)
