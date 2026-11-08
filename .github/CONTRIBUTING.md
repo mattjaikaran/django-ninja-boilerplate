@@ -376,8 +376,10 @@ agent-run. Do not run both queues on the same repository at the same time.
 The factory accounts already have access: `matt-assistant` opens PRs and
 `matt-reviewer` reviews them. The order is fixed:
 
-1. CI passes. There is no hosted CI, so the pre-push hook runs the quick
-   gauntlet and the dependency audit. Run `just gauntlet-quick` yourself.
+1. CI passes. `.github/workflows/ci.yml` runs lint, format, typecheck, tests,
+   architecture, OpenAPI, migrations and the quick gauntlet in parallel. On a
+   local clone the pre-push hook runs the quick gauntlet and the dependency
+   audit; run `just gauntlet-quick` yourself.
 2. `matt-reviewer` reviews the PR and posts the findings. Fix or answer each
    finding. A coding model cannot approve its own PR.
 3. The owner (`mattjaikaran`) approves.

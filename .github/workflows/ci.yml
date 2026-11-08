@@ -1,0 +1,301 @@
+name: CI
+
+# Pull requests, a manual run and a weekly full run. Pushes to main run no
+# CI: agent-run merges only on green checks, and the weekly run gives it the
+# main baseline that tells a PR failure apart from a broken main. The weekly
+# run also catches a cross-file break that a diff-only run misses.
+on:
+  pull_request:
+  workflow_dispatch:
+  # Sunday 09:00 UTC.
+  schedule:
+    - cron: "0 9 * * 0"
+
+# A pull request's newer commit replaces its older run. A manual or weekly
+# run has its own group, so it never cancels another event's run.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+env:
+  PYTHON_VERSION: "3.13"
+  # Persistent on the runner host and shared by its runners: uv downloads or
+  # builds a wheel once. GitHub's cache save would prune files a parallel job
+  # is installing, so setup-uv's cache stays off.
+  UV_CACHE_DIR: /tmp/.uv-cache
+
+jobs:
+  # Maps the changed files to the jobs below. Manual and weekly runs select
+  # every job. A job that is not selected is skipped, and `ci-ok` passes.
+  #
+  # Runners: this repo is public, so a fork's pull request must not execute
+  # on the self-hosted runner on LXC 107. Every job takes this expression:
+  # a fork PR falls back to ubuntu-latest, everything else runs on the
+  # repo-level runner label. Keep "require approval for all outside
+  # collaborators" on too.
+  changes:
+    name: Changed paths
+    runs-on: &ci-runner ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository && 'ubuntu-latest' || fromJSON('["self-hosted","Linux","X64","django-ninja-boilerplate"]') }}
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      backend: ${{ steps.filter.outputs.backend || github.event_name != 'pull_request' }}
+      docs: ${{ steps.filter.outputs.docs || github.event_name != 'pull_request' }}
+      deploy: ${{ steps.filter.outputs.deploy || github.event_name != 'pull_request' }}
+    steps:
+      # On a pull request the action reads the file list from the API: no
+      # checkout is needed. Every other event selects every job above.
+      - uses: dorny/paths-filter@v4
+        id: filter
+        if: github.event_name == 'pull_request'
+        with:
+          # A file counts for `backend` when it matches a rule and no
+          # negated one: the default `some` would count docs files too.
+          predicate-quantifier: some-with-excludes
+          filters: |
+            # Any file outside docs/ and the root Markdown.
+            backend:
+              - '**'
+              - '!docs/**'
+              - '!*.md'
+            docs:
+              - 'docs/**'
+              - '*.md'
+            deploy:
+              - 'Dockerfile'
+              - 'docker/**'
+              - 'docker-compose*.yml'
+              - 'deploy/**'
+              - 'nginx/**'
+              - '.env*.example'
+
+      # `deploy` marks the Docker, Compose and deploy files. No job selects
+      # on it today; the run summary says what a PR touched.
+      - name: Selected job groups
+        env:
+          BACKEND: ${{ steps.filter.outputs.backend || github.event_name != 'pull_request' }}
+          DOCS: ${{ steps.filter.outputs.docs || github.event_name != 'pull_request' }}
+          DEPLOY: ${{ steps.filter.outputs.deploy || github.event_name != 'pull_request' }}
+        run: echo "backend=$BACKEND docs=$DOCS deploy=$DEPLOY" >> "$GITHUB_STEP_SUMMARY"
+
+  # FORMAT and LINT gates. Its own job so a style failure reports in under a
+  # minute, before the slower jobs finish.
+  lint:
+    name: Lint and format
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
+    runs-on: *ci-runner
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v7
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          enable-cache: false
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: just
+      - name: Install dependencies
+        run: uv sync --locked --extra dev
+      - name: Cache ruff
+        uses: actions/cache@v4
+        with:
+          path: .ruff_cache
+          key: ${{ runner.os }}-ruff-${{ hashFiles('uv.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-ruff-
+      - name: ruff check
+        run: just lint
+      - name: ruff format
+        run: just format-check
+
+  # The TYPECHECK gate. `just typecheck` is mypy, the checker the gauntlet
+  # gates on. `just ty` is not gate-clean (254 diagnostics on main), so it
+  # stays a local experiment until it has a baseline.
+  typecheck:
+    name: Typecheck
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
+    runs-on: *ci-runner
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v7
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          enable-cache: false
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: just
+      - name: Install dependencies
+        run: uv sync --locked --extra dev
+      - name: mypy
+        run: just typecheck
+
+  # The TEST gate: the whole suite, no coverage.
+  test:
+    name: Tests
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
+    runs-on: *ci-runner
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v7
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          enable-cache: false
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: just
+      - name: Install dependencies
+        run: uv sync --locked --extra dev --extra huey --extra django-q --extra django-rq --extra dramatiq
+      - name: Tests
+        run: just test-all
+
+  # ARCHITECTURE gate: layer imports, cross-app calls, migrations.
+  architecture:
+    name: Architecture
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
+    runs-on: *ci-runner
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v7
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          enable-cache: false
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: just
+      - name: Install dependencies
+        run: uv sync --locked --extra dev
+      - name: Layer rules
+        run: just check-arch
+
+  # OPENAPI and SCHEMA-PARITY gates. The contract lives under docs/, so a
+  # docs change runs this job too.
+  openapi:
+    name: OpenAPI drift
+    needs: changes
+    if: needs.changes.outputs.backend == 'true' || needs.changes.outputs.docs == 'true'
+    runs-on: *ci-runner
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v7
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          enable-cache: false
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: just
+      - name: Install dependencies
+        run: uv sync --locked --extra dev
+      - name: Export check and schema parity
+        run: just openapi-check
+
+  # Django's system checks and the MIGRATIONS gate. The gate diffs against
+  # origin/main, so the checkout needs the full history.
+  migrations:
+    name: Django check and migration drift
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
+    runs-on: *ci-runner
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v7
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          enable-cache: false
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: just
+      - name: Install dependencies
+        run: uv sync --locked --extra dev
+      - name: Django system check
+        env:
+          DJANGO_SETTINGS_MODULE: api.settings.test
+          DJANGO_READ_DOT_ENV: "0"
+        run: uv run python manage.py check
+      - name: Migration drift
+        run: just migrations-check
+
+  # Every quick gauntlet gate in one job, as the pre-push hook runs them:
+  # conventions, security, dependencies, drift, journeys, tickets, schema
+  # parity, file length, cross-stack, TEST-OPTIONAL, CLI-TEST, AI-DB,
+  # DEPLOY-CHECK and GENERATORS. Some gates repeat the jobs above on
+  # purpose: this job is the complete gate, the others report early.
+  gauntlet:
+    name: Gauntlet quick
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
+    runs-on: *ci-runner
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v7
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          enable-cache: false
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: just
+      - name: Install dependencies
+        run: uv sync --locked --extra dev --extra huey --extra django-q --extra django-rq --extra dramatiq
+      - name: Quick gauntlet
+        run: just gauntlet-quick
+
+  # The smoke suite on its own: the route sweep, the contract checks and the
+  # script guards. It is the fastest signal that the API still boots.
+  smoke:
+    name: Backend smoke tests
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
+    runs-on: *ci-runner
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v7
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          enable-cache: false
+      - name: Install dependencies
+        run: uv sync --locked --extra dev --extra huey --extra django-q --extra django-rq --extra dramatiq
+      - name: Smoke tests
+        env:
+          DJANGO_READ_DOT_ENV: "0"
+        run: uv run --extra dev --extra huey --extra django-q --extra django-rq --extra dramatiq pytest tests/smoke -q --no-cov
+
+  # Branch protection needs one required check: this one. It fails when any
+  # job failed or was cancelled; a skipped job (paths filter) passes.
+  ci-ok:
+    name: CI OK
+    if: always()
+    needs:
+      - changes
+      - lint
+      - typecheck
+      - test
+      - architecture
+      - openapi
+      - migrations
+      - gauntlet
+      - smoke
+    runs-on: *ci-runner
+    timeout-minutes: 5
+    steps:
+      - name: Fail when a job failed or was cancelled
+        if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
+        run: exit 1
