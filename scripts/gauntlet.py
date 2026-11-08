@@ -28,7 +28,8 @@ Gates (in order):
  20. DOCKER       — build the production image (full run only, skips without Docker)
  21. MIGRATIONS   — no merge migrations, one leaf per app, django-safe-migrations
 
-There is no hosted CI. Every gate runs locally: `just gauntlet-quick` from the pre-push hook, `just gauntlet` before a release.
+CI (`.github/workflows/ci.yml`) runs the gates in parallel jobs. The pre-push
+hook runs `just gauntlet-quick`, and `just gauntlet` runs before a release.
 
 Usage:
     python scripts/gauntlet.py              # full gauntlet

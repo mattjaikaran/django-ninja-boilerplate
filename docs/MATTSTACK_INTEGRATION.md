@@ -95,9 +95,14 @@ cd ../frontend && bun run gauntlet:quick && \
 cd .. && mattstack audit
 ```
 
-### Local gates, no hosted CI
+### CI and local gates
 
-This project has no hosted CI: every gate runs locally through pre-commit hooks. Run `just pre-commit-install` once, and the pre-push hook runs `just gauntlet-quick` before each push.
+`.github/workflows/ci.yml` runs the gates in parallel jobs on the self-hosted
+runner (label `django-ninja-boilerplate`), on pull requests, manual runs and a
+weekly schedule. A fork pull request falls back to `ubuntu-latest`, so
+untrusted code never runs on the self-hosted runner. A local clone keeps the
+same gates close: run `just pre-commit-install` once, and the pre-push hook
+runs `just gauntlet-quick` before each push.
 
 ## Journeys across the stack
 

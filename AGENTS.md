@@ -196,7 +196,18 @@ DOCKER
 allowlist an unfixed advisory in `pip-audit-allowlist.toml` with a reason and
 expiry, and an expired entry fails).
 
-No hosted CI. `just pre-commit-install` installs pre-commit, commit-msg and
+CI (`.github/workflows/ci.yml`) runs the gates before a merge: lint and
+format, typecheck, tests, architecture, OpenAPI drift, `manage.py check` and
+migration drift, smoke tests and `just gauntlet-quick`, in parallel jobs on
+the repo-level self-hosted runner on LXC 107 (label
+`django-ninja-boilerplate`). It runs on pull requests, manual dispatch and a
+weekly schedule; pushes to `main` run no CI, and the weekly run is the main
+baseline agent-run compares a PR against. A docs-only change skips every
+backend job. A fork PR falls back to `ubuntu-latest`, because this repo is
+public and a self-hosted runner must not run untrusted code. Branch
+protection requires the one `CI OK` check.
+
+`just pre-commit-install` installs pre-commit, commit-msg and
 pre-push hooks; pre-push runs `just gauntlet-quick` and the audit. Hooks are
 `repo: local` via `uv run` or pinned `uvx`/`bunx`, matching the lockfile.
 
