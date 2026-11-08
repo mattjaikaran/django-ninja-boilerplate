@@ -131,7 +131,7 @@ my-app/
 ├── frontend/         # React Vite SPA
 ├── deploy/           # Deployment configs
 ├── docker-compose.yml
-├── Makefile
+├── justfile
 └── ...
 ```
 

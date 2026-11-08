@@ -19,7 +19,7 @@ How the four-layer gauntlet defense works alongside `mattstack audit`.
 
 ## Generated mattstack projects
 
-Run `mattstack init`, then `make setup` from the generated project root.
+Run `mattstack init`, then `just setup` from the generated project root.
 Install `uv`, `just`, and the selected frontend package manager before you
 install hooks. The CLI refuses missing prerequisites before it writes hooks.
 
