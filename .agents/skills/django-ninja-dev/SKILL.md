@@ -95,5 +95,6 @@ uv run python scripts/check_architecture.py
 
 See `references/controller-patterns.md` for the four controller patterns,
 `references/layer-reference.md` for exceptions, error bodies, `CRUDService`
-methods, base schemas and test fixtures, and `scripts/scaffold_controller.sh`
-to print a starting point.
+methods, base schemas and test fixtures, and
+`.agents/skills/django-ninja-dev/scripts/scaffold_controller.sh` to print a
+starting point.

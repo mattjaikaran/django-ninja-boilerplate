@@ -52,7 +52,8 @@ description: >
 # Skill title
 
 1. First step.
-2. Second step. For the rare case, see [references/case.md](references/case.md).
+2. Second step. For the rare case, see
+   [the reference](.agents/skills/django-ninja-dev/references/code-rules.md).
 ```
 
 The `description` is the routing signal. Write it for the agent that decides

@@ -135,8 +135,8 @@ Makefile.legacy gauntlet-quick`.
 """One-line description of what this tool checks.
 
 Usage:
-    python scripts/check_something.py [files...]
-    python scripts/check_something.py --all
+    python scripts/check_<name>.py [files...]
+    python scripts/check_<name>.py --all
 """
 
 from __future__ import annotations
@@ -189,7 +189,7 @@ Add a method to `GauntletRunner` in `scripts/gauntlet.py`:
 def _gate_something(self) -> GateResult:
     return self.run_gate(
         "SOMETHING",
-        ["uv", "run", "python", "scripts/check_something.py", "--all"],
+        ["uv", "run", "python", "scripts/check_<name>.py", "--all"],
     )
 ```
 
