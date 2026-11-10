@@ -174,61 +174,15 @@ pre-commit run --all-files
 - Large file prevention
 - Secret detection
 
-### Python Style Guidelines
+### Python and Django Ninja standards
 
-Follow these conventions:
-
-1. **Imports**: Use absolute imports, organized in sections (stdlib, third-party, local)
-2. **Type Hints**: Use type hints for function signatures and class attributes
-3. **Docstrings**: Use Google-style docstrings for public functions and classes
-4. **Naming**:
-   - `snake_case` for functions, variables, and modules
-   - `PascalCase` for classes
-   - UPPER_SNAKE_CASE for constants
-
-**Example:**
-
-```python
-from typing import Optional
-
-from django.db import models
-from ninja import Schema
-
-from app.core.models import BaseModel
-
-
-class UserSchema(Schema):
-    """Schema for user data.
-
-    Attributes:
-        id: The unique user identifier.
-        email: The user's email address.
-        name: The user's display name.
-    """
-
-    id: int
-    email: str
-    name: Optional[str] = None
-
-
-def get_user_by_email(email: str) -> Optional[User]:
-    """Retrieve a user by their email address.
-
-    Args:
-        email: The email address to search for.
-
-    Returns:
-        The User object if found, None otherwise.
-    """
-    return User.objects.filter(email=email).first()
-```
-
-### Django Ninja Guidelines
-
-- Use `Schema` classes for request/response validation
-- Organize routers by feature/domain
-- Use appropriate HTTP status codes
-- Document endpoints with docstrings
+`AGENTS.md` section 08 is the single source: it lists the hard bans and links
+the full rules in
+[`code-rules.md`](../.agents/skills/django-ninja-dev/references/code-rules.md).
+Worked examples are in [`docs/ARCHITECTURE.md`](../docs/ARCHITECTURE.md) and
+`.context/EXAMPLES.md`; wrong vs. right code in
+[`django-ninja-anti-patterns.md`](../.omp/rules/django-ninja-anti-patterns.md).
+`just gauntlet-quick` enforces most of it; the rest is review.
 
 ## Making Changes
 
@@ -423,18 +377,9 @@ uv run pytest -s
 
 ### Writing Tests
 
-1. **Location**: Place tests in each app's `tests/` directory (e.g., `core/tests/`, `todos/tests/`)
-2. **Naming**: Use `test_` prefix for test files and functions
-3. **Scope**: Write tests only for smoke, auth/permission/ownership boundaries, API contract, regressions for real bugs, and security-relevant pure logic (one table-driven test)
-4. **Features**: Playwright journeys in the frontend verify features. See [`docs/product/README.md`](../docs/product/README.md)
-5. **Do not write**: unit tests per function, model tests, tests that assert on mocks, or tests for coverage. There is no coverage floor and no mutation testing
-6. **Size**: Add at most one new test file per change
-7. **Data**: Never mock the database. Use Factory Boy where a test needs data
-
-The platform keeps two kinds of tests: backend smoke tests and Playwright
-journeys. Contract and permission tests guard the API boundaries; unit,
-model and mock tests are not written. A journey's backend smoke test lives
-in `tests/smoke/test_jNNN_<name>.py` and calls the journey's endpoints in
+The testing policy in `AGENTS.md` section 10 is the single source: the three
+layers, what earns a test, and what does not. A journey's backend smoke test
+lives in `tests/smoke/test_jNNN_<name>.py` and calls the journey's endpoints in
 order. Name an existing app test in
 [`docs/product/journeys.md`](../docs/product/journeys.md) instead of copying
 it.

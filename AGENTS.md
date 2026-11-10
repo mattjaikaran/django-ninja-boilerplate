@@ -1,7 +1,9 @@
 # AGENTS.md
 
 Canonical guidance for every agent and harness. Read it before a non-trivial
-change. Skills: `.agents/skills/` (index: `SKILLS.md`).
+change; the nearest `AGENTS.md` to the file you edit wins. Skills live in
+`.agents/skills/` (index: `SKILLS.md`); reference material in `docs/`.
+`CLAUDE.md` is one import line and holds no rules.
 
 ## 01 Hi, I'm the maintainer
 
@@ -44,196 +46,49 @@ Do not delegate the top-level plan.
 ## 07 My environment
 
 - Docker via OrbStack. Task runner: `just` (old Makefile: `Makefile.legacy`).
-- Local Postgres 17 with pgvector. `.env` targets host services
-  (`DB_HOST=127.0.0.1`), `.env.development` the Compose `db` service;
-  `just doctor` warns when they disagree.
-- Tests use SQLite unless `TEST_DB=postgres`; `CI=true` does not change that.
-  Test settings skip the developer's `.env` unless `DJANGO_READ_DOT_ENV=1`,
-  so any pytest run gives the same result on every machine
-  (`test-integration` sets it for the Compose DB password).
-- Start a session with `just doctor`. It checks tools, Docker, `.env` and
-  secrets, the venv, git hooks, worktrees, the ports `just dev` will use,
-  live Postgres, Valkey and Django, migrations and OpenAPI, and repairs what
-  is safe (`uv sync`, hooks, `git worktree prune`, a missing `.env`,
-  `just openapi`), printing FIXED, SKIPPED or FAILED per command. `--yes`
-  also applies migrations, removes merged `agent/*` worktrees and fills
-  `.env` secrets; `--check` (and `--json`) only diagnose. Then run
-  `just agent-status`. Failed gates print a one-line fix hint.
+  Local Postgres 17 with pgvector; tests use SQLite unless `TEST_DB=postgres`,
+  so any pytest run gives the same result on every machine.
+- Start with `just doctor`: it checks tools, Docker, `.env`, secrets, the
+  venv, hooks, worktrees, ports, services, migrations and OpenAPI, repairs
+  what is safe (`--check` diagnoses only), then run `just agent-status`.
+- `.env` targets host services (`DB_HOST=127.0.0.1`), `.env.development` the
+  Compose `db` service; `just doctor` warns when they disagree.
 - Ports: django 8000, mcp 8001, mailhog 8025, centrifugo 8800, flower 5555;
-  Docker Postgres 5433 and Valkey 6380 (beside local 5432/6379). `just dev`
-  moves a busy port to the next free one and prints it (`just check-ports`
-  previews). Dev ports bind `127.0.0.1` (`DEV_BIND_ADDRESS`); only `prod`
-  nginx and the `single` app listen on all interfaces.
-- Preview `.env` secret changes with `python3 scripts/env_secrets.py fill
-  --dry-run` before `just setup-env`.
+  Compose Postgres 5433, Valkey 6380. `just dev` moves a busy port and prints
+  it (`just check-ports` previews); dev binds `127.0.0.1` (`DEV_BIND_ADDRESS`).
+- Preview secrets with `python3 scripts/env_secrets.py fill --dry-run` before
+  `just setup-env`.
 
-## 08 Patterns We Do Not Use
+## 08 Code standards
 
-### Django ORM and models
+The full rules: the `django-ninja-dev` skill
+(`.agents/skills/django-ninja-dev/references/code-rules.md`). Lookup tables:
+`.omp/rules/backend-conventions.md`. Wrong vs. right code:
+`.omp/rules/django-ninja-anti-patterns.md`.
 
-- No database access or `try/except` around ORM lookups in a controller: use
-  a service and `get_object_or_404`.
-- Migrations are linearized, never merged. **Never run
-  `makemigrations --merge`** and never add a merge migration.
-- Never edit a migration that is already on `main`; run `makemigrations`, or
-  renumber your own files.
-- After you add or change a model or a migration, and before you push, run
-  `just migrations-check`.
-- On a migration conflict (two leaf nodes, or the same number as main) run
-  `just migrations-renumber` (dry run), then
-  `just migrations-renumber --apply`. It renames only your own files after
-  main's latest and migrates a scratch DB.
-- When it prints `escalate to owner` (`RunPython`, `RunSQL`, `RemoveField`,
-  `RenameField`, `DeleteModel`, `replaces`, or a clashing `AlterField`), stop
-  and report it. Rule exceptions live in `api/settings/migration_lint.py`;
-  inline `# safe-migrations: ignore` comments are banned. Existing findings
-  live in `scripts/baselines/migration-safety.json`.
-- Never hide invalid state with a fallback. Fail loud with
-  `ImproperlyConfigured` or a 500 that carries the real error.
-- No `.raw()` or `.extra()`: use the ORM, `Subquery` or `OuterRef`.
-- `select_related`: forward FK and one-to-one. `prefetch_related`: reverse FK
-  and many-to-many.
-- Default base: `SoftDeleteModel` (`core.models.base`; other bases in
-  `rule://backend-conventions`). Never redeclare `id`, `created_at`,
-  `updated_at`, `created_by`, `updated_by`, `is_active`, `deleted_at`,
-  `deleted_by` or `metadata`.
-- Models: `{Name}` in PascalCase, `user` FK with
-  `related_name="{name_plural}"`; fields, relationships and `Meta` only.
+Never, even where a gate cannot catch it:
 
-### Django Ninja
-
-- Django Ninja Extra, not DRF: no `rest_framework`, serializers or viewsets.
-  No `ninja.Router` or `views.py`: one `@api_controller` per file in
-  `<app>/controllers/<name>_controller.py`. No `api/` directory inside an app;
-  root `api/` is project configuration.
-- Schemas inherit `CamelCaseSchema` (`core.schemas.base_schema`; never
-  `ninja.Schema`, `ModelSchema`, or a redeclared `from_attributes = True`).
-  One `<app>/schemas/<name>_schema.py` per domain (no `schemas/request.py` or
-  `schemas/response.py`): `{Name}Schema`, `Create{Name}Schema`,
-  `Update{Name}Schema` (all optional). UUIDs are `str`. `model_dump()`
-  returns camelCase keys for responses and logs; pass ORM writes
-  `model_dump_fields()` (snake_case field names).
-- Use `Field(...)`, `Literal` or an `Enum` over a hidden `@field_validator`.
-  Frontend Zod schemas come from `docs/openapi/openapi.json`: after a schema
-  or route change, run `just openapi` and commit the file.
-- Controllers validate, call `self.service` (set in `__init__`) and return
-  `(status, data)`; business logic lives in services. Services extend
-  `CRUDService[Model]` (`core.services.base_service`), set `model`, and
-  override `get_queryset()` for related loading.
-- Scope user data to `request.user`, never `Model.objects.all()`.
-- Decorator order: `@http_*`, `@log_api_call()`, `@validate_request()` (if
-  used), `@paginate(PageNumberPaginationExtra)` (list endpoints).
-- Register controllers with `api.register_controllers(...)` in
-  `api/urls.py`, where exception handlers are registered once. Raise
-  `api.exceptions` errors or use `get_object_or_404`; there is no
-  `handle_exceptions` decorator.
-- Each `__init__.py` in `models/`, `schemas/`, `services/`, `controllers/`
-  and `factories/` imports its public classes and sets `__all__`.
-- Private controllers: `JWTAuth`. Public operations: `auth=None`. Staff-only:
-  `IsAdminUser`.
-- Review a new anonymous operation, then add its `(method, path)` to
-  `PUBLIC_OPERATIONS` in `core/tests/test_route_auth.py`. Never add routes
-  just to pass it: it fails on purpose for accidental public operations.
-- Put static paths before every `/{id}` handler (including `PUT` and
-  `DELETE`): Ninja binds a pattern where it first appears, so an earlier
-  `/{id}` shadows a later static GET. CONVENTIONS (`ROUTE_ORDER`) and the
-  smoke route sweep catch it; mark a deliberate case `# route-ok: <reason>`.
-- Never exempt an endpoint from CSRF for a browser call. Unsafe methods need
-  `X-CSRFToken` (`docs/COOKIE_AUTH.md`).
-
-### Tooling, tasks and code
-
-- `uv`, not `pip` or `poetry`. `bun`, not `npm` or `yarn`. `ruff`, not
-  `black`, `isort` or `flake8`. `mypy` for types. `rg` or the justfile
-  `search` recipe, not `grep -r`.
-- Each new dependency needs a `DEPENDENCIES.md` entry.
-- One `docker-compose.yml`: add services under a profile. A service that
-  depends on `db` or `valkey` adds its profile to that service's `profiles`.
-- `scripts/release.py` commits and tags unless `--dry-run`; it pushes only
-  with `--push`, rejects unknown flags, and `--help` prints usage.
-- Import `shared_task` from `api.tasks`, not Celery. Keep tasks
-  backend-neutral: `.delay()`, and raise `.retry()` from the task handle. A
-  new task backend is an optional extra plus a Compose profile; its loader
-  fails loud without the package.
-- No abstraction before a second real use case; no `import *`. Length cap:
-  400 lines by default; `[tool.file-length]` in `pyproject.toml` sets the
-  exceptions (for example 1200 in `scripts/`, 800 in `cli/`). Split, do not
-  raise a cap.
+- DRF, `ninja.Router`, a `views.py`, or an `api/` package inside an app.
+- A raw `ninja.Schema` or `ModelSchema`, a redeclared base-model field, or
+  business logic in a controller.
+- ORM access in a controller; an unscoped `Model.objects.all()` holding user
+  data; `.raw()` or `.extra()`.
+- A merge migration, an edit to a migration on `main`, a
+  `# safe-migrations: ignore` comment, or a fallback that hides invalid state.
+- A static path after a `/{id}` handler, a CSRF exemption for a browser call,
+  or an anonymous route missing from `PUBLIC_OPERATIONS`.
+- `pip`, `npm`, `yarn`, `grep -r`, or an abstraction before a second real use.
+- A new dependency without a `DEPENDENCIES.md` entry.
+- A file over its length cap, commented-out code, a bare `print()` or a
+  `# type: ignore`/`# noqa`/`# nosec` without a reason.
 
 ## 09 The gauntlet (quality gate)
 
-Every change passes these gates before merge.
-
-| # | Gate | Tool | Catches |
-|---|---|---|---|
-| 1 | FORMAT | `ruff format --check` | Style drift |
-| 2 | LINT | `ruff check` | Bugs, anti-patterns, dead code |
-| 3 | TYPECHECK | `mypy` | Type errors, missing annotations |
-| 4 | SECURITY | `bandit` | SQLi, XSS, hardcoded secrets |
-| 5 | CONVENTIONS | `scripts/check_conventions.py` | DRF, raw `Schema`, decorator order, unscoped queries, redeclared fields, `Any`/bare `dict` fields without `# schema-ok:`, static paths after `/{id}` (`ROUTE_ORDER`), camelCase dumps written to the ORM (`CAMEL_DUMP_TO_ORM`) |
-| 6 | DEPENDENCIES | `scripts/check_dependencies.py` | `pyproject.toml` change without a `DEPENDENCIES.md` entry |
-| 7 | DRIFT | `scripts/check_version_drift.py` | Python/uv/Postgres/Valkey/hook versions differ across `pyproject.toml`, `uv.lock`, Dockerfiles, Compose, `.pre-commit-config.yaml` |
-| 8 | ARCHITECTURE | `scripts/check_architecture.py` | Layer violations, cross-app coupling |
-| 9 | OPENAPI | `manage.py export_openapi --check` | Stale `docs/openapi/openapi.json` |
-| 10 | SCHEMA-PARITY | `scripts/check_schema_parity.py` | snake_case or untyped properties, required/nullable mismatches |
-| 11 | FILELENGTH | `scripts/check_file_length.py` | Files over their cap |
-| 12 | CROSS-STACK | `scripts/check_cross_stack.py` | Naming and schema parity (monorepo only) |
-| 13 | JOURNEYS | `scripts/check_journeys.py` | Features, journeys, Playwright tags out of sync; `done`/checked without a passing e2e test |
-| 14 | TICKETS | `scripts/tickets.py check` | Bad format, missing dependencies, colliding `ready` tickets |
-| 15 | TEST | `pytest` | Broken smoke, contract, permission, regression tests |
-| 16 | TEST-OPTIONAL | `pytest webhooks files organizations notifications billing` with their five `*_ENABLED` flags | Flag-gated apps (kept out of default settings and OpenAPI) |
-| 17 | CLI-TEST | `pytest cli/tests` | Broken `cli/` package |
-| 18 | AI-DB | `scripts/test_ai_db.py` | Postgres-only tests (`core.ai` owner scoping, concurrent refresh) in a throwaway pgvector container; skips without Docker |
-| 19 | DEPLOY-CHECK | `manage.py check --deploy` | Production config issues |
-
-The full gauntlet adds GENERATORS (`scripts/check_generators.py`, `just
-check-generators`: every `generate_feature` choice plus `startapp_extended`
-in a throwaway worktree, then `manage.py check`, pending migrations, ruff,
-generated tests; quick mode runs it too when generator code changed),
-DOCKER
-(production image; skips without Docker) and AUDIT
-(`scripts/audit_dependencies.py`: `pip-audit` on `uv.lock`, always blocking;
-allowlist an unfixed advisory in `pip-audit-allowlist.toml` with a reason and
-expiry, and an expired entry fails).
-
-CI (`.github/workflows/ci.yml`) runs the gates before a merge: lint and
-format, typecheck, tests, architecture, OpenAPI drift, `manage.py check` and
-migration drift, smoke tests and `just gauntlet-quick`, in parallel jobs on
-the repo-level self-hosted runner on LXC 107 (label
-`django-ninja-boilerplate`). It runs on pull requests, manual dispatch and a
-weekly schedule; pushes to `main` run no CI, and the weekly run is the main
-baseline agent-run compares a PR against. A docs-only change skips every
-backend job. A fork PR falls back to `ubuntu-latest`, because this repo is
-public and a self-hosted runner must not run untrusted code. Branch
-protection requires the one `CI OK` check.
-
-`just pre-commit-install` installs pre-commit, commit-msg and
-pre-push hooks; pre-push runs `just gauntlet-quick` and the audit. Hooks are
-`repo: local` via `uv run` or pinned `uvx`/`bunx`, matching the lockfile.
-
-```bash
-just gauntlet                 # every gate
-just gauntlet-quick           # skip audit, docker (use while working)
-just gauntlet-ci              # every gate, JSON report
-just gauntlet-gate lint       # one gate by name
-just openapi                  # regenerate docs/openapi/openapi.json
-just openapi-check            # OPENAPI + SCHEMA-PARITY
-just audit                    # pip-audit (blocking)
-just security-full            # optional: bandit, audit, semgrep, SBOM, trivy
-just test-django6             # manual: suite on Django 6.0 (unsupported)
-```
-
-Single-gate recipes: `just check-conventions`, `check-cross-stack`,
-`check-arch`, `check-drift`, `check-journeys`, `tickets check`,
-`security-scan` (bandit). Without `just`: `make -f Makefile.legacy
-gauntlet-quick`.
-
-### Architecture rules the checker enforces
-
-1. Layers flow Controllers to Services to Repositories to Models; no reverse imports.
-2. Models never import schemas, services or controllers.
-3. Cross-app calls go through services, not controllers.
-4. Migrations never import controllers, services or schemas.
+Every change passes `just gauntlet-quick`; `just gauntlet` runs every gate
+before a release. CI runs the same gates, and branch protection requires the
+one `CI OK` check. The gate list, the full-run extras, the CI jobs and how to
+add a gate: `docs/CONSTRAINT_TOOLS.md`. Run one gate with `just gauntlet-gate
+<name>`, and `just openapi-check` for OPENAPI + SCHEMA-PARITY alone.
 
 ## 10 Definition of done
 
@@ -245,8 +100,8 @@ gauntlet-quick`.
 - [ ] Type hints on all public interfaces
 - [ ] Conventional Commits message (`type(scope): summary`)
 
-Also (not fully gate-enforced): no commented-out code or `print()` in
-production code; no `# type: ignore`, `# nosec` or `# noqa` without a reason.
+Also (not gate-enforced): no commented-out code or `print()` in production
+code; no `# type: ignore`, `# nosec` or `# noqa` without a reason.
 
 ### Testing policy
 
@@ -284,79 +139,54 @@ test-all` runs all; `just test-coverage` only reports. TTSR rules
 ## 11 Constraint tools
 
 `scripts/` checkers are deterministic gates (exit 0 pass, 1 fail) an agent
-can extend: add the script under its length cap, a `_gate_*` method in
-`scripts/gauntlet.py`, a `justfile` recipe, and a row in the section 09 table.
+can extend. Adding one: `docs/CONSTRAINT_TOOLS.md`.
 
 ## 12 Where the guidance lives
 
 | Path | Purpose |
 |---|---|
-| `AGENTS.md` | Canonical rules, gates and workflow |
+| `AGENTS.md` | Canonical rules (this file) |
 | `SKILLS.md` | Index of `.agents/skills/` (loaded on demand) |
 | `.omp/` | oh-my-pi: `APPEND_SYSTEM.md`, `rules/` (references, TTSR), `skills/` |
-| `.context/` | `EXAMPLES.md`: worked examples |
-| `docs/` | Architecture, migration, realtime, constraint tools |
+| `docs/` | Architecture, migration, realtime, constraint tools, agent handoff |
 | `docs/product/`, `docs/tickets/` | Features, journeys and waves (section 13); worker tickets (section 14) |
 | `tasks/specs/` | agent-run specs, the canonical unattended queue (section 14) |
 
-`CLAUDE.md` is gitignored; never reference or rely on it.
+No nested `AGENTS.md` exists; add one only for a package with its own
+commands or rules.
 
 ## 13 Features, journeys and e2e tests
 
-These three must agree; change all three together:
+`docs/product/FEATURES.md` (features), the journey specs in
+`docs/product/journeys/` (stories and steps) and one Playwright test per
+journey in the frontend `e2e/`, tagged `@J-NNN` with `J-NNN-S<n>: ...`
+steps, must agree.
 
-|Artifact|Path|Owner|
-|---|---|---|
-|Feature list|`docs/product/FEATURES.md`|Planner|
-|User journeys and stories|`docs/product/journeys/J-NNN-*.md`|Planner|
-|Playwright journey tests|Frontend `e2e/`: one test per journey tagged `@J-NNN`, steps titled `J-NNN-S<n>: ...`|Planner or worker|
-
-`docs/product/journeys.md` is the plan and the index: personas, user
-stories, each journey's backend surface and smoke test, its planned
-Playwright test, and the wave order. The gate does not parse it. Keep its
-rows in step with the three artifacts above.
-
-- Build the backend first. A journey goes to W2 (frontend) only when its
-  backend smoke test passes on `main`, and to `done` only when its Playwright
-  test passes. Waves: `docs/product/journeys.md`.
-- A checked feature (`[x]`) or `done` journey means a Playwright test proves
-  it and its last run passed, never "the code exists".
-- A failing journey test is a known issue: set the journey to `building`, add
-  a `known_issues` entry naming a ticket, and fix it before closing the ticket.
-- `just check-journeys` (JOURNEYS gate) enforces this; `/admin/journeys/`
-  shows what each step is missing. `just sync-frontend <frontend path>`
-  checks that frontend's Playwright report and OpenAPI copy against
-  `docs/openapi/openapi.json`; `--check` exits 1 on drift.
-
-Format and sync loop: `docs/product/README.md`, `journey-sync` skill.
+- A checked feature or a `done` journey means a passing Playwright test,
+  never "the code exists". Build the backend first: frontend work starts only
+  when the journey's backend smoke test passes on `main`.
+- A failing journey test is a known issue: set `building`, name a ticket in
+  `known_issues`, and fix it before closing the ticket.
+- `just check-journeys` (JOURNEYS gate) enforces this; `just sync-frontend
+  <path>` checks a frontend's report and OpenAPI copy (`--check` exits 1 on
+  drift). Format and sync loop: `docs/product/README.md`, `journey-sync`
+  skill.
 
 ## 14 Work modes and handoff
 
 - Solo mode: the maintainer and planner model may commit to `main`.
-- agent-run mode (canonical for unattended work): the planner writes specs in
-  `tasks/specs/S-*.md` with a size and a wave. agent-run claims a `READY` spec,
-  a small model implements it, `matt-assistant` opens the PR, `matt-reviewer`
-  reviews, and the owner approves. A frontier model splits an `L` issue into
-  `S` and `M` specs. Specs own every path they may change.
-- Worker mode (self-hosted fallback): a smaller model runs only
-  `tier: small` tickets from `docs/tickets/`, edits only the files its ticket
-  lists, never pushes to `main`, and opens a PR from the bot GitHub account
-  for review.
-- The planner keeps both queues full of work that needs no design decisions.
-  `just tickets check` (TICKETS gate) blocks ticket collisions.
-- Never run the agent-run spec queue and the self-hosted ticket queue on the
-  same repository at the same time. They do not know about each other's
-  claims.
-
-`just worker-once` (preview: `--dry-run`) runs one fallback iteration:
-claim, run `$WORKER_AGENT_CMD` in a worktree, verify with one retry, then
-open a PR or a draft `needs-planner` PR. Roles, machines, bot account, merge
-conflicts, overnight loop and the canonical path: `docs/AGENT_HANDOFF.md`.
-Spec format: `tasks/specs/README.md`. Skills: `ticket-planner`,
-`ticket-worker`.
-
-After a scaffold, the first planner session fills `docs/product/` and the
-first specs. After each rejected PR, add the lesson below.
+- agent-run (canonical for unattended work): the planner writes `READY`
+  specs in `tasks/specs/S-*.md`; agent-run claims one, a small model
+  implements it, `matt-assistant` opens the PR, `matt-reviewer` reviews, and
+  the owner approves. A frontier model splits an `L` issue into `S` and `M`.
+- Worker mode (fallback): a smaller model runs only `tier: small` tickets
+  from `docs/tickets/`, edits only the files its ticket lists, never pushes
+  to `main`, and opens a PR from the bot account. `just worker-once`
+  (`--dry-run` previews) runs one iteration.
+- Keep both queues full of work that needs no design decisions; `just tickets
+  check` blocks collisions. Never run both queues on one repository at once.
+- Roles and overnight loop: `docs/AGENT_HANDOFF.md`. Spec format:
+  `tasks/specs/README.md`. Skills: `ticket-planner`, `ticket-worker`.
 
 ## When to add to this section
 
@@ -368,8 +198,3 @@ per rule, no paragraphs.
   12 shadowed todo routes and 3 audit routes. Fail on any status of 400 or
   higher except 403 for regular users, because a list route has no input to
   reject.
-
-## Reference library
-
-Agent instruction patterns from open-source projects:
-https://ossrules.md/llms.txt.

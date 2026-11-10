@@ -437,6 +437,11 @@ check-arch:
 check-journeys:
     {{ uv }} run python scripts/check_journeys.py
 
+# Check AGENTS.md and the skills: length, links, commands, frontmatter
+# (AGENT-DOCS gate; stdlib only, so it runs without uv sync)
+check-agent-docs:
+    python3 scripts/check_agent_docs.py
+
 # Check a frontend against this API: journey tests and its OpenAPI copy.
 # Example: just sync-frontend ../boilerplates/react-rsbuild-boilerplate --check
 sync-frontend path *args:

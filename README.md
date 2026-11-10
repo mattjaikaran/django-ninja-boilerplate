@@ -164,10 +164,9 @@ project/
 │   ├── services/             # Business logic layer
 │   └── tests/                # Unit and integration tests
 ├── todos/                    # Example app with CRUD functionality
-├── scripts/                  # Utility scripts
-├── .cursor/                  # Cursor IDE rules
-│   └── rules/
-│       └── backend_guidelines.mdc
+├── scripts/                  # Utility scripts and gauntlet gates
+├── AGENTS.md                 # Canonical agent rules; CLAUDE.md imports it
+├── SKILLS.md                 # Index of .agents/skills/ (Agent Skills)
 ├── docker-compose.yml        # Profiled Docker setup (dev, prod, single, celery)
 ├── justfile                  # Task runner (the old Makefile is Makefile.legacy)
 └── pyproject.toml            # Project configuration

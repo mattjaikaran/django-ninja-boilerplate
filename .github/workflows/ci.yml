@@ -230,9 +230,22 @@ jobs:
       - name: Migration drift
         run: just migrations-check
 
+  # AGENT-DOCS gate. It reads Markdown and the justfile only, so the job
+  # needs no dependency install; it runs on any docs change.
+  agent-docs:
+    name: Agent docs
+    needs: changes
+    if: needs.changes.outputs.docs == 'true'
+    runs-on: *ci-runner
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: AGENTS.md, skills and commands check
+        run: python3 scripts/check_agent_docs.py
+
   # Every quick gauntlet gate in one job, as the pre-push hook runs them:
-  # conventions, security, dependencies, drift, journeys, tickets, schema
-  # parity, file length, cross-stack, TEST-OPTIONAL, CLI-TEST, AI-DB,
+  # conventions, security, dependencies, drift, journeys, tickets, agent docs,
+  # schema parity, file length, cross-stack, TEST-OPTIONAL, CLI-TEST, AI-DB,
   # DEPLOY-CHECK and GENERATORS. Some gates repeat the jobs above on
   # purpose: this job is the complete gate, the others report early.
   gauntlet:
@@ -291,6 +304,7 @@ jobs:
       - architecture
       - openapi
       - migrations
+      - agent-docs
       - gauntlet
       - smoke
     runs-on: *ci-runner
