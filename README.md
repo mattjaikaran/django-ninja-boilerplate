@@ -1645,11 +1645,11 @@ See [`deploy/`](deploy/) for detailed deployment configurations:
 
 The API mounts once at /api/ with no version in the path. That surface is
 v1. It does not move when the project version changes, and there is no
-/api/v1/ alias. A breaking v2 ships beside it at /api/v2/; /api/ keeps
-serving v1 until it is retired. Contract tests assert that both versioned
-prefixes return 404 (`tests/contract/test_route_access.py`) and that the
-OpenAPI document lists no versioned paths
-(`tests/contract/test_openapi_contract.py`).
+/api/v1/ alias. /api/v2/ is the first prefixed version, and it appears
+only when a breaking v2 ships beside /api/; /api/ stays v1. Contract
+tests assert that neither versioned prefix is mounted today
+(`tests/contract/test_route_access.py`) and that the OpenAPI document
+lists no versioned paths (`tests/contract/test_openapi_contract.py`).
 
 The OpenAPI `info.version` is the release version from the `VERSION` file,
 so a generated client can tell which build published the schema.
