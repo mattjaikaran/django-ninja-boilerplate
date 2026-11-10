@@ -1,8 +1,9 @@
-"""Helpers for scripts/gauntlet.py gates: test environment and change detection."""
+"""Helpers for scripts/gauntlet.py gates: result type, test environment, change detection."""
 
 from __future__ import annotations
 
 import subprocess
+from dataclasses import dataclass
 
 # Test settings without the developer's .env (api/settings/common.py reads it
 # unless DJANGO_READ_DOT_ENV=0), so gate results match on every machine.
@@ -12,6 +13,17 @@ TEST_ENV = {"DJANGO_SETTINGS_MODULE": "api.settings.test", "DJANGO_READ_DOT_ENV"
 # the schema base class every generated schema inherits.
 GENERATOR_PATHS = ("core/management/commands/", "core/schemas/base_schema.py")
 BASE_REF = "origin/main"
+
+
+@dataclass
+class GateResult:
+    name: str
+    passed: bool
+    duration_s: float
+    output: str = ""
+    skipped: bool = False
+    skip_reason: str = ""
+    warning: bool = False
 
 
 def _git_names(*args: str) -> list[str]:
