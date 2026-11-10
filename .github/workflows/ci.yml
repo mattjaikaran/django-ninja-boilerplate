@@ -103,7 +103,7 @@ jobs:
       - name: Install dependencies
         run: uv sync --locked --extra dev
       - name: Cache ruff
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: .ruff_cache
           key: ${{ runner.os }}-ruff-${{ hashFiles('uv.lock') }}
