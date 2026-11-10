@@ -57,23 +57,18 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 os.chdir(PROJECT_ROOT)
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from gauntlet_gates import BASE_REF, GENERATOR_PATHS, TEST_ENV, generator_changes
+from gauntlet_gates import (
+    BASE_REF,
+    GENERATOR_PATHS,
+    TEST_ENV,
+    GateResult,
+    generator_changes,
+)
 from gauntlet_hints import FIX_HINTS
 
 EXCLUDE_DIRS = {".venv", "venv", "env", "node_modules", ".git", "__pycache__", "cli"}
 # Apps installed only by their *_ENABLED flag (api/settings/common.py).
 OPTIONAL_APPS = ("webhooks", "files", "organizations", "notifications", "billing")
-
-
-@dataclass
-class GateResult:
-    name: str
-    passed: bool
-    duration_s: float
-    output: str = ""
-    skipped: bool = False
-    skip_reason: str = ""
-    warning: bool = False
 
 
 @dataclass
