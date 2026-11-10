@@ -56,9 +56,9 @@ Then:
 
 ## Rules
 
-Follow `AGENTS.md` section 08 (schemas, controllers, services, models,
-exports, auth, route order) and the testing policy in section 10. The notes
-below add only what those sections do not cover.
+Follow [`references/code-rules.md`](references/code-rules.md) (the rules
+`AGENTS.md` section 08 summarizes) and the testing policy in `AGENTS.md`
+section 10. The notes below add only what those rules do not cover.
 
 ## Controllers
 

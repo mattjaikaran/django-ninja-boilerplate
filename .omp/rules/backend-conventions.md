@@ -5,7 +5,9 @@ globs: ["**/*.py"]
 
 # Backend reference
 
-Rules live in `AGENTS.md` section 08. This file holds lookup tables only.
+Rules live in `AGENTS.md` section 08 and
+`.agents/skills/django-ninja-dev/references/code-rules.md`. This file holds
+lookup tables only.
 
 ## Imports by layer
 

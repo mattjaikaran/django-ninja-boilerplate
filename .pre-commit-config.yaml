@@ -207,6 +207,16 @@ repos:
         files: (^|/)(pyproject\.toml|uv\.lock|Dockerfile[^/]*|docker-compose[^/]*\.yml|\.pre-commit-config\.yaml|\.python-version)$
         pass_filenames: false
 
+      # AGENTS.md is canonical: fail when it disappears, grows past its cap,
+      # links to a path that moved, or names a `just` recipe that no longer
+      # exists. Stdlib only, so the hook runs without uv sync.
+      - id: agent-docs
+        name: Check AGENTS.md links and commands
+        entry: python3 scripts/check_agent_docs.py
+        language: system
+        files: ^(AGENTS\.md|CLAUDE\.md|SKILLS\.md|justfile)$|^\.agents/skills/.*/SKILL\.md$
+        pass_filenames: false
+
   # ===========================================
   # Pre-push: the quick gauntlet and a blocking dependency audit
   # ===========================================

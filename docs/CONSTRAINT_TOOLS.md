@@ -56,6 +56,76 @@ Plus third-party deterministic tools integrated as gates:
 | `pip-audit` | AUDIT | Known vulnerabilities in dependencies |
 | `manage.py check --deploy` | DEPLOY | Production Django configuration |
 
+### The gate list
+
+Every change passes these gates before merge. `just gauntlet-quick` runs the
+blocking ones; `just gauntlet` adds the full-run extras.
+
+| # | Gate | Tool | Catches |
+|---|---|---|---|
+| 1 | FORMAT | `ruff format --check` | Style drift |
+| 2 | LINT | `ruff check` | Bugs, anti-patterns, dead code |
+| 3 | TYPECHECK | `mypy` | Type errors, missing annotations |
+| 4 | SECURITY | `bandit` | SQLi, XSS, hardcoded secrets |
+| 5 | CONVENTIONS | `scripts/check_conventions.py` | DRF, raw `Schema`, decorator order, unscoped queries, redeclared fields, `Any`/bare `dict` fields without `# schema-ok:`, static paths after `/{id}` (`ROUTE_ORDER`), camelCase dumps written to the ORM (`CAMEL_DUMP_TO_ORM`) |
+| 6 | DEPENDENCIES | `scripts/check_dependencies.py` | `pyproject.toml` change without a `DEPENDENCIES.md` entry |
+| 7 | DRIFT | `scripts/check_version_drift.py` | Python/uv/Postgres/Valkey/hook versions differ across `pyproject.toml`, `uv.lock`, Dockerfiles, Compose, `.pre-commit-config.yaml` |
+| 8 | ARCHITECTURE | `scripts/check_architecture.py` | Layer violations, cross-app coupling |
+| 9 | OPENAPI | `manage.py export_openapi --check` | Stale `docs/openapi/openapi.json` |
+| 10 | SCHEMA-PARITY | `scripts/check_schema_parity.py` | snake_case or untyped properties, required/nullable mismatches |
+| 11 | FILELENGTH | `scripts/check_file_length.py` | Files over their cap |
+| 12 | CROSS-STACK | `scripts/check_cross_stack.py` | Naming and schema parity (monorepo only) |
+| 13 | JOURNEYS | `scripts/check_journeys.py` | Features, journeys, Playwright tags out of sync; `done`/checked without a passing e2e test |
+| 14 | TICKETS | `scripts/tickets.py check` | Bad format, missing dependencies, colliding `ready` tickets |
+| 15 | AGENT-DOCS | `scripts/check_agent_docs.py` | `AGENTS.md` missing or over 200 lines, a broken relative link, a stale `just` recipe or path, a skill without frontmatter or an index row, a second skills location, a `CLAUDE.md` that is not `@AGENTS.md` |
+| 16 | TEST | `pytest` | Broken smoke, contract, permission, regression tests |
+| 17 | TEST-OPTIONAL | `pytest webhooks files organizations notifications billing` with their five `*_ENABLED` flags | Flag-gated apps (kept out of default settings and OpenAPI) |
+| 18 | CLI-TEST | `pytest cli/tests` | Broken `cli/` package |
+| 19 | AI-DB | `scripts/test_ai_db.py` | Postgres-only tests (`core.ai` owner scoping, concurrent refresh) in a throwaway pgvector container; skips without Docker |
+| 20 | DEPLOY-CHECK | `manage.py check --deploy` | Production config issues |
+
+The full gauntlet adds GENERATORS (`scripts/check_generators.py`, `just
+check-generators`: every `generate_feature` choice plus `startapp_extended`
+in a throwaway worktree, then `manage.py check`, pending migrations, ruff,
+generated tests; quick mode runs it too when generator code changed), DOCKER
+(production image; skips without Docker) and AUDIT
+(`scripts/audit_dependencies.py`: `pip-audit` on `uv.lock`, always blocking;
+allowlist an unfixed advisory in `pip-audit-allowlist.toml` with a reason and
+expiry, and an expired entry fails).
+
+CI (`.github/workflows/ci.yml`) runs the gates before a merge: lint and
+format, typecheck, tests, architecture, OpenAPI drift, `manage.py check` and
+migration drift, backend smoke tests, the quick gauntlet and the agent docs
+check, in parallel jobs on the repo-level self-hosted runner on LXC 107
+(label `django-ninja-boilerplate`). It runs on pull requests, manual dispatch
+and a weekly schedule; pushes to `main` run no CI, and the weekly run is the
+main baseline agent-run compares a PR against. A docs-only change skips every
+backend job. A fork PR falls back to `ubuntu-latest`, because this repo is
+public and a self-hosted runner must not run untrusted code. Branch
+protection requires the one `CI OK` check.
+
+`just pre-commit-install` installs pre-commit, commit-msg and pre-push hooks;
+pre-push runs `just gauntlet-quick` and the audit. Hooks are `repo: local` via
+`uv run` or pinned `uvx`/`bunx`, matching the lockfile.
+
+```bash
+just gauntlet                 # every gate
+just gauntlet-quick           # skip audit, docker (use while working)
+just gauntlet-ci              # every gate, JSON report
+just gauntlet-gate lint       # one gate by name
+just check-agent-docs         # AGENT-DOCS only, no Django boot
+just openapi                  # regenerate docs/openapi/openapi.json
+just openapi-check            # OPENAPI + SCHEMA-PARITY
+just audit                    # pip-audit (blocking)
+just security-full            # optional: bandit, audit, semgrep, SBOM, trivy
+just test-django6             # manual: suite on Django 6.0 (unsupported)
+```
+
+Single-gate recipes: `just check-conventions`, `check-cross-stack`,
+`check-arch`, `check-drift`, `check-journeys`, `check-agent-docs`,
+`tickets check`, `security-scan` (bandit). Without `just`: `make -f
+Makefile.legacy gauntlet-quick`.
+
 ## Writing a New Constraint Tool
 
 ### Template
@@ -171,5 +241,5 @@ gates["something"] = self._gate_something
 
 - [SwarmForge](https://github.com/unclebob/swarm-forge) — Uncle Bob Martin's tmux-based
   agent orchestration platform with constitution-driven constraints
-- [The gauntlet](../AGENTS.md#09-the-gauntlet-quality-gate) — see `AGENTS.md` section 09 for the full gate table and agent rules
+- [The gauntlet](../AGENTS.md) — the rules agents follow, and the gate list above
 - [Architecture Rules](ARCHITECTURE.md) — the layer enforcement philosophy in detail

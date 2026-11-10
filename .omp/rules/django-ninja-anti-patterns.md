@@ -5,7 +5,8 @@ globs: ["**/*.py"]
 
 # Anti-patterns
 
-Each item shows WRONG code, then CORRECT code. The rules are in `AGENTS.md`;
+Each item shows WRONG code, then CORRECT code. The rules are in `AGENTS.md`
+section 08 and `.agents/skills/django-ninja-dev/references/code-rules.md`;
 the base-class details are in
 `.agents/skills/django-ninja-dev/references/layer-reference.md`.
 

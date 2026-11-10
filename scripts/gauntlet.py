@@ -18,15 +18,16 @@ Gates (in order):
  10. CROSS-STACK  — naming and schema parity (monorepo only, non-blocking)
  11. JOURNEYS     : features, journey specs and Playwright tags stay in sync
  12. TICKETS      : ticket format, dependencies and collision rules
- 13. TEST         : pytest for smoke, contract, permission and regression tests
- 14. TEST-OPTIONAL: pytest for flag-gated apps (webhooks, files)
- 15. CLI-TEST     — pytest for the cli/ package
- 16. AI-DB        — Postgres-only tests (core.ai scoping) in a throwaway pgvector container; skips without Docker
- 17. DEPLOY       — django check --deploy (non-blocking)
- 18. GENERATORS   — every code generator in a throwaway worktree (quick: when generator files changed)
- 19. AUDIT        — pip-audit on uv.lock, allow-list with expiry (full run only)
- 20. DOCKER       — build the production image (full run only, skips without Docker)
- 21. MIGRATIONS   — no merge migrations, one leaf per app, django-safe-migrations
+ 13. AGENT-DOCS   : AGENTS.md exists, stays short, links resolve, commands are real
+ 14. TEST         : pytest for smoke, contract, permission and regression tests
+ 15. TEST-OPTIONAL: pytest for flag-gated apps (webhooks, files)
+ 16. CLI-TEST     — pytest for the cli/ package
+ 17. AI-DB        — Postgres-only tests (core.ai scoping) in a throwaway pgvector container; skips without Docker
+ 18. DEPLOY       — django check --deploy (non-blocking)
+ 19. GENERATORS   — every code generator in a throwaway worktree (quick: when generator files changed)
+ 20. AUDIT        — pip-audit on uv.lock, allow-list with expiry (full run only)
+ 21. DOCKER       — build the production image (full run only, skips without Docker)
+ 22. MIGRATIONS   — no merge migrations, one leaf per app, django-safe-migrations
 
 CI (`.github/workflows/ci.yml`) runs the gates in parallel jobs. The pre-push
 hook runs `just gauntlet-quick`, and `just gauntlet` runs before a release.
@@ -215,6 +216,7 @@ class GauntletRunner:
         gates["cross-stack"] = self._gate_cross_stack
         gates["journeys"] = self._gate_journeys
         gates["tickets"] = self._gate_tickets
+        gates["agent-docs"] = self._gate_agent_docs
         gates["test"] = self._gate_test
         gates["test-optional"] = self._gate_test_optional
         gates["cli-test"] = self._gate_cli_test
@@ -300,6 +302,10 @@ class GauntletRunner:
             "TICKETS", ["uv", "run", "python", "scripts/tickets.py", "check"]
         )
 
+    def _gate_agent_docs(self) -> GateResult:
+        # Stdlib only: a Markdown check does not need a Django boot or a sync.
+        return self.run_gate("AGENT-DOCS", ["python3", "scripts/check_agent_docs.py"])
+
     def _gate_filelength(self) -> GateResult:
         py_files = [
             str(f.relative_to(PROJECT_ROOT))
@@ -338,8 +344,7 @@ class GauntletRunner:
         )
 
     def _gate_test_optional(self) -> GateResult:
-        # Flag-gated apps stay out of the default settings, so the OpenAPI
-        # export and route contract never see their routes. Test them here.
+        # Flag-gated apps stay out of the default settings: test them here.
         return self.run_gate(
             "TEST-OPTIONAL",
             [
@@ -389,8 +394,7 @@ class GauntletRunner:
         )
 
     def _gate_audit(self) -> GateResult:
-        # Blocking in every mode. Known advisories go in pip-audit-allowlist.toml
-        # with an expiry date; there is no `|| true` escape hatch.
+        # Blocking in every mode: an advisory is allowlisted with an expiry.
         return self.run_gate(
             "AUDIT", ["uv", "run", "python", "scripts/audit_dependencies.py"]
         )

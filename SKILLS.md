@@ -1,12 +1,16 @@
 # Skills
 
-Agent Skills live in `.agents/skills/`. The directory is harness-agnostic:
-oh-my-pi, Android Studio, Replit, and other tools that implement the Agent
-Skills specification discover it automatically and load a skill on demand.
+Agent Skills live in `.agents/skills/` and only there. The directory is
+harness-agnostic: oh-my-pi, Android Studio, Replit, and other tools that
+implement the Agent Skills specification discover it automatically and load a
+skill on demand. Do not copy a skill into `.claude/skills/` or another
+directory: the AGENT-DOCS gate (`just check-agent-docs`) fails on a second
+location, on missing `name`/`description` frontmatter, and on a skill missing
+from the table below.
 
 | Skill | Description |
 |---|---|
-| [`django-ninja-dev`](.agents/skills/django-ninja-dev/SKILL.md) | Controller, schema, and service patterns for Django Ninja Extra. |
+| [`django-ninja-dev`](.agents/skills/django-ninja-dev/SKILL.md) | Controller, schema, and service patterns for Django Ninja Extra; the code rules `AGENTS.md` section 08 summarizes. |
 | [`docker-compose-profiles`](.agents/skills/docker-compose-profiles/SKILL.md) | One Compose file, the dev/test/prod/single profiles. |
 | [`journey-sync`](.agents/skills/journey-sync/SKILL.md) | Keep features, journeys, and the frontend repo's `@J-NNN` Playwright tags in sync; the JOURNEYS gate. |
 | [`rtk-ripgrep`](.agents/skills/rtk-ripgrep/SKILL.md) | Searching with ripgrep, and the RTK `exclude_commands` workaround. |
