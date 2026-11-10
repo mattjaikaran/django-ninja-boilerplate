@@ -523,10 +523,10 @@ erDiagram
 
 The API mounts exactly once, at /api/, and paths carry no version. The
 unversioned surface is v1: it does not move when the project release
-version changes, and /api/v1/ is not mounted. A breaking change ships as
-/api/v2/ beside it; /api/ continues to serve v1 until it is retired. The
-inactive versioning module and its switch were removed in 1.13.0 and are
-not coming back.
+version changes, and /api/v1/ is not mounted. /api/v2/ is the first
+prefixed version, and it appears only when a breaking change ships beside
+/api/; /api/ stays v1. The inactive versioning module and its switch were
+removed in 1.13.0 and are not coming back.
 
 `tests/contract/test_route_access.py` asserts that the /api/v1/ and
 /api/v2/ prefixes return 404, and `tests/contract/test_openapi_contract.py`
