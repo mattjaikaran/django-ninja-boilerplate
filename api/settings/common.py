@@ -108,7 +108,6 @@ INSTALLED_APPS = [
     # user created apps
     #####
     "core",  # core app
-    "todos",  # todos app
     "atlas",  # codebase atlas (interactive architecture map in admin)
     "journeys",  # user journeys (feature and Playwright traceability in admin)
     # Optional apps (organizations, notifications, billing, files, webhooks)
@@ -119,6 +118,12 @@ INSTALLED_APPS = [
     "import_export",  # django-import-export for importing and exporting data
     "csp",  # django-csp for Content-Security-Policy headers
 ]
+
+# todos: example app, on by default. Set TODOS_ENABLED=false to remove it
+# from INSTALLED_APPS, the routes in api/urls.py, and the MCP tools below.
+TODOS_ENABLED = env.bool("TODOS_ENABLED", default=True)
+if TODOS_ENABLED:
+    INSTALLED_APPS += ["todos"]
 
 # Optional apps behind flags. All default off. Each flag installs the app;
 # api/urls.py registers its controllers only when the flag is on. See
@@ -835,9 +840,11 @@ MCP_TOOLS = env.list(
     "MCP_TOOLS",
     default=[
         "auth_get_current_user",
-        "todo_list_todos",
-        "todo_search_todos",
-        "todo_get_todo",
+        *(
+            ["todo_list_todos", "todo_search_todos", "todo_get_todo"]
+            if TODOS_ENABLED
+            else []
+        ),
     ],
 )
 

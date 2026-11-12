@@ -42,12 +42,6 @@ from core.observability.controllers import MetricsController
 from core.security.brute_force import admin_login_with_lockout
 from core.sse.views import sse_endpoint
 from journeys.views import journey_detail_view, journeys_admin_view
-from todos.controllers import (
-    TodoController,
-    TodoControllerBasic,
-    TodoControllerDeclarative,
-    TodoControllerPartial,
-)
 
 # admin site settings
 admin.site.site_header = "Django Ninja Boilerplate Admin"
@@ -150,13 +144,24 @@ api.register_controllers(
     TaskController,  # Task status and progress tracking
     TaskSchedulerController,  # Periodic task management
     DeadLetterQueueController,  # Failed task handling
-    # todos app — four controllers demonstrating progressively abstracted patterns
-    TodoController,  # Pattern 4: full decorators + service layer (recommended)
-    TodoControllerPartial,  # Pattern 3: selective decorators, inline DB ops
-    TodoControllerBasic,  # Pattern 2: no decorators, get_object_or_404 only
-    TodoControllerDeclarative,  # Pattern 1: explicit try/except, maximum verbosity
     # Add more controllers here
 )
+
+# todos app: on by default. TODOS_ENABLED=false skips these routes.
+if settings.TODOS_ENABLED:
+    from todos.controllers import (
+        TodoController,
+        TodoControllerBasic,
+        TodoControllerDeclarative,
+        TodoControllerPartial,
+    )
+
+    api.register_controllers(
+        TodoController,  # Pattern 4: full decorators + service layer (recommended)
+        TodoControllerPartial,  # Pattern 3: selective decorators, inline DB ops
+        TodoControllerBasic,  # Pattern 2: no decorators, get_object_or_404 only
+        TodoControllerDeclarative,  # Pattern 1: explicit try/except, maximum verbosity
+    )
 
 # Optional apps behind flags in api/settings/common.py. All default off.
 if settings.ORGANIZATIONS_ENABLED:

@@ -64,7 +64,9 @@ Do not delegate the top-level plan.
 The full rules: the `django-ninja-dev` skill
 (`.agents/skills/django-ninja-dev/references/code-rules.md`). Lookup tables:
 `.omp/rules/backend-conventions.md`. Wrong vs. right code:
-`.omp/rules/django-ninja-anti-patterns.md`.
+`.omp/rules/django-ninja-anti-patterns.md`. Reference app: `todos/` (copy
+`todo_controller.py`, not its variants); start every new app with the
+generator (`generate_feature api_endpoint`, skill `django-ninja-dev`).
 
 Never, even where a gate cannot catch it:
 

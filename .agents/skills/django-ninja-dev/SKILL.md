@@ -37,22 +37,39 @@ are class-based; business logic lives in services.
 Do not create `views.py`, and do not create an `api/` directory inside an app.
 The root `api/` package is project-level configuration only.
 
-Read `todos/controllers/todo_controller.py`, `todos/services/todo_service.py`,
-and `todos/schemas/todo_schema.py` before writing a new resource. They are the
-canonical example.
+Read `todos/` before writing a new resource. It is the reference app, and it
+stays in the repository as the reference even when `TODOS_ENABLED=false`
+removes it from `INSTALLED_APPS`. Copy these files, in this order:
+
+1. `todos/models/todo.py`
+2. `todos/schemas/todo_schema.py`
+3. `todos/repositories/todo_repository.py`
+4. `todos/services/todo_service.py`
+5. `todos/controllers/todo_controller.py` (the other three controllers in that
+   folder are teaching variants; never copy them)
+6. `todos/tests/test_todo.py` and `todos/tests/factories/todo_factory.py`
 
 ## Scaffold a new app
 
+Always start with the generator. It writes the todos shape, wires
+`INSTALLED_APPS` and `api/urls.py`, and creates the migration:
+
 ```bash
-uv run python manage.py startapp_extended <app>
+uv run python manage.py generate_feature api_endpoint --app-name <app>
 ```
 
-Then:
+`--layers` picks the shape. The default is the todos shape.
 
-1. Add `<app>` to `INSTALLED_APPS` in `api/settings/common.py`.
-2. Register the controller in `api/urls.py` with `api.register_controllers(...)`.
-3. Add an `<app>/atlas.py` module so the architecture map describes it.
-4. Run `uv run python manage.py makemigrations <app>`.
+| `--layers` | Shape |
+|---|---|
+| `repository` (default) | controller -> service -> repository |
+| `dto` | the same, and the repository returns frozen-dataclass DTOs |
+| `service` | controller -> service; the service runs the owner-scoped queries, no repository |
+
+Then add an `<app>/atlas.py` module so the architecture map describes it, and
+run `just check-app-shape`. The APP-SHAPE gate fails an app whose folders,
+file names or class names differ from the reference layout, whatever its
+model.
 
 ## Rules
 

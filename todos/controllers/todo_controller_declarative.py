@@ -1,10 +1,11 @@
 """Declarative Todo controller — explicit try/except, no decorators.
 
+Teaching variant. Do not copy; copy ``todo_controller.py``.
+
 This controller intentionally avoids custom decorators and instead uses
 try/except blocks for every error case. It is the most verbose pattern
-and mirrors how many Django REST Framework projects are written. It is
-useful as a reference when you want full visibility into exactly what
-happens at every step without any decorator magic.
+and mirrors how many Django REST Framework projects are written. It shows
+exactly what happens at every step without any decorator magic.
 
 Route prefix: /todos-declarative
 """

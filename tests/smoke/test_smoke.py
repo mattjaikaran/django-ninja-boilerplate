@@ -9,8 +9,14 @@ Run:
 """
 
 import pytest
+from django.conf import settings
 
 from .conftest import post_json
+
+# Todo tests need the todos app; TODOS_ENABLED=false skips them.
+requires_todos = pytest.mark.skipif(
+    not settings.TODOS_ENABLED, reason="todos app is disabled"
+)
 
 # =============================================================================
 # Auth — JWT token pair (login)
@@ -39,6 +45,7 @@ def test_auth_token_pair(smoke_client, smoke_user):
 
 
 @pytest.mark.smoke
+@requires_todos
 @pytest.mark.django_db
 def test_todos_basic_list(smoke_client, smoke_auth_headers):
     """GET /api/todos-basic/ returns 200."""
@@ -52,6 +59,7 @@ def test_todos_basic_list(smoke_client, smoke_auth_headers):
 
 
 @pytest.mark.smoke
+@requires_todos
 @pytest.mark.django_db
 def test_todos_declarative_list(smoke_client, smoke_auth_headers):
     """GET /api/todos-declarative/ returns 200."""
@@ -65,6 +73,7 @@ def test_todos_declarative_list(smoke_client, smoke_auth_headers):
 
 
 @pytest.mark.smoke
+@requires_todos
 @pytest.mark.django_db
 def test_todos_partial_list(smoke_client, smoke_auth_headers):
     """GET /api/todos-partial/ returns 200."""

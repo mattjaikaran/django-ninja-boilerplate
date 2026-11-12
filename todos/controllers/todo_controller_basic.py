@@ -1,5 +1,7 @@
 """Basic Todo controller — no decorators, minimal abstraction.
 
+Teaching variant. Do not copy; copy ``todo_controller.py``.
+
 This controller uses only Django Ninja Extra primitives: no custom
 decorators, no service layer. It is the simplest possible starting
 point and is ideal for developers who want to understand the raw

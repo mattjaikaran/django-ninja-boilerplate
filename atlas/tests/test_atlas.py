@@ -9,6 +9,7 @@ real audit log.
 from __future__ import annotations
 
 import pytest
+from django.conf import settings
 
 from atlas.services.atlas_service import generate_atlas
 
@@ -25,7 +26,7 @@ class TestAtlasGenerator:
         ids = {structure["id"] for structure in data["structures"]}
         assert "api" in ids
         assert "core" in ids
-        assert "todos" in ids
+        assert ("todos" in ids) == settings.TODOS_ENABLED
         assert any(
             edge["f"] == "client" and edge["t"] == "api" for edge in data["edges"]
         )

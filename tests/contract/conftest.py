@@ -7,6 +7,7 @@ Contract tests validate that API responses conform to the OpenAPI specification.
 import os
 
 import pytest
+from django.conf import settings
 
 
 @pytest.fixture(scope="session")
@@ -125,6 +126,44 @@ def public_endpoints():
     ]
 
 
+# Todo data: four controllers expose the same CRUD + search surface.
+# Spliced into protected_endpoints only when TODOS_ENABLED is true.
+TODO_PROTECTED_ENDPOINTS = [
+    {"method": "GET", "path": "/api/todos/"},
+    {"method": "POST", "path": "/api/todos/"},
+    {"method": "GET", "path": "/api/todos/completed"},
+    {"method": "GET", "path": "/api/todos/pending"},
+    {"method": "GET", "path": "/api/todos/search"},
+    {"method": "GET", "path": "/api/todos/{todo_id}"},
+    {"method": "PUT", "path": "/api/todos/{todo_id}"},
+    {"method": "DELETE", "path": "/api/todos/{todo_id}"},
+    {"method": "GET", "path": "/api/todos-basic/"},
+    {"method": "POST", "path": "/api/todos-basic/"},
+    {"method": "GET", "path": "/api/todos-basic/completed"},
+    {"method": "GET", "path": "/api/todos-basic/pending"},
+    {"method": "GET", "path": "/api/todos-basic/search"},
+    {"method": "GET", "path": "/api/todos-basic/{todo_id}"},
+    {"method": "PUT", "path": "/api/todos-basic/{todo_id}"},
+    {"method": "DELETE", "path": "/api/todos-basic/{todo_id}"},
+    {"method": "GET", "path": "/api/todos-declarative/"},
+    {"method": "POST", "path": "/api/todos-declarative/"},
+    {"method": "GET", "path": "/api/todos-declarative/completed"},
+    {"method": "GET", "path": "/api/todos-declarative/pending"},
+    {"method": "GET", "path": "/api/todos-declarative/search"},
+    {"method": "GET", "path": "/api/todos-declarative/{todo_id}"},
+    {"method": "PUT", "path": "/api/todos-declarative/{todo_id}"},
+    {"method": "DELETE", "path": "/api/todos-declarative/{todo_id}"},
+    {"method": "GET", "path": "/api/todos-partial/"},
+    {"method": "POST", "path": "/api/todos-partial/"},
+    {"method": "GET", "path": "/api/todos-partial/completed"},
+    {"method": "GET", "path": "/api/todos-partial/pending"},
+    {"method": "GET", "path": "/api/todos-partial/search"},
+    {"method": "GET", "path": "/api/todos-partial/{todo_id}"},
+    {"method": "PUT", "path": "/api/todos-partial/{todo_id}"},
+    {"method": "DELETE", "path": "/api/todos-partial/{todo_id}"},
+]
+
+
 @pytest.fixture(scope="session")
 def protected_endpoints():
     """Routes that require a JWT, as ``{"method", "path"}`` specs.
@@ -199,39 +238,8 @@ def protected_endpoints():
         {"method": "DELETE", "path": "/api/tasks/dlq/{entry_id}"},
         {"method": "POST", "path": "/api/tasks/dlq/{entry_id}/resolve"},
         {"method": "POST", "path": "/api/tasks/dlq/{entry_id}/retry"},
-        # Todo data — four controllers expose the same CRUD + search surface.
-        {"method": "GET", "path": "/api/todos/"},
-        {"method": "POST", "path": "/api/todos/"},
-        {"method": "GET", "path": "/api/todos/completed"},
-        {"method": "GET", "path": "/api/todos/pending"},
-        {"method": "GET", "path": "/api/todos/search"},
-        {"method": "GET", "path": "/api/todos/{todo_id}"},
-        {"method": "PUT", "path": "/api/todos/{todo_id}"},
-        {"method": "DELETE", "path": "/api/todos/{todo_id}"},
-        {"method": "GET", "path": "/api/todos-basic/"},
-        {"method": "POST", "path": "/api/todos-basic/"},
-        {"method": "GET", "path": "/api/todos-basic/completed"},
-        {"method": "GET", "path": "/api/todos-basic/pending"},
-        {"method": "GET", "path": "/api/todos-basic/search"},
-        {"method": "GET", "path": "/api/todos-basic/{todo_id}"},
-        {"method": "PUT", "path": "/api/todos-basic/{todo_id}"},
-        {"method": "DELETE", "path": "/api/todos-basic/{todo_id}"},
-        {"method": "GET", "path": "/api/todos-declarative/"},
-        {"method": "POST", "path": "/api/todos-declarative/"},
-        {"method": "GET", "path": "/api/todos-declarative/completed"},
-        {"method": "GET", "path": "/api/todos-declarative/pending"},
-        {"method": "GET", "path": "/api/todos-declarative/search"},
-        {"method": "GET", "path": "/api/todos-declarative/{todo_id}"},
-        {"method": "PUT", "path": "/api/todos-declarative/{todo_id}"},
-        {"method": "DELETE", "path": "/api/todos-declarative/{todo_id}"},
-        {"method": "GET", "path": "/api/todos-partial/"},
-        {"method": "POST", "path": "/api/todos-partial/"},
-        {"method": "GET", "path": "/api/todos-partial/completed"},
-        {"method": "GET", "path": "/api/todos-partial/pending"},
-        {"method": "GET", "path": "/api/todos-partial/search"},
-        {"method": "GET", "path": "/api/todos-partial/{todo_id}"},
-        {"method": "PUT", "path": "/api/todos-partial/{todo_id}"},
-        {"method": "DELETE", "path": "/api/todos-partial/{todo_id}"},
+        # Todo routes, only when TODOS_ENABLED (see TODO_PROTECTED_ENDPOINTS).
+        *(TODO_PROTECTED_ENDPOINTS if settings.TODOS_ENABLED else []),
         # Schema-hidden protected routes (see ``schema_hidden_endpoints``).
         {"method": "GET", "path": "/api/metrics"},
         {"method": "GET", "path": "/api/events/stream/"},

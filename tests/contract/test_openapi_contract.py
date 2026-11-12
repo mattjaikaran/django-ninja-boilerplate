@@ -12,6 +12,10 @@ from api.urls import api
 #: ``DynamicInput`` is ninja-extra's pagination query input (``page_size``).
 THIRD_PARTY_COMPONENTS = {"DynamicInput"}
 
+requires_todos = pytest.mark.skipif(
+    not settings.TODOS_ENABLED, reason="todos app is disabled"
+)
+
 
 @pytest.mark.django_db
 class TestOpenAPIContract:
@@ -39,7 +43,14 @@ class TestOpenAPIContract:
         operation = api.get_openapi_schema()["paths"][path][method]
         assert bool(operation.get("security")) is requires_auth
 
-    @pytest.mark.parametrize("path", ["/api/users/", "/api/audit/", "/api/todos/"])
+    @pytest.mark.parametrize(
+        "path",
+        [
+            "/api/users/",
+            "/api/audit/",
+            pytest.param("/api/todos/", marks=requires_todos),
+        ],
+    )
     def test_openapi_declares_page_envelope(self, path):
         schema = api.get_openapi_schema()
         response = schema["paths"][path]["get"]["responses"][200]

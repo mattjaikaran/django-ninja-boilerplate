@@ -1,5 +1,7 @@
 """Primary Todo controller — full decorators + service layer.
 
+Canonical controller: new apps copy this file (and the generator emits it).
+
 This is the most structured pattern in the boilerplate. Controllers are
 thin: they only handle HTTP concerns (auth, status codes, request/response
 binding). All business logic lives in ``TodoService``, which the Ninja Extra

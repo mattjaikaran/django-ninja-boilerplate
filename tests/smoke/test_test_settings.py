@@ -45,6 +45,7 @@ def optional_app_env(**overrides: str) -> dict[str, str]:
     }
     for flag, _app, _route in OPTIONAL_APPS:
         env.pop(flag, None)
+    env.pop("TODOS_ENABLED", None)
     env.update(overrides)
     return env
 
@@ -129,6 +130,31 @@ def test_optional_app_follows_its_flag(
     enabled = probe_optional_apps(**{flag: "true"})
     assert app in enabled["installed_apps"]
     assert route in enabled["paths"]
+
+
+def test_todos_is_on_by_default(default_optional_apps: dict[str, list[str]]) -> None:
+    assert "todos" in default_optional_apps["installed_apps"]
+    assert "/api/todos/" in default_optional_apps["paths"]
+
+
+def test_todos_flag_removes_app_and_routes() -> None:
+    disabled = probe_optional_apps(TODOS_ENABLED="false")
+    assert "todos" not in disabled["installed_apps"]
+    assert "/api/todos/" not in disabled["paths"]
+
+
+def test_disabled_todos_tests_skip_instead_of_error() -> None:
+    result = subprocess.run(
+        [sys.executable, "-m", "pytest", "todos", "-q", "-p", "no:cacheprovider"],
+        env=optional_app_env(TODOS_ENABLED="false"),
+        capture_output=True,
+        text=True,
+        timeout=120,
+        check=False,
+    )
+    output = result.stdout + result.stderr
+    assert result.returncode in (0, 5), output
+    assert "error" not in output.lower(), output
 
 
 def test_disabled_optional_app_tests_skip_instead_of_error() -> None:

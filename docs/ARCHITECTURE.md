@@ -294,8 +294,11 @@ These apps are off by default. Each app has a flag in
 is off, its test module skips at collection, so `pytest notifications` reports
 a skip instead of a collection error.
 
+The `todos` app is the exception: `TODOS_ENABLED` defaults to `true` because it is the example app. Set it to `false` to remove the app, its routes, its MCP tools, and its tests.
+
 | Setting | Default | Purpose |
 |---|---|---|
+| `TODOS_ENABLED` | `true` | Installs `todos`, registers /api/todos/, and its MCP tools. The example app; on by default. |
 | `ORGANIZATIONS_ENABLED` | `false` | Installs `organizations` and registers /api/organizations/. |
 | `NOTIFICATIONS_ENABLED` | `false` | Installs `notifications` and registers /api/notifications/. |
 | `BILLING_ENABLED` | `false` | Installs `billing` and registers /api/billing/, including the Stripe webhook receiver. |

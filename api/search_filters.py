@@ -335,16 +335,3 @@ def get_user_search_engine():
     from core.models import User
 
     return create_search_engine(User, search_fields)
-
-
-def get_todo_search_engine():
-    """Get search engine for Todo model."""
-    search_fields = [
-        "title",
-        "description",
-        "user__username",
-        "user__email",
-    ]
-    from todos.models import Todo
-
-    return create_search_engine(Todo, search_fields)

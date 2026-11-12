@@ -1,5 +1,7 @@
 """Partial decorator Todo controller — selective use of custom decorators.
 
+Teaching variant. Do not copy; copy ``todo_controller.py``.
+
 This controller applies ``log_api_call`` only where it adds the most value:
 mutating operations (POST/PUT/DELETE).
 Read endpoints are left undecorated to show that you can mix and match

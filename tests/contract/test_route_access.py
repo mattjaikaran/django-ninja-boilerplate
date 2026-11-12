@@ -18,10 +18,15 @@ Two concerns are covered here:
 import json
 
 import pytest
+from django.conf import settings
 from django.test import Client
 
 #: OpenAPI operations that count as routable methods.
 _HTTP_METHODS = {"get", "post", "put", "patch", "delete"}
+
+requires_todos = pytest.mark.skipif(
+    not settings.TODOS_ENABLED, reason="todos app is disabled"
+)
 
 #: Concrete UUID used to materialize ``{user_id}``/``{audit_log_id}`` params.
 _UUID = "00000000-0000-0000-0000-000000000000"
@@ -180,7 +185,7 @@ class TestRouteAccessContract:
             ("GET", "/api/tasks/stats", None),
             ("GET", "/api/tasks/scheduler/", None),
             ("GET", "/api/tasks/dlq/", None),
-            ("GET", "/api/todos/", None),
+            pytest.param("GET", "/api/todos/", None, marks=requires_todos),
             # Schema-hidden routes that still require authentication.
             ("GET", "/api/metrics", None),
             ("GET", "/api/events/stream/", None),

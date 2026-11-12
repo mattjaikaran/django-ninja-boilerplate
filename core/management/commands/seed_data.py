@@ -131,7 +131,7 @@ class Command(BaseCommand):
 
                 Todo.objects.all().delete()
                 self.stdout.write("   • Cleared Todos")
-            except ImportError:
+            except (ImportError, RuntimeError):  # RuntimeError: todos not installed
                 pass
 
             # Clear non-superuser accounts
@@ -279,7 +279,7 @@ class Command(BaseCommand):
 
             self.stdout.write(self.style.SUCCESS(f"✅ Created {todos_created} todos"))
 
-        except ImportError:
+        except (ImportError, RuntimeError):  # RuntimeError: todos not installed
             self.stdout.write(
                 self.style.WARNING("⚠️  Todos app not found, skipping todos creation")
             )
@@ -353,7 +353,7 @@ class Command(BaseCommand):
             todo_count = Todo.objects.count()
             completed = Todo.objects.filter(is_completed=True).count()
             self.stdout.write(f"   • Todos: {todo_count} ({completed} completed)")
-        except ImportError:
+        except (ImportError, RuntimeError):  # RuntimeError: todos not installed
             pass
 
         try:

@@ -1,7 +1,13 @@
 import pytest
+from django.conf import settings
 from django.contrib.auth import get_user_model
 
 from core.tests.factories import UserFactory
+
+if not settings.TODOS_ENABLED:
+    pytest.skip("todos app is disabled", allow_module_level=True)
+
+# Imported after the skip: a disabled app has no models to import.
 from todos.models import Todo
 from todos.tests.factories import TodoFactory
 
