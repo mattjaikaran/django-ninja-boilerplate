@@ -113,8 +113,11 @@ just wt-rm wt-test-a
   first.
 - Refuses to stop a stack whose project name is not `<repo>-wt<N>`, such as
   the main project. Stop that stack by hand, then remove the worktree.
-- Refuses to drop a database whose `DB_NAME` is not `<main DB_NAME>_wt<N>`.
-  Drop that database by hand, then remove the worktree.
+- Refuses to drop a database whose `DB_NAME` is neither the main `DB_NAME` nor
+  `<main DB_NAME>_wt<N>`. Set `DB_NAME` in the worktree `.env`, then run the
+  command again. Nothing is stopped or removed.
+- Keeps the main checkout's database when the worktree `.env` names it. Older
+  worktrees copied that name from the main `.env`. The removal still runs.
 - Runs `docker compose --profile "*" down -v --remove-orphans` for the
   worktree project. The `-v` flag deletes that stack's volumes, including
   its Postgres data. Back up that data first if you need it.

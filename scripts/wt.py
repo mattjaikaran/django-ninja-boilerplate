@@ -264,18 +264,41 @@ def main_db_name(env: dict[str, str]) -> str:
     return env.get("DB_NAME") or "boilerplate_db"
 
 
+def db_env(env: dict[str, str], db_name: str) -> dict[str, str]:
+    """Pin the DB_* keys from .env, so an exported shell value cannot override them."""
+    pinned: dict[str, str] = {
+        key: env[key]
+        for key in ("DB_HOST", "DB_PORT", "DB_USER", "DB_PASSWORD")
+        if key in env
+    }
+    pinned["DB_NAME"] = db_name
+    return pinned
+
+
 def db_admin(root: Path, action: str, name: str, env: dict[str, str]) -> None:
     """Create or drop a database on the host Postgres, via the main venv's psycopg."""
-    creds = {
-        key: env.get(key, "")
-        for key in ("DB_HOST", "DB_PORT", "DB_USER", "DB_PASSWORD")
-    }
-    must(
-        ["uv", "run", "--project", str(root), "python", "-c", DB_SCRIPT, action, name],
+    result = run(
+        [
+            "uv",
+            "run",
+            "--no-sync",
+            "--project",
+            str(root),
+            "python",
+            "-c",
+            DB_SCRIPT,
+            action,
+            name,
+        ],
         cwd=root,
-        env={**os.environ, **creds},
+        env={**os.environ, **db_env(env, name)},
         timeout=SHORT_TIMEOUT,
     )
+    if result.returncode != 0:
+        detail = (result.stderr or result.stdout).strip().splitlines()
+        reason = detail[-1] if detail else "no output"
+        host = f"{env.get('DB_HOST', '')}:{env.get('DB_PORT', '')}"
+        raise StackError(f"could not {action} database {name} on {host}: {reason}")
 
 
 def cmd_new(branch: str, base: str) -> None:
@@ -334,6 +357,7 @@ def cmd_new(branch: str, base: str) -> None:
         db_admin(root, "create", db_name, env)
         migrate_env = {
             **os.environ,
+            **db_env(env, db_name),
             "DJANGO_SETTINGS_MODULE": "api.settings.dev",
             "DB_POOL_ENABLED": "false",
         }
@@ -386,13 +410,17 @@ def cmd_rm(target: str) -> None:
         wt_env = dev_ports.load_env(wt.path / dev_ports.ENV_FILE)
         project = wt_env.get("COMPOSE_PROJECT_NAME", "")
         db_name = wt_env.get("DB_NAME", "")
-        if db_name and not re.fullmatch(
-            rf"{re.escape(main_db_name(main_env(root)))}_wt\d+", db_name
+        main_db = main_db_name(main_env(root))
+        if (
+            db_name
+            and db_name != main_db
+            and not re.fullmatch(rf"{re.escape(main_db)}_wt\d+", db_name)
         ):
             raise StackError(
-                f"{wt.path} sets DB_NAME={db_name}, which is not a worktree "
-                "database. Refusing to drop it. Drop it by hand, then remove "
-                f"the worktree with: git worktree remove {wt.path}"
+                f"{wt.path} sets DB_NAME={db_name}, which is neither the main "
+                f"database ({main_db}) nor a worktree database ({main_db}_wt<N>). "
+                "Refusing to stop this stack or drop that database. Set DB_NAME "
+                "in its .env, then run this command again."
             )
         if project:
             base = dev_ports.project_name(root, compose_text(root), main_env(root))
@@ -421,13 +449,14 @@ def cmd_rm(target: str) -> None:
                 detail = (down.stderr or down.stdout).strip().splitlines()
                 reason = detail[-1] if detail else "no output"
                 raise StackError(f"docker compose down failed; worktree kept: {reason}")
-        if db_name:
+        if db_name == main_db:
+            print(f"Kept database {db_name}; the main checkout uses it.")
+        elif db_name:
             try:
                 db_admin(root, "drop", db_name, main_env(root))
             except StackError as error:
-                raise StackError(
-                    f"could not drop database {db_name}; worktree kept: {error}"
-                ) from error
+                raise StackError(f"{error}; worktree kept") from error
+            print(f"Dropped database {db_name}.")
 
     must(["git", "worktree", "remove", str(wt.path)], cwd=root)
 
