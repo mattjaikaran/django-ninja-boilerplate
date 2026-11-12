@@ -48,6 +48,15 @@ exclude_commands = ["rg", "grep", "ggrep"]
 Until that is in place, route searches through `just search`, which RTK leaves
 alone.
 
+## Optional RTK wrapping
+
+`just test`, `just test-all`, and `just lint` run `rtk pytest` and `rtk ruff check`
+when `rtk` is on `PATH`. Without `rtk`, the same recipes run the tools directly, so
+every recipe works on a machine without RTK. `rtk ruff check` exits 1 on findings,
+as `ruff check` does.
+
+Check the output savings with `rtk gain`.
+
 ## Rules
 
 - Never use `grep -r`. Use `rg`.

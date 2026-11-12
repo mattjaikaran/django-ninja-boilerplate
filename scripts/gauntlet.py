@@ -68,6 +68,15 @@ from gauntlet_gates import (
     generator_changes,
 )
 from gauntlet_hints import FIX_HINTS
+from gauntlet_output import (
+    RAW_SUMMARY_GATES,
+    build_report,
+    count_line,
+    print_header,
+    tail,
+    write_log,
+    write_report,
+)
 
 EXCLUDE_DIRS = {".venv", "venv", "env", "node_modules", ".git", "__pycache__", "cli"}
 # Apps installed only by their *_ENABLED flag (api/settings/common.py).
@@ -92,14 +101,11 @@ class GauntletRunner(StaticGates):
         env_override: dict | None = None,
     ) -> GateResult:
         """Run a single quality gate and record the result."""
-        print(f"\n{'=' * 60}")
-        print(f"  GATE: {name}")
-        print(f"  CMD:  {' '.join(cmd)}")
-        print(f"{'=' * 60}")
+        print_header(name, cmd, self.verbose)
 
         start = time.monotonic()
         env = {**os.environ, **(env_override or {})}
-        warning = False
+        output = ""
 
         try:
             # Argument list, no shell; every gate command is defined here.
@@ -114,32 +120,38 @@ class GauntletRunner(StaticGates):
             )
             duration = time.monotonic() - start
             passed = result.returncode == 0
-            output = ""
             if not self.verbose:
                 output = (result.stdout or "") + (result.stderr or "")
-
-            if passed:
-                print(f"  PASSED ({duration:.1f}s)")
-            elif allow_fail:
-                print(f"  WARNING ({duration:.1f}s) -- non-blocking")
-                warning = True
-            else:
-                print(f"  FAILED ({duration:.1f}s)")
-                if not self.verbose and output:
-                    lines = output.strip().split("\n")
-                    for line in lines[-40:]:
-                        print(f"    {line}")
-
+            warning = not passed and allow_fail
         except subprocess.TimeoutExpired:
             duration = time.monotonic() - start
             print(f"  TIMEOUT after {duration:.0f}s")
             output = "Gate timed out after 600s"
-            passed = False
+            passed = warning = False
         except FileNotFoundError:
             duration = time.monotonic() - start
             print(f"  COMMAND NOT FOUND: {cmd[0]}")
             output = f"Command not found: {cmd[0]}"
-            passed = False
+            passed = warning = False
+
+        log = ""
+        if not self.verbose:
+            path = write_log(PROJECT_ROOT, name, cmd, output)
+            log = str(path.relative_to(PROJECT_ROOT))
+
+        if passed:
+            print(f"  PASSED ({duration:.1f}s)")
+            summary = count_line(output)
+            if name in RAW_SUMMARY_GATES and summary:
+                print(f"    {summary}")
+        elif warning:
+            print(f"  WARNING ({duration:.1f}s) -- non-blocking")
+        else:
+            print(f"  FAILED ({duration:.1f}s)")
+            for line in tail(output):
+                print(f"    {line}")
+        if log and not passed:
+            print(f"  full log: {log}")
 
         gate_result = GateResult(
             name=name,
@@ -147,6 +159,7 @@ class GauntletRunner(StaticGates):
             duration_s=duration,
             output=output,
             warning=warning,
+            log=log,
         )
         self.results.append(gate_result)
         return gate_result
@@ -519,26 +532,8 @@ class GauntletRunner(StaticGates):
 
     def generate_report(self) -> dict:
         """Generate a JSON report of results."""
-        return {
-            "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
-            "mode": "ci" if self.ci else "quick" if self.quick else "full",
-            "all_passed": all(r.passed for r in self.results),
-            "blocking_passed": all(r.passed or r.warning for r in self.results),
-            "has_warnings": any(r.warning for r in self.results),
-            "stopped_early": self._stopped_early,
-            "gates": [
-                {
-                    "name": r.name,
-                    "passed": r.passed,
-                    "duration_s": round(r.duration_s, 2),
-                    "warning": r.warning,
-                    "skipped": r.skipped,
-                    "skip_reason": r.skip_reason,
-                    "fix_hint": "" if r.passed else FIX_HINTS.get(r.name, ""),
-                }
-                for r in self.results
-            ],
-        }
+        mode = "ci" if self.ci else "quick" if self.quick else "full"
+        return build_report(self.results, mode, self._stopped_early)
 
 
 def main() -> int:
@@ -583,8 +578,9 @@ def main() -> int:
 
     passed = runner.run_all(single_gate=args.gate)
 
+    report = runner.generate_report()
+    write_report(PROJECT_ROOT, report)
     if args.report:
-        report = runner.generate_report()
         report_path = PROJECT_ROOT / "gauntlet-report.json"
         with open(report_path, "w") as f:
             json.dump(report, f, indent=2)

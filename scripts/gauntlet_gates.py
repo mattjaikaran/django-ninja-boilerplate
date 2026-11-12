@@ -25,6 +25,7 @@ class GateResult:
     skipped: bool = False
     skip_reason: str = ""
     warning: bool = False
+    log: str = ""
 
 
 def _git_names(*args: str) -> list[str]:

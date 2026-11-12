@@ -1,12 +1,13 @@
 #!/usr/bin/env python
 """Print a fast, read-only project summary for an agent starting a session.
 
-Sections: Git, Tickets, Journeys, Gauntlet, OpenAPI. Uses local refs and files
-only. Makes no network calls and does not set up Django.
+Sections: worktree, git, stack, tickets, journeys, gauntlet, OpenAPI. Reads
+local refs, files, and Docker state only. Makes no network calls and does not
+set up Django.
 
 Usage:
-    python scripts/agent_status.py          # compact plain text
     python scripts/agent_status.py --json   # same data as JSON
+    python scripts/agent_status.py --brief  # short start for agent-start
 """
 
 from __future__ import annotations
@@ -26,7 +27,7 @@ for entry in (ROOT, SCRIPTS):
     if str(entry) not in sys.path:
         sys.path.insert(0, str(entry))
 
-GAUNTLET_REPORT = ROOT / "gauntlet-report.json"
+GAUNTLET_REPORT = ROOT / ".gauntlet" / "last" / "report.json"
 OPENAPI_FILE = ROOT / "docs" / "openapi" / "openapi.json"
 SOURCE_PATHSPECS = (":(glob)*/controllers/**", ":(glob)*/schemas/**", "api/urls.py")
 NEXT_LIMIT = 3
@@ -134,7 +135,7 @@ def gauntlet_status() -> dict[str, Any]:
     failed = [
         g["name"]
         for g in data.get("gates", [])
-        if not g.get("passed") and not g.get("skipped")
+        if not g.get("passed") and not g.get("skipped") and not g.get("warning")
     ]
     return {
         "report": GAUNTLET_REPORT.name,
@@ -160,6 +161,64 @@ def openapi_status() -> dict[str, Any]:
     return {"exists": True, "stale": False, "reason": None}
 
 
+def worktree_status() -> dict[str, Any]:
+    """Return the checkout path and whether it is a linked worktree."""
+    common = git("rev-parse", "--path-format=absolute", "--git-common-dir")
+    gitdir = git("rev-parse", "--path-format=absolute", "--git-dir")
+    linked = bool(common and gitdir and Path(common) != Path(gitdir))
+    return {"path": str(ROOT), "linked": linked}
+
+
+def running_services(project: str) -> list[str]:
+    """Return Compose service names of running containers in ``project``.
+
+    Returns an empty list when Docker is missing or not running.
+    """
+    command = [
+        "docker",
+        "ps",
+        "--filter",
+        f"label=com.docker.compose.project={project}",
+        "--format",
+        '{{.Label "com.docker.compose.service"}}',
+    ]
+    try:
+        completed = subprocess.run(
+            command, capture_output=True, text=True, timeout=10, check=False
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return []
+    if completed.returncode != 0:
+        return []
+    return sorted(set(completed.stdout.split()))
+
+
+def stack_status() -> dict[str, Any]:
+    """Return the Compose project, running services and dev port choices."""
+    import dev_ports
+
+    try:
+        compose_text = (ROOT / dev_ports.COMPOSE_FILE).read_text()
+        dotenv = dev_ports.load_env(ROOT / dev_ports.ENV_FILE)
+        project = dev_ports.project_name(ROOT, compose_text, dotenv)
+        resolution = dev_ports.resolve_ports(ROOT, {"dev"})
+    except (OSError, ValueError, RuntimeError) as exc:
+        return {"error": str(exc)}
+    return {
+        "project": project,
+        "running": running_services(project),
+        "ports": [
+            {
+                "name": r.var.name,
+                "configured": r.port,
+                "port": r.free_port,
+                "moved": r.busy,
+            }
+            for r in resolution.results
+        ],
+    }
+
+
 def collect() -> dict[str, Any]:
     return {
         "git": git_status(),
@@ -177,17 +236,33 @@ def human_age(seconds: int) -> str:
     return f"{seconds}s"
 
 
-def render(data: dict[str, Any]) -> list[str]:
+def render(data: dict[str, Any], brief: bool = False) -> list[str]:
+    w = data["worktree"]
     g = data["git"]
     sync = (
         f"+{g['ahead']}/-{g['behind']} vs upstream"
         if g["ahead"] is not None
         else "no upstream"
     )
+    kind = "linked" if w["linked"] else "main checkout"
     lines = [
+        f"Worktree: {w['path']} ({kind})",
         f"Git: {g['branch']} ({sync}), {g['dirty_files']} dirty",
         f"  last: {g['last_commit']}",
     ]
+    s = data["stack"]
+    if "error" in s:
+        lines.append(f"Stack: error: {s['error']}")
+    else:
+        running = ", ".join(s["running"]) or "none"
+        lines.append(f"Stack: project {s['project']}, running: {running}")
+        moved = [
+            f"{p['name']} {p['port']} (configured {p['configured']})"
+            for p in s["ports"]
+            if p["moved"]
+        ]
+        if moved:
+            lines.append(f"  ports moved: {'; '.join(moved)}")
     t = data["tickets"]
     if "error" in t:
         lines.append(f"Tickets: error: {t['error']}")
@@ -201,6 +276,18 @@ def render(data: dict[str, Any]) -> list[str]:
             lines.extend(f"  next: {n['id']} {n['title']}" for n in t["next_small"])
         else:
             lines.append("  next: no claimable small tickets")
+    r = data["gauntlet"]
+    if r["report"] is None:
+        lines.append("Gauntlet: no report (run just gauntlet-quick)")
+    elif "error" in r:
+        lines.append(f"Gauntlet: unreadable report: {r['error']}")
+    else:
+        failed = ", ".join(r["failed"]) or "none"
+        lines.append(
+            f"Gauntlet: {r['mode']}, {human_age(r['age_s'])} ago, failed: {failed}"
+        )
+    if brief:
+        return lines
     j = data["journeys"]
     if "error" in j:
         lines.append(f"Journeys: error: {j['error']}")
@@ -212,16 +299,6 @@ def render(data: dict[str, Any]) -> list[str]:
         lines.append(
             f"  e2e dir {'found' if j['e2e_dir'] else 'missing'}, "
             f"report {'found' if j['e2e_report'] else 'missing'}"
-        )
-    r = data["gauntlet"]
-    if r["report"] is None:
-        lines.append("Gauntlet: no report (run just gauntlet-ci)")
-    elif "error" in r:
-        lines.append(f"Gauntlet: unreadable report: {r['error']}")
-    else:
-        failed = ", ".join(r["failed"]) or "none"
-        lines.append(
-            f"Gauntlet: {r['mode']}, {human_age(r['age_s'])} ago, failed: {failed}"
         )
     o = data["openapi"]
     if not o["exists"]:
@@ -236,12 +313,16 @@ def render(data: dict[str, Any]) -> list[str]:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--json", action="store_true", help="print as JSON")
+    parser.add_argument(
+        "--brief", action="store_true", help="print the short session start"
+    )
     args = parser.parse_args(argv)
-    data = collect()
+    # The MCP tool serves collect() unchanged, so the CLI adds its keys here.
+    data = {"worktree": worktree_status(), "stack": stack_status(), **collect()}
     if args.json:
         print(json.dumps(data, indent=2))
     else:
-        print("\n".join(render(data)))
+        print("\n".join(render(data, brief=args.brief)))
     return 0
 
 

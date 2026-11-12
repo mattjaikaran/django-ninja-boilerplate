@@ -136,6 +136,7 @@ media/
 
 # Gauntlet reports
 gauntlet-report.json
+.gauntlet/
 
 # Codebase atlas data file (generated)
 atlas-data.json

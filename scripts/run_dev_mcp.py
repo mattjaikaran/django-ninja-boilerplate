@@ -179,7 +179,7 @@ def journeys_report() -> dict[str, Any]:
 def agent_status() -> dict[str, Any]:
     """Return the session summary: git, tickets, journeys, gauntlet, OpenAPI.
 
-    Same data as `just agent-status --json`.
+    The git, tickets, journeys, gauntlet and OpenAPI keys of `just agent-status --json`.
     """
     import agent_status as status_script
 

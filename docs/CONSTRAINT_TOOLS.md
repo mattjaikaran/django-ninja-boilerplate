@@ -42,7 +42,7 @@ constraint-checking tools. It's a virtuous cycle:
 |------|-------|----------------|
 | `scripts/check_architecture.py` | ~270 | Layer violations, cross-app coupling, reverse dependencies |
 | `scripts/check_file_length.py` | ~150 | Files exceeding 400-line limit (configurable per-file) |
-| `scripts/gauntlet.py` | ~400 | Orchestrates all gates, reports results, generates CI artifacts |
+| `scripts/gauntlet.py` | ~590 | Orchestrates all gates, reports results, writes gate logs to `.gauntlet/last/`, generates CI artifacts |
 | `scripts/django_upgrade_check.py` | ~760 | Whether a Django upgrade (6.0, 6.1) is safe: install blockers, declared support, removed-feature use, django-upgrade fixes (`just django-upgrade-check`) |
 
 Plus third-party deterministic tools integrated as gates:
@@ -85,6 +85,7 @@ blocking ones; `just gauntlet` adds the full-run extras.
 | 19 | CLI-TEST | `pytest cli/tests` | Broken `cli/` package |
 | 20 | AI-DB | `scripts/test_ai_db.py` | Postgres-only tests (`core.ai` owner scoping, concurrent refresh) in a throwaway pgvector container; skips without Docker |
 | 21 | DEPLOY-CHECK | `manage.py check --deploy` | Production config issues |
+| 22 | MIGRATIONS | `scripts/db/check_migrations.py` | Merge migrations, more than one leaf per app, django-safe-migrations violations |
 
 The full gauntlet adds GENERATORS (`scripts/check_generators.py`, `just
 check-generators`: every `generate_feature` choice plus `startapp_extended`
@@ -94,6 +95,8 @@ generated tests; quick mode runs it too when generator code changed), DOCKER
 (`scripts/audit_dependencies.py`: `pip-audit` on `uv.lock`, always blocking;
 allowlist an unfixed advisory in `pip-audit-allowlist.toml` with a reason and
 expiry, and an expired entry fails).
+
+Quick and full runs print one line per gate. Each gate writes its complete output to `.gauntlet/last/<gate>.log`, and a failed gate also prints its last 40 lines. Pass `--verbose` to `scripts/gauntlet.py` to stream all output as it runs. Each run also writes `.gauntlet/last/report.json`, which `just agent-status` reads.
 
 CI (`.github/workflows/ci.yml`) runs the gates before a merge: lint and
 format, typecheck, tests, architecture, OpenAPI drift, `manage.py check` and
@@ -116,6 +119,7 @@ just gauntlet-quick           # skip audit, docker (use while working)
 just gauntlet-ci              # every gate, JSON report
 just gauntlet-gate lint       # one gate by name
 just check-agent-docs         # AGENT-DOCS only, no Django boot
+just agent-start              # worktree, stack, tickets, gauntlet state
 just openapi                  # regenerate docs/openapi/openapi.json
 just openapi-check            # OPENAPI + SCHEMA-PARITY
 just audit                    # pip-audit (blocking)

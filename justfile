@@ -82,7 +82,7 @@ _stack *args:
 
 # Report busy dev stack host ports and the free ports `just dev` would use
 check-ports:
-    python3 scripts/dev_ports.py --check --profile dev --profile monitoring --profile realtime --profile mail --profile mcp
+    python3 scripts/dev_ports.py --check --profile dev --profile monitoring --profile realtime --profile mail --profile mcp --profile graph --profile ai
 
 # Start the dev stack: db, valkey, django, and the configured task worker.
 # `--build` builds missing images and rebuilds images whose inputs changed,
@@ -178,7 +178,22 @@ pre-commit-install:
         fi
         git config --local --unset core.hooksPath
     fi
-    {{ uv }} run --extra dev pre-commit install
+    # Hooks are shared by every worktree of this clone, so pin them to the main checkout's venv.
+    main_root=$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")
+    {{ uv }} run --project "$main_root" --extra dev pre-commit install
+
+# Create a worktree stack for BRANCH from BASE (default HEAD), with its own
+# Compose project name and host port slot. See docs/WORKTREES.md.
+wt-new branch *base:
+    python3 scripts/wt.py new "{{ branch }}" {{ base }}
+
+# Remove a worktree stack: stop its containers, drop its volumes, remove the worktree
+wt-rm branch:
+    python3 scripts/wt.py rm "{{ branch }}"
+
+# List worktree stacks with their ports and running services
+wt-ls:
+    python3 scripts/wt.py ls
 
 # Create .env with generated secrets, or generate the unset ones in an
 # existing .env. Run it before the first `docker compose` call: Compose
@@ -202,7 +217,7 @@ ty:
 
 # Run the whole suite without coverage
 test-all:
-    DJANGO_READ_DOT_ENV=0 {{ uv }} run {{ test_extras }} pytest -q --no-cov
+    DJANGO_READ_DOT_ENV=0 {{ uv }} run {{ test_extras }} $(command -v rtk >/dev/null 2>&1 && echo rtk) pytest -q --no-cov
 
 # Run any target from the legacy Makefile, with its arguments:
 #   just legacy db-dump
@@ -230,7 +245,7 @@ test *paths:
         echo "Changed test targets: ${targets:-none, running the whole suite}"
     fi
     # shellcheck disable=SC2086 # targets is a space-separated path list
-    DJANGO_READ_DOT_ENV=0 {{ uv }} run {{ test_extras }} pytest -x -q --no-cov $targets
+    DJANGO_READ_DOT_ENV=0 {{ uv }} run {{ test_extras }} $(command -v rtk >/dev/null 2>&1 && echo rtk) pytest -x -q --no-cov $targets
 
 # Test the flag-gated apps; the TEST-OPTIONAL gate runs this
 test-optional:
@@ -338,6 +353,10 @@ doctor *args:
 agent-status *args:
     {{ uv }} run python scripts/agent_status.py {{ args }}
 
+# Compact session start for agents: worktree, stack, gauntlet and next ticket
+agent-start:
+    {{ uv }} -q run python scripts/agent_status.py --brief
+
 # ---------------------------------------------------------------------------
 # MCP
 # ---------------------------------------------------------------------------
@@ -377,7 +396,7 @@ search pattern *paths='.':
 
 # Lint with Ruff
 lint:
-    {{ uv }} run --extra dev ruff check .
+    {{ uv }} run --extra dev $(command -v rtk >/dev/null 2>&1 && echo rtk) ruff check .
 
 # Lint and apply safe fixes
 lint-fix:
@@ -399,13 +418,13 @@ typecheck:
 check-all:
     {{ uv }} run --extra dev python scripts/gauntlet.py --quick --verbose
 
-# Run the quick gauntlet
+# Run the quick gauntlet (one line per gate; full logs in .gauntlet/last/)
 gauntlet-quick:
-    {{ uv }} run --extra dev python scripts/gauntlet.py --quick --verbose
+    {{ uv }} run --extra dev python scripts/gauntlet.py --quick
 
 # Run every gauntlet gate
 gauntlet:
-    {{ uv }} run --extra dev python scripts/gauntlet.py --verbose
+    {{ uv }} run --extra dev python scripts/gauntlet.py
 
 # Run the gauntlet in CI mode with a JSON report
 gauntlet-ci:
@@ -413,7 +432,7 @@ gauntlet-ci:
 
 # Run one gauntlet gate (for example: just gauntlet-gate lint)
 gauntlet-gate gate:
-    {{ uv }} run --extra dev python scripts/gauntlet.py --gate {{ gate }} --verbose
+    {{ uv }} run --extra dev python scripts/gauntlet.py --gate {{ gate }}
 
 # Check code conventions
 check-conventions:
