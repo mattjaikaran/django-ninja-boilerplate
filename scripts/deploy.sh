@@ -35,7 +35,8 @@ info()  { echo -e "${CYAN}[deploy]${NC} $*"; }
 ok()    { echo -e "${GREEN}[deploy]${NC} $*"; }
 warn()  { echo -e "${YELLOW}[deploy]${NC} $*"; }
 fail()  { echo -e "${RED}[deploy]${NC} $*"; exit 1; }
-step()  { echo -e "${BOLD}${CYAN}[deploy]${NC} ${BOLD}$*${NC}"; }
+step()  { CURRENT_STEP="${*%...}"; echo -e "${BOLD}${CYAN}[deploy]${NC} ${BOLD}$*${NC}"; }
+mark_step() { CURRENT_STEP="${*%...}"; info "$*"; }
 
 # ---------------------------------------------------------------------------
 # Parse arguments
@@ -46,6 +47,14 @@ DRY_RUN=false
 SAFE=false
 YES=false
 BRANCH=""
+
+# Deploy notification state (see the Deploy notifications section)
+DEPLOY_STARTED=false
+DEPLOY_NOTIFIED=false
+DEPLOY_START_EPOCH=0
+CURRENT_STEP="preflight"
+HEALTH_STATUS=""
+NOTIFY_CHANNELS=()
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -163,11 +172,14 @@ confirm_deploy() {
     [[ "${PROVIDER}" == "vps" ]] && info "Host:      ${BOLD}${DEPLOY_HOST:-unset}${NC}"
     [[ "${PROVIDER}" == "vps" ]] && info "Branch:    ${BOLD}${BRANCH}${NC}"
     echo ""
+    # A Ctrl-C at the prompt is not a failed deploy: notify only after "y".
+    DEPLOY_STARTED=false
     read -rp "$(echo -e "${YELLOW}[deploy]${NC} Proceed with deploy? [y/N] ")" confirm
     if [[ "${confirm}" != "y" && "${confirm}" != "Y" ]]; then
         info "Deploy cancelled."
         exit 0
     fi
+    DEPLOY_STARTED=true
 }
 
 # ---------------------------------------------------------------------------
@@ -479,7 +491,7 @@ deploy_vps() {
     # source at build time, so a restart without a build would ship old code.
     # Migrate with the new image before its containers replace the old ones.
     if [[ "${QUICK}" == true ]]; then
-        info "Quick deploy: pull, incremental build, migrate, restart..."
+        mark_step "Quick deploy: pull, incremental build, migrate, restart..."
         ${ssh_cmd} << REMOTE
 set -euo pipefail
 cd ${app_dir}
@@ -495,7 +507,7 @@ REMOTE
     fi
 
     # Full deploy
-    info "Step 1/5: Creating rollback marker..."
+    mark_step "Step 1/5: Creating rollback marker..."
     ${ssh_cmd} << REMOTE
 set -euo pipefail
 cd ${app_dir}
@@ -504,7 +516,7 @@ echo "\${CURRENT_COMMIT}" > /tmp/${APP_NAME}-pre-deploy-commit
 echo "Pre-deploy commit: \${CURRENT_COMMIT}"
 REMOTE
 
-    info "Step 2/5: Pulling latest code..."
+    mark_step "Step 2/5: Pulling latest code..."
     ${ssh_cmd} << REMOTE
 set -euo pipefail
 cd ${app_dir}
@@ -514,14 +526,14 @@ git pull --rebase origin ${BRANCH}
 echo "Now at: \$(git rev-parse --short HEAD) — \$(git log -1 --format='%s')"
 REMOTE
 
-    info "Step 3/5: Building Docker images..."
+    mark_step "Step 3/5: Building Docker images..."
     ${ssh_cmd} << REMOTE
 set -euo pipefail
 cd ${app_dir}
 COMPOSE_DOCKER_CLI_BUILD=1 DOCKER_BUILDKIT=1 ${dc} build
 REMOTE
 
-    info "Step 4/5: Running migrations and starting services..."
+    mark_step "Step 4/5: Running migrations and starting services..."
     ${ssh_cmd} << REMOTE
 set -euo pipefail
 cd ${app_dir}
@@ -530,9 +542,10 @@ ${dc} run --rm --no-deps django-prod python manage.py migrate --noinput
 ${dc} up -d --remove-orphans
 REMOTE
 
-    info "Step 5/5: Health check..."
+    mark_step "Step 5/5: Health check..."
     sleep 8
-    ${ssh_cmd} << REMOTE
+    local health_rc=0
+    ${ssh_cmd} << REMOTE || health_rc=$?
 set -euo pipefail
 cd ${app_dir}
 
@@ -541,10 +554,12 @@ ${dc} ps
 
 echo ""
 echo "--- Health Check ---"
+health_ok=false
 for i in \$(seq 1 12); do
     # nginx is the only prod service with a host port; django-prod is expose-only.
     if curl -sf http://localhost/api/health/ > /dev/null 2>&1; then
         echo "API Health: OK"
+        health_ok=true
         break
     fi
     if [ \$i -eq 12 ]; then
@@ -556,39 +571,196 @@ done
 
 echo ""
 echo "Deployed: \$(git rev-parse --short HEAD) — \$(git log -1 --format='%s')"
+# Exit 3 tells the local script that the health check did not pass.
+if [ "\$health_ok" != true ]; then exit 3; fi
 REMOTE
+
+    if (( health_rc == 3 )); then
+        HEALTH_STATUS="failed"
+        fail "Health check did not pass. The deploy is marked failed. Check the logs on ${host}."
+    fi
+    if (( health_rc != 0 )); then
+        fail "Health check step failed over SSH (exit ${health_rc})."
+    fi
+    HEALTH_STATUS="ok"
 
     ok "VPS deploy complete."
 }
-# ---------------------------------------------------------------------------
-# Deploy notification
-# ---------------------------------------------------------------------------
-notify_deploy() {
-    local webhook="${DEPLOY_WEBHOOK_URL:-}"
-    [[ -z "${webhook}" ]] && return 0
 
-    local commit
-    commit="$(git -C "${PROJECT_ROOT}" rev-parse HEAD 2>/dev/null || echo "unknown")"
+# ---------------------------------------------------------------------------
+# Deploy notifications
+# ---------------------------------------------------------------------------
+# Channels: webhook (DEPLOY_WEBHOOK_URL), telegram (TELEGRAM_BOT_TOKEN and
+# TELEGRAM_CHAT_ID), hermes (HERMES_URL). DEPLOY_NOTIFY picks a comma list.
+# Unset or empty means every channel whose settings are present. "none" is off.
+# A failed notification warns. It never fails the deploy.
+
+# Print one JSON object from KEY VALUE pairs. Values go in as argv, so quotes
+# and backslashes in commit subjects stay inert.
+json_object() {
+    if command -v jq &>/dev/null; then
+        jq -cn --args -- '$ARGS.positional as $a
+            | reduce range(0; $a | length; 2) as $i ({}; . + {($a[$i]): $a[$i + 1]})' "$@"
+    elif command -v python3 &>/dev/null; then
+        python3 -c 'import json, sys; a = sys.argv[1:]; print(json.dumps(dict(zip(a[::2], a[1::2]))))' "$@"
+    else
+        return 1
+    fi
+}
+
+channel_configured() {
+    case "$1" in
+        webhook)  [[ -n "${DEPLOY_WEBHOOK_URL:-}" ]] ;;
+        telegram) [[ -n "${TELEGRAM_BOT_TOKEN:-}" && -n "${TELEGRAM_CHAT_ID:-}" ]] ;;
+        hermes)   [[ -n "${HERMES_URL:-}" ]] ;;
+        *)        return 1 ;;
+    esac
+}
+
+# Fill NOTIFY_CHANNELS from DEPLOY_NOTIFY, or from every configured channel.
+resolve_notify_channels() {
+    NOTIFY_CHANNELS=()
+    local raw="${DEPLOY_NOTIFY:-}" item name
+    raw="${raw//[[:space:]]/}"
+    if [[ -z "${raw}" ]]; then
+        for name in webhook telegram hermes; do
+            if channel_configured "${name}"; then
+                NOTIFY_CHANNELS+=("${name}")
+            fi
+        done
+        return 0
+    fi
+
+    local -a items
+    IFS=',' read -ra items <<< "${raw}"
+    for item in "${items[@]}"; do
+        name="$(printf '%s' "${item}" | tr '[:upper:]' '[:lower:]')"
+        case "${name}" in
+            ""|none) ;;
+            webhook|telegram|hermes)
+                if channel_configured "${name}"; then
+                    NOTIFY_CHANNELS+=("${name}")
+                else
+                    warn "DEPLOY_NOTIFY lists ${name}, but its settings are unset. Skipped."
+                fi
+                ;;
+            *)
+                warn "Unknown DEPLOY_NOTIFY channel: ${name}. Use webhook, telegram, or hermes."
+                ;;
+        esac
+    done
+    return 0
+}
+
+# Send one payload to one channel. Returns non-zero when delivery fails.
+deliver() {
+    local channel="$1" envelope="$2" text="$3" payload
+    case "${channel}" in
+        webhook)
+            curl -fsS --max-time 15 -X POST "${DEPLOY_WEBHOOK_URL}" \
+                -H "Content-Type: application/json" --data "${envelope}" >/dev/null 2>&1
+            ;;
+        hermes)
+            curl -fsS --max-time 15 -X POST "${HERMES_URL%/}/deploy_webhook" \
+                -H "Content-Type: application/json" --data "${envelope}" >/dev/null 2>&1
+            ;;
+        telegram)
+            # The token goes to curl as a config on stdin, never argv, so ps
+            # cannot show it. printf is a builtin. Silence curl for the log too.
+            payload="$(json_object chat_id "${TELEGRAM_CHAT_ID}" text "${text}")" || return 1
+            printf 'url = "https://api.telegram.org/bot%s/sendMessage"\n' "${TELEGRAM_BOT_TOKEN}" \
+                | curl -fsS --max-time 15 -X POST -K - \
+                    -H "Content-Type: application/json" --data "${payload}" >/dev/null 2>&1
+            ;;
+    esac
+}
+
+# notify_deploy EVENT EXIT_CODE. EVENT is deploy_complete or deploy_failed.
+notify_deploy() {
+    local event="$1" exit_code="$2"
+    DEPLOY_NOTIFIED=true
+
+    resolve_notify_channels
+    if [[ -z "${NOTIFY_CHANNELS[*]-}" ]]; then
+        if [[ "${DRY_RUN}" == true ]]; then
+            info "[dry-run] ${event}: no notification channel configured."
+        fi
+        return 0
+    fi
 
     if [[ "${DRY_RUN}" == true ]]; then
-        info "[dry-run] would POST deploy notification to ${webhook}"
-        return
+        info "[dry-run] ${event} would notify: ${NOTIFY_CHANNELS[*]}"
+        return 0
     fi
 
-    local payload
-    payload="$(cat <<EOF
-{"event":"deploy_complete","app":"${APP_NAME}","commit":"${commit}","env":"${DEPLOY_ENV:-production}","frontend_url":"${FRONTEND_URL:-}","backend_url":"${BACKEND_URL:-}"}
-EOF
-)"
-
-    info "Notifying deploy webhook..."
-    if curl -fs -X POST "${webhook}" \
-        -H "Content-Type: application/json" \
-        --data "${payload}" >/dev/null 2>&1; then
-        ok "Deploy notification sent."
-    else
-        warn "Deploy notification failed (webhook unreachable)."
+    local commit commit_short subject duration failed_step="" envelope text
+    commit="$(git -C "${PROJECT_ROOT}" rev-parse HEAD 2>/dev/null || echo "unknown")"
+    commit_short="$(git -C "${PROJECT_ROOT}" rev-parse --short HEAD 2>/dev/null || echo "unknown")"
+    subject="$(git -C "${PROJECT_ROOT}" log -1 --format=%s 2>/dev/null || true)"
+    duration=$(( $(date +%s) - DEPLOY_START_EPOCH ))
+    if [[ "${event}" == deploy_failed ]]; then
+        failed_step="${CURRENT_STEP}"
     fi
+
+    envelope="$(json_object \
+        event "${event}" \
+        app "${APP_NAME}" \
+        commit "${commit}" \
+        commit_short "${commit_short}" \
+        subject "${subject}" \
+        env "${DEPLOY_ENV:-production}" \
+        frontend_url "${FRONTEND_URL:-}" \
+        backend_url "${BACKEND_URL:-}" \
+        provider "${PROVIDER}" \
+        duration_seconds "${duration}" \
+        health "${HEALTH_STATUS}" \
+        failed_step "${failed_step}" \
+        exit_code "${exit_code}")" || {
+        warn "Deploy notification skipped: install jq or python3 to build the payload."
+        return 0
+    }
+
+    # The first lines match mattstack-cli _format_message. The rest are extra fields.
+    local -a lines
+    lines=("${event}: ${APP_NAME}" "commit: ${commit_short}" "env: ${DEPLOY_ENV:-production}")
+    if [[ -n "${FRONTEND_URL:-}" ]]; then
+        lines+=("frontend: ${FRONTEND_URL}")
+    fi
+    if [[ -n "${BACKEND_URL:-}" ]]; then
+        lines+=("backend: ${BACKEND_URL}")
+    fi
+    lines+=("provider: ${PROVIDER}" "subject: ${subject}" "duration: ${duration}s")
+    if [[ -n "${HEALTH_STATUS}" ]]; then
+        lines+=("health: ${HEALTH_STATUS}")
+    fi
+    if [[ "${event}" == deploy_failed ]]; then
+        lines+=("step: ${failed_step}" "exit code: ${exit_code}")
+    fi
+    text="$(printf '%s\n' "${lines[@]}")"
+
+    local channel
+    for channel in "${NOTIFY_CHANNELS[@]}"; do
+        if deliver "${channel}" "${envelope}" "${text}"; then
+            ok "Deploy notification sent to ${channel}."
+        else
+            warn "Deploy notification to ${channel} failed. The deploy result is unchanged."
+        fi
+    done
+    return 0
+}
+
+# EXIT trap: report a failed provider deploy, whatever stopped it.
+on_exit() {
+    local rc=$?
+    trap - EXIT
+    if [[ "${DEPLOY_STARTED}" == true && "${DEPLOY_NOTIFIED}" != true ]]; then
+        local event="deploy_failed"
+        if (( rc == 0 )); then
+            event="deploy_complete"
+        fi
+        notify_deploy "${event}" "${rc}" || true
+    fi
+    exit "${rc}"
 }
 
 # ---------------------------------------------------------------------------
@@ -597,6 +769,14 @@ EOF
 info "Provider: ${PROVIDER} | App: ${APP_NAME}"
 echo ""
 
+trap on_exit EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
+# Pre-deploy failures (for example --safe checks) also send deploy_failed.
+# confirm_deploy resets DEPLOY_STARTED on cancel, so a cancel sends nothing.
+DEPLOY_STARTED=true
+DEPLOY_START_EPOCH="$(date +%s)"
 pre_deploy
 confirm_deploy
 
@@ -608,7 +788,7 @@ case "${PROVIDER}" in
     gcp)     deploy_gcp ;;
     vps)     deploy_vps ;;
 esac
-notify_deploy
+notify_deploy deploy_complete 0 || true
 
 echo ""
 ok "Done."

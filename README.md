@@ -1628,6 +1628,38 @@ See [`deploy/`](deploy/) for detailed deployment configurations:
 - `deploy/paas/` - Railway, Render configs
 - `deploy/kubernetes/` - Helm chart
 
+### Deploy notifications
+
+`scripts/deploy.sh` sends a notification when a deploy finishes. It sends `deploy_complete` on success. It sends `deploy_failed` when a step fails or the VPS health check does not pass. A failed notification prints a warning. It never fails the deploy.
+
+| Variable | Purpose |
+|----------|---------|
+| `DEPLOY_NOTIFY` | Comma list of `webhook`, `telegram`, `hermes`. Empty sends to every channel whose settings are set. `none` turns notifications off. |
+| `DEPLOY_WEBHOOK_URL` | URL that receives a JSON `POST`. |
+| `TELEGRAM_BOT_TOKEN` | Bot token. The script sends it only to the Telegram API. |
+| `TELEGRAM_CHAT_ID` | Chat that receives the message. |
+| `HERMES_URL` | Hermes base URL. The script posts to `<HERMES_URL>/deploy_webhook`. |
+
+The JSON envelope has these string fields:
+
+- `event`: `deploy_complete` or `deploy_failed`.
+- `app`, `env`, `frontend_url`, `backend_url`: Values from your config.
+- `commit`: Full SHA of the local checkout. `commit_short` and `subject` describe the same commit.
+- `provider`: Deploy provider name.
+- `duration_seconds`: Seconds from the start of the deploy to the notification.
+- `health`: `ok` or `failed` after a VPS health check. Empty when no health check ran.
+- `failed_step`: Step that failed. Empty on `deploy_complete`.
+- `exit_code`: Script exit code. `0` on success.
+
+The Telegram message uses the same lines as mattstack-cli. It adds `provider`, `subject`, `duration`, and `health`. Failures also add `step` and `exit code`.
+
+Keep these caveats in mind:
+
+- The commit and subject come from your local checkout. On the VPS provider, the server pulls its own branch, so the deployed commit can differ.
+- A failed VPS health check now exits the script with status 1 and sends `deploy_failed` with `health: failed`.
+- Notifications need `jq` or `python3` to build the JSON payload. Without either, the script warns and skips the notification.
+- `--dry-run` prints the channels that would receive a message. It never prints URLs or tokens.
+
 ### Production Features
 
 - Multi-stage Docker builds
