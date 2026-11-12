@@ -6,6 +6,42 @@ what to do. Apply the sections in order, oldest first. `CHANGELOG.md` has the
 full list. To copy single modules instead of merging, see
 `docs/ADOPTING_UPDATES.md`.
 
+## 1.14.0 to 1.15.0
+
+### API changes for clients
+
+None. The API keeps its paths, schemas and status codes. OpenAPI
+`info.version` now reports the release (`1.15.0`) instead of `0.1`.
+
+### Dependencies
+
+| Package | Change | What to do |
+|---|---|---|
+| Django | Stays on 5.2 LTS (the lock is 5.2.19). | Nothing. Before you move to 6.0 or 6.1, run `just django-upgrade-check 6.1`. |
+| Pillow | 12 to 13 | Re-test image uploads and avatar code. |
+| filelock | 3 to 4 | Nothing, unless your own code imports it. |
+| OpenTelemetry | 1.39 to 1.45 (instrumentation 0.60b1 to 0.66b2) | Check that your traces still reach your collector. |
+
+### Production configuration
+
+| Setting | Change | What to do |
+|---|---|---|
+| `ORGANIZATIONS_ENABLED`, `NOTIFICATIONS_ENABLED`, `BILLING_ENABLED` | New, default `false`. They install those apps and register their routes. In 1.14.0 the apps were commented out of `INSTALLED_APPS`. | If you uncommented an app by hand, set its flag to `true` instead. |
+| `TODOS_ENABLED` | New, default `true`. `false` removes the todos app and its routes; the code stays as the reference app. | Set `false` in a product that does not ship todos. |
+| `DEPLOY_NOTIFY`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `HERMES_URL` | New, optional, read by `scripts/deploy.sh`. | Set them to get deploy messages; see `.env.deploy.example`. |
+| `scripts/deploy.sh` | A failed VPS health check now exits 1 and sends `deploy_failed`. It used to warn and exit 0. | Check any automation that ran after a "successful" deploy with a failing health check. |
+
+### Your own code
+
+| Change | What to do |
+|---|---|
+| `TodoController` takes `TodoService` through its constructor. | Pass a service to any subclass or test that built the controller with no arguments. |
+| `api.settings.test` no longer installs `billing`. | Run billing tests with `BILLING_ENABLED=true`. |
+| The ARCHITECTURE gate checks `repositories/` and `dtos/`, and the new APP-SHAPE gate checks app folders, file names and class names against `todos/`. | Run `just gauntlet-quick` and rename what it lists. |
+| Generated apps use controller -> service -> repository by default. | Pass `--layers service` to keep the old shape (the service runs the queries, no repository). Existing apps are not changed. |
+| `generate_feature chat --realtime` writes `services/chat_realtime_service.py` (was `realtime_service.py`), and `generate_feature organization` writes `controllers/organization_invitation_controller.py` (was `invitation_controller.py`), so they pass APP-SHAPE. | Rename the files in an app you generated before, and fix their imports. |
+| Migrations must stay linear (MIGRATIONS gate). | Run `just migrations-check`; renumber with `just migrations-renumber --apply` instead of a merge migration. |
+
 ## 1.13.0 to 1.14.0
 
 ### API changes for clients
