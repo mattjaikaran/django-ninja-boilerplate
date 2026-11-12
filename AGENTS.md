@@ -194,7 +194,5 @@ When you reject an implementation choice in review, add the lesson here before
 the next session. Format: what not to do, what to do instead, and why. One line
 per rule, no paragraphs.
 
-- Do not let a smoke sweep accept 400 or 404 on a parameterless GET: it hid
-  12 shadowed todo routes and 3 audit routes. Fail on any status of 400 or
-  higher except 403 for regular users, because a list route has no input to
-  reject.
+- Do not let a smoke sweep accept 400 or 404 on a parameterless GET (it hid 12 shadowed todo routes and 3 audit routes); fail on any status of 400 or higher except 403 for regular users, because a list route has no input to reject.
+- Do not mark status with a colored card edge or another accent (side or top bar, tinted card, glow): the owner rejected it as template-looking. Use one neutral 1px border and show status with the existing badge or a small dot.
