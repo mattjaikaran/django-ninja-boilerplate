@@ -8,13 +8,80 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.15.0] - 2026-11-12
+
+Upgrading from 1.14.0? Follow the 1.14.0 to 1.15.0 section of
+[UPGRADING.md](UPGRADING.md).
+
 ### Highlights
 
-- **Parallel worktrees:** `just wt-new` gives each worktree its own stack
-  and ports, so several agents can run at once.
+- **One app shape everywhere.** The generator builds the `todos/` shape
+  (controller -> service -> repository) by default, and the new APP-SHAPE
+  gate fails any app that drifts from it.
+- **Engines for large domains.** An optional layer groups several module
+  APIs behind service and DTO seams, enforced by the architecture gate.
+- **Interactive journeys pages** with search, filters and a step flow.
+- **Deploy notifications** to Telegram and Hermes, success and failure.
+- **Django upgrade check** that says whether 6.0 or 6.1 is safe and what
+  blocks it. The project stays on Django 5.2 LTS.
+- **Parallel worktrees:** `just wt-new` gives each worktree its own stack,
+  ports and database, so several agents can run at once.
 - **Fewer tokens per check:** `just gauntlet-quick` prints one line per gate
   and a tail only for failures (stdout 31 KB to 4 KB); `just agent-start`
   gives an agent its whole starting state in one short block.
+- **Security:** 13 dependencies moved to fixed releases.
+
+### Architecture and generators
+
+- Added: optional engine layer, `generate_feature engine` and
+  `dnm add-engine` ([Engines](docs/ARCHITECTURE.md#engines-optional-modular-layer)).
+- Added: `--layers repository|dto|service` for `startapp_extended`,
+  `generate_feature api_endpoint` and `dnm add-app`; `repository` is the
+  default ([FEATURE_GENERATION.md](FEATURE_GENERATION.md)).
+- Added: `TodoRepository`; `TodoService` delegates all ORM access to it.
+- Added: `TODOS_ENABLED` (default `true`) removes the todos app and routes;
+  the code stays as the reference app.
+- Changed: `TodoController` receives `TodoService` through its constructor.
+- Changed: `todo_controller.py` is marked canonical; the other three todo
+  controllers are marked as teaching variants.
+- Changed: the chat and organization generators write
+  `chat_realtime_service.py` and `organization_invitation_controller.py`.
+- Fixed: generated controllers that share a built-in class name are now
+  registered (they returned 404).
+- Fixed: generated apps are added to the wheel's package list.
+- Fixed: `seed_data` created no todos (it used fields `Todo` lacks), and
+  it no longer hides unrelated errors when `TODOS_ENABLED=false`.
+
+### Gates and CI
+
+- Added: APP-SHAPE gate (`just check-app-shape`): folders, file names and
+  class names must match `todos/`.
+- Added: ARCHITECTURE gate rules for `repositories/`, `dtos/` and engines
+  (`CROSS-MODULE`, `ENGINE-LAYOUT`, `MODULE-NAME`).
+- Added: MIGRATIONS gate: migrations stay linear, never merged.
+- Added: AGENT-DOCS gate for `AGENTS.md` length, links and commands.
+- Added: CI on the self-hosted runners with one `CI OK` check
+  ([CONSTRAINT_TOOLS.md](docs/CONSTRAINT_TOOLS.md)).
+- Changed: the GENERATORS gate builds every `--layers` shape and runs
+  APP-SHAPE and ARCHITECTURE on generated apps.
+- Fixed: the AGENT-DOCS gate did not see recipes with a default parameter
+  value (such as `search pattern *paths='.'`).
+- Changed: the GitHub release body is this `CHANGELOG.md` section, not a
+  list of commit subjects.
+
+### Agents and docs
+
+- Changed: `AGENTS.md` cut to 200 lines; detail moved to the skill and
+  `docs/CONSTRAINT_TOOLS.md`.
+- Added: `AGENTS.md` and the `django-ninja-dev` skill send agents to
+  `todos/` and the generator before they write an app.
+- Added: `CLAUDE.md` with the single line `@AGENTS.md` (to be removed, #92).
+- Added: the agent-run spec queue (`tasks/specs/`), PR sizes and the PR
+  delivery block.
+- Added: target architecture and API versioning policy in
+  `docs/ARCHITECTURE.md`; journey plan in `docs/product/journeys.md`.
+- Changed: generated apps document `AUDIT_EXCLUDED_MODELS`.
+- Fixed: the throttle docs claimed every route was rate-limited.
 
 ### Developer and agent experience
 
@@ -42,83 +109,6 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   interpreter is gone.
 - Fixed: `doctor --check` checks migrations on the Compose stack's
   database, not only the `.env` one, and reports stack health.
-
-### Fixes
-
-- Fixed: `seed_data` created no todos (it used fields `Todo` lacks), and
-  it no longer hides unrelated errors when `TODOS_ENABLED=false`.
-- Fixed: the AGENT-DOCS gate did not see recipes with a default parameter
-  value (such as `search pattern *paths='.'`).
-
-### Releases
-
-- Changed: the GitHub release body is the version's `CHANGELOG.md` section
-  with absolute links, not a list of commit subjects. The changelog is
-  grouped by area with highlights first.
-
-## [1.15.0] - 2026-11-12
-
-Upgrading from 1.14.0? Follow the 1.14.0 to 1.15.0 section of
-[UPGRADING.md](UPGRADING.md).
-
-### Highlights
-
-- **One app shape everywhere.** The generator builds the `todos/` shape
-  (controller -> service -> repository) by default, and the new APP-SHAPE
-  gate fails any app that drifts from it.
-- **Engines for large domains.** An optional layer groups several module
-  APIs behind service and DTO seams, enforced by the architecture gate.
-- **Interactive journeys pages** with search, filters and a step flow.
-- **Deploy notifications** to Telegram and Hermes, success and failure.
-- **Django upgrade check** that says whether 6.0 or 6.1 is safe and what
-  blocks it. The project stays on Django 5.2 LTS.
-- **Security:** 13 dependencies moved to fixed releases.
-
-### Architecture and generators
-
-- Added: optional engine layer, `generate_feature engine` and
-  `dnm add-engine` ([Engines](docs/ARCHITECTURE.md#engines-optional-modular-layer)).
-- Added: `--layers repository|dto|service` for `startapp_extended`,
-  `generate_feature api_endpoint` and `dnm add-app`; `repository` is the
-  default ([FEATURE_GENERATION.md](FEATURE_GENERATION.md)).
-- Added: `TodoRepository`; `TodoService` delegates all ORM access to it.
-- Added: `TODOS_ENABLED` (default `true`) removes the todos app and routes;
-  the code stays as the reference app.
-- Changed: `TodoController` receives `TodoService` through its constructor.
-- Changed: `todo_controller.py` is marked canonical; the other three todo
-  controllers are marked as teaching variants.
-- Changed: the chat and organization generators write
-  `chat_realtime_service.py` and `organization_invitation_controller.py`.
-- Fixed: generated controllers that share a built-in class name are now
-  registered (they returned 404).
-- Fixed: generated apps are added to the wheel's package list.
-
-### Gates and CI
-
-- Added: APP-SHAPE gate (`just check-app-shape`): folders, file names and
-  class names must match `todos/`.
-- Added: ARCHITECTURE gate rules for `repositories/`, `dtos/` and engines
-  (`CROSS-MODULE`, `ENGINE-LAYOUT`, `MODULE-NAME`).
-- Added: MIGRATIONS gate: migrations stay linear, never merged.
-- Added: AGENT-DOCS gate for `AGENTS.md` length, links and commands.
-- Added: CI on the self-hosted runners with one `CI OK` check
-  ([CONSTRAINT_TOOLS.md](docs/CONSTRAINT_TOOLS.md)).
-- Changed: the GENERATORS gate builds every `--layers` shape and runs
-  APP-SHAPE and ARCHITECTURE on generated apps.
-
-### Agents and docs
-
-- Changed: `AGENTS.md` cut to 200 lines; detail moved to the skill and
-  `docs/CONSTRAINT_TOOLS.md`.
-- Added: `AGENTS.md` and the `django-ninja-dev` skill send agents to
-  `todos/` and the generator before they write an app.
-- Added: `CLAUDE.md` with the single line `@AGENTS.md` (to be removed, #92).
-- Added: the agent-run spec queue (`tasks/specs/`), PR sizes and the PR
-  delivery block.
-- Added: target architecture and API versioning policy in
-  `docs/ARCHITECTURE.md`; journey plan in `docs/product/journeys.md`.
-- Changed: generated apps document `AUDIT_EXCLUDED_MODELS`.
-- Fixed: the throttle docs claimed every route was rate-limited.
 
 ### Journeys
 

@@ -30,6 +30,7 @@ None. The API keeps its paths, schemas and status codes. OpenAPI
 | `TODOS_ENABLED` | New, default `true`. `false` removes the todos app and its routes; the code stays as the reference app. | Set `false` in a product that does not ship todos. |
 | `DEPLOY_NOTIFY`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `HERMES_URL` | New, optional, read by `scripts/deploy.sh`. | Set them to get deploy messages; see `.env.deploy.example`. |
 | `scripts/deploy.sh` | A failed VPS health check now exits 1 and sends `deploy_failed`. It used to warn and exit 0. | Check any automation that ran after a "successful" deploy with a failing health check. |
+| Host ports for Centrifugo, Jaeger, MCP, Mailhog, Qdrant and Neo4j | Now read from env vars (`CENTRIFUGO_PORT`, `MCP_PORT` and others in `.env.example`), with the old values as defaults. | Nothing, unless you changed those ports in `docker-compose.yml` by hand: move the change to `.env`. |
 
 ### Your own code
 
@@ -41,6 +42,8 @@ None. The API keeps its paths, schemas and status codes. OpenAPI
 | Generated apps use controller -> service -> repository by default. | Pass `--layers service` to keep the old shape (the service runs the queries, no repository). Existing apps are not changed. |
 | `generate_feature chat --realtime` writes `services/chat_realtime_service.py` (was `realtime_service.py`), and `generate_feature organization` writes `controllers/organization_invitation_controller.py` (was `invitation_controller.py`), so they pass APP-SHAPE. | Rename the files in an app you generated before, and fix their imports. |
 | Migrations must stay linear (MIGRATIONS gate). | Run `just migrations-check`; renumber with `just migrations-renumber --apply` instead of a merge migration. |
+| `just gauntlet`, `gauntlet-quick` and `gauntlet-gate` print one line per gate and a failure tail; full logs go to `.gauntlet/last/`. | If a script or CI step parsed the old streaming output, pass `--verbose` or read `.gauntlet/last/report.json`. |
+| `just pre-commit-install` installs hooks from the main checkout's venv. | Run `just pre-commit-install` once, so hooks work from every worktree. |
 
 ## 1.13.0 to 1.14.0
 
