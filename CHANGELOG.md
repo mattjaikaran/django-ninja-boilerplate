@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **`seed_data` created no todos**: it passed `is_completed` and `due_date`, which `Todo` does not have, and each failure was swallowed per row. It now sets `completed`, and it skips the todos steps with `apps.is_installed("todos")` instead of catching `RuntimeError`, so `TODOS_ENABLED=false` no longer hides other errors.
+
 ## [1.15.0] - 2026-11-12
 
 Upgrading from 1.14.0? Follow the 1.14.0 to 1.15.0 section of

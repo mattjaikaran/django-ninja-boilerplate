@@ -11,6 +11,7 @@ Based on patterns from larger production applications, it provides:
 import random
 from datetime import timedelta
 
+from django.apps import apps
 from django.contrib.auth import get_user_model
 from django.core.management import call_command
 from django.core.management.base import BaseCommand
@@ -125,14 +126,12 @@ class Command(BaseCommand):
             OneTimePassword.objects.all().delete()
             self.stdout.write("   • Cleared OTPs")
 
-            # Try to clear todos if the app exists
-            try:
+            # Clear todos when the app is installed (TODOS_ENABLED)
+            if apps.is_installed("todos"):
                 from todos.models import Todo
 
                 Todo.objects.all().delete()
                 self.stdout.write("   • Cleared Todos")
-            except (ImportError, RuntimeError):  # RuntimeError: todos not installed
-                pass
 
             # Clear non-superuser accounts
             deleted, _ = User.objects.filter(is_superuser=False).delete()
@@ -222,6 +221,13 @@ class Command(BaseCommand):
 
     def create_todos(self, count: int, users: list):
         """Create sample todos for users."""
+        if not apps.is_installed("todos"):
+            self.stdout.write(
+                self.style.WARNING(
+                    "⚠️  Todos app not installed, skipping todos creation"
+                )
+            )
+            return
         try:
             from todos.models import Todo
 
@@ -255,11 +261,7 @@ class Command(BaseCommand):
                             if random.choice([True, False])
                             else "",
                             priority=random.choice(priorities),
-                            is_completed=is_completed,
-                            due_date=timezone.now().date()
-                            + timedelta(days=random.randint(-7, 30))
-                            if random.choice([True, True, False])
-                            else None,
+                            completed=is_completed,
                             metadata={
                                 "category": random.choice(categories),
                                 "estimated_minutes": random.choice(
@@ -279,7 +281,7 @@ class Command(BaseCommand):
 
             self.stdout.write(self.style.SUCCESS(f"✅ Created {todos_created} todos"))
 
-        except (ImportError, RuntimeError):  # RuntimeError: todos not installed
+        except ImportError:
             self.stdout.write(
                 self.style.WARNING("⚠️  Todos app not found, skipping todos creation")
             )
@@ -347,14 +349,12 @@ class Command(BaseCommand):
         user_count = User.objects.count()
         self.stdout.write(f"   • Users: {user_count}")
 
-        try:
+        if apps.is_installed("todos"):
             from todos.models import Todo
 
             todo_count = Todo.objects.count()
-            completed = Todo.objects.filter(is_completed=True).count()
+            completed = Todo.objects.filter(completed=True).count()
             self.stdout.write(f"   • Todos: {todo_count} ({completed} completed)")
-        except (ImportError, RuntimeError):  # RuntimeError: todos not installed
-            pass
 
         try:
             from core.models import OneTimePassword
