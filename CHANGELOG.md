@@ -47,6 +47,8 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - Fixed: `seed_data` created no todos (it used fields `Todo` lacks), and
   it no longer hides unrelated errors when `TODOS_ENABLED=false`.
+- Fixed: the AGENT-DOCS gate did not see recipes with a default parameter
+  value (such as `search pattern *paths='.'`).
 
 ### Releases
 

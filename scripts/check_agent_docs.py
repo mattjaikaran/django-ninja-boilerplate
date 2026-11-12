@@ -51,7 +51,7 @@ FILE_SUFFIXES = (".md", ".py", ".json", ".yml", ".yaml", ".toml", ".sh", ".mdc")
 LINK = re.compile(r"\[[^\]]*\]\(([^)\s]+)\)")
 CODE_SPAN = re.compile(r"`([^`\n]+)`")
 JUST_CALL = re.compile(r"^just\s+([a-z][a-z0-9-]*)")
-RECIPE = re.compile(r"^([A-Za-z_][A-Za-z0-9_-]*)[^:=]*:(?!=)", re.MULTILINE)
+RECIPE = re.compile(r"^([A-Za-z_][A-Za-z0-9_-]*)(?:\s[^:\n]*)?:(?!=)", re.MULTILINE)
 FRONTMATTER = re.compile(r"\A---\n(.*?)\n---\n", re.DOTALL)
 SCHEME = re.compile(r"^[a-z][a-z0-9+.-]*:")
 
