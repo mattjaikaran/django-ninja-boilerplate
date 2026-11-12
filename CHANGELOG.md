@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+Upgrading from 1.14.0? Follow the 1.14.0 to 1.15.0 section of
+[UPGRADING.md](UPGRADING.md).
+
 ### Added
 - **AGENT-DOCS gate** (`scripts/check_agent_docs.py`, `just check-agent-docs`): fails when `AGENTS.md` is missing or over 200 lines, a relative link does not resolve, a cited `just` recipe or repo path does not exist, a skill lacks `name`/`description` frontmatter or its `SKILLS.md` row, a second skills directory appears, or `CLAUDE.md` is anything but `@AGENTS.md`. The quick gauntlet, a pre-commit hook and its own CI job run it; the job needs no dependency install.
 - **`CLAUDE.md`** contains only `@AGENTS.md`, for harnesses that read that filename. It is committed; local `.claude/` state stays untracked.
