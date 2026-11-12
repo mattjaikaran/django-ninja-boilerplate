@@ -14,20 +14,21 @@ Gates (in order):
   6. DEPENDENCIES — pyproject.toml change requires a DEPENDENCIES.md entry
   7. DRIFT        — one version per tool across pyproject, Docker, Compose, hooks
   8. ARCH         — architecture layer enforcement
-  9. FILELENGTH   — file length limits
- 10. CROSS-STACK  — naming and schema parity (monorepo only, non-blocking)
- 11. JOURNEYS     : features, journey specs and Playwright tags stay in sync
- 12. TICKETS      : ticket format, dependencies and collision rules
- 13. AGENT-DOCS   : AGENTS.md exists, stays short, links resolve, commands are real
- 14. TEST         : pytest for smoke, contract, permission and regression tests
- 15. TEST-OPTIONAL: pytest for flag-gated apps (webhooks, files)
- 16. CLI-TEST     — pytest for the cli/ package
- 17. AI-DB        — Postgres-only tests (core.ai scoping) in a throwaway pgvector container; skips without Docker
- 18. DEPLOY       — django check --deploy (non-blocking)
- 19. GENERATORS   — every code generator in a throwaway worktree (quick: when generator files changed)
- 20. AUDIT        — pip-audit on uv.lock, allow-list with expiry (full run only)
- 21. DOCKER       — build the production image (full run only, skips without Docker)
- 22. MIGRATIONS   — no merge migrations, one leaf per app, django-safe-migrations
+  9. APP-SHAPE    — API app layout: packages, file names, class names
+10. FILELENGTH   — file length limits
+11. CROSS-STACK  — naming and schema parity (monorepo only, non-blocking)
+12. JOURNEYS     : features, journey specs and Playwright tags stay in sync
+13. TICKETS      : ticket format, dependencies and collision rules
+14. AGENT-DOCS   : AGENTS.md exists, stays short, links resolve, commands are real
+15. TEST         : pytest for smoke, contract, permission and regression tests
+16. TEST-OPTIONAL: pytest for flag-gated apps (webhooks, files)
+17. CLI-TEST     — pytest for the cli/ package
+18. AI-DB        — Postgres-only tests (core.ai scoping) in a throwaway pgvector container; skips without Docker
+19. DEPLOY       — django check --deploy (non-blocking)
+20. GENERATORS   — every code generator in a throwaway worktree (quick: when generator files changed)
+21. AUDIT        — pip-audit on uv.lock, allow-list with expiry (full run only)
+22. DOCKER       — build the production image (full run only, skips without Docker)
+23. MIGRATIONS   — no merge migrations, one leaf per app, django-safe-migrations
 
 CI (`.github/workflows/ci.yml`) runs the gates in parallel jobs. The pre-push
 hook runs `just gauntlet-quick`, and `just gauntlet` runs before a release.
@@ -63,6 +64,7 @@ from gauntlet_gates import (
     GENERATOR_PATHS,
     TEST_ENV,
     GateResult,
+    StaticGates,
     generator_changes,
 )
 from gauntlet_hints import FIX_HINTS
@@ -73,7 +75,7 @@ OPTIONAL_APPS = ("webhooks", "files", "organizations", "notifications", "billing
 
 
 @dataclass
-class GauntletRunner:
+class GauntletRunner(StaticGates):
     results: list[GateResult] = field(default_factory=list)
     quick: bool = False
     ci: bool = False
@@ -210,6 +212,7 @@ class GauntletRunner:
         gates["dependencies"] = self._gate_dependencies
         gates["drift"] = self._gate_drift
         gates["architecture"] = self._gate_architecture
+        gates["app-shape"] = self._gate_app_shape
         gates["openapi"] = self._gate_openapi
         gates["schema-parity"] = self._gate_schema_parity
         gates["filelength"] = self._gate_filelength
@@ -244,12 +247,6 @@ class GauntletRunner:
     def _gate_security(self) -> GateResult:
         return self.run_gate(
             "SECURITY", ["uv", "run", "bandit", "-c", "pyproject.toml", "-r", "."]
-        )
-
-    def _gate_architecture(self) -> GateResult:
-        return self.run_gate(
-            "ARCHITECTURE",
-            ["uv", "run", "python", "scripts/check_architecture.py", "--all"],
         )
 
     def _gate_openapi(self) -> GateResult:

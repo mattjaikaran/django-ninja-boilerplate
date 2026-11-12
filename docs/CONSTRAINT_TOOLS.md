@@ -43,6 +43,7 @@ constraint-checking tools. It's a virtuous cycle:
 | `scripts/check_architecture.py` | ~270 | Layer violations, cross-app coupling, reverse dependencies |
 | `scripts/check_file_length.py` | ~150 | Files exceeding 400-line limit (configurable per-file) |
 | `scripts/gauntlet.py` | ~400 | Orchestrates all gates, reports results, generates CI artifacts |
+| `scripts/django_upgrade_check.py` | ~760 | Whether a Django upgrade (6.0, 6.1) is safe: install blockers, declared support, removed-feature use, django-upgrade fixes (`just django-upgrade-check`) |
 
 Plus third-party deterministic tools integrated as gates:
 
@@ -71,18 +72,19 @@ blocking ones; `just gauntlet` adds the full-run extras.
 | 6 | DEPENDENCIES | `scripts/check_dependencies.py` | `pyproject.toml` change without a `DEPENDENCIES.md` entry |
 | 7 | DRIFT | `scripts/check_version_drift.py` | Python/uv/Postgres/Valkey/hook versions differ across `pyproject.toml`, `uv.lock`, Dockerfiles, Compose, `.pre-commit-config.yaml` |
 | 8 | ARCHITECTURE | `scripts/check_architecture.py` | Layer violations, cross-app coupling |
-| 9 | OPENAPI | `manage.py export_openapi --check` | Stale `docs/openapi/openapi.json` |
-| 10 | SCHEMA-PARITY | `scripts/check_schema_parity.py` | snake_case or untyped properties, required/nullable mismatches |
-| 11 | FILELENGTH | `scripts/check_file_length.py` | Files over their cap |
-| 12 | CROSS-STACK | `scripts/check_cross_stack.py` | Naming and schema parity (monorepo only) |
-| 13 | JOURNEYS | `scripts/check_journeys.py` | Features, journeys, Playwright tags out of sync; `done`/checked without a passing e2e test |
-| 14 | TICKETS | `scripts/tickets.py check` | Bad format, missing dependencies, colliding `ready` tickets |
-| 15 | AGENT-DOCS | `scripts/check_agent_docs.py` | `AGENTS.md` missing or over 200 lines, a broken relative link, a stale `just` recipe or path, a skill without frontmatter or an index row, a second skills location, a `CLAUDE.md` that is not `@AGENTS.md` |
-| 16 | TEST | `pytest` | Broken smoke, contract, permission, regression tests |
-| 17 | TEST-OPTIONAL | `pytest webhooks files organizations notifications billing` with their five `*_ENABLED` flags | Flag-gated apps (kept out of default settings and OpenAPI) |
-| 18 | CLI-TEST | `pytest cli/tests` | Broken `cli/` package |
-| 19 | AI-DB | `scripts/test_ai_db.py` | Postgres-only tests (`core.ai` owner scoping, concurrent refresh) in a throwaway pgvector container; skips without Docker |
-| 20 | DEPLOY-CHECK | `manage.py check --deploy` | Production config issues |
+| 9 | APP-SHAPE | `scripts/check_app_shape.py` | Missing app packages or files, a `dtos/` without `repositories/`, a class name that does not match its file |
+| 10 | OPENAPI | `manage.py export_openapi --check` | Stale `docs/openapi/openapi.json` |
+| 11 | SCHEMA-PARITY | `scripts/check_schema_parity.py` | snake_case or untyped properties, required/nullable mismatches |
+| 12 | FILELENGTH | `scripts/check_file_length.py` | Files over their cap |
+| 13 | CROSS-STACK | `scripts/check_cross_stack.py` | Naming and schema parity (monorepo only) |
+| 14 | JOURNEYS | `scripts/check_journeys.py` | Features, journeys, Playwright tags out of sync; `done`/checked without a passing e2e test |
+| 15 | TICKETS | `scripts/tickets.py check` | Bad format, missing dependencies, colliding `ready` tickets |
+| 16 | AGENT-DOCS | `scripts/check_agent_docs.py` | `AGENTS.md` missing or over 200 lines, a broken relative link, a stale `just` recipe or path, a skill without frontmatter or an index row, a second skills location, a `CLAUDE.md` that is not `@AGENTS.md` |
+| 17 | TEST | `pytest` | Broken smoke, contract, permission, regression tests |
+| 18 | TEST-OPTIONAL | `pytest webhooks files organizations notifications billing` with their five `*_ENABLED` flags | Flag-gated apps (kept out of default settings and OpenAPI) |
+| 19 | CLI-TEST | `pytest cli/tests` | Broken `cli/` package |
+| 20 | AI-DB | `scripts/test_ai_db.py` | Postgres-only tests (`core.ai` owner scoping, concurrent refresh) in a throwaway pgvector container; skips without Docker |
+| 21 | DEPLOY-CHECK | `manage.py check --deploy` | Production config issues |
 
 The full gauntlet adds GENERATORS (`scripts/check_generators.py`, `just
 check-generators`: every `generate_feature` choice plus `startapp_extended`
@@ -118,7 +120,7 @@ just openapi                  # regenerate docs/openapi/openapi.json
 just openapi-check            # OPENAPI + SCHEMA-PARITY
 just audit                    # pip-audit (blocking)
 just security-full            # optional: bandit, audit, semgrep, SBOM, trivy
-just test-django6             # manual: suite on Django 6.0 (unsupported)
+just django-upgrade-check 6.0  # manual: is an upgrade to Django 6.0 safe?
 ```
 
 Single-gate recipes: `just check-conventions`, `check-cross-stack`,

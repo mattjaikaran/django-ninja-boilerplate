@@ -47,8 +47,28 @@ def test_add_app_runs_project_generator(tmp_path: Path, monkeypatch) -> None:
                 "api_endpoint",
                 "--app-name",
                 "gadgets",
+                "--layers",
+                "repository",
             ],
             root,
         ),
-        (["uv", "run", "python", "manage.py", "startapp_extended", "gadgets"], root),
+        (
+            [
+                "uv",
+                "run",
+                "python",
+                "manage.py",
+                "startapp_extended",
+                "gadgets",
+                "--layers",
+                "repository",
+            ],
+            root,
+        ),
     ]
+
+    dto = runner.invoke(
+        cli.app, ["add-app", "widgets", "--path", str(nested), "--layers", "dto"]
+    )
+    assert dto.exit_code == 0, dto.output
+    assert calls[-1][0][-2:] == ["--layers", "dto"]

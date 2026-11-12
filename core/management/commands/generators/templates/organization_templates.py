@@ -844,7 +844,7 @@ def render_organization_files(app_name: str) -> dict[str, str]:
             ),
             from_import(f"{app_name}.services", "OrganizationService"),
         ),
-        "controllers/invitation_controller.py": fill_imports(
+        "controllers/organization_invitation_controller.py": fill_imports(
             INVITATION_CONTROLLER_TEMPLATE,
             from_import("api.decorators", "log_api_call"),
             from_import(
@@ -894,7 +894,7 @@ def render_organization_files(app_name: str) -> dict[str, str]:
         ),
         "controllers/__init__.py": package_init(
             (
-                f"{app_name}.controllers.invitation_controller",
+                f"{app_name}.controllers.organization_invitation_controller",
                 ["OrganizationInvitationController"],
             ),
             (

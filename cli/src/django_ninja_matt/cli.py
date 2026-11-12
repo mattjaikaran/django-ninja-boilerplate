@@ -19,7 +19,12 @@ from django_ninja_matt.commands.doctor import run_doctor
 from django_ninja_matt.commands.engine import add_engine
 from django_ninja_matt.commands.init import run_init
 from django_ninja_matt.commands.setup import TaskBackend, run_setup
-from django_ninja_matt.config import DeploymentTarget, EmailBackend, ProjectType
+from django_ninja_matt.config import (
+    AppLayers,
+    DeploymentTarget,
+    EmailBackend,
+    ProjectType,
+)
 from django_ninja_matt.utils.console import (
     print_error,
     print_info,
@@ -633,7 +638,9 @@ def logs(
         raise typer.Exit(0)
 
 
-def build_add_app_command(name: str, *, wire: bool) -> list[str]:
+def build_add_app_command(
+    name: str, *, wire: bool, layers: str = "repository"
+) -> list[str]:
     """Build the manage.py argv that scaffolds ``name`` with the project generator."""
     python = ["uv", "run", "python"] if shutil.which("uv") else [sys.executable]
     if wire:
@@ -644,8 +651,10 @@ def build_add_app_command(name: str, *, wire: bool) -> list[str]:
             "api_endpoint",
             "--app-name",
             name,
+            "--layers",
+            layers,
         ]
-    return [*python, "manage.py", "startapp_extended", name]
+    return [*python, "manage.py", "startapp_extended", name, "--layers", layers]
 
 
 @app.command(name="add-app")
@@ -680,6 +689,16 @@ def add_app(
             ),
         ),
     ] = False,
+    layers: Annotated[
+        AppLayers,
+        typer.Option(
+            "--layers",
+            help=(
+                "Layers to generate: service, repository (default) or dto. "
+                "dto returns frozen dataclass DTOs from the repository."
+            ),
+        ),
+    ] = AppLayers.REPOSITORY,
 ) -> None:
     """Scaffold a new Django app with the project's own generator.
 
@@ -697,6 +716,8 @@ def add_app(
         dnm add-app orders --path api/
 
         dnm add-app products --no-wire
+
+        dnm add-app products --layers dto
     """
     root = find_project_root(path or Path.cwd())
     if root is None:
@@ -710,7 +731,7 @@ def add_app(
         print_error(f"Directory '{root / name}' already exists")
         raise typer.Exit(1)
 
-    command = build_add_app_command(name, wire=not no_wire)
+    command = build_add_app_command(name, wire=not no_wire, layers=layers.value)
     print_step(f"Running: {' '.join(command)}")
     result = subprocess.run(command, cwd=root, check=False)
     if result.returncode != 0:

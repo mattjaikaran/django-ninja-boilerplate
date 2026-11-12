@@ -259,13 +259,12 @@ test-integration:
     POSTGRES_PORT=$pg_port VALKEY_PORT=$valkey_port {{ compose }} --profile test up -d --wait {{ db_service }} valkey
     DJANGO_READ_DOT_ENV=1 DB_HOST=127.0.0.1 DB_PORT=$pg_port TEST_DB=postgres {{ uv }} run {{ test_extras }} pytest
 
-# `uv run --with` layers Django 6.0 over the project environment in uv's cache,
-# so .venv stays on the locked Django 5.2. Not a gate: DEPENDENCIES.md lists
-# the Django 6 blockers. Set TEST_DB=postgres to run on PostgreSQL instead of SQLite.
-# Run the suite on Django 6.0 (manual check only)
-test-django6 *args:
-    {{ uv }} run {{ test_extras }} --with "Django~=6.0.0" python -c "import django; print('Django', django.get_version())"
-    DJANGO_READ_DOT_ENV=0 {{ uv }} run {{ test_extras }} --with "Django~=6.0.0" pytest -q --no-cov -p no:cacheprovider {{ args }}
+# Report whether upgrading to a target Django release (6.0 or 6.1) is safe.
+# Lists install blockers, declared-support gaps, deprecated first-party code,
+# and django-upgrade fixes. Add --run-tests to run the suite on the target.
+# Exit: 0 SAFE, 1 BLOCKED, 2 SAFE WITH WARNINGS, 3 usage. See DEPENDENCIES.md.
+django-upgrade-check target *args:
+    {{ uv }} run {{ test_extras }} python scripts/django_upgrade_check.py {{ target }} {{ args }}
 
 # Run the Postgres-only tests (core.ai owner scoping, concurrent refresh) on a
 # throwaway pgvector container. Also the AI-DB gauntlet gate; needs Docker.
@@ -432,6 +431,10 @@ check-generators *args:
 # Check architecture constraints
 check-arch:
     {{ uv }} run python scripts/check_architecture.py --all
+
+# Check API app layout contract
+check-app-shape:
+    {{ uv }} run python scripts/check_app_shape.py --all
 
 # Check that FEATURES.md, journey specs and Playwright tags agree
 check-journeys:

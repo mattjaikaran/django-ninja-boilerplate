@@ -178,6 +178,8 @@ jobs:
         run: uv sync --locked --extra dev
       - name: Layer rules
         run: just check-arch
+      - name: App shape
+        run: just check-app-shape
 
   # OPENAPI and SCHEMA-PARITY gates. The contract lives under docs/, so a
   # docs change runs this job too.

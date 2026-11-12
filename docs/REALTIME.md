@@ -230,10 +230,10 @@ The chat generator adds a Centrifugo service class when you pass `--realtime`:
 python manage.py generate_feature chat --realtime
 ```
 
-This creates a `ChatRealtimeService` in `<app>/services/realtime_service.py`:
+This creates a `ChatRealtimeService` in `<app>/services/chat_realtime_service.py`:
 
 ```python
-from chat.services.realtime_service import ChatRealtimeService
+from chat.services.chat_realtime_service import ChatRealtimeService
 
 # Publish a message to a conversation
 ChatRealtimeService.publish_message("conv-123", message_data)

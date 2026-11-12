@@ -9,11 +9,10 @@ from django.core.management.commands.startapp import Command as StartAppCommand
 
 from .generators.codegen import PACKAGE_INIT, ResourceNames, from_import
 from .generators.templates.app_templates import (
-    MODEL_TEMPLATE,
-    SCHEMA_TEMPLATE,
-    render_api_endpoint_tests,
-    render_controller,
-    render_service,
+    APP_LAYERS,
+    DEFAULT_LAYERS,
+    LAYER_PACKAGES,
+    render_app_files,
 )
 
 APPS_TEMPLATE = """from django.apps import AppConfig
@@ -105,8 +104,52 @@ def add_wheel_package(pyproject: Path, app_name: str) -> bool:
     return True
 
 
+def readme_layer_blocks(names: ResourceNames, layers: str) -> tuple[str, str, str]:
+    """Return the README tree and component text for the chosen layers.
+
+    The first string is the dtos/ tree entry and the second is the
+    repositories/ tree entry. The third string holds the Repositories and DTOs
+    sections. A string is empty when the layer does not add it.
+    """
+    model = names.model_name
+    snake = names.model_snake
+    if layers == "service":
+        return "", "", ""
+    repository_tree = (
+        "├── repositories/         # Data access, scoped to the owner\n"
+        "│   ├── __init__.py\n"
+        f"│   └── {snake}_repository.py # {model} queries for request.user\n"
+    )
+    if layers == "repository":
+        components = (
+            f"### Repositories\n\n- `{model}Repository`: Owner-scoped ORM queries.\n\n"
+        )
+        return "", repository_tree, components
+    dto_tree = (
+        "├── dtos/                 # DTOs that the repository returns\n"
+        "│   ├── __init__.py\n"
+        f"│   └── {snake}_dto.py    # {model}DTO read model\n"
+    )
+    components = (
+        "### Repositories\n\n"
+        f"- `{model}Repository`: Owner-scoped queries. Returns `{model}DTO` values.\n\n"
+        "### DTOs\n\n"
+        f"- `{model}DTO`: Frozen dataclass that the service layer reads.\n\n"
+    )
+    return dto_tree, repository_tree, components
+
+
 class Command(StartAppCommand):
     help = "Creates a Django app directory structure with separate directories for models, admin, schemas, controllers, tests, and management commands"
+
+    def add_arguments(self, parser):
+        super().add_arguments(parser)
+        parser.add_argument(
+            "--layers",
+            choices=APP_LAYERS,
+            default=DEFAULT_LAYERS,
+            help="Data-access layers: service, repository (default), or dto.",
+        )
 
     def handle(self, **options):
         app_name = options["name"]
@@ -132,7 +175,8 @@ class Command(StartAppCommand):
 
         # Always create advanced structure regardless of the advanced flag
         # This ensures all new apps follow our organized folder pattern
-        created_files = self.create_advanced_structure(names, app_directory)
+        layers = options["layers"]
+        created_files = self.create_advanced_structure(names, app_directory, layers)
 
         # An installed app missing from the wheel breaks django.setup() there.
         if add_wheel_package(Path.cwd() / "pyproject.toml", app_name):
@@ -172,7 +216,7 @@ class Command(StartAppCommand):
             f.write(content)
         return [path]
 
-    def create_advanced_structure(self, names, app_directory):
+    def create_advanced_structure(self, names, app_directory, layers):
         created_files = []
         snake = names.model_snake
 
@@ -181,6 +225,7 @@ class Command(StartAppCommand):
             "models",
             "schemas",
             "services",
+            *LAYER_PACKAGES[layers],
             "controllers",
             "admin",
             "tests",
@@ -205,24 +250,14 @@ class Command(StartAppCommand):
                     self.create_file(init_path, self.get_init_content(dir_name, names))
                 )
 
-        # Models, schemas, the owner-scoped service, the controller and the
-        # tests come from the shared generator templates.
-        rendered = {
-            os.path.join("models", f"{snake}.py"): MODEL_TEMPLATE.format(
-                **names.context()
-            ),
-            os.path.join("schemas", f"{snake}_schema.py"): SCHEMA_TEMPLATE.format(
-                **names.context()
-            ),
-            os.path.join("services", f"{snake}_service.py"): render_service(names),
-            os.path.join("controllers", f"{snake}_controller.py"): render_controller(
-                names
-            ),
-            os.path.join("tests", f"test_{snake}.py"): render_api_endpoint_tests(names),
-        }
+        # Models, schemas, services, controllers and tests come from the shared
+        # generator templates. The layer picks the data-access shape.
+        rendered = render_app_files(names, layers)
         for relative_path, content in rendered.items():
             created_files.extend(
-                self.create_file(os.path.join(app_directory, relative_path), content)
+                self.create_file(
+                    os.path.join(app_directory, *relative_path.split("/")), content
+                )
             )
 
         # Create admin file
@@ -240,7 +275,7 @@ class Command(StartAppCommand):
 
         # Create a README file
         readme_file = os.path.join(app_directory, "README.md")
-        created_files.extend(self.create_readme_file(names, readme_file))
+        created_files.extend(self.create_readme_file(names, readme_file, layers))
 
         # Delete the original files that are no longer needed
         self.delete_original_files(app_directory)
@@ -273,6 +308,11 @@ class Command(StartAppCommand):
                 f"{app_name}.services.{snake}_service",
                 [f"{model_name}Service"],
             ),
+            "repositories": (
+                f"{app_name}.repositories.{snake}_repository",
+                [f"{model_name}Repository"],
+            ),
+            "dtos": (f"{app_name}.dtos.{snake}_dto", [f"{model_name}DTO"]),
             "controllers": (
                 f"{app_name}.controllers.{snake}_controller",
                 [f"{model_name}Controller"],
@@ -388,11 +428,12 @@ class Command(BaseCommand):
 """
         return self.create_file(file_path, content)
 
-    def create_readme_file(self, names, file_path):
+    def create_readme_file(self, names, file_path, layers):
         app_name = names.app_name
         model_name = names.model_name
         snake = names.model_snake
         objects_name = names.route
+        dto_tree, repository_tree, layer_components = readme_layer_blocks(names, layers)
         content = f"""# {model_name} App
 
 This app provides functionality for managing {objects_name}. The API is
@@ -408,7 +449,7 @@ mounted at `/api/{objects_name}/`.
 ├── controllers/          # API controllers/endpoints
 │   ├── __init__.py       # Imports all controllers
 │   └── {snake}_controller.py # {model_name}-related endpoints (JWTAuth)
-├── management/           # Django management commands
+{dto_tree}├── management/           # Django management commands
 │   ├── __init__.py
 │   └── commands/         # Custom management commands
 │       ├── __init__.py
@@ -417,7 +458,7 @@ mounted at `/api/{objects_name}/`.
 ├── models/               # Database models
 │   ├── __init__.py       # Imports all models
 │   └── {snake}.py        # {model_name} model
-├── schemas/              # API schemas/serializers
+{repository_tree}├── schemas/              # API schemas/serializers
 │   ├── __init__.py       # Imports all schemas
 │   └── {snake}_schema.py # {model_name}-related schemas
 ├── services/             # Business logic, scoped to the owner
@@ -453,7 +494,7 @@ in `api/settings/common.py`. To audit only a few models, set
 
 - `{model_name}Service`: Owner-scoped queries and writes. A request for another user's {snake} returns 404.
 
-### Schemas
+{layer_components}### Schemas
 
 - {model_name}-related schemas for serialization/deserialization
 

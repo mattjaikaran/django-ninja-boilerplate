@@ -61,6 +61,6 @@ class ChatGenerator(BaseGenerator):
         from .templates.chat_templates import CHAT_REALTIME_SERVICE_TEMPLATE
 
         self.create_file(
-            self.app_path / "services" / "realtime_service.py",
+            self.app_path / "services" / "chat_realtime_service.py",
             CHAT_REALTIME_SERVICE_TEMPLATE.format(app_name=self.app_name),
         )

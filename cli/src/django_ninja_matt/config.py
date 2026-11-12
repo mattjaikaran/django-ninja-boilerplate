@@ -5,6 +5,14 @@ from enum import Enum
 from pathlib import Path
 
 
+class AppLayers(str, Enum):
+    """Layer sets for generated apps and ``add-app --layers``."""
+
+    SERVICE = "service"
+    REPOSITORY = "repository"
+    DTO = "dto"
+
+
 class ProjectType(str, Enum):
     """Project type options."""
 

@@ -1,7 +1,11 @@
 """API endpoint generator for rapid CRUD development."""
 
+import subprocess
+import sys
+
 from .base_generator import BaseGenerator, GeneratorError
 from .codegen import ResourceNames
+from .templates.app_templates import DEFAULT_LAYERS
 
 
 class ApiEndpointGenerator(BaseGenerator):
@@ -11,6 +15,36 @@ class ApiEndpointGenerator(BaseGenerator):
     schemas, owner-scoped service, ``JWTAuth`` controller and tests). This
     generator creates that app and registers it in the project.
     """
+
+    def __init__(
+        self, app_name: str, minimal: bool = False, layers: str = DEFAULT_LAYERS
+    ) -> None:
+        """Store the app name, scaffold mode and layer set."""
+        super().__init__(app_name, minimal=minimal)
+        self.layers = layers
+
+    def create_django_app(self) -> None:
+        """Create the app with startapp_extended and the chosen layers."""
+        try:
+            subprocess.run(
+                [
+                    sys.executable,
+                    "manage.py",
+                    "startapp_extended",
+                    self.app_name,
+                    "--layers",
+                    self.layers,
+                ],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            self.logger.info("Successfully created Django app: %s", self.app_name)
+            self.created_app = True
+        except subprocess.CalledProcessError as e:
+            self.logger.exception("Failed to create Django app: %s", e.stderr)
+            msg = f"Failed to create Django app: {e.stderr}"
+            raise GeneratorError(msg) from e
 
     def generate(self) -> None:
         """Generate the API endpoint feature."""

@@ -6,6 +6,7 @@ import ast
 import keyword
 import logging
 import re
+import shutil
 import subprocess
 import sys
 from abc import ABC, abstractmethod
@@ -85,7 +86,8 @@ class BaseGenerator(ABC):
         Call it right after create_django_app(). It deletes the scaffold's
         model, schema, service, controller, admin, test, data command and
         README, and empties the package ``__init__.py`` files that export
-        them. The feature generator then writes its own files and exports.
+        them. It removes the repository and DTO packages. The feature
+        generator then writes its own files and exports.
         It does nothing when the app existed before this run.
         """
         if not self.created_app:
@@ -106,6 +108,10 @@ class BaseGenerator(ABC):
             (self.app_path / relative_path).unlink(missing_ok=True)
         for package in ("models", "schemas", "services", "controllers", "admin"):
             self.create_file(self.app_path / package / "__init__.py", PACKAGE_INIT)
+        for package in ("repositories", "dtos"):
+            package_dir = self.app_path / package
+            if package_dir.is_dir():
+                shutil.rmtree(package_dir)
 
     def create_file(
         self, file_path: Path, content: str, overwrite: bool = True

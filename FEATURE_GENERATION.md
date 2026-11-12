@@ -166,7 +166,7 @@ This creates messaging at `/api/conversations/*` and `/api/messages/*`, scoped
 to the conversations the user takes part in. It adds
 `CHAT_MESSAGE_MAX_LENGTH` and `CHAT_CONVERSATION_MAX_PARTICIPANTS` to the
 settings. `--realtime` also creates `ChatRealtimeService` in
-`<app>/services/realtime_service.py`, which publishes chat events to
+`<app>/services/chat_realtime_service.py`, which publishes chat events to
 Centrifugo (see `docs/REALTIME.md`).
 
 ### Analytics
@@ -195,6 +195,16 @@ uv run python manage.py generate_feature api_endpoint --app-name widgets
 This creates an owner-scoped CRUD resource from the `startapp_extended`
 templates: a `Widget` model, schemas, service and a `JWTAuth` controller at
 `/api/widgets/*`.
+
+Pass `--layers` to choose the layer set. The default is `repository`.
+
+- `repository`: The controller calls a service, the service calls a
+  repository, and the repository returns model instances. Creates
+  `repositories/`.
+- `service`: The controller calls a service that queries the models directly.
+  Creates no repository.
+- `dto`: The repository returns frozen dataclass DTOs, so the service and the
+  controller never see model instances. Creates `repositories/` and `dtos/`.
 
 ### Engine
 
@@ -243,6 +253,7 @@ Install the dependencies first with `uv sync --extra graphql`. See the main
 | `--minimal` | `organization` | Set `ORGANIZATION_MAX_MEMBERS` to 100 instead of 1000 |
 | `--realtime` | `chat` | Add `ChatRealtimeService` for Centrifugo |
 | `--modules a,b` | `engine` | Module names, comma-separated. Defaults to one module named after the engine |
+| `--layers service\|repository\|dto` | `api_endpoint` | Layer set for the generated app. Default: `repository` |
 
 Other generators accept `--minimal` and `--platform-type` but ignore them.
 

@@ -16,6 +16,7 @@ FIX_HINTS: dict[str, str] = {
     "DEPENDENCIES": "Add an entry to DEPENDENCIES.md for the pyproject.toml change.",
     "DRIFT": "Run `just check-drift`; align the versions it lists.",
     "ARCHITECTURE": "Run `just check-arch`; move the import to the right layer.",
+    "APP-SHAPE": "Run `just check-app-shape`; the rule it names gives the fix.",
     "OPENAPI": "Run `just openapi` and commit docs/openapi/openapi.json.",
     "SCHEMA-PARITY": "Use camelCase aliases and typed fields in the schema it names.",
     "FILELENGTH": "Split the file it names; do not raise the cap.",

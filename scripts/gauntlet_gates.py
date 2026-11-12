@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import subprocess
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 # Test settings without the developer's .env (api/settings/common.py reads it
 # unless DJANGO_READ_DOT_ENV=0), so gate results match on every machine.
@@ -49,3 +50,23 @@ def changed_files() -> set[str]:
 def generator_changes() -> list[str]:
     """Changed files under GENERATOR_PATHS, sorted."""
     return sorted(name for name in changed_files() if name.startswith(GENERATOR_PATHS))
+
+
+class StaticGates:
+    """Gates that run one checker script. GauntletRunner inherits them."""
+
+    if TYPE_CHECKING:
+
+        def run_gate(self, name: str, cmd: list[str]) -> GateResult: ...
+
+    def _gate_architecture(self) -> GateResult:
+        return self.run_gate(
+            "ARCHITECTURE",
+            ["uv", "run", "python", "scripts/check_architecture.py", "--all"],
+        )
+
+    def _gate_app_shape(self) -> GateResult:
+        return self.run_gate(
+            "APP-SHAPE",
+            ["uv", "run", "python", "scripts/check_app_shape.py", "--all"],
+        )

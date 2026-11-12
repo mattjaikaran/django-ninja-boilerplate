@@ -8,6 +8,7 @@ from typing import Any
 from django.core.management.base import BaseCommand, CommandError
 
 from .generators.base_generator import BaseGenerator
+from .generators.templates.app_templates import APP_LAYERS, DEFAULT_LAYERS
 
 # Feature type -> (module in .generators, generator class).
 GENERATORS = {
@@ -113,6 +114,12 @@ class Command(BaseCommand):
                 "Defaults to one module named after the engine"
             ),
         )
+        parser.add_argument(
+            "--layers",
+            choices=APP_LAYERS,
+            default=DEFAULT_LAYERS,
+            help="API endpoint: service, repository (default) or dto layers",
+        )
 
     def handle(self, *args: Any, **options: Any) -> None:
         """Handle the command execution."""
@@ -169,5 +176,7 @@ class Command(BaseCommand):
             kwargs["realtime"] = options["realtime"]
         if feature_type == "engine":
             kwargs["modules"] = _parse_modules(options["modules"])
+        if feature_type == "api_endpoint":
+            kwargs["layers"] = options["layers"]
         generator: BaseGenerator = getattr(module, class_name)(**kwargs)
         return generator

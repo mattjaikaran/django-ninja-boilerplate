@@ -63,6 +63,18 @@ EXTRA_ARGS: dict[str, tuple[str, ...]] = {
     "chat": ("--realtime",),
     "engine": ("--app-name", "booking", "--modules", "artists,tours"),
 }
+# Extra runs, keyed by run name. Each runs one feature with its own flags and
+# app, such as the --layers variants of api_endpoint.
+EXTRA_RUNS: dict[str, tuple[str, tuple[str, ...]]] = {
+    "api_endpoint_service": (
+        "api_endpoint",
+        ("--app-name", "gizmos", "--layers", "service"),
+    ),
+    "api_endpoint_dto": (
+        "api_endpoint",
+        ("--app-name", "doodads", "--layers", "dto"),
+    ),
+}
 # Features whose app lives in a directory. The app is "<dir>/<app-name>".
 APP_DIRS = {"engine": "engines"}
 
@@ -102,6 +114,9 @@ def derive_generators() -> tuple[Generator, ...]:
         if name in APP_DIRS:
             app = f"{APP_DIRS[name]}/{app}"
         gens.append(Generator(name, ("generate_feature", name, *extra), app))
+    for run_name, (feature, extra) in EXTRA_RUNS.items():
+        argv = ("generate_feature", feature, *extra)
+        gens.append(Generator(run_name, argv, _app_name(extra, run_name)))
     gens.append(
         Generator(
             "startapp_extended", ("startapp_extended", "gadget"), "gadget", wired=False
@@ -257,6 +272,13 @@ def _run_checks(
             worktree,
         )
     )
+    # Generated apps must match the reference layout and layer rules.
+    for name, script in (
+        ("app-shape", "scripts/check_app_shape.py"),
+        ("architecture", "scripts/check_architecture.py"),
+    ):
+        argv = [py, script] + (["--all"] if name == "architecture" else [])
+        results.append(_run_step(name, argv, worktree))
 
     changed = _changed_files(worktree)
     if inject_failure:
