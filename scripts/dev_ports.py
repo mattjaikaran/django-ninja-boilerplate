@@ -2,12 +2,12 @@
 """Find free host ports for the dev Compose stack.
 
 The dev services publish host ports in the form ``${VAR:-default}`` in
-``docker-compose.yml`` (``POSTGRES_PORT``, ``VALKEY_PORT``, ``DJANGO_PORT``).
-This script reads those ports for the selected profiles, takes each value from
-the environment, then ``.env``, then the Compose default, and tries to bind it.
-A port that a running container of this Compose project publishes counts as
-free, so a running stack keeps its ports. For each busy port it picks the next
-free port upward.
+``docker-compose.yml`` (``POSTGRES_PORT``, ``VALKEY_PORT``, ``DJANGO_PORT``, and
+more). This script reads those ports for the selected profiles, takes each
+value from the environment, then ``.env``, then the Compose default, and tries
+to bind it. A port that a running container of this Compose project publishes
+counts as free, so a running stack keeps its ports. For each busy port it picks
+the next free port upward.
 
 ``--check`` prints a report and exits 1 when a port is busy. ``--env`` prints
 only ``VAR=port`` lines for the busy ports, for ``export $(...)``. ``--port
@@ -67,8 +67,10 @@ class Result(NamedTuple):
         return self.free_port != self.port
 
 
-def parse_compose(text: str, profiles: set[str]) -> list[PortVar]:
+def parse_compose(text: str, profiles: set[str] | None) -> list[PortVar]:
     """Return the ``${VAR:-default}`` host ports of services in ``profiles``.
+
+    ``profiles=None`` returns the ports of every service, whatever its profile.
 
     Reads the two-space service layout of ``docker-compose.yml`` line by line,
     so no YAML library is needed.
@@ -104,7 +106,7 @@ def parse_compose(text: str, profiles: set[str]) -> list[PortVar]:
     result: list[PortVar] = []
     seen: set[str] = set()
     for service_profiles, ports in found.values():
-        if not service_profiles & profiles:
+        if profiles is not None and not service_profiles & profiles:
             continue
         for var in ports:
             if var.name not in seen:

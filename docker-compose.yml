@@ -245,7 +245,7 @@ services:
     # Pinned to 127.0.0.1, not DEV_BIND_ADDRESS: this service keeps known
     # development credentials (see below).
     ports:
-      - "127.0.0.1:8800:8000"
+      - "127.0.0.1:${CENTRIFUGO_PORT:-8800}:8000"
     environment:
       # Centrifugo does NOT expand ${...} in its config file; it only reads
       # env vars whose names match its own config keys. So the hmac key must
@@ -633,16 +633,16 @@ services:
   jaeger:
     image: jaegertracing/all-in-one:1.53
     ports:
-      - "${DEV_BIND_ADDRESS:-127.0.0.1}:6831:6831/udp" # Jaeger thrift compact protocol
-      - "${DEV_BIND_ADDRESS:-127.0.0.1}:6832:6832/udp" # Jaeger thrift binary protocol
-      - "${DEV_BIND_ADDRESS:-127.0.0.1}:5778:5778" # Agent serve configs
-      - "${DEV_BIND_ADDRESS:-127.0.0.1}:16686:16686" # Jaeger UI
-      - "${DEV_BIND_ADDRESS:-127.0.0.1}:4317:4317" # OTLP gRPC receiver
-      - "${DEV_BIND_ADDRESS:-127.0.0.1}:4318:4318" # OTLP HTTP receiver
-      - "${DEV_BIND_ADDRESS:-127.0.0.1}:14250:14250" # Jaeger gRPC collector
-      - "${DEV_BIND_ADDRESS:-127.0.0.1}:14268:14268" # Jaeger HTTP collector
-      - "${DEV_BIND_ADDRESS:-127.0.0.1}:14269:14269" # Admin port (health check)
-      - "${DEV_BIND_ADDRESS:-127.0.0.1}:9411:9411" # Zipkin compatible endpoint
+      - "${DEV_BIND_ADDRESS:-127.0.0.1}:${JAEGER_THRIFT_COMPACT_PORT:-6831}:6831/udp" # Jaeger thrift compact protocol
+      - "${DEV_BIND_ADDRESS:-127.0.0.1}:${JAEGER_THRIFT_BINARY_PORT:-6832}:6832/udp" # Jaeger thrift binary protocol
+      - "${DEV_BIND_ADDRESS:-127.0.0.1}:${JAEGER_AGENT_CONFIG_PORT:-5778}:5778" # Agent serve configs
+      - "${DEV_BIND_ADDRESS:-127.0.0.1}:${JAEGER_UI_PORT:-16686}:16686" # Jaeger UI
+      - "${DEV_BIND_ADDRESS:-127.0.0.1}:${JAEGER_OTLP_GRPC_PORT:-4317}:4317" # OTLP gRPC receiver
+      - "${DEV_BIND_ADDRESS:-127.0.0.1}:${JAEGER_OTLP_HTTP_PORT:-4318}:4318" # OTLP HTTP receiver
+      - "${DEV_BIND_ADDRESS:-127.0.0.1}:${JAEGER_GRPC_COLLECTOR_PORT:-14250}:14250" # Jaeger gRPC collector
+      - "${DEV_BIND_ADDRESS:-127.0.0.1}:${JAEGER_HTTP_COLLECTOR_PORT:-14268}:14268" # Jaeger HTTP collector
+      - "${DEV_BIND_ADDRESS:-127.0.0.1}:${JAEGER_ADMIN_PORT:-14269}:14269" # Admin port (health check)
+      - "${DEV_BIND_ADDRESS:-127.0.0.1}:${ZIPKIN_PORT:-9411}:9411" # Zipkin compatible endpoint
     environment:
       - COLLECTOR_OTLP_ENABLED=true
       - LOG_LEVEL=info
@@ -752,7 +752,7 @@ services:
     ports:
       # Hard-coded loopback, deliberately not DEV_BIND_ADDRESS: never publish
       # this port on another interface.
-      - "127.0.0.1:8001:8001"
+      - "127.0.0.1:${MCP_PORT:-8001}:8001"
     environment:
       - DJANGO_SETTINGS_MODULE=api.settings.dev
       - PYTHONPATH=/app
@@ -797,8 +797,8 @@ services:
     profiles:
       - mail
     ports:
-      - "${DEV_BIND_ADDRESS:-127.0.0.1}:1025:1025"
-      - "${DEV_BIND_ADDRESS:-127.0.0.1}:8025:8025"
+      - "${DEV_BIND_ADDRESS:-127.0.0.1}:${MAILHOG_SMTP_PORT:-1025}:1025"
+      - "${DEV_BIND_ADDRESS:-127.0.0.1}:${MAILHOG_UI_PORT:-8025}:8025"
     networks:
       - app-network
 
@@ -813,8 +813,8 @@ services:
     profiles:
       - ai
     ports:
-      - "${DEV_BIND_ADDRESS:-127.0.0.1}:6333:6333" # HTTP API and dashboard
-      - "${DEV_BIND_ADDRESS:-127.0.0.1}:6334:6334" # gRPC
+      - "${DEV_BIND_ADDRESS:-127.0.0.1}:${QDRANT_HTTP_PORT:-6333}:6333" # HTTP API and dashboard
+      - "${DEV_BIND_ADDRESS:-127.0.0.1}:${QDRANT_GRPC_PORT:-6334}:6334" # gRPC
     volumes:
       - qdrant_data:/qdrant/storage
     networks:
@@ -838,8 +838,8 @@ services:
       # generates NEO4J_PASSWORD; the data volume keeps the first one.
       - NEO4J_AUTH=neo4j/${NEO4J_PASSWORD:?NEO4J_PASSWORD must be set, run just setup-env}
     ports:
-      - "127.0.0.1:7474:7474" # Browser
-      - "127.0.0.1:7687:7687" # Bolt
+      - "127.0.0.1:${NEO4J_HTTP_PORT:-7474}:7474" # Browser
+      - "127.0.0.1:${NEO4J_BOLT_PORT:-7687}:7687" # Bolt
     volumes:
       - neo4j_data:/data
     networks:

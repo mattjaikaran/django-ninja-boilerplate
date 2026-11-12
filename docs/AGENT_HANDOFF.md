@@ -125,6 +125,11 @@ Remove the worktree after the PR merges:
 git -C ~/src/<repo> worktree remove ~/worktrees/<repo>/T-001
 ```
 
+To run a Compose dev stack in a worktree, use `just wt-new <branch>` instead
+of `git worktree add`. It gives the worktree its own Compose project and host
+ports, so two stacks can run at once. Remove it with `just wt-rm <branch>`,
+not `git worktree remove`. See [WORKTREES.md](WORKTREES.md).
+
 ## Overnight loop (self-hosted fallback)
 
 This loop is the ticket-worker fallback, not the canonical agent-run path.
