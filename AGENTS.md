@@ -50,12 +50,12 @@ Do not delegate the top-level plan.
   so any pytest run gives the same result on every machine.
 - Start with `just doctor`: it checks tools, Docker, `.env`, secrets, the
   venv, hooks, worktrees, ports, services, migrations and OpenAPI, repairs
-  what is safe (`--check` diagnoses only), then run `just agent-status`.
+  what is safe (`--check` diagnoses only), then run `just agent-start`.
 - `.env` targets host services (`DB_HOST=127.0.0.1`), `.env.development` the
   Compose `db` service; `just doctor` warns when they disagree.
 - Ports: django 8000, mcp 8001, mailhog 8025, centrifugo 8800, flower 5555;
-  Compose Postgres 5433, Valkey 6380. `just dev` moves a busy port and prints
-  it (`just check-ports` previews); dev binds `127.0.0.1` (`DEV_BIND_ADDRESS`).
+  Compose Postgres 5433, Valkey 6380; `just dev` moves busy ports. Parallel
+  stacks: `just wt-new <branch>` (`docs/WORKTREES.md`); bind `127.0.0.1`.
 - Preview secrets with `python3 scripts/env_secrets.py fill --dry-run` before
   `just setup-env`.
 

@@ -25,19 +25,28 @@ jobs:
         id: get_version
         run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
 
-      - name: Generate changelog
+      - name: Release notes from CHANGELOG.md
         id: changelog
+        env:
+          VERSION: ${{ steps.get_version.outputs.VERSION }}
+          BLOB: https://github.com/${{ github.repository }}/blob/${{ github.ref_name }}
         run: |
-          # Get commits since last tag
-          LAST_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
-          if [ -n "$LAST_TAG" ]; then
-            CHANGELOG=$(git log --pretty=format:"- %s" $LAST_TAG..HEAD)
-          else
-            CHANGELOG=$(git log --pretty=format:"- %s")
+          # The release body is the version's CHANGELOG.md section, not a
+          # commit list. Relative links point at the tagged files.
+          NOTES=$(awk -v v="$VERSION" '
+            $0 ~ "^## \\[" v "\\]" { f = 1; next }
+            f && /^## \[/ { exit }
+            f { print }
+          ' CHANGELOG.md | sed -E "s#\]\((docs/|UPGRADING\.md|FEATURE_GENERATION\.md)#](${BLOB}/\1#g")
+          if [ -z "$NOTES" ]; then
+            echo "CHANGELOG.md has no section for $VERSION" >&2
+            exit 1
           fi
-          echo "CHANGELOG<<EOF" >> $GITHUB_OUTPUT
-          echo "$CHANGELOG" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+          {
+            echo "NOTES<<EOF"
+            echo "$NOTES"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v3
@@ -45,9 +54,7 @@ jobs:
           tag_name: ${{ github.ref }}
           name: Release ${{ steps.get_version.outputs.VERSION }}
           body: |
-            ## Changes in this Release
-
-            ${{ steps.changelog.outputs.CHANGELOG }}
+            ${{ steps.changelog.outputs.NOTES }}
 
             ## Installation
 
