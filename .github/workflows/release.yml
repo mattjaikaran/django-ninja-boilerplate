@@ -37,7 +37,7 @@ jobs:
             $0 ~ "^## \\[" v "\\]" { f = 1; next }
             f && /^## \[/ { exit }
             f { print }
-          ' CHANGELOG.md | sed -E "s#\]\((docs/|UPGRADING\.md|FEATURE_GENERATION\.md)#](${BLOB}/\1#g")
+          ' CHANGELOG.md | sed -E "s#\]\((\./)?([^)h#][^)]*)\)#](${BLOB}/\2)#g")
           if [ -z "$NOTES" ]; then
             echo "CHANGELOG.md has no section for $VERSION" >&2
             exit 1
