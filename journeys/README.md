@@ -3,12 +3,15 @@
 The `journeys` app shows how far each user journey is tested. Open it at
 **Admin, Monitoring, User Journeys** (`/admin/journeys/`).
 
-The page opens with one table row per journey: its status, the backend smoke
-test and the Playwright browser test (each marked found or missing, with the
-last Playwright result), the API endpoints it uses, and links. Below the table,
-a collapsed **Feature spec sync** section shows the features, the journey steps,
-and the sync findings. A journey that has a file in `docs/product/journeys/`
-also has a step page at `/admin/journeys/J-NNN/`.
+The index page shows one card for each journey. The summary counts the
+journeys per status and shows how many have both a backend and a browser
+test. Each card shows its status, its step progress, the test files it
+finds, and its endpoints. Use the search box to filter by ID, title, surface,
+story, or endpoint. Use the status chips to show one status only.
+
+A journey with a file in `docs/product/journeys/` also has a detail page at
+`/admin/journeys/J-NNN/`. A collapsed **Feature spec sync** section on the
+index shows the features, the journey steps, and the sync findings.
 
 ## The journey table
 
@@ -33,6 +36,24 @@ Status comes from the files, not from a field you set:
 The table is read-only. It is not a sync rule, so the JOURNEYS gate ignores
 it.
 
+## The detail page
+
+The detail page shows the steps as a connected flow. Each node color shows the
+evidence state of its step:
+
+| Color | State | Meaning |
+| ----- | ----- | ------- |
+| Green | Verified | The step passed in the last report. |
+| Red | Failing | The last report shows a failing test, and no known issue covers it. |
+| Amber | Known issue | A `known_issues` entry covers a step that did not pass. |
+| Blue | Not run | A test covers the step, but the last report has no result for it. |
+| Grey | No test | No test covers the step. |
+
+Expand a step to see its story, its acceptance criteria, its linked features
+(F-NNN), and its test evidence. Use **Expand all** and **Collapse all** to
+change every step at once. A link with a step ID in the fragment, such as
+`#J-001-S2`, opens that step.
+
 ## What it reads
 
 - `docs/product/FEATURES.md` and `docs/product/journeys/*.md`. The format and
@@ -55,7 +76,9 @@ the production image does not include `docs/`.
   files it names.
 - `services/e2e_evidence.py` reads test tags and Playwright results.
 - `services/spec_models.py` holds the paths and the data classes.
-- `views.py` renders two staff-only pages. No inline script or style.
+- `views.py` renders two staff-only pages. The pages load
+  `static/journeys/journeys.js` and `journeys.css`. They use no inline script
+  or style, so the production CSP holds.
 
 The services import no Django, so `scripts/check_journeys.py` (the JOURNEYS
 gate) runs the same rules without settings:

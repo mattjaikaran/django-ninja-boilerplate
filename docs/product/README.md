@@ -165,10 +165,12 @@ uv run python scripts/check_journeys.py --json   # full report as JSON
 ```
 
 Staff can open the same report at `/admin/journeys/` (Admin, Monitoring,
-User Journeys). The page starts with a table of every journey in
-`journeys.md` (status, smoke test, Playwright spec, endpoints). The sync
-report is in the collapsed "Feature spec sync" section. See
-`journeys/README.md`.
+User Journeys). The index shows a card for each journey in `journeys.md`,
+with its status, step progress, and test files. Staff can search the cards
+and filter them by status. A journey with a file in `docs/product/journeys/`
+has a detail page at `/admin/journeys/<id>/`. That page shows the steps as a
+connected flow, colored by evidence state. The sync report is in the
+collapsed "Feature spec sync" section. See `journeys/README.md`.
 
 ## Sync loop for agents
 

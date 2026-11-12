@@ -5,6 +5,10 @@
   <link rel="stylesheet" href="{% static 'journeys/journeys.css' %}">
 {% endblock %}
 
+{% block extrahead %}
+  <script src="{% static 'journeys/journeys.js' %}" defer></script>
+{% endblock %}
+
 {% block content %}
   <div class="flex flex-col gap-6">
     {# ── Header ──────────────────────────────────────────────────── #}
@@ -49,67 +53,84 @@
       </div>
     {% endif %}
 
-    {# ── Steps in order ──────────────────────────────────────────── #}
-    {% for row in steps %}
-      {% with step=row.step %}
-        <div class="bg-white border border-base-200 p-6 rounded-default shadow-xs dark:bg-base-900 dark:border-base-800">
-          <div class="flex items-center justify-between gap-2 mb-2">
-            <h3 class="font-medium text-important"><span class="jr-mono">{{ step.id }}</span> {{ step.title }}</h3>
-            <span class="jr-chip jr-chip--{{ step.state }}">{{ step.state }}</span>
-          </div>
-          {% if step.story %}<p class="text-sm text-base-600 dark:text-base-300 mb-3">{{ step.story }}</p>{% endif %}
-          <dl class="grid grid-cols-1 gap-3 text-sm md:grid-cols-2">
-            <div>
-              <dt class="text-base-400">Features</dt>
-              <dd>
-                {% for feature_id, feature_title in row.features %}
-                  <div><span class="jr-mono">{{ feature_id }}</span> {{ feature_title }}</div>
-                {% empty %}<span class="text-base-400">none</span>{% endfor %}
-              </dd>
-            </div>
-            <div>
-              <dt class="text-base-400">Acceptance</dt>
-              <dd>
-                <ul class="jr-list">
-                  {% for criterion in step.acceptance %}<li>{{ criterion }}</li>{% empty %}<li>none listed</li>{% endfor %}
-                </ul>
-              </dd>
-            </div>
-            <div>
-              <dt class="text-base-400">Playwright step</dt>
-              <dd class="jr-mono">test.step('{{ step.tag }}: ...')</dd>
-            </div>
-            <div>
-              <dt class="text-base-400">Spec files</dt>
-              <dd class="jr-mono">
-                {% for file in step.spec_files %}<div>{{ file }}</div>{% empty %}<span class="text-base-400">none</span>{% endfor %}
-              </dd>
-            </div>
-            {% if step.failing_tests %}
-              <div>
-                <dt class="text-base-400">Failing tests</dt>
-                <dd class="jr-mono">{% for title in step.failing_tests %}<div>{{ title }}</div>{% endfor %}</dd>
+    {# ── Steps as a connected flow, one expandable node per step ── #}
+    <div class="jr-flow-head">
+      <h2 class="font-semibold text-important">Steps</h2>
+      <div class="jr-flow-actions">
+        <button type="button" class="jr-btn" data-expand="open">Expand all</button>
+        <button type="button" class="jr-btn" data-expand="close">Collapse all</button>
+      </div>
+    </div>
+    <ol class="jr-flow" aria-label="Journey steps in order">
+      {% for row in steps %}
+        {% with step=row.step %}
+          <li class="jr-flow-item jr-flow-item--{{ step.state }}" id="{{ step.tag }}">
+            <span class="jr-node jr-node--{{ step.state }}" aria-hidden="true">{{ forloop.counter }}</span>
+            <details class="jr-step">
+              <summary class="jr-step-summary">
+                <span class="jr-mono jr-step-id">{{ step.id }}</span>
+                <span class="jr-step-title">{{ step.title }}</span>
+                <span class="jr-chip jr-chip--{{ step.state }}">{{ row.label }}</span>
+              </summary>
+              <div class="jr-step-body">
+                {% if step.story %}<p class="jr-step-story">{{ step.story }}</p>{% endif %}
+                <div class="jr-step-grid">
+                  <section>
+                    <h4>Acceptance</h4>
+                    <ul class="jr-list">
+                      {% for criterion in step.acceptance %}<li>{{ criterion }}</li>{% empty %}<li>None listed.</li>{% endfor %}
+                    </ul>
+                  </section>
+                  <section>
+                    <h4>Linked features</h4>
+                    <ul class="jr-features">
+                      {% for feature_id, feature_title in row.features %}
+                        <li><span class="jr-mono">{{ feature_id }}</span> {{ feature_title }}</li>
+                      {% empty %}<li>None linked.</li>{% endfor %}
+                    </ul>
+                  </section>
+                  <section class="jr-evidence">
+                    <h4>Test evidence</h4>
+                    <dl>
+                      <div>
+                        <dt>Smoke test</dt>
+                        <dd>
+                          {% for file in evidence.smoke_tests %}
+                            <code class="jr-path jr-path--{% if file.exists %}ok{% else %}missing{% endif %}">{{ file.path }}</code>
+                          {% empty %}<span class="jr-state jr-state--missing">{% if evidence %}none planned{% else %}not in journeys.md{% endif %}</span>{% endfor %}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt>Playwright tag</dt>
+                        <dd><code class="jr-path">@{{ journey.id }} {{ step.tag }}</code></dd>
+                      </div>
+                      <div>
+                        <dt>Spec files</dt>
+                        <dd>
+                          {% for file in step.spec_files %}<code class="jr-path">{{ file }}</code>{% empty %}<span class="jr-state jr-state--missing">none found</span>{% endfor %}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt>Last report</dt>
+                        <dd>
+                          {% if report_found %}<span class="jr-chip jr-chip--{{ step.state }}">{{ row.label }}</span>{% else %}<span class="jr-state jr-state--missing">no report file</span>{% endif %}
+                          {% for title in step.passing_tests %}<div class="jr-mono jr-result jr-result--passed">{{ title }}</div>{% endfor %}
+                          {% for title in step.failing_tests %}<div class="jr-mono jr-result jr-result--failed">{{ title }}</div>{% endfor %}
+                        </dd>
+                      </div>
+                    </dl>
+                  </section>
+                </div>
+                {% if step.known_issue %}
+                  <p class="jr-missing"><span>Known issue:</span> <span class="jr-mono">{{ step.known_issue.ticket }}</span> {{ step.known_issue.note }}</p>
+                {% endif %}
+                <p class="jr-missing"><span>What is missing:</span> {{ step.missing }}</p>
               </div>
-            {% endif %}
-            {% if step.passing_tests %}
-              <div>
-                <dt class="text-base-400">Passing tests</dt>
-                <dd class="jr-mono">{% for title in step.passing_tests %}<div>{{ title }}</div>{% endfor %}</dd>
-              </div>
-            {% endif %}
-            {% if step.known_issue %}
-              <div>
-                <dt class="text-base-400">Known issue</dt>
-                <dd><span class="jr-mono">{{ step.known_issue.ticket }}</span> {{ step.known_issue.note }}</dd>
-              </div>
-            {% endif %}
-          </dl>
-          <p class="text-sm mt-3 pt-3 border-t border-base-100 dark:border-base-800">
-            <span class="font-medium text-important">What is missing:</span> {{ step.missing }}
-          </p>
-        </div>
-      {% endwith %}
-    {% endfor %}
+            </details>
+          </li>
+        {% endwith %}
+      {% endfor %}
+    </ol>
 
     {# ── Journey prose ───────────────────────────────────────────── #}
     {% if body_blocks %}

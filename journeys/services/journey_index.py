@@ -70,6 +70,9 @@ class IndexedJourney:
     spec_status: str = ""
     # Set by the view when the feature spec has a journey with this ID.
     detail_url: str = ""
+    # Set by the view from the feature spec: steps in the journey and steps verified.
+    step_total: int = 0
+    step_verified: int = 0
 
     @property
     def status_label(self) -> str:

@@ -24,9 +24,21 @@ from django.views.decorators.http import require_GET
 
 from journeys.services import Issue, Journey, SyncReport, build_report, spec_paths
 from journeys.services.e2e_evidence import load_results
-from journeys.services.journey_index import STATUS_ORDER, JourneyIndex, build_index
+from journeys.services.journey_index import (
+    TESTED,
+    JourneyIndex,
+    build_index,
+)
 
 STEP_STATES = ("verified", "documented", "failing", "no_result", "no_spec")
+
+STEP_LABELS = {
+    "verified": "Verified",
+    "documented": "Known issue",
+    "failing": "Failing",
+    "no_result": "Not run",
+    "no_spec": "No test",
+}
 
 
 def _report() -> SyncReport:
@@ -43,8 +55,12 @@ def _index(report: SyncReport) -> JourneyIndex:
         statuses,
     )
     for journey in index.journeys:
-        if journey.id in statuses:
-            journey.detail_url = reverse("journey_detail", args=[journey.id])
+        spec = report.journey(journey.id)
+        if spec is None:
+            continue
+        journey.detail_url = reverse("journey_detail", args=[journey.id])
+        journey.step_total = len(spec.steps)
+        journey.step_verified = spec.verified_steps
     return index
 
 
@@ -110,6 +126,9 @@ def journeys_admin_view(request: HttpRequest) -> HttpResponse:
         for feature in report.features
     ]
     index = _index(report)
+    total = len(index.journeys)
+    tested_count = sum(1 for j in index.journeys if j.status == TESTED)
+    tested_percent = round(100 * tested_count / total) if total else 0
     # Both settings belong to this boilerplate, not Django. A backend that
     # adopts this module only sets JOURNEYS_ENABLED, so read them by default.
     api_docs_url = getattr(settings, "ADMIN_SITE_URL", "")
@@ -125,8 +144,10 @@ def journeys_admin_view(request: HttpRequest) -> HttpResponse:
                 (state, step_counts.get(state, 0)) for state in STEP_STATES
             ],
             "path_rows": _path_rows(report, index),
-            "bar_order": list(STATUS_ORDER),
             "index": index,
+            "tested_count": tested_count,
+            "journey_total": total,
+            "tested_percent": tested_percent,
             "api_docs_enabled": bool(api_docs_url)
             and getattr(settings, "API_DOCS", "off") != "off",
             "api_docs_url": api_docs_url,
@@ -146,9 +167,11 @@ def journey_detail_view(request: HttpRequest, journey_id: str) -> HttpResponse:
     if journey is None:
         raise Http404(f"No journey {journey_id}")
     titles = {feature.id: feature.title for feature in report.features}
+    indexed = next((j for j in _index(report).journeys if j.id == journey_id), None)
     steps = [
         {
             "step": step,
+            "label": STEP_LABELS.get(step.state, step.state),
             "features": [(fid, titles.get(fid, "unknown")) for fid in step.features],
         }
         for step in journey.steps
@@ -162,6 +185,8 @@ def journey_detail_view(request: HttpRequest, journey_id: str) -> HttpResponse:
             "issues": _journey_issues(report, journey),
             "body_blocks": _body_blocks(journey.body),
             "spec_dir": report.paths.spec_dir,
+            "evidence": indexed,
+            "report_found": report.paths.e2e_report.is_file(),
         }
     )
     return render(request, "journeys/journey_detail.html", context)

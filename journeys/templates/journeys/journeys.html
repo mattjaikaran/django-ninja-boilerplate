@@ -5,25 +5,29 @@
   <link rel="stylesheet" href="{% static 'journeys/journeys.css' %}">
 {% endblock %}
 
+{% block extrahead %}
+  <script src="{% static 'journeys/journeys.js' %}" defer></script>
+{% endblock %}
+
 {% block content %}
   <div class="flex flex-col gap-6">
     {# ── What this page is ───────────────────────────────────────── #}
     <div class="bg-white border border-base-200 p-6 rounded-default shadow-xs dark:bg-base-900 dark:border-base-800">
       <h2 class="font-semibold text-important mb-1">What this page shows</h2>
       <p class="text-sm text-base-500 dark:text-base-400">
-        A journey is one thing a user does from start to finish. For each journey this page shows whether a
-        backend smoke test and a Playwright browser test exist, and which API endpoints it uses.
-        Edit the list in <span class="jr-mono">{{ index.path }}</span>.
+        A journey is one thing a user does from start to finish. For each journey this page shows its steps,
+        whether a backend smoke test and a Playwright browser test exist, and which API endpoints it uses.
+        Search the list or pick a status to narrow it. Edit the list in <span class="jr-mono">{{ index.path }}</span>.
         {% if api_docs_enabled %}<a class="text-primary-600 dark:text-primary-500" href="{{ api_docs_url }}">Open the API reference</a>.{% endif %}
       </p>
     </div>
 
     {% if index.found %}
-      {# ── Summary header: counts by status ────────────────────────── #}
+      {# ── Summary header: counts by status and overall progress ───── #}
       <section class="jr-summary" aria-label="Journey status summary">
         <div class="jr-stat jr-stat--total">
           <span class="jr-stat-label">All journeys</span>
-          <span class="jr-stat-value">{{ index.journeys|length }}</span>
+          <span class="jr-stat-value">{{ journey_total }}</span>
         </div>
         {% for status, label, count in index.counts %}
           <div class="jr-stat jr-stat--{{ status }}">
@@ -31,17 +35,37 @@
             <span class="jr-stat-value">{{ count }}</span>
           </div>
         {% endfor %}
-        {% if index.journeys %}
-          <div class="jr-bar" role="img" aria-label="Share of journeys by status">
-            {% for status in bar_order %}{% for journey in index.journeys %}{% if journey.status == status %}<span class="jr-bar-seg jr-bar-seg--{{ status }}" title="{{ journey.id }}: {{ journey.status_label }}"></span>{% endif %}{% endfor %}{% endfor %}
-          </div>
-        {% endif %}
       </section>
+
+      {% if journey_total %}
+        <div class="jr-progress">
+          <div class="jr-progress-head">
+            <span>Overall progress: journeys with both tests</span>
+            <span class="jr-progress-value">{{ tested_count }} of {{ journey_total }} ({{ tested_percent }}%)</span>
+          </div>
+          <progress class="jr-progress-bar" max="{{ journey_total }}" value="{{ tested_count }}" aria-label="Journeys with both tests">{{ tested_percent }}%</progress>
+        </div>
+      {% endif %}
+
+      {# ── Search and status filters ───────────────────────────────── #}
+      <section class="jr-toolbar" aria-label="Find journeys">
+        <label class="jr-search">
+          <span class="jr-sr-only">Search journeys</span>
+          <input type="search" id="jr-search" placeholder="Search by ID, title, story, or endpoint" autocomplete="off">
+        </label>
+        <div class="jr-filters" role="group" aria-label="Filter by status">
+          <button type="button" class="jr-filter" data-filter="all" aria-pressed="true">All <span class="jr-filter-count">{{ journey_total }}</span></button>
+          {% for status, label, count in index.counts %}
+            <button type="button" class="jr-filter jr-filter--{{ status }}" data-filter="{{ status }}" aria-pressed="false">{{ label }} <span class="jr-filter-count">{{ count }}</span></button>
+          {% endfor %}
+        </div>
+      </section>
+      <p class="jr-result-count" id="jr-count" aria-live="polite">Showing {{ journey_total }} of {{ journey_total }} journeys.</p>
 
       {# ── One card per journey ────────────────────────────────────── #}
       <section class="jr-grid" aria-label="Journeys">
         {% for journey in index.journeys %}
-          <article class="jr-card jr-card--{{ journey.status }}">
+          <article class="jr-card jr-card--{{ journey.status }}" data-status="{{ journey.status }}" data-search="{{ journey.id }} {{ journey.title }} {{ journey.surface }} {{ journey.stories|join:' ' }} {{ journey.endpoints|join:' ' }}">
             <header class="jr-card-head">
               <div class="jr-card-title">
                 <span class="jr-id">{{ journey.id }}</span>
@@ -55,6 +79,17 @@
 
             {% if journey.surface %}<p class="jr-desc">{{ journey.surface }}</p>{% endif %}
             {% if journey.stories %}<p class="jr-stories">{% for story in journey.stories %}<span class="jr-tag">{{ story }}</span>{% endfor %}</p>{% endif %}
+            {% if journey.step_total %}
+              <div class="jr-steps">
+                <div class="jr-steps-head">
+                  <span>Steps verified</span>
+                  <span class="jr-steps-value">{{ journey.step_verified }} of {{ journey.step_total }}</span>
+                </div>
+                <progress class="jr-steps-bar" max="{{ journey.step_total }}" value="{{ journey.step_verified }}" aria-label="Steps verified">{{ journey.step_verified }}</progress>
+              </div>
+            {% else %}
+              <p class="jr-note">No steps in the journey file.</p>
+            {% endif %}
 
             <dl class="jr-tests">
               <div class="jr-test">
@@ -112,6 +147,8 @@
           </article>
         {% endfor %}
       </section>
+
+      <p class="jr-empty" id="jr-empty" hidden>No journeys match the search or the status filter.</p>
     {% else %}
       <div class="bg-white border border-base-200 p-6 rounded-default shadow-xs dark:bg-base-900 dark:border-base-800">
         <h2 class="font-semibold text-important mb-1">No journey list found</h2>
