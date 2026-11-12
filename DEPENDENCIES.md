@@ -53,43 +53,46 @@ without a matching entry here.
 ## Supported Django versions
 
 `Django>=5.2,<6`. **5.2 LTS** is the only supported version. Django 6 is
-tracked, not supported: run it by hand with `just test-django6`, which layers
-Django 6.0 over the project environment with `uv run --with` (the main `.venv`
-keeps 5.2) and runs the suite. It is not a gauntlet gate.
+tracked, not supported. Decide when to move with the upgrade check:
 
-### Django 6.0: blocked on declared support
+```bash
+just django-upgrade-check 6.0            # or 6.1; add --json or --run-tests
+```
 
-Measured 2026-10-05 with `just test-django6`: Django 6.0.8 with the locked
-versions below passed the whole suite (229 tests) on SQLite and on PostgreSQL.
-No package forbids 6.0 in its requirements. The blockers are packages that do
-not declare 6.0 support, so a 6.0 break in them is not a bug they promise to
-fix.
+The check uses the 5.2 environment and reports one verdict per target:
 
-Checked against PyPI metadata (`Requires-Dist` and `Framework :: Django ::`
-classifiers) on 2026-10-05:
+- **BLOCKED** (exit 1): a dependency cannot install with the target, or the
+  first-party code uses a feature the target removes. Each blocker has an
+  `Alternative:` line.
+- **SAFE WITH WARNINGS** (exit 2): nothing blocks, but a locked package does
+  not declare target support, or `django-upgrade` would rewrite a file for the
+  target.
+- **SAFE** (exit 0): no findings. Run `--run-tests` before you upgrade.
+- Exit 3: unsupported target, or the environment is already on the target.
 
-| Package | Locked | Latest | Declared Django versions (latest) | 6.0 status |
-|---|---|---|---|---|
-| `django-ninja-jwt` | 5.4.4 | 5.4.5 | up to 4.1 | Blocker: no 5.x or 6.x classifier |
-| `django-csp` | 4.0 | 4.0 | up to 5.2 | Blocker |
-| `django-import-export` | 4.3.9 | 4.4.1 | up to 5.2 | Blocker (no 5.x release exists) |
-| `django-storages` | 1.14.6 | 1.14.6 | up to 5.1 | Blocker |
-| `django-ninja-extra` | 0.31.4 | 0.31.7 | 6.0 | Clears with a lock upgrade (0.31.4 declares up to 5.0) |
-| `django-unfold` | 0.66.0 | 0.108.0 | 5.2, 6.0, 6.1 | Clears with a lock upgrade (0.66.0 has no classifiers) |
-| `django-vcache` | 2.3.0 | 3.2.0 | 6.0 (2.3.0 too) | Not a blocker; see the macOS cap under Known constraints |
+What it checks:
 
-Revisit when the four blockers declare 6.0. Then upgrade the lock, widen the pin
-to `<7`, and run `just test-django6` on SQLite and PostgreSQL
-(`CI=1` selects PostgreSQL in `api.settings.test`).
+1. Install blockers. It resolves the project with `Django~=T.0`, then each
+   dependency alone, so every conflict is listed. Example: `django-celery-beat`
+   2.9.0 requires `Django<6.1`, so 6.1 is BLOCKED while it is the newest release.
+2. Declared support. It reads the locked packages' PyPI metadata. A package
+   that publishes `Framework :: Django :: X.Y` classifiers and does not list
+   the target is a warning. A package that never publishes them is skipped.
+   The check reads the newest 25 releases.
+3. First-party code. It runs the suite on 5.2 and records deprecations that
+   the target removes. The scan sees only the code the suite runs.
+4. Fixers. It runs `django-upgrade` in check mode on a copy of the tree, after
+   the prior release's fixers are applied. Only the fixers the target adds are
+   reported. They are warnings.
 
-### Django 6.1: blocked on install constraints
+`--run-tests` runs the suite on the target through `uv run --with`, so `.venv`
+keeps 5.2. Measured 2026-10-05 on Django 6.0.8, the suite (229 tests) passed on
+SQLite and PostgreSQL. Re-measure before you upgrade.
 
-Two locked packages forbid 6.1, so it does not resolve:
+### Tooling
 
-- `django-celery-beat` 2.9.0 (the newest release) requires `Django<6.1`.
-  `CELERY_BEAT_SCHEDULER` names its database scheduler and Celery is the
-  default task backend, so the package cannot become optional.
-- `django-ninja` 1.6.2 requires `Django<6.1`. 1.7.1 lifts this and declares 6.1.
+- `django-upgrade` 1.33.0 runs through `uvx` (`uvx --from django-upgrade==1.33.0`).
+  It is not a project dependency. Pin it when you update the check.
 
 ## Supported Python versions
 

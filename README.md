@@ -196,7 +196,7 @@ app_name/
 ### Core Stack
 
 - **Python 3.13** with type hints
-- **[Django 5.2 LTS](https://docs.djangoproject.com/en/5.2/)** - The only supported version; `just test-django6` runs the suite on 6.0 by hand (see `DEPENDENCIES.md`)
+- **[Django 5.2 LTS](https://docs.djangoproject.com/en/5.2/)** - The only supported version; `just django-upgrade-check 6.0` reports whether 6.0 (or 6.1) is safe to adopt (see `DEPENDENCIES.md`)
 - **[Django Ninja](https://django-ninja.dev/)** - Fast API framework
 - **[Django Ninja Extra](https://eadwincode.github.io/django-ninja-extra/)** - Class-based controllers
 - **[Django Ninja JWT](https://eadwincode.github.io/django-ninja-jwt/)** - JWT authentication
