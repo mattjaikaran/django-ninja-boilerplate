@@ -25,9 +25,11 @@ lookup tables only.
 
 ## Layers
 
-`Request > Controller (HTTP adapter) > Service (business logic, validation,
-querysets) > Model (fields, relationships, Meta) > DB`. Schemas validate and
-serialize requests and responses.
+`Request > Controller (HTTP adapter) > Service (business logic, validation) >
+Repository (ORM queries, optional per app) > Model (fields, relationships,
+Meta) > DB`. Schemas validate and serialize requests and responses. In an
+engine module, the repository returns DTOs (frozen dataclasses in
+`<module>/dtos/`); see `docs/ARCHITECTURE.md`, section Engines.
 
 ## Model base classes
 
@@ -51,6 +53,9 @@ serialize requests and responses.
 | Schemas | PascalCase + Schema | `TodoSchema`, `CreateTodoSchema` |
 | Controllers | PascalCase + Controller | `TodoController` |
 | Services | PascalCase + Service | `TodoService` |
+| Repositories | PascalCase + Repository | `TodoRepository` |
+| DTOs | PascalCase + DTO | `ArtistDTO` in `artist_dto.py` |
+| Engine controllers | Engine + Model + Controller | `BookingArtistController` |
 | Factories | PascalCase + Factory | `TodoFactory` |
 | Exceptions | PascalCase + Error | `ValidationError` |
 | Files | snake_case | `todo_service.py` |

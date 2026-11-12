@@ -82,7 +82,7 @@ before the trigger fires.
 |---|----------|--------|--------|
 | 1 | Modular monolith for the product domain | One transaction boundary, one auth model, one OpenAPI contract, one deploy. Module boundaries keep the option to extract a service later. | Adopted |
 | 2 | One public API: Django Ninja at the /api root, no version prefix | Clients see one contract. Internal services sit behind it. No gateway until a second public API exists. | Adopted |
-| 3 | Bounded-context Django apps behind service interfaces | `core`, `todos`, `organizations`, `notifications`, `billing`, `files`, `webhooks`, `journeys` and `atlas` own their data. Cross-app calls go through a service, never a controller or another app's models. | Adopted, enforced by `scripts/check_architecture.py` |
+| 3 | Bounded-context Django apps behind service interfaces | `core`, `todos`, `organizations`, `notifications`, `billing`, `files`, `webhooks`, `journeys` and `atlas` own their data. Cross-app calls go through a service, never a controller or another app's models. | Adopted. `scripts/check_architecture.py` enforces the controller case (`CROSS-CTRL`) for top-level apps and the full rule (`CROSS-MODULE`) for engine modules |
 | 4 | Module boundaries follow SOLID | One reason to change per controller, service, schema file. Depend on the service interface, not on a concrete collaborator. Extend through a new controller or service, not by editing unrelated apps. Small interfaces beat a general-purpose helper. | Adopted, see [Boundary rules](#boundary-rules) |
 | 5 | Transactional outbox in Postgres, published to Valkey Streams (the Redis Streams API) | Apps react to `TodoCompleted`, `SubscriptionChanged`, `NotificationSent` without importing each other. The outbox commits with the domain row, so the event cannot be lost. The consumer reads a stream and is at-least-once. | Trigger: a second app must react to a domain event |
 | 6 | FastAPI model service for ML inference and async fan-out | Separate dependencies (PyTorch, model runtimes) and separate scaling. Django calls it over internal HTTP. It never writes Django tables. | Trigger: a model needs a runtime or GPU the API process should not carry |
@@ -90,6 +90,7 @@ before the trigger fires.
 | 8 | Rust through PyO3 for hot loops | Python stays the product language. A Rust extension is written only after a profile names the hot loop. | Trigger: a profiled loop dominates a request or task |
 | 9 | Stateless API replicas behind a load balancer | JWT auth, cache and task queue live in Valkey, files in object storage. Any replica serves any request, so scale out by adding replicas. | Adopted, see [Performance Considerations](#performance-considerations) |
 | 10 | Docker Compose now, K3s at the multi-host trigger | One compose file and one process per container map to Kubernetes Deployments later. | Compose adopted; K3s trigger: more than one host, or zero-downtime deploys |
+| 11 | Optional engines for large domains | An engine groups module apps behind service and DTO seams, so a growing domain stays modular inside the monolith. A module never sees another module's models. | Trigger: a domain outgrows one app. See [Engines](#engines-optional-modular-layer) |
 
 ### Boundary rules
 
@@ -125,8 +126,10 @@ them; the rest is review guidance.
    between two behaviours.
 4. **Depend on the interface.** A service takes the narrow input it needs
    (a user, a model instance, a plain value), asks its repository for data
-   access and returns a model or schema value. A repository returns models
-   or querysets. Neither reaches for `request`, a session or a global.
+   access and returns a model, a DTO or a schema value. A repository returns
+   models or querysets inside its own app; an engine module repository
+   returns DTOs (see [Engines](#engines-optional-modular-layer)). Neither
+   reaches for `request`, a session or a global.
 5. **No cross-app writes.** An app reads another app's data through that
    app's service. A domain event replaces a direct call when the caller must
    not wait or must not fail with the writer.
@@ -144,6 +147,55 @@ The extraction keeps the API contract. Django remains the public edge and
 the system of record. The new service is called over internal HTTP, and its
 data is either derived from Postgres or written back through a Django
 endpoint. It never writes Django tables directly.
+
+### Engines (optional modular layer)
+
+An engine is a bounded context that groups several module APIs. A concert
+booking engine, for example, has an artists module, a tours module and a
+booking agents module. Each module has its own API, data and rules. The
+engine composes them. Use an engine only when one domain has outgrown one
+app: a second module needs the first one's data, and keeping both in one app
+would mix two reasons to change. Before that, a plain app is enough.
+
+Generate one with `uv run python manage.py generate_feature engine
+--app-name booking --modules artists,tours` (or `dnm add-engine booking
+--modules artists,tours`). The layout:
+
+```text
+engines/<engine>/
+    README.md                     what the engine owns and its seams
+    services/<engine>_engine_service.py   cross-module flows
+    <module>/                     a normal Django app
+        apps.py                   name "engines.<engine>.<module>", label "<engine>_<module>"
+        models/ repositories/ dtos/ services/ schemas/ controllers/ admin/ migrations/ tests/
+```
+
+- **DTOs.** `<module>/dtos/<name>_dto.py` holds `@dataclass(frozen=True,
+  slots=True)` classes with no base class. A DTO imports only the standard
+  library and other DTOs. The repository maps a model to a DTO, so a DTO
+  never imports a model. Anything that crosses a module boundary is a DTO,
+  never a model instance or a queryset.
+- **Schemas stay at the HTTP edge.** Request and response schemas extend
+  `CamelCaseSchema`. A response schema serializes a DTO by attribute.
+- **Seams.** Another module in the same engine imports only a module's
+  `services` and `dtos`. Code outside the engine imports only the engine's
+  `services` and its modules' `dtos`. The engine service composes module
+  services for flows that span modules. `api/urls.py` may import module
+  controllers to register them.
+- **Data.** A foreign key inside one engine, or to the user model, is
+  allowed. Across engines, store the other row's id, not a foreign key, so
+  an engine can be extracted on a [trigger](#extract-a-service-only-on-a-trigger).
+- **One API.** Each module controller is named `<Engine><Model>Controller`
+  (operation ids must be unique) and mounts at `/api/<engine>/<module>/`
+  with its own OpenAPI tag. `api/urls.py` registers each controller by name.
+  There is no gateway (decision 2).
+- **Labels are permanent.** Migrations and content types store the app
+  label, so do not rename an engine or a module after its first migration.
+
+The ARCHITECTURE gate enforces the `dtos` layer, the seams (`CROSS-MODULE`),
+the layout (`ENGINE-LAYOUT`) and the names (`MODULE-NAME`: an engine or
+module must not use a layer name such as `services`, or a top-level app
+name such as `todos`).
 
 ### Scaling
 

@@ -61,7 +61,10 @@ EXTRA_ARGS: dict[str, tuple[str, ...]] = {
     "organization": ("--app-name", "orgs"),
     "graphql": ("--app-name", "core"),
     "chat": ("--realtime",),
+    "engine": ("--app-name", "booking", "--modules", "artists,tours"),
 }
+# Features whose app lives in a directory. The app is "<dir>/<app-name>".
+APP_DIRS = {"engine": "engines"}
 
 
 def _module_literal(tree: ast.Module, name: str) -> dict[str, object]:
@@ -96,6 +99,8 @@ def derive_generators() -> tuple[Generator, ...]:
     for name in _module_literal(tree, "GENERATORS"):
         extra = EXTRA_ARGS.get(name, ())
         app = _app_name(extra, str(defaults.get(name, name)))
+        if name in APP_DIRS:
+            app = f"{APP_DIRS[name]}/{app}"
         gens.append(Generator(name, ("generate_feature", name, *extra), app))
     gens.append(
         Generator(
@@ -200,13 +205,18 @@ def _changed_files(cwd: Path) -> list[str]:
     return sorted(rel for status, rel in _porcelain(cwd) if status[1] not in {" ", "D"})
 
 
+def _in_app(rel: str, apps: set[str]) -> bool:
+    """Return True when ``rel`` lies inside one of the generated app directories."""
+    return any(rel.startswith(f"{app}/") for app in apps)
+
+
 def _pytest_targets(changed: list[str], selected: list[Generator]) -> list[str]:
     """Return the generated test files of the wired generators."""
     apps = {gen.app for gen in selected if gen.wired}
     return [
         rel
         for rel in changed
-        if rel.split("/", 1)[0] in apps
+        if _in_app(rel, apps)
         and "/tests/" in f"/{rel}"
         and Path(rel).name.startswith("test_")
         and rel.endswith(".py")
@@ -256,7 +266,7 @@ def _run_checks(
     lint_files = [
         rel
         for rel in changed
-        if rel.endswith(".py") and (rel.split("/", 1)[0] in apps or rel in WIRING_FILES)
+        if rel.endswith(".py") and (_in_app(rel, apps) or rel in WIRING_FILES)
     ]
     for rel in WIRING_FILES:
         if rel not in lint_files:

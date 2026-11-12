@@ -21,6 +21,7 @@ GENERATORS = {
     "analytics": ("analytics_generator", "AnalyticsGenerator"),
     "api_endpoint": ("api_endpoint_generator", "ApiEndpointGenerator"),
     "graphql": ("graphql_generator", "GraphQLGenerator"),
+    "engine": ("engine_generator", "EngineGenerator"),
 }
 # Features whose generator takes a platform type.
 PLATFORM_FEATURES = {"payments", "rbac", "organization", "team"}
@@ -48,6 +49,12 @@ def shadowed_module(app_name: str, project_root: Path) -> str | None:
     if any(Path(location).resolve() == app_dir for location in locations):
         return None
     return spec.origin or ", ".join(locations)
+
+
+def _parse_modules(raw: str | None) -> list[str] | None:
+    """Split a comma-separated module list. Return None to use the default."""
+    modules = [name.strip() for name in (raw or "").split(",") if name.strip()]
+    return modules or None
 
 
 class Command(BaseCommand):
@@ -97,6 +104,14 @@ class Command(BaseCommand):
             "--realtime",
             action="store_true",
             help="Chat: add a Centrifugo ChatRealtimeService",
+        )
+        parser.add_argument(
+            "--modules",
+            type=str,
+            help=(
+                "Engine: comma-separated module names, such as artists,tours. "
+                "Defaults to one module named after the engine"
+            ),
         )
 
     def handle(self, *args: Any, **options: Any) -> None:
@@ -152,5 +167,7 @@ class Command(BaseCommand):
             kwargs["include_subscriptions"] = not options["no_subscriptions"]
         if feature_type == "chat":
             kwargs["realtime"] = options["realtime"]
+        if feature_type == "engine":
+            kwargs["modules"] = _parse_modules(options["modules"])
         generator: BaseGenerator = getattr(module, class_name)(**kwargs)
         return generator

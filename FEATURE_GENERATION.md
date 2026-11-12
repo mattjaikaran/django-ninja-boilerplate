@@ -196,6 +196,21 @@ This creates an owner-scoped CRUD resource from the `startapp_extended`
 templates: a `Widget` model, schemas, service and a `JWTAuth` controller at
 `/api/widgets/*`.
 
+### Engine
+
+```bash
+uv run python manage.py generate_feature engine --app-name booking --modules artists,tours
+```
+
+This creates `engines/booking/` with one Django app per module
+(`engines.booking.artists`, `engines.booking.tours`). Each module gets a
+model, a repository that returns frozen-dataclass DTOs, a service, schemas,
+a `JWTAuth` controller at `/api/booking/<module>/` and boundary tests. The
+engine gets a README and an engine service for cross-module flows. Without
+`--modules`, the engine has one module named after it. Read
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#engines-optional-modular-layer)
+before you add one.
+
 ### GraphQL (Strawberry)
 
 ```bash
@@ -227,6 +242,7 @@ Install the dependencies first with `uv sync --extra graphql`. See the main
 | `--no-subscriptions` | `payments` | Skip the SubscriptionPlan and Subscription models |
 | `--minimal` | `organization` | Set `ORGANIZATION_MAX_MEMBERS` to 100 instead of 1000 |
 | `--realtime` | `chat` | Add `ChatRealtimeService` for Centrifugo |
+| `--modules a,b` | `engine` | Module names, comma-separated. Defaults to one module named after the engine |
 
 Other generators accept `--minimal` and `--platform-type` but ignore them.
 

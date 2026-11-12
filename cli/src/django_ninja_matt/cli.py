@@ -16,6 +16,7 @@ from rich.text import Text
 
 from django_ninja_matt import __version__
 from django_ninja_matt.commands.doctor import run_doctor
+from django_ninja_matt.commands.engine import add_engine
 from django_ninja_matt.commands.init import run_init
 from django_ninja_matt.commands.setup import TaskBackend, run_setup
 from django_ninja_matt.config import DeploymentTarget, EmailBackend, ProjectType
@@ -25,6 +26,7 @@ from django_ninja_matt.utils.console import (
     print_step,
     print_success,
 )
+from django_ninja_matt.utils.project_root import find_project_root
 
 # Create Typer app
 app = typer.Typer(
@@ -631,15 +633,6 @@ def logs(
         raise typer.Exit(0)
 
 
-def find_project_root(start: Path) -> Path | None:
-    """Return the nearest directory at or above ``start`` that holds manage.py."""
-    start = start.resolve()
-    for candidate in (start, *start.parents):
-        if (candidate / "manage.py").is_file():
-            return candidate
-    return None
-
-
 def build_add_app_command(name: str, *, wire: bool) -> list[str]:
     """Build the manage.py argv that scaffolds ``name`` with the project generator."""
     python = ["uv", "run", "python"] if shutil.which("uv") else [sys.executable]
@@ -730,6 +723,9 @@ def add_app(
         print_info(f"  1. Add '{name}' to INSTALLED_APPS in api/settings/common.py")
         print_info("  2. Register the controller in api/urls.py")
         print_info("  3. Run: dnm migrate --make")
+
+
+app.command(name="add-engine")(add_engine)
 
 
 def show_welcome() -> None:

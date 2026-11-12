@@ -56,6 +56,11 @@ same rules: `.omp/rules/django-ninja-anti-patterns.md`; lookup tables:
   `(status, data)`; business logic lives in services. Services extend
   `CRUDService[Model]` (`core.services.base_service`), set `model`, and
   override `get_queryset()` for related loading.
+- An app may add `<app>/repositories/` for ORM access; the service calls it
+  and a controller never does. In an engine module (`engines/<engine>/
+  <module>/`), the repository returns frozen-dataclass DTOs from `dtos/`,
+  and other modules import only its `services` and `dtos`. See
+  `docs/ARCHITECTURE.md`, section Engines.
 - Scope user data to `request.user`, never `Model.objects.all()`.
 - Decorator order: `@http_*`, `@log_api_call()`, `@validate_request()` (if
   used), `@paginate(PageNumberPaginationExtra)` (list endpoints).

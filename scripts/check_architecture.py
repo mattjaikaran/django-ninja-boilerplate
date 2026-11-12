@@ -4,7 +4,8 @@
 Validates layered architecture constraints:
   Controllers → Services → Repositories → Models (no reverse deps)
 
-Also detects cross-app controller coupling and enforces module boundaries.
+Also detects cross-app controller coupling, enforces module boundaries, and
+checks the optional engine layer (engines/<engine>/<module>/).
 
 Works in both standalone boilerplate and mattstack-scaffolded projects
 (where the boilerplate lives under backend/).
@@ -29,6 +30,7 @@ LAYERS: dict[str, int] = {
     "repositories": 2,
     "schemas": 2,
     "tasks": 2,
+    "dtos": 1,
     "models": 1,
     "migrations": 0,
 }
@@ -64,7 +66,20 @@ FORBIDDEN_LAYER_DEPS = [
     ("migrations", "controllers"),
     ("migrations", "services"),
     ("migrations", "schemas"),
+    ("dtos", "models"),
+    ("dtos", "repositories"),
+    ("dtos", "services"),
+    ("dtos", "schemas"),
+    ("dtos", "controllers"),
 ]
+
+# Optional engine layer: engines/<engine>/<module>/ is a Django app, and
+# engines/<engine>/services/ holds the engine-level orchestration.
+ENGINES_DIR = "engines"
+
+# The composition root wires engine controllers into the API. Only files
+# under this top-level package may import another module's controllers.
+COMPOSITION_ROOT = "api"
 
 SKIP_DIRS = {
     ".venv",
@@ -100,6 +115,63 @@ def _detect_apps(root: Path) -> set[str]:
     return apps
 
 
+def _dotted_parts(path: str) -> tuple[str, ...]:
+    """Return a file path as parts, without the backend/ prefix or .py suffix."""
+    return Path(path.removeprefix("backend/")).with_suffix("").parts
+
+
+def _engine_position(
+    parts: tuple[str, ...] | list[str],
+) -> tuple[str | None, str | None, str | None]:
+    """Return (engine, module, next part) for an engines path or import.
+
+    A module is the segment after the engine, unless that segment is a layer
+    name: then the code is engine-level. Returns (None, None, None) outside
+    the engines directory.
+    """
+    if len(parts) < 2 or parts[0] != ENGINES_DIR:
+        return None, None, None
+    engine = parts[1]
+    if len(parts) < 3:
+        return engine, None, None
+    if parts[2] in LAYERS:
+        return engine, None, parts[2]
+    return engine, parts[2], parts[3] if len(parts) > 3 else None
+
+
+def _resolve_from(file_parts: tuple[str, ...], node: ast.ImportFrom) -> str:
+    """Return the absolute dotted name of a ``from`` import."""
+    if node.level == 0:
+        return node.module or ""
+    package = file_parts[:-1]
+    parts = list(package[: max(len(package) - (node.level - 1), 0)])
+    if node.module:
+        parts.extend(node.module.split("."))
+    return ".".join(parts)
+
+
+def _import_targets(
+    node: ast.Import | ast.ImportFrom, file_parts: tuple[str, ...]
+) -> list[str]:
+    """Return the absolute dotted names an import statement reaches.
+
+    For ``from pkg import name`` where ``pkg`` is a package root, each name is
+    a candidate submodule, so ``from engines.e.m import services`` is checked
+    as ``engines.e.m.services``.
+    """
+    if isinstance(node, ast.Import):
+        return [alias.name for alias in node.names]
+    base = _resolve_from(file_parts, node)
+    if not base:
+        return []
+    engine, _, head = _engine_position(base.split("."))
+    if engine is None or head is not None:
+        return [base]
+    return [f"{base}.{alias.name}" for alias in node.names if alias.name != "*"] or [
+        base
+    ]
+
+
 @dataclass
 class ArchChecker:
     violations: list[Violation] = field(default_factory=list)
@@ -129,13 +201,22 @@ class ArchChecker:
             return
 
         from_layer = self._identify_layer(relative)
+        file_parts = _dotted_parts(relative)
+        self._check_engine_layout(relative, filepath, file_parts)
 
         for node in ast.walk(tree):
             if isinstance(node, ast.Import):
                 for alias in node.names:
                     self._check_import(relative, node.lineno, from_layer, alias.name)
-            elif isinstance(node, ast.ImportFrom) and node.module:
-                self._check_import(relative, node.lineno, from_layer, node.module)
+                self._check_module_boundary(
+                    relative, node.lineno, file_parts, _import_targets(node, file_parts)
+                )
+            elif isinstance(node, ast.ImportFrom):
+                if node.module:
+                    self._check_import(relative, node.lineno, from_layer, node.module)
+                self._check_module_boundary(
+                    relative, node.lineno, file_parts, _import_targets(node, file_parts)
+                )
 
     def _identify_layer(self, filepath: str) -> str | None:
         """Identify which architectural layer a file belongs to."""
@@ -153,6 +234,102 @@ class ArchChecker:
             if part in self.apps:
                 return part
         return None
+
+    def _add(self, filepath: str, line: int, rule: str, message: str) -> None:
+        self.violations.append(
+            Violation(filepath=filepath, line=line, rule=rule, message=message)
+        )
+
+    def _check_engine_layout(
+        self, filepath: str, path: Path, file_parts: tuple[str, ...]
+    ) -> None:
+        """Check engine layout (ENGINE-LAYOUT) and engine and module names (MODULE-NAME)."""
+        if len(file_parts) < 2 or file_parts[0] != ENGINES_DIR:
+            return
+        engine = file_parts[1]
+
+        if len(file_parts) == 3 and file_parts[2] == "__init__":
+            if engine in LAYERS or engine in self.apps:
+                self._add(
+                    filepath,
+                    1,
+                    "MODULE-NAME",
+                    f"Engine name '{engine}' clashes with a layer or app name.",
+                )
+            return
+
+        if path.name == "apps.py":
+            if len(file_parts) != 4:
+                self._add(
+                    filepath,
+                    1,
+                    "ENGINE-LAYOUT",
+                    "apps.py must sit at engines/<engine>/<module>/apps.py.",
+                )
+                return
+            module = file_parts[2]
+            if module in LAYERS or module in self.apps:
+                self._add(
+                    filepath,
+                    1,
+                    "MODULE-NAME",
+                    f"Module name '{module}' clashes with a layer or app name.",
+                )
+            return
+
+        if len(file_parts) >= 4 and file_parts[2] not in LAYERS:
+            module_dir = Path(*path.parts[: path.parts.index(ENGINES_DIR) + 3])
+            if not (module_dir / "apps.py").exists():
+                self._add(
+                    filepath,
+                    1,
+                    "ENGINE-LAYOUT",
+                    f"Module {module_dir} has no apps.py; it is not a Django app.",
+                )
+
+    def _check_module_boundary(
+        self,
+        filepath: str,
+        line: int,
+        file_parts: tuple[str, ...],
+        targets: list[str],
+    ) -> None:
+        """Keep engine modules behind their services and dtos (CROSS-MODULE)."""
+        source_engine, source_module, _ = _engine_position(file_parts)
+        source = ".".join(file_parts)
+        for target in targets:
+            target_engine, target_module, head = _engine_position(target.split("."))
+            if target_engine is None or (target_module is None and head is None):
+                continue
+            if target_module is None:
+                # Engine-level code: only the engine service is public.
+                if head == "services":
+                    continue
+                self._add(
+                    filepath,
+                    line,
+                    "CROSS-MODULE",
+                    f"Engine boundary: {source} imports {target}. "
+                    f"Only engines.{target_engine}.services is public.",
+                )
+                continue
+            if (target_engine, target_module) == (source_engine, source_module):
+                continue
+            if head == "dtos":
+                continue
+            # Module services are public inside their engine only; other
+            # engines and plain apps go through engines.<engine>.services.
+            if head == "services" and source_engine == target_engine:
+                continue
+            if head == "controllers" and _dotted_parts(filepath)[0] == COMPOSITION_ROOT:
+                continue
+            self._add(
+                filepath,
+                line,
+                "CROSS-MODULE",
+                f"Module boundary: {source} imports {target}. Only dtos cross "
+                "module boundaries, and module services only inside their engine.",
+            )
 
     def _check_import(
         self, filepath: str, line: int, from_layer: str | None, import_path: str
@@ -232,7 +409,8 @@ def collect_python_files(paths: list[str] | None, check_all: bool) -> list[Path]
             apps |= _detect_apps(root / "backend")
 
         files: list[Path] = []
-        for app_name in sorted(apps):
+        # engines/ holds modules that are Django apps, not top-level apps.
+        for app_name in [*sorted(apps), ENGINES_DIR]:
             for search_root in [root, root / "backend"]:
                 app_dir = search_root / app_name
                 if app_dir.exists():

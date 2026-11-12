@@ -274,27 +274,34 @@ class BaseGenerator(ABC):
             except Exception:
                 pass
 
-    def create_migration(self) -> None:
-        """Create, format and apply the app's migrations.
+    def create_migration(
+        self, label: str | None = None, app_dir: Path | None = None
+    ) -> None:
+        """Create, format and apply the migrations of one app.
+
+        Defaults to ``self.app_name`` and ``self.app_path``. Engine modules pass
+        their own ``label`` (``<engine>_<module>``) and ``app_dir``.
 
         A failed makemigrations or ruff run raises GeneratorError. A failed
         migrate only logs a warning: the database may not be running.
         """
+        label = label or self.app_name
+        module_dir = app_dir or self.app_path
         try:
             subprocess.run(
-                [sys.executable, "manage.py", "makemigrations", self.app_name],
+                [sys.executable, "manage.py", "makemigrations", label],
                 check=True,
                 capture_output=True,
                 text=True,
             )
             # makemigrations output is not isort-sorted or ruff-formatted.
-            migrations_dir = self.app_path / "migrations"
+            migrations_dir = module_dir / "migrations"
             self.run_ruff("check", "--fix", "--select", "I", migrations_dir)
             self.run_ruff("format", migrations_dir)
         except subprocess.CalledProcessError as e:
-            msg = f"Failed to create migrations for {self.app_name}: {e.stderr}"
+            msg = f"Failed to create migrations for {label}: {e.stderr}"
             raise GeneratorError(msg) from e
-        self.logger.info("Created migrations for %s", self.app_name)
+        self.logger.info("Created migrations for %s", label)
 
         try:
             subprocess.run(
@@ -304,9 +311,9 @@ class BaseGenerator(ABC):
                 text=True,
             )
         except subprocess.CalledProcessError as e:
-            self.logger.warning("Migrate failed for %s: %s", self.app_name, e.stderr)
+            self.logger.warning("Migrate failed for %s: %s", label, e.stderr)
             return
-        self.logger.info("Applied migrations for %s", self.app_name)
+        self.logger.info("Applied migrations for %s", label)
 
     def update_urls(self, app_name: str, *controller_classes: str) -> None:
         """Import and register the app's controllers in ``api/urls.py``.
@@ -365,12 +372,13 @@ class BaseGenerator(ABC):
             if existing_import
             else set()
         )
+        # Only top-level calls count: a flag-gated block can register a
+        # built-in controller with the same class name as the generated one.
         registered = {
             arg.id
-            for node in ast.walk(tree)
-            if isinstance(node, ast.Call)
-            and ast.unparse(node.func) == "api.register_controllers"
-            for arg in node.args
+            for node in registers
+            if isinstance(node.value, ast.Call)
+            for arg in node.value.args
             if isinstance(arg, ast.Name)
         }
         to_import = [name for name in classes if name not in imported]
