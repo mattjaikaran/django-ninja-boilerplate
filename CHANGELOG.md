@@ -141,7 +141,7 @@ Upgrading from 1.14.0? Follow the 1.14.0 to 1.15.0 section of
 
 - Added: `just django-upgrade-check 6.0|6.1`; today 6.0 is safe with
   warnings and 6.1 is blocked by `django-celery-beat`. Replaces
-  `just test-django6`.
+  the Django 6.0 manual test target.
 - Changed: Django stays on 5.2 LTS (`>=5.2,<6`, lock 5.2.19) after
   Dependabot had moved the lock to 6.0 without review.
 - Changed: `mcp` may use 2.x (`<3`); the lock pins 1.30.
@@ -241,7 +241,7 @@ development.
 - **DRIFT gate** (`scripts/check_version_drift.py`, `just check-drift`, in `gauntlet-quick`): fails when the Python, uv, Postgres or Valkey version differs between `pyproject.toml`, Dockerfiles and Compose, when uv is installed unpinned, or when a pre-commit hook runs a locked tool outside `uv.lock`.
 - **Blocking dependency audit** (`just audit`, `scripts/audit_dependencies.py`): `pip-audit` on every package in `uv.lock`. Known advisories go in `pip-audit-allowlist.toml` with a reason and an expiry date; an expired entry fails.
 - `just security-full`: optional bandit, audit, semgrep (pinned `semgrep-rules` commit), CycloneDX SBOM (`build/sbom.cdx.json`) and trivy image scan.
-- `just test-django6`: manual Django 6.0 run through `uv run --with`, so `.venv` keeps Django 5.2. Django 6 is not supported yet; `DEPENDENCIES.md` lists the blockers.
+- Manual Django 6.0 test run (`uv run --with`, so `.venv` keeps Django 5.2; replaced in 1.15.0). Django 6 is not supported yet; `DEPENDENCIES.md` lists the blockers.
 - The gauntlet runs the `cli/` tests (CLI-TEST, also in `gauntlet-quick`); the full gauntlet also builds the production image (DOCKER, skipped without Docker). The pre-push hook runs `just gauntlet-quick`.
 - "Testing policy" in `AGENTS.md` and two TTSR rules in `.omp/rules/`: one interrupts when an agent writes a test file, one asks the judge model to flag tests that assert only on mocks or existence.
 - **Cookie auth for browser frontends** (`docs/COOKIE_AUTH.md`): logins also set httpOnly, `SameSite=Lax` `access_token` and `refresh_token` cookies (`Secure` when `USE_TLS`). New `GET /api/auth/csrf` sets the readable `csrftoken` cookie and returns `{"csrfToken"}`; new `POST /api/auth/refresh` rotates the cookies and blacklists the old refresh token. `ApiCsrfMiddleware` replaces `CsrfViewMiddleware` and requires `X-CSRFToken` on every unsafe /api/ request, including login and refresh; failures return 403 with code `csrf_failed`. Requests with only an `Authorization` or `X-API-Key` header and no auth cookie skip CSRF, so bearer clients keep working; `/api/token/*` stays CSRF-exempt. The SSE stream accepts the access cookie.
