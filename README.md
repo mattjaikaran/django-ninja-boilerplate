@@ -165,7 +165,7 @@ project/
 │   └── tests/                # Unit and integration tests
 ├── todos/                    # Example app with CRUD functionality
 ├── scripts/                  # Utility scripts and gauntlet gates
-├── AGENTS.md                 # Canonical agent rules; CLAUDE.md imports it
+├── AGENTS.md                 # Canonical agent rules
 ├── SKILLS.md                 # Index of .agents/skills/ (Agent Skills)
 ├── docker-compose.yml        # Profiled Docker setup (dev, prod, single, celery)
 ├── justfile                  # Task runner (the old Makefile is Makefile.legacy)

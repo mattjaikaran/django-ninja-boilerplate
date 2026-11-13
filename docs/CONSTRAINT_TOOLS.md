@@ -79,7 +79,7 @@ blocking ones; `just gauntlet` adds the full-run extras.
 | 13 | CROSS-STACK | `scripts/check_cross_stack.py` | Naming and schema parity (monorepo only) |
 | 14 | JOURNEYS | `scripts/check_journeys.py` | Features, journeys, Playwright tags out of sync; `done`/checked without a passing e2e test |
 | 15 | TICKETS | `scripts/tickets.py check` | Bad format, missing dependencies, colliding `ready` tickets |
-| 16 | AGENT-DOCS | `scripts/check_agent_docs.py` | `AGENTS.md` missing or over 200 lines, a broken relative link, a stale `just` recipe or path, a skill without frontmatter or an index row, a second skills location, a `CLAUDE.md` that is not `@AGENTS.md` |
+| 16 | AGENT-DOCS | `scripts/check_agent_docs.py` | `AGENTS.md` missing or over 200 lines, a broken relative link, a stale `just` recipe or path, a skill without frontmatter or an index row, a second skills location, a `CLAUDE.md` file (AGENTS.md is the only agent file) |
 | 17 | TEST | `pytest` | Broken smoke, contract, permission, regression tests |
 | 18 | TEST-OPTIONAL | `pytest webhooks files organizations notifications billing` with their five `*_ENABLED` flags | Flag-gated apps (kept out of default settings and OpenAPI) |
 | 19 | CLI-TEST | `pytest cli/tests` | Broken `cli/` package |

@@ -30,9 +30,8 @@ pre-push hook runs `cd backend && just gauntlet-quick`. Run
 Do not install the source's standalone hooks over the generated root hooks.
 
 Consolidation retains `justfile`, `scripts/`, `AGENTS.md`, `SKILLS.md`,
-`.agents/skills/`, `.omp/`, and `.context/` in each component. The root
-`CLAUDE.md` points at those canonical files. It replaces component
-`CLAUDE.md`, `.cursorrules`, and harness adapters; it does not duplicate
+`.agents/skills/`, `.omp/`, and `.context/` in each component. It replaces
+component `.cursorrules` and harness adapters; it does not duplicate
 the component's canonical rules. Keep rule exports based on `.omp/`.
 
 Cross-stack paths can name a sibling as `../frontend/...`. The scanner
