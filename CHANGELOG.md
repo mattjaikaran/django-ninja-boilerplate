@@ -8,6 +8,11 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Removed
+
+- Removed: `CLAUDE.md`; `AGENTS.md` is the only agent file. The AGENT-DOCS
+  gate fails when `CLAUDE.md` exists (#92).
+
 ## [1.15.0] - 2026-11-12
 
 Upgrading from 1.14.0? Follow the 1.14.0 to 1.15.0 section of

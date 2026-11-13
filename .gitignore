@@ -130,7 +130,6 @@ logs/
 /static/
 media/
 
-# Claude Code: CLAUDE.md is committed and holds only `@AGENTS.md`.
 # Local agent state (`.claude/`) embeds absolute paths and stays untracked.
 .claude/
 

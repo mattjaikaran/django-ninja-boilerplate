@@ -3,7 +3,6 @@
 Canonical guidance for every agent and harness. Read it before a non-trivial
 change; the nearest `AGENTS.md` to the file you edit wins. Skills live in
 `.agents/skills/` (index: `SKILLS.md`); reference material in `docs/`.
-`CLAUDE.md` is one import line and holds no rules.
 
 ## 01 Hi, I'm the maintainer
 

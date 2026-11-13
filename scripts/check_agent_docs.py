@@ -9,7 +9,7 @@ Checks:
   5. Each ``.agents/skills/<name>/SKILL.md`` has ``name`` (matching the
      directory) and ``description`` frontmatter, ``SKILLS.md`` lists it, and
      no other directory tracks a skill.
-  6. ``CLAUDE.md``, when present, is the single line ``@AGENTS.md``.
+  6. ``CLAUDE.md`` does not exist: AGENTS.md is the only agent file.
   7. ``.cursorrules`` and tracked ``.cursor/`` rules are gone: Cursor reads
      ``AGENTS.md``.
 
@@ -191,9 +191,8 @@ def check_skills(root: Path, errors: list[str]) -> None:
 
 def check_harness_files(root: Path, errors: list[str]) -> None:
     """Check the files that would restate AGENTS.md."""
-    claude = root / CLAUDE_NAME
-    if claude.is_file() and claude.read_text(encoding="utf-8").strip() != "@AGENTS.md":
-        errors.append(f"{CLAUDE_NAME}: must contain only @AGENTS.md")
+    if (root / CLAUDE_NAME).exists():
+        errors.append(f"{CLAUDE_NAME}: delete it; AGENTS.md is the only agent file")
 
     if (root / ".cursorrules").exists():
         errors.append(".cursorrules: fold it into AGENTS.md and delete it")
